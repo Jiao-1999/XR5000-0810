@@ -1125,6 +1125,11 @@
               <FilePath>..\BSP\bsp_fdcan1.c</FilePath>
             </File>
             <File>
+              <FileName>bsp_can_monitor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_can_monitor.c</FilePath>
+            </File>
+            <File>
               <FileName>bsp_fdcan2.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\bsp_fdcan2.c</FilePath>

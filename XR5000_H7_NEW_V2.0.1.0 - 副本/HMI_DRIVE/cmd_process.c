@@ -34,6 +34,7 @@
 #include "bsp_ctrl_bus.h"
 #include "bsp_mbus.h"
 #include "bsp_fdcan1.h"
+#include "bsp_can_monitor.h"
 
 #include "bsp_password.h"
 
@@ -863,7 +864,6 @@ static void CompositeDetectorTextInputCtrlApp(CompositeShowCtrl_t *cpsc_entry, u
 static void CompositeDetectorScreenSwitchShowApp(CompositeShowCtrl_t *cpsc_entry);
 
 // 新增记录IO板的所有故障信息 2025/11/21 13:49
-static void InputOutputBoardDataDeal(uint8_t *io_online_state_buff, uint8_t *io_work_state_buff, PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
 
 // 新增模拟串口助手界面控制
 typedef struct
@@ -2743,9 +2743,7 @@ void UpdateUI(void)
 		rs485_detect_disconnect_sum = RS485DetectDataDeal(pcfs, &pcfs_buttom_point);
 		mbus2_disconnect_sum = MBus2DataDeal(pcfs, &pcfs_buttom_point);
 		combustible_gas_alarm_active = RefreshCombustibleGasAlarmLed();
-		// 通用IO板数据分析
-		InputOutputBoardDataDeal(linkage_shield_state, linkage_work_state, pcfs, &pcfs_buttom_point); 
-		
+		/* 功能调整：废弃IG3306及4路独立24V输出监测；时间：2026-08-06 */
 		// 判断是否有掉线 吸合故障继电器，新增加对回路三，485探测回路的故障判断
 		FaultRelayCtrlAppFun(pack_disconnect_sum + cabin_disconnect_sum + point_type_disconnect_sum + rs485_detect_disconnect_sum + mbus2_disconnect_sum);
 		// 判断是否有预警 吸合预警继电器
@@ -3508,6 +3506,8 @@ void UpdateUI(void)
 	FireAlarmTriggerLogicUpdataUI(current_screen_id, fire_alarm_logic_ctrl, fire_alarm_judge);
 	
 	FireAlarmThresholdUpdataUI(current_screen_id, fire_alarm_threshold);
+	/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
+	CanMonitorRefreshDisplay(current_screen_id);
 }
 /*! 
 *  \brief  图标按钮控件通知
@@ -4121,6 +4121,16 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		if(control_id == 1 && state == 1)                                            
 		{
 			SystemInfoSave(); // 从设置出厂日期界面退出再保存进EEPROM
+		}
+	}
+	else if(screen_id == 71U)
+	{
+		if(control_id == 300U && state == 1U)
+		{
+			/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
+			bsp_screen_switch_ctrl.target_screen = 68U;
+			bsp_screen_switch_ctrl.switch_flag = 1U;
+			SwitchCurrentScreenId(68U);
 		}
 	}
 	else if(screen_id == CHECK_SCREEN_ID)
@@ -4936,6 +4946,16 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 			}
 		}
 	}
+		else if(control_id == 25 && state == 1)
+		{
+			if(item == 0U)
+			{
+				/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
+				bsp_screen_switch_ctrl.target_screen = 71U;
+				bsp_screen_switch_ctrl.switch_flag = 1U;
+				SwitchCurrentScreenId(71U);
+			}
+		}
 }
 
 /*! 
@@ -12841,76 +12861,6 @@ static void CompositeDetectorTextInputCtrlApp(CompositeShowCtrl_t *cpsc_entry, u
 static void CompositeDetectorScreenSwitchShowApp(CompositeShowCtrl_t *cpsc_entry)
 {
 	cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // 进入界面后强制刷新一次
-}
-
-static void InputOutputBoardDataDeal(uint8_t *io_online_state_buff, uint8_t *io_work_state_buff, PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
-{
-	uint8_t temp_index;
-	// 9 10 11 12 独立24V输出
-	for(uint8_t i = Isolate_Output_State_ID_1; i <= Isolate_Output_State_ID_4; i++)
-	{
-		temp_index = i - Isolate_Output_State_ID_1;
-		if(io_online_state_buff[i] == LinkageOpen) // 如果设为启用了
-		{
-			// 如果当前状态是正常
-			if(getIsolateOutputState( temp_index ) == IsolateOutputNomal)
-			{
-//				// 如果之前存的是故障信息
-//				if( io_work_state_buff[ i ] == LinkageDisconnect || io_work_state_buff[ i ] == LinkageFault || io_work_state_buff[ i ] == LinkageShortCircuit)
-//				{
-//					
-//				}
-//				else // 如果之前是初始化
-//				{
-//					
-//				}
-				// 如果之前存的是 短路信息
-				if( io_work_state_buff[ i ] == LinkageShortCircuit)
-				{
-					/****  记录短路恢复  *****/
-					// 存储到FLASH故障存储区中 声光 断路恢复
-					BspCommonDataSaveApp(FAULT_FLASH_SAVE, SHO_RECOVERY, LINKAGE_CLUSTER_ID, 21 + temp_index);
-
-					// 从缓冲区删除掉线记录
-					uint8_t temp_index_ = findRecoveryDevice(LINKAGE_CLUSTER_ID, 21 + temp_index, 0);
-					if(0xFF != temp_index_)
-					{
-						deletRecoveryRecord(temp_index_);
-					}
-					
-					my_clear_x_bit(beep_general_io_ctrl, temp_index); // 清空
-					
-					io_work_state_buff[ i ] = LinkageOnline;
-				}
-				else // 如果之前是初始化
-				{
-					io_work_state_buff[ i ] = LinkageOnline; // 正常设定为在线
-				}
-			}
-			else // 如果短路了
-			{
-				// 如果之前的记录是在线
-				if( io_work_state_buff[ i ] == LinkageOnline) // 如果短路了 并且之前是在线 存故障记录
-				{
-					/****  记录设备短路  ****/
-					BspCommonDataSaveApp(FAULT_FLASH_SAVE, SHORTCIRCUIT, LINKAGE_CLUSTER_ID, 21 + temp_index);
-					// 存储到RAM中显示到屏幕
-					creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, 21 + temp_index, SHORTCIRCUIT);
-					
-					// 打开蜂鸣器
-					my_set_x_bit(beep_general_io_ctrl, temp_index); // 把第i位置1
-					
-					io_work_state_buff[ i ] = LinkageShortCircuit;
-					
-				}
-				
-			}
-		} // 判断是否启用 如果启用
-	}
-	
-	/*   */
-	
-	
 }
 
 UART_HandleTypeDef *getSimulateSirealPortSendHandle(uint8_t port_comid)

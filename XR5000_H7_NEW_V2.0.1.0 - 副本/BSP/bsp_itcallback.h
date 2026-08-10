@@ -33,6 +33,9 @@ typedef struct
 {
 	uint8_t recepetion_flag;
 	uint8_t recepetion_len;
+	uint32_t identifier;
+	uint32_t id_type;
+	uint32_t frame_type;
 	uint8_t recepetion_buff[8]; // 对于标准CAN来说 一次传输最多八字节数据
 }FdcanBuffer_t;
 
