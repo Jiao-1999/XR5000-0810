@@ -1,0 +1,41 @@
+# 压缩包(非工程必需)
+*.zip
+*.rar
+*.7z
+
+# Keil MDK 编译中间产物(可重新生成)
+*.o
+*.d
+*.crf
+*.iex
+*.htm
+*.lnp
+*.sct
+*.dep
+*.bak
+*.map
+*.lst
+*.axf
+*.hex
+*.bin
+*.elf
+*.build_log.htm
+
+# Keil 临时文件
+*.uvguix.*
+*.uvoptx.bak
+*.uvprojx.bak
+
+# Python
+__pycache__/
+*.pyc
+
+# 系统/编辑器
+.vscode/*
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志
+*.log

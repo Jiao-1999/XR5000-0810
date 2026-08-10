@@ -1,0 +1,73 @@
+<Resource>
+    <pages>
+        <page name="开机视频" id="0" />
+        <page name="主界面" id="1" />
+        <page name="设置界面" id="2" />
+        <page name="第一簇监控界面" id="3" />
+        <page name="第二簇监控界面" id="4" />
+        <page name="第三簇监控界面" id="5" />
+        <page name="第四簇监控界面" id="6" />
+        <page name="第五簇监控界面" id="7" />
+        <page name="第六簇监控界面" id="8" />
+        <page name="第七簇监控界面" id="9" />
+        <page name="第八簇监控界面" id="10" />
+        <page name="第九簇监控界面" id="11" />
+        <page name="第十簇监控界面" id="12" />
+        <page name="第十一簇监控界面" id="13" />
+        <page name="第十二簇监控界面" id="14" />
+        <page name="第一柜级监控界面" id="15" />
+        <page name="第二柜级监控界面" id="16" />
+        <page name="设备上下线" id="17" />
+        <page name="设备上下线舱级" id="18" />
+        <page name="系统复位弹窗" id="19" />
+        <page name="巡检弹窗" id="20" />
+        <page name="手动自动切换" id="21" />
+        <page name="告警查询" id="22" />
+        <page name="进入设置密码" id="23" />
+        <page name="设置用户密码" id="24" />
+        <page name="设备屏蔽簇级" id="25" />
+        <page name="设备屏蔽舱级" id="26" />
+        <page name="公司信息" id="27" />
+        <page name="第十三簇监控界面" id="28" />
+        <page name="第十四簇监控界面" id="29" />
+        <page name="第十五簇监控界面" id="30" />
+        <page name="第十六簇监控界面" id="31" />
+        <page name="第十七簇监控界面" id="32" />
+        <page name="第十八簇监控界面" id="33" />
+        <page name="第十九簇监控界面" id="34" />
+        <page name="第二十簇监控界面" id="35" />
+        <page name="第三柜级监控界面" id="36" />
+        <page name="第四柜级监控界面" id="37" />
+        <page name="清除报警记录" id="38" />
+        <page name="设备管理" id="39" />
+    </pages>
+    <images>
+        <image id="0" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\1(主界面).jpg" effect_width="1024" effect_height="600" />
+        <image id="1" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\探测器状态指示灯.ICON" effect_width="30" effect_height="30" />
+        <image id="2" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\14.jpg" effect_width="1024" effect_height="600" />
+        <image id="3" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\29(设备监控无色).jpg" effect_width="1024" effect_height="600" />
+        <image id="4" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\按钮灰停止.png" effect_width="90" effect_height="45" />
+        <image id="5" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\按钮灰启动.png" effect_width="90" effect_height="45" />
+        <image id="6" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\按钮绿0.png" effect_width="90" effect_height="45" />
+        <image id="7" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\按钮绿1.png" effect_width="90" effect_height="45" />
+        <image id="8" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\按钮红0.png" effect_width="90" effect_height="45" />
+        <image id="9" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\按钮红1.png" effect_width="90" effect_height="45" />
+        <image id="10" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\仓级1.jpg" effect_width="1024" effect_height="600" />
+        <image id="11" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\设备上下线.jpg" effect_width="1024" effect_height="600" />
+        <image id="12" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\开关按钮_关.png" effect_width="123" effect_height="35" />
+        <image id="13" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\开关按钮_开.png" effect_width="123" effect_height="35" />
+        <image id="14" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\设备上下线舱级.jpg" effect_width="1024" effect_height="600" />
+        <image id="15" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\开关按钮_关.png" effect_width="120" effect_height="25" />
+        <image id="16" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\开关按钮_开.png" effect_width="120" effect_height="25" />
+        <image id="17" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\复位弹窗.jpg" effect_width="1024" effect_height="600" />
+        <image id="18" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\告警查询.jpg" effect_width="1024" effect_height="600" />
+        <image id="19" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\进入设置密码.jpg" effect_width="1024" effect_height="600" />
+        <image id="20" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\密码设置.jpg" effect_width="1024" effect_height="600" />
+        <image id="21" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\31.jpg" effect_width="1024" effect_height="600" />
+        <image id="22" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\清除记录弹窗.jpg" effect_width="1024" effect_height="600" />
+        <image id="23" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\外部设备掉线监控.jpg" effect_width="1024" effect_height="600" />
+        <image id="24" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\开关按钮_关.png" effect_width="119" effect_height="29" />
+        <image id="25" url="d:\大彩彩屏例程\xr5000pro屏幕程序20簇ppm版本\xr5000pro屏幕程序20簇ppm版本\images\开关按钮_开.png" effect_width="119" effect_height="29" />
+    </images>
+    <waves />
+</Resource>
