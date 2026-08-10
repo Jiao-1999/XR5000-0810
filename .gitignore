@@ -46,3 +46,21 @@ desktop.ini
 
 # »’÷æ
 *.log
+
+# Local recovery documents (do not upload)
+**/recoved/
+
+# Nested editor and Keil local state
+**/.vscode/
+**/MDK-ARM/DebugConfig/
+**/MDK-ARM/JLinkLog.txt
+**/MDK-ARM/JLinkSettings.ini
+
+# Local build logs and rollback snapshots
+**/BUILD_LOGS/
+**/PROJECT_BACKUPS/
+
+# Local lock and temporary state
+*.lock
+*.tmp
+*~
