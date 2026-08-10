@@ -1,41 +1,48 @@
-# 压缩包(非工程必需)
-*.zip
-*.rar
-*.7z
-
-# Keil MDK 编译中间产物(可重新生成)
+# Keil MDK 编译产物
 *.o
 *.d
 *.crf
 *.iex
-*.htm
-*.lnp
-*.sct
-*.dep
-*.bak
-*.map
-*.lst
 *.axf
 *.hex
 *.bin
-*.elf
+*.htm
+*.lnp
+*.sct
+*.map
+*.dep
 *.build_log.htm
+*.lst
+*.bin
 
 # Keil 临时文件
+*.bak
 *.uvguix.*
-*.uvoptx.bak
-*.uvprojx.bak
+*.uvoptx
+*.scvd
+
+# Keil 编译输出目录
+**/MDK-ARM/XR5000-H7/
+**/MDK-ARM/RTE/
+**/OBJ/
+**/Listings/
+
+# IDE 临时文件
+.vscode/*
+!.vscode/settings.json
+.idea/
 
 # Python
 __pycache__/
 *.pyc
 
-# 系统/编辑器
-.vscode/*
-!.vscode/settings.json
-.DS_Store
+# 系统文件
 Thumbs.db
 desktop.ini
+.DS_Store
+
+# 压缩包
+*.zip
 
 # 日志
 *.log
