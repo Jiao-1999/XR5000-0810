@@ -359,8 +359,12 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 			
 			if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader, fdcanbuff[FDCAN1SITE].recepetion_buff) == HAL_OK) 
 			{
-				fdcanbuff[FDCAN1SITE].recepetion_flag = 1;
-				fdcanbuff[FDCAN1SITE].recepetion_len = RxHeader.DataLength;
+				/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
+				fdcanbuff[FDCAN1SITE].identifier = RxHeader.Identifier;
+				fdcanbuff[FDCAN1SITE].id_type = RxHeader.IdType;
+				fdcanbuff[FDCAN1SITE].frame_type = RxHeader.RxFrameType;
+				fdcanbuff[FDCAN1SITE].recepetion_len = (uint8_t)RxHeader.DataLength; /* HAL已返回解析后的DLC值 */
+				fdcanbuff[FDCAN1SITE].recepetion_flag = 1U;
 //				if(RxHeader.Identifier == ID5306_EXTEND_FRAME_ID)
 //				{
 //					fdcanbuff[FDCAN1SITE].recepetion_flag = 1;

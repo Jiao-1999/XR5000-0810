@@ -60,6 +60,7 @@
 #include "bsp_ctrl_bus.h"
 #include "bsp_rs485_detect.h"
 #include "bsp_fdcan1.h"
+#include "bsp_can_monitor.h" /* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
 #include "bsp_aht20.h"
 #include "iwdg.h"
 /* USER CODE END Includes */
@@ -257,9 +258,9 @@ const osThreadAttr_t MBus2PollAndReceiveTask_attributes = {
 };
 
 // 2025/11/20 18:11 创建 优化任务处理 合并两个任务 减少栈区消耗
-osThreadId_t Fdcan1Poll_ReceiveTaskHandle; // Mbus receive task
-const osThreadAttr_t Fdcan1Poll_ReceiveTask_attributes = {
-	.name = "MBusPollAndReceiveTask",
+osThreadId_t CanMonitorTaskHandle; /* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
+const osThreadAttr_t CanMonitorTask_attributes = {
+	.name = "CanMonitorTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
@@ -431,7 +432,7 @@ void MX_FREERTOS_Init(void) {
 	RS485DetectPollAndReceiveTaskHandle = osThreadNew(RS485DetectPollAndReceiveTask, NULL, &RS485DetectPollAndReceiveTask_attributes);
 	
 	// 2025/11/20 18:12 
-	Fdcan1Poll_ReceiveTaskHandle = osThreadNew(Fdcan1SendAndReceiveTask, NULL, &Fdcan1Poll_ReceiveTask_attributes);
+	CanMonitorTaskHandle = osThreadNew(CanMonitorTask, NULL, &CanMonitorTask_attributes); /* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
 	
 	// BMS查询回复任务 2025/11/28 11:49 启用该任务
 	BMSRecvDealTaskHandle = osThreadNew(BMSRecvDealTask, NULL, &BMSRecvDealTask_attributes);

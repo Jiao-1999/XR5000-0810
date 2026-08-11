@@ -9336,25 +9336,57 @@
 
 #define  _BTN_新菜单界面_BUTTON18                                                 202
 
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY1                                       101
+
 #define  _MENU_新菜单界面_MENU1                                                    16
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY2                                       102
 
 #define  _MENU_新菜单界面_MENU2                                                    17
 
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY3                                       103
+
 #define  _MENU_新菜单界面_MENU3                                                    18
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY4                                       104
 
 #define  _MENU_新菜单界面_MENU4                                                    19
 
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY5                                       105
+
 #define  _MENU_新菜单界面_MENU5                                                    20
 
-#define  _MENU_新菜单界面_MENU6                                                    21
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY6                                       106
 
-#define  _MENU_新菜单界面_MENU7                                                    22
+#define  _MENU_新菜单界面_MENU10                                                   25
 
-#define  _MENU_新菜单界面_MENU8                                                    23
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY7                                       107
 
 #define  _MENU_新菜单界面_MENU9                                                    24
 
-#define  _MENU_新菜单界面_MENU10                                                   25
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY8                                       108
+
+#define  _MENU_新菜单界面_MENU8                                                    23
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY9                                       109
+
+#define  _MENU_新菜单界面_MENU7                                                    22
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY10                                      110
+
+#define  _MENU_新菜单界面_MENU6                                                    21
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY11                                      111
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY12                                      112
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY13                                      113
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY14                                      114
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY15                                      115
+
+#define  _MENU_新菜单界面_MENU11                                                   26
 
 #define  _TXT_DIS__设备显示详情_TEXT_DISPLAY1                                      200
 
@@ -9498,20 +9530,49 @@
 
 #define  _BTN_设备屏蔽界面_BUTTON4                                                 213
 
-//画面6路多线控制中图片Image2使用的图片
-#define  _IMG_6路多线控制_IMAGE2                                                   61
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY1                                      200
 
-//画面6路多线控制中图片Image3使用的图片
-#define  _IMG_6路多线控制_IMAGE3                                                   61
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY2                                      201
 
-//画面6路多线控制中图片Image4使用的图片
-#define  _IMG_6路多线控制_IMAGE4                                                   61
+#define  _BTN_6路多线控制_BUTTON1                                                 300
 
-//画面6路多线控制中图片Image5使用的图片
-#define  _IMG_6路多线控制_IMAGE5                                                   61
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY3                                      210
 
-//画面6路多线控制中图片Image6使用的图片
-#define  _IMG_6路多线控制_IMAGE6                                                   61
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY4                                      211
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY5                                      212
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY6                                      213
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY7                                      214
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY8                                      215
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY9                                        1
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY10                                      11
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY11                                       3
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY12                                      13
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY13                                       5
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY14                                      15
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY15                                       2
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY16                                      12
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY17                                       4
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY18                                      14
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY19                                       6
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY20                                      16
+
+#define  _TXT_DIS__6路多线控制_TEXT_DISPLAY21                                       8
 
 #define  _TXT_DIS__新检查界面_TEXT_DISPLAY1                                       104
 

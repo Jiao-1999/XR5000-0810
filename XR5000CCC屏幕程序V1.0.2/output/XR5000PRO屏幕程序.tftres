@@ -135,8 +135,7 @@
         <image id="57" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\CABIN监控显示界面s.png" effect_width="1024" effect_height="600" />
         <image id="58" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\探测器上线界面.png" effect_width="1024" effect_height="600" />
         <image id="59" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\CABIN监控界面PLUSS.png" effect_width="1024" effect_height="600" />
-        <image id="60" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\Images\火灾报警控制器二级页面UI副本.png" effect_width="1024" effect_height="600" />
-        <image id="61" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\Images\灭火器.png" effect_width="135" effect_height="144" />
+        <image id="60" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\Images\火灾报警控制器二级页面UI.jpg" effect_width="1024" effect_height="600" />
     </images>
     <waves />
 </Resource>
