@@ -38,6 +38,7 @@ typedef enum {
     RS485_DETECT_TYPE_XR805   = 1,  /* XR805: 烟雾+温度+CO+CH4+H2+VOC */
     RS485_DETECT_TYPE_XR8303  = 2,  /* XR8303: 烟雾+温度+CO+H2+VOC+压力 */
     RS485_DETECT_TYPE_XR8305  = 3,  /* XR8305: 与XR8303同布局 */
+    RS485_DETECT_TYPE_DLYGWG = 4,
 } RS485DetectDeviceType;
 
 /* -------------------- 传感器索引(统一对外) -------------------- */
@@ -98,7 +99,8 @@ int16_t  RS485Detect_GetTemperature(uint8_t addr);                /* 获取温度值(
 uint16_t RS485Detect_GetSensorEnable(uint8_t addr);               /* 获取传感器启用位掩码 */
 uint8_t  RS485Detect_GetSensorState(uint8_t addr, uint8_t sensor_idx); /* 获取传感器状态 */
 uint8_t  RS485Detect_IsDisconnected(uint8_t addr);                /* 判断是否掉线(计数>=阈值) */
-uint8_t  RS485Detect_GetOnlineCount(void);                        /* 回路3在线设备总数 */
+uint8_t  RS485Detect_GetOnlineCount(void);
+uint8_t  RS485Detect_GetActiveCount(void);                        /* 回路3在线设备总数 */
 uint8_t  RS485Detect_GetDisconnectCount(void);                    /* 回路3掉线设备总数 */
 uint8_t  RS485Detect_GetAlarmCount(void);                         /* 回路3报警设备总数 */
 uint8_t  RS485Detect_IsAlarmState(uint8_t device_type, uint8_t sensor_idx, uint8_t state);  /* 判断传感器状态是否为报警 */

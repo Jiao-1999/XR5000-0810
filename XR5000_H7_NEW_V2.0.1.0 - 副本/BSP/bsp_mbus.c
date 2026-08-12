@@ -1,4 +1,5 @@
 #include "bsp_mbus.h"
+#include "bsp_device_registry.h"
 #include "cmsis_os.h"
 #include "cmd_process.h"
 #include "bsp_debug.h"
@@ -32,6 +33,7 @@ uint8_t PointTypeMixtureDetecteName[MIXTURE_DEVICE_SUM] = {0};
 uint8_t PointTypeMixtureDetecteType[MIXTURE_DEVICE_SUM] = {0};
 //
 uint8_t PointTypeMixtureAllStateMemory[MIXTURE_DEVICE_SUM] = {0};
+static void MBus1ClearIdentification(uint8_t addr);
 
 void SavePointTypeSetOnlieState(void)
 {
@@ -41,6 +43,7 @@ void SavePointTypeSetOnlieState(void)
 void ReadPointTypeSetOnlieState(void)
 {
 	memset(PointTypeMixtureOnlieState, 0, sizeof(PointTypeMixtureOnlieState));
+	for(uint8_t addr = 1U; addr <= MIXTURE_DEVICE_MAX_ADDR; addr++) MBus1ClearIdentification(addr);
 	W25QXX_Read(PointTypeMixtureOnlieState, MIXTURE_DEVICE_FLASH_ADDR, MIXTURE_DEVICE_FLASH_DATA_LEN);
 	
 	for(uint16_t i = 0; i <= MIXTURE_DEVICE_MAX_ADDR; i++)
@@ -67,6 +70,7 @@ void MBus2SendString(uint8_t* buf, uint8_t len)
 void PointTypeMixtureOnlieStateDeInit(void)
 {
 	memset(PointTypeMixtureOnlieState, 0, sizeof(PointTypeMixtureOnlieState));//Çå¿ÕÊý×é
+	for(uint8_t addr = 1U; addr <= MIXTURE_DEVICE_MAX_ADDR; addr++) MBus1ClearIdentification(addr);
 }
 
 void PointTypeMixtureOnlieStateBatchSetting(uint8_t *new_online_state, uint8_t update_len)
@@ -93,6 +97,7 @@ void PointTypeMixtureOnlieStateSingleSetting(uint8_t detector_id, uint8_t online
 		return;
 	}
 	PointTypeMixtureOnlieState[detector_id] = online_or_offline ? 1 : 0;
+	if(online_or_offline == 0U) MBus1ClearIdentification(detector_id);
 }
 
 /*
@@ -328,6 +333,21 @@ static void MBus1BuildReadCommand(uint8_t *buf, uint8_t addr, uint8_t count)
 }
 
 static uint8_t g_mbus1_type_confirmed[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+static uint8_t g_mbus1_identify_fail_count[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+static uint32_t g_mbus1_last_identify_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+#define MBUS1_IDENTIFY_FAIL_THRESHOLD 3U
+#define MBUS1_IDENTIFY_RETRY_MS 1000U
+static void MBus1ClearIdentification(uint8_t addr)
+{
+    if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
+    g_mbus1_type_confirmed[addr] = 0U;
+    g_mbus1_identify_fail_count[addr] = 0U;
+    g_mbus1_last_identify_tick[addr] = 0U;
+    PointTypeMixtureDetecteName[addr] = 0U;
+    PointTypeMixtureDetecteType[addr] = 0U;
+    PointTypeMixtureDisconnectCount[addr] = 0U;
+    DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP1, addr, 0U);
+}
 static uint8_t g_mbus1_transaction_pending = 0U;
 static uint8_t g_mbus1_transaction_addr = 0U;
 static uint8_t g_mbus1_transaction_full_read = 0U;
@@ -343,18 +363,33 @@ static void MBus1FinishTransaction(uint8_t addr)
     g_mbus1_transaction_full_read = 0U; g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
 }
 
+static void MBus1MarkIdentifyFailure(uint8_t addr)
+{
+    if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
+    if(g_mbus1_identify_fail_count[addr] < MBUS1_IDENTIFY_FAIL_THRESHOLD) g_mbus1_identify_fail_count[addr]++;
+    g_mbus1_last_identify_tick[addr] = osKernelGetTickCount();
+    if(g_mbus1_identify_fail_count[addr] >= MBUS1_IDENTIFY_FAIL_THRESHOLD)
+        DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP1, addr, 1U);
+}
+
 static void MBus1MarkTimeout(void)
 {
     uint8_t addr;
+    uint8_t was_identify;
     if(g_mbus1_bus_locked != 0U || g_mbus1_transaction_pending == 0U ||
        (osKernelGetTickCount() - g_mbus1_transaction_tick) < MIXTURE_DEVICE_RESPONSE_TIMEOUT_MS) return;
     addr = g_mbus1_transaction_addr;
+    was_identify = g_mbus1_transaction_full_read;
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
     g_mbus1_transaction_full_read = 0U; g_mbus1_transaction_tick = 0U;
     if(addr > 0U && addr <= MIXTURE_DEVICE_MAX_ADDR && PointTypeMixtureOnlieState[addr] != 0U)
     {
-        if(PointTypeMixtureDisconnectCount[addr] < MIXTURE_DEVICE_DISCONNECT_SUM) PointTypeMixtureDisconnectCount[addr]++;
-        if(PointTypeMixtureDisconnectCount[addr] < MIXTURE_DEVICE_DISCONNECT_SUM) g_mbus1_retry_addr = addr;
+        if(was_identify != 0U) MBus1MarkIdentifyFailure(addr);
+        else
+        {
+            if(PointTypeMixtureDisconnectCount[addr] < MIXTURE_DEVICE_DISCONNECT_SUM) PointTypeMixtureDisconnectCount[addr]++;
+            if(PointTypeMixtureDisconnectCount[addr] < MIXTURE_DEVICE_DISCONNECT_SUM) g_mbus1_retry_addr = addr;
+        }
     }
 }
 
@@ -365,7 +400,12 @@ static uint8_t MBus1FindNextOnlineAddress(void)
     {
         g_mbus1_poll_addr++;
         if(g_mbus1_poll_addr == 0U || g_mbus1_poll_addr > MIXTURE_DEVICE_MAX_ADDR) g_mbus1_poll_addr = 1U;
-        if(PointTypeMixtureOnlieState[g_mbus1_poll_addr] != 0U) return g_mbus1_poll_addr;
+        if(PointTypeMixtureOnlieState[g_mbus1_poll_addr] != 0U)
+        {
+            if(DeviceRegistry_IsProductUnknown(DEVICE_REGISTRY_LOOP1, g_mbus1_poll_addr) == 0U ||
+               (osKernelGetTickCount() - g_mbus1_last_identify_tick[g_mbus1_poll_addr]) >= MBUS1_IDENTIFY_RETRY_MS)
+                return g_mbus1_poll_addr;
+        }
     }
     return 0U;
 }
@@ -436,11 +476,17 @@ void MBus1ReceiveSlaveDataDeal(void)
         uint8_t product_type;
         if(buf[31] != 0U) return;
         product_type = buf[32];
-        if(product_type == 5U || product_type == 6U)
+        if(DeviceRegistry_IsSupportedOnLoop(product_type, DEVICE_REGISTRY_LOOP1) != 0U)
         {
             PointTypeMixtureDetecteName[addr] = product_type;
-            PointTypeMixtureDetecteType[addr] = (product_type == 6U) ? 0x20U : 0x01U;
+            PointTypeMixtureDetecteType[addr] = (product_type == DEVICE_PRODUCT_XR8002_TEMP) ? 0x20U : 0x01U;
             g_mbus1_type_confirmed[addr] = 1U;
+            g_mbus1_identify_fail_count[addr] = 0U;
+            DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP1, addr, 0U);
+        }
+        else
+        {
+            MBus1MarkIdentifyFailure(addr);
         }
     }
     MBus1FinishTransaction(addr);

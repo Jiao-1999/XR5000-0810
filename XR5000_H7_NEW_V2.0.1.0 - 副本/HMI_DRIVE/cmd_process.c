@@ -27,6 +27,7 @@
 #include "bsp_save_ctrl.h"
 #include "bsp_rs485_detect.h"
 #include "bsp_mbus_control.h"
+#include "bsp_device_registry.h"
 #include "bsp_aht20.h"
 
 #include "bsp_key.h"
@@ -1358,21 +1359,21 @@ static uint8_t GetCircuitOnlineList(uint8_t circuit, uint8_t *list, uint8_t max)
         case 1:
             for (i = 1; i <= MIXTURE_DEVICE_MAX_ADDR && count < max; i++)
             {
-                if (getPointTypeMixtureSettingOnlieState(i) && getPointTypeMixtureDisconnectCount(i) < MIXTURE_DEVICE_DISCONNECT_SUM)
+                if (getPointTypeMixtureSettingOnlieState(i) && getPointTypeMixtureDetectName(i) != 0U && getPointTypeMixtureDisconnectCount(i) < MIXTURE_DEVICE_DISCONNECT_SUM)
                     list[count++] = i;
             }
             break;
         case 2:
             for (i = 1; i < MBUS_CONTROL_MAX_DEVICES && count < max; i++)
             {
-                if (MBusCtrl_GetOnline(i) && !MBusCtrl_IsDisconnected(i))
+                if (MBusCtrl_GetOnline(i) && MBusCtrl_IsIdentified(i) && !MBusCtrl_IsDisconnected(i))
                     list[count++] = i;
             }
             break;
         case 3:
             for (i = 1; i < RS485_DETECT_MAX_DEVICES && count < max; i++)
             {
-                if (RS485Detect_IsOnline(i))
+                if (RS485Detect_IsOnline(i) && RS485Detect_GetType(i) != RS485_DETECT_TYPE_UNKNOWN)
                     list[count++] = i;
             }
             break;
@@ -1857,6 +1858,7 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 	}
 }
 
+
 /*! 
 *  \brief  消息处理流程
 *  \param msg 待处理消息
@@ -2123,7 +2125,7 @@ void NotifyScreen(uint16 screen_id)
 			SetTextValue(screen_id, 7, temp_buff); 
 			sprintf((char *)temp_buff, "设备在线:%d", getPointDetectorSetUpLive());
 			SetTextValue(screen_id, 8, temp_buff); 
-			sprintf((char *)temp_buff, "设备故障:%d", getPointDetectorFaultCount());
+			sprintf((char *)temp_buff, "设备故障:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
 			SetTextValue(screen_id, 9, temp_buff); 
 			sprintf((char *)temp_buff, "报警设备:%d", getPointDetectorAlarmCount());
 			SetTextValue(screen_id, 10, temp_buff); 
@@ -2135,9 +2137,9 @@ void NotifyScreen(uint16 screen_id)
 				uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
 				sprintf((char *)temp_buff, "设备上线:%d", mbus2_online);
 				SetTextValue(screen_id, 13, temp_buff);
-				sprintf((char *)temp_buff, "设备在线:%d", mbus2_online - mbus2_disconnect);
+				sprintf((char *)temp_buff, "设备在线:%d", MBusCtrl_GetActiveCount());
 				SetTextValue(screen_id, 14, temp_buff);
-				sprintf((char *)temp_buff, "设备故障:%d", mbus2_disconnect);
+				sprintf((char *)temp_buff, "设备故障:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
 				SetTextValue(screen_id, 15, temp_buff);
 				sprintf((char *)temp_buff, "报警设备:%d", MBusCtrl_GetAlarmCount());
 				SetTextValue(screen_id, 16, temp_buff);
@@ -2149,9 +2151,9 @@ void NotifyScreen(uint16 screen_id)
 			uint8_t disconnect = RS485Detect_GetDisconnectCount();
 			sprintf((char *)temp_buff, "设置上线:%d", online);
 			SetTextValue(screen_id, 19, temp_buff);
-			sprintf((char *)temp_buff, "设备在线:%d", online - disconnect);
+			sprintf((char *)temp_buff, "设备在线:%d", RS485Detect_GetActiveCount());
 			SetTextValue(screen_id, 20, temp_buff);
-			sprintf((char *)temp_buff, "设备故障:%d", disconnect);
+			sprintf((char *)temp_buff, "设备故障:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
 			SetTextValue(screen_id, 21, temp_buff);
 			sprintf((char *)temp_buff, "报警设备:%d", RS485Detect_GetAlarmCount());
 			SetTextValue(screen_id, 22, temp_buff);
@@ -2434,6 +2436,7 @@ void NotifyScreen(uint16 screen_id)
 			g_screen69_transition_pending = 0;
 		}
 }
+
 
 /*! 
 *  \brief  触摸坐标事件响应
@@ -2997,13 +3000,13 @@ void UpdateUI(void)
 				ds.last_num = total_devices;
 				SetTextInt32(current_screen_id, 5, total_devices, 0, 1);
 			}
-			uint8_t total_online = total_devices - (pack_disconnect_sum + cabin_disconnect_sum + point_type_disconnect_sum + rs485_disconnect + mbus2_disconnect);
+			uint8_t total_online = (uint8_t)((ds.curr_num - getPointDetectorSetUpCount()) - (pack_disconnect_sum + cabin_disconnect_sum) + getPointDetectorSetUpLive() + RS485Detect_GetActiveCount() + MBusCtrl_GetActiveCount());
 			if (last_online_detector_num != total_online || home_statistics_force_refresh)
 			{
 				last_online_detector_num = total_online;
 				SetTextInt32(current_screen_id, 6, total_online, 0, 1);
 			}
-			uint8_t total_fault = pcfs_buttom_point + mbus2_disconnect;
+			uint8_t total_fault = (uint8_t)((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount());
 			if (last_disconnect_detector_num != total_fault || home_statistics_force_refresh)
 			{
 				last_disconnect_detector_num = total_fault;
@@ -3072,7 +3075,7 @@ void UpdateUI(void)
 		SetTextValue(6, 7, temp_buff);
 		sprintf((char *)temp_buff, "设备在线:%d", getPointDetectorSetUpLive());
 		SetTextValue(6, 8, temp_buff);
-		sprintf((char *)temp_buff, "设备故障:%d", getPointDetectorFaultCount());
+		sprintf((char *)temp_buff, "设备故障:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
 		SetTextValue(6, 9, temp_buff);
 		sprintf((char *)temp_buff, "报警设备:%d", getPointDetectorAlarmCount());
 		SetTextValue(6, 10, temp_buff);
@@ -3085,9 +3088,9 @@ void UpdateUI(void)
 			uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
 			sprintf((char *)temp_buff, "设备上线:%d", mbus2_online);
 			SetTextValue(6, 13, temp_buff);
-			sprintf((char *)temp_buff, "设备在线:%d", mbus2_online - mbus2_disconnect);
+			sprintf((char *)temp_buff, "设备在线:%d", MBusCtrl_GetActiveCount());
 			SetTextValue(6, 14, temp_buff);
-			sprintf((char *)temp_buff, "设备故障:%d", mbus2_disconnect);
+			sprintf((char *)temp_buff, "设备故障:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
 			SetTextValue(6, 15, temp_buff);
 			sprintf((char *)temp_buff, "报警设备:%d", MBusCtrl_GetAlarmCount());
 			SetTextValue(6, 16, temp_buff);
@@ -3100,9 +3103,9 @@ void UpdateUI(void)
         uint8_t disconnect = RS485Detect_GetDisconnectCount();
         sprintf((char *)temp_buff, "设置上线:%d", online);
         SetTextValue(6, 19, temp_buff);
-        sprintf((char *)temp_buff, "设备在线:%d", online - disconnect);
+        sprintf((char *)temp_buff, "设备在线:%d", RS485Detect_GetActiveCount());
         SetTextValue(6, 20, temp_buff);
-        sprintf((char *)temp_buff, "设备故障:%d", disconnect);
+        sprintf((char *)temp_buff, "设备故障:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
         SetTextValue(6, 21, temp_buff); 
         sprintf((char *)temp_buff, "报警设备:%d", RS485Detect_GetAlarmCount());
         SetTextValue(6, 22, temp_buff); 
@@ -4321,6 +4324,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	
 }
 
+
 /*! 
 *  \brief  文本控件通知
 *  \details  当文本通过键盘更新(或调用GetControlValue)时，执行此函数
@@ -4826,6 +4830,7 @@ void NotifySlider(uint16 screen_id, uint16 control_id, uint32 value)
 
 }
 
+
 /*! 
 *  \brief  仪表控件通知
 *  \details  调用GetControlValue时，执行此函数
@@ -4910,6 +4915,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					bsp_screen_switch_ctrl.switch_flag = 1;
 					break;
 				default:
+					break;
 			}
 		}
 		else if(control_id == 19 && state == 1)
@@ -4945,7 +4951,6 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					break;
 			}
 		}
-	}
 		else if(control_id == 25 && state == 1)
 		{
 			if(item == 0U)
@@ -4956,6 +4961,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 				SwitchCurrentScreenId(71U);
 			}
 		}
+}
 }
 
 /*! 
@@ -4970,6 +4976,7 @@ void NotifySelector(uint16 screen_id, uint16 control_id, uint8  item)
 
 }
 
+
 /*! 
 *  \brief  定时器超时通知处理
 *  \param screen_id 画面ID
@@ -4983,6 +4990,7 @@ void NotifyTimer(uint16 screen_id, uint16 control_id)
     } 
 }
 
+
 /*! 
 *  \brief  读取用户FLASH状态返回
 *  \param status 0失败，1成功
@@ -4994,6 +5002,7 @@ void NotifyReadFlash(uint8 status,uint8 *_data,uint16 length)
     //TODO: 添加用户代码
 }
 
+
 /*! 
 *  \brief  写用户FLASH状态返回
 *  \param status 0失败，1成功
@@ -5002,6 +5011,7 @@ void NotifyWriteFlash(uint8 status)
 {
     //TODO: 添加用户代码
 }
+
 
 /*! 
 *  \brief  读取RTC时间，注意返回的是BCD码
@@ -5084,7 +5094,7 @@ static uint8_t getPointDetectorSetUpLive(void)
 	uint8_t detector_sum = 0;
 	for(uint8_t sum = 1U; sum <= MIXTURE_DEVICE_MAX_ADDR; sum++)
 	{
-		if(getPointTypeMixtureSettingOnlieState(sum) == 1 && getPointTypeMixtureDisconnectCount(sum) < MIXTURE_DEVICE_DISCONNECT_SUM)
+		if(getPointTypeMixtureSettingOnlieState(sum) == 1 && getPointTypeMixtureDetectName(sum) != 0U && getPointTypeMixtureDisconnectCount(sum) < MIXTURE_DEVICE_DISCONNECT_SUM)
 		{
 			detector_sum++;
 		}
@@ -5993,14 +6003,18 @@ const uint8_t monitor_inform_screen_id = 59;
 
 static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 {
+	static uint16_t last_product_unknown_count = 0U;
+	uint16_t product_unknown_count = DeviceRegistry_GetProductUnknownCount();
+	uint16_t total_fault_count = (uint16_t)pcfs_buttom_point + product_unknown_count;
 	// 故障监控显示
-	if(pcfs_buttom_point == 0)
+	if(total_fault_count == 0U)
 	{
-		if(pcfs_fresh_ctrl != 0)
+		if(pcfs_fresh_ctrl != 0 || last_product_unknown_count != 0U)
 		{
 			disconnect_state = 0;  // 掉线状态解除 
 			beep_fault_ctrl  = 0;  // 关闭掉线蜂鸣器
 			pcfs_fresh_ctrl = 0;
+			last_product_unknown_count = 0U;
 			clearTextValue(monitor_inform_screen_id , 43);//(画面ID,控件ID)
 			clearTextValue(monitor_inform_screen_id , 44);//(画面ID,控件ID)
 			clearTextValue(monitor_inform_screen_id , 45);//(画面ID,控件ID)
@@ -6018,18 +6032,28 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 			case 60:SetTextValue(monitor_inform_screen_id, 42,"故障监测运行中......");break;   //刷新报警内容
 		}
 	}
-	else if(pcfs_fresh_ctrl != pcfs_buttom_point || fresh_page_flag == 1)
+	else if(pcfs_fresh_ctrl != pcfs_buttom_point || last_product_unknown_count != product_unknown_count || fresh_page_flag == 1)
 	{
 		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
 		pcfs_fresh_ctrl = pcfs_buttom_point;
+		last_product_unknown_count = product_unknown_count;
 		
 		uint8_t temp_sequence_count = 0;
 		
 		for (uint8_t i = 0; i < Fault_Show_Zone; i++) {
-			uint8_t data_index = fault_current_page + i;
+			uint16_t data_index = (uint16_t)fault_current_page + i;
 			temp_sequence_count = data_index + 1;
-			if(data_index < pcfs_buttom_point) {
-				if(FormatLoop1FaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
+			if(data_index < total_fault_count) {
+				if(data_index >= pcfs_buttom_point)
+				{
+					uint8_t unknown_loop = 0U;
+					uint8_t unknown_addr = 0U;
+                    static const uint8_t unknown_format[] = {0xB5U,0xDAU,'%','d',0xBBU,0xD8U,0xC2U,0xB7U,'%','0','2','d',0xBAU,0xC5U,' ',0xB2U,0xFAU,0xC6U,0xB7U,0xD0U,0xCDU,0xBAU,0xC5U,0xCEU,0xB4U,0xCAU,0xB6U,0xB1U,0xF0U,0U};
+					if(DeviceRegistry_GetProductUnknownAt((uint16_t)(data_index - pcfs_buttom_point), &unknown_loop, &unknown_addr) != 0U)
+                        sprintf((char*)baojingneirong, (const char*)unknown_format, unknown_loop, unknown_addr);
+					else baojingneirong[0] = 0;
+				}
+				else if(FormatLoop1FaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
 				{
 				}
 				else if(FormatRS485DetectFaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
@@ -6043,7 +6067,8 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 				else if(pcfs[data_index].detector_class == PackClassID) // 如果类型是包
 				{
 					// 2025/11/19 10:59 新增记录报警秒
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇 PACK%d 掉线", temp_sequence_count, // 新增显示序号
+                    static const uint8_t pack_format[] = {'%','0','3','d',' ','%','d','/','%','0','2','d','/','%','0','2','d',' ','%','0','2','d',':','%','0','2','d',':','%','0','2','d',' ',0xB5U,0xDAU,'%','d',0xB4U,0xD8U,' ','P','A','C','K','%','d',' ',0xB5U,0xF4U,0xCFU,0xDFU,0U};
+                    sprintf((char*)baojingneirong, (const char*)pack_format, temp_sequence_count,
 						pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 						pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second,
 						pcfs[data_index].da.cluster_id, pcfs[data_index].da.pack_id);
@@ -9664,15 +9689,15 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 	// 箭头位置更新
 	
 	// 故障箭头刷新 - 修改部分
-	if(pcfs_buttom_point > bkcnc_entry->last_show_len[FaultPart])
+	if(((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) > bkcnc_entry->last_show_len[FaultPart])
 	{
 		// 如果故障数量增加了 箭头位置不用动
-		bkcnc_entry->last_show_len[FaultPart] = pcfs_buttom_point;
+		bkcnc_entry->last_show_len[FaultPart] = (uint8_t)((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount());
 	}
-	else if(pcfs_buttom_point < bkcnc_entry->last_show_len[FaultPart])
+	else if(((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) < bkcnc_entry->last_show_len[FaultPart])
 	{
 		// 如果故障数量减少了（有恢复）
-		uint8_t new_count = pcfs_buttom_point;
+		uint8_t new_count = (uint8_t)((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount());
 			
 		// 调整当前箭头位置，确保不超出范围
 		if (bkcnc_entry->curr_point_site[FaultPart] >= new_count) 
@@ -9945,14 +9970,14 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 //								bkcnc_entry->curr_point_site[temp_partition] = pcfs_buttom_point - 1;
 //							}
 							// 检查是否超过实际数据范围（防止数据量不足时越界）
-							if (bkcnc_entry->curr_point_site[temp_partition] < pcfs_buttom_point - 1) {
+							if (((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) > 0U && bkcnc_entry->curr_point_site[temp_partition] < ((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) - 1U) {
 									bkcnc_entry->curr_point_site[temp_partition]++;
 							}
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == Fault_Show_Zone - 1)
 						{
 							// 翻页逻辑 // 当前页+显示区域长度 小于总数 则可以往后滚动
-							if (fault_current_page + Fault_Show_Zone < pcfs_buttom_point) {
+							if ((uint16_t)fault_current_page + Fault_Show_Zone < (uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) {
 								fault_current_page++;
 								fault_check_new_flag = 1; // 标记按下
 							} 

@@ -73,69 +73,71 @@
         <page name="设备屏蔽界面" id="70" />
         <page name="6路多线控制" id="71" />
         <page name="新检查界面" id="72" />
+        <page name="阈值设定界面" id="73" />
+        <page name="打印机设置界面" id="74" />
     </pages>
     <images>
-        <image id="0" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\1(主界面) NewSuper3.png" effect_width="1024" effect_height="600" />
-        <image id="1" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\14.jpg" effect_width="1024" effect_height="600" />
-        <image id="2" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\模拟串口助手界面SS.png" effect_width="1024" effect_height="600" />
-        <image id="3" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\设备上线管理包探.png" effect_width="1024" effect_height="600" />
-        <image id="4" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\开关按钮_关.png" effect_width="90" effect_height="25" />
-        <image id="5" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\开关按钮_开.png" effect_width="90" effect_height="25" />
-        <image id="6" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\设备上线管理点型仓探.png" effect_width="1024" effect_height="600" />
-        <image id="7" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\仓状态图标.ICON" effect_width="25" effect_height="25" />
-        <image id="8" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\设备管理PLUS.png" effect_width="1024" effect_height="600" />
-        <image id="9" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\监测选择界面.jpg" effect_width="1024" effect_height="600" />
-        <image id="10" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\设备状态查询PLUS.png" effect_width="1024" effect_height="600" />
-        <image id="11" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\逻辑设定界面.jpg" effect_width="1024" effect_height="600" />
-        <image id="12" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\29(设备监控无色).jpg" effect_width="1024" effect_height="600" />
-        <image id="13" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\探测器状态指示灯.ICON" effect_width="30" effect_height="30" />
-        <image id="14" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮灰停止.png" effect_width="90" effect_height="45" />
-        <image id="15" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮灰启动.png" effect_width="90" effect_height="45" />
-        <image id="16" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮绿0.png" effect_width="90" effect_height="45" />
-        <image id="17" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮绿1.png" effect_width="90" effect_height="45" />
-        <image id="18" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮红0.png" effect_width="90" effect_height="45" />
-        <image id="19" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮红1.png" effect_width="90" effect_height="45" />
-        <image id="20" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\仓级1.jpg" effect_width="1024" effect_height="600" />
-        <image id="21" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\开关按钮_关.png" effect_width="123" effect_height="35" />
-        <image id="22" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\开关按钮_开.png" effect_width="123" effect_height="35" />
-        <image id="23" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\设备上线管理复合仓探.png" effect_width="1024" effect_height="600" />
-        <image id="24" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\复位弹窗.jpg" effect_width="1024" effect_height="600" />
-        <image id="25" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\自动巡检弹窗.jpg" effect_width="1024" effect_height="600" />
-        <image id="26" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\告警查询.jpg" effect_width="1024" effect_height="600" />
-        <image id="27" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\进入设置密码.jpg" effect_width="1024" effect_height="600" />
-        <image id="28" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\密码设置.jpg" effect_width="1024" effect_height="600" />
-        <image id="29" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\设备上下线.jpg" effect_width="1024" effect_height="600" />
-        <image id="30" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\设备上下线舱级.jpg" effect_width="1024" effect_height="600" />
-        <image id="31" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\公司信息s.png" effect_width="1024" effect_height="600" />
-        <image id="32" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\清除记录弹窗.jpg" effect_width="1024" effect_height="600" />
-        <image id="33" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\外部设备启用设置S.png" effect_width="1024" effect_height="600" />
-        <image id="34" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\开关按钮_关.png" effect_width="80" effect_height="25" />
-        <image id="35" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\开关按钮_开.png" effect_width="80" effect_height="25" />
-        <image id="36" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\帮助tubiao.png" effect_width="38" effect_height="38" />
-        <image id="37" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\时间设置界面.jpg" effect_width="1024" effect_height="600" />
-        <image id="38" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\27(与).jpg" effect_width="1024" effect_height="600" />
-        <image id="39" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\逻辑查看界面.jpg" effect_width="1024" effect_height="600" />
-        <image id="40" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\超级管理员界面PLUS.png" effect_width="1024" effect_height="600" />
-        <image id="41" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\报警阈值设定界面1（新）.png" effect_width="1024" effect_height="600" />
-        <image id="42" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\报警阈值设置界面2（新）.jpg" effect_width="1024" effect_height="600" />
-        <image id="43" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\密码31.jpg" effect_width="1024" effect_height="600" />
-        <image id="44" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\二级密码SSS.png" effect_width="1024" effect_height="600" />
-        <image id="45" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\29设备监控plu5s.jpg" effect_width="1024" effect_height="600" />
-        <image id="46" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\报警查询分类.jpg" effect_width="1024" effect_height="600" />
-        <image id="47" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\告警查询plus.jpg" effect_width="1024" effect_height="600" />
-        <image id="48" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\分区1启动选择S.jpg" effect_width="1024" effect_height="600" />
-        <image id="49" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\状态监测显示界面SS.jpg" effect_width="1024" effect_height="600" />
-        <image id="50" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\PACK监控NewSS.jpg" effect_width="1024" effect_height="600" />
-        <image id="51" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮绿0.png" effect_width="55" effect_height="30" />
-        <image id="52" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮绿1.png" effect_width="55" effect_height="30" />
-        <image id="53" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮红0.png" effect_width="55" effect_height="30" />
-        <image id="54" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\按钮红1.png" effect_width="55" effect_height="30" />
-        <image id="55" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\状态监测显示界面ss.png" effect_width="1024" effect_height="600" />
-        <image id="56" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\CABIN监控选择界面.png" effect_width="1024" effect_height="600" />
-        <image id="57" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\CABIN监控显示界面s.png" effect_width="1024" effect_height="600" />
-        <image id="58" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\探测器上线界面.png" effect_width="1024" effect_height="600" />
-        <image id="59" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\images\CABIN监控界面PLUSS.png" effect_width="1024" effect_height="600" />
-        <image id="60" url="d:\awork_fils\资料\5000ccc\屏幕程序\xr5000ccc屏幕程序v1.0.2\Images\火灾报警控制器二级页面UI.jpg" effect_width="1024" effect_height="600" />
+        <image id="0" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\1(主界面) NewSuper3.png" effect_width="1024" effect_height="600" />
+        <image id="1" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\14.jpg" effect_width="1024" effect_height="600" />
+        <image id="2" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\模拟串口助手界面SS.png" effect_width="1024" effect_height="600" />
+        <image id="3" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\设备上线管理包探.png" effect_width="1024" effect_height="600" />
+        <image id="4" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\开关按钮_关.png" effect_width="90" effect_height="25" />
+        <image id="5" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\开关按钮_开.png" effect_width="90" effect_height="25" />
+        <image id="6" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\设备上线管理点型仓探.png" effect_width="1024" effect_height="600" />
+        <image id="7" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\仓状态图标.ICON" effect_width="25" effect_height="25" />
+        <image id="8" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\设备管理PLUS.png" effect_width="1024" effect_height="600" />
+        <image id="9" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\监测选择界面.jpg" effect_width="1024" effect_height="600" />
+        <image id="10" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\设备状态查询PLUS.png" effect_width="1024" effect_height="600" />
+        <image id="11" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\逻辑设定界面.jpg" effect_width="1024" effect_height="600" />
+        <image id="12" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\29(设备监控无色).jpg" effect_width="1024" effect_height="600" />
+        <image id="13" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\探测器状态指示灯.ICON" effect_width="30" effect_height="30" />
+        <image id="14" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮灰停止.png" effect_width="90" effect_height="45" />
+        <image id="15" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮灰启动.png" effect_width="90" effect_height="45" />
+        <image id="16" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮绿0.png" effect_width="90" effect_height="45" />
+        <image id="17" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮绿1.png" effect_width="90" effect_height="45" />
+        <image id="18" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮红0.png" effect_width="90" effect_height="45" />
+        <image id="19" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮红1.png" effect_width="90" effect_height="45" />
+        <image id="20" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\仓级1.jpg" effect_width="1024" effect_height="600" />
+        <image id="21" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\开关按钮_关.png" effect_width="123" effect_height="35" />
+        <image id="22" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\开关按钮_开.png" effect_width="123" effect_height="35" />
+        <image id="23" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\设备上线管理复合仓探.png" effect_width="1024" effect_height="600" />
+        <image id="24" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\复位弹窗.jpg" effect_width="1024" effect_height="600" />
+        <image id="25" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\自动巡检弹窗.jpg" effect_width="1024" effect_height="600" />
+        <image id="26" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\告警查询.jpg" effect_width="1024" effect_height="600" />
+        <image id="27" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\进入设置密码.jpg" effect_width="1024" effect_height="600" />
+        <image id="28" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\密码设置.jpg" effect_width="1024" effect_height="600" />
+        <image id="29" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\设备上下线.jpg" effect_width="1024" effect_height="600" />
+        <image id="30" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\设备上下线舱级.jpg" effect_width="1024" effect_height="600" />
+        <image id="31" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\公司信息s.png" effect_width="1024" effect_height="600" />
+        <image id="32" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\清除记录弹窗.jpg" effect_width="1024" effect_height="600" />
+        <image id="33" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\外部设备启用设置S.png" effect_width="1024" effect_height="600" />
+        <image id="34" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\开关按钮_关.png" effect_width="80" effect_height="25" />
+        <image id="35" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\开关按钮_开.png" effect_width="80" effect_height="25" />
+        <image id="36" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\帮助tubiao.png" effect_width="38" effect_height="38" />
+        <image id="37" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\时间设置界面.jpg" effect_width="1024" effect_height="600" />
+        <image id="38" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\27(与).jpg" effect_width="1024" effect_height="600" />
+        <image id="39" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\逻辑查看界面.jpg" effect_width="1024" effect_height="600" />
+        <image id="40" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\超级管理员界面PLUS.png" effect_width="1024" effect_height="600" />
+        <image id="41" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\报警阈值设定界面1（新）.png" effect_width="1024" effect_height="600" />
+        <image id="42" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\报警阈值设置界面2（新）.jpg" effect_width="1024" effect_height="600" />
+        <image id="43" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\密码31.jpg" effect_width="1024" effect_height="600" />
+        <image id="44" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\二级密码SSS.png" effect_width="1024" effect_height="600" />
+        <image id="45" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\29设备监控plu5s.jpg" effect_width="1024" effect_height="600" />
+        <image id="46" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\报警查询分类.jpg" effect_width="1024" effect_height="600" />
+        <image id="47" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\告警查询plus.jpg" effect_width="1024" effect_height="600" />
+        <image id="48" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\分区1启动选择S.jpg" effect_width="1024" effect_height="600" />
+        <image id="49" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\状态监测显示界面SS.jpg" effect_width="1024" effect_height="600" />
+        <image id="50" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\PACK监控NewSS.jpg" effect_width="1024" effect_height="600" />
+        <image id="51" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮绿0.png" effect_width="55" effect_height="30" />
+        <image id="52" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮绿1.png" effect_width="55" effect_height="30" />
+        <image id="53" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮红0.png" effect_width="55" effect_height="30" />
+        <image id="54" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\按钮红1.png" effect_width="55" effect_height="30" />
+        <image id="55" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\状态监测显示界面ss.png" effect_width="1024" effect_height="600" />
+        <image id="56" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\CABIN监控选择界面.png" effect_width="1024" effect_height="600" />
+        <image id="57" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\CABIN监控显示界面s.png" effect_width="1024" effect_height="600" />
+        <image id="58" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\探测器上线界面.png" effect_width="1024" effect_height="600" />
+        <image id="59" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\CABIN监控界面PLUSS.png" effect_width="1024" effect_height="600" />
+        <image id="60" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\Images\火灾报警控制器二级页面UI.jpg" effect_width="1024" effect_height="600" />
     </images>
     <waves />
 </Resource>

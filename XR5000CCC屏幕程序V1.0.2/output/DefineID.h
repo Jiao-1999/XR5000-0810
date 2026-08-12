@@ -217,6 +217,12 @@
 //创建画面新检查界面的命令索引ID
 #define  _SCREEN_新检查界面                                                        72
 
+//创建画面阈值设定界面的命令索引ID
+#define  _SCREEN_阈值设定界面                                                       73
+
+//创建画面打印机设置界面的命令索引ID
+#define  _SCREEN_打印机设置界面                                                      74
+
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
 #define  _BTN_开机视频_BUTTON1                                                     2
@@ -9388,6 +9394,12 @@
 
 #define  _MENU_新菜单界面_MENU11                                                   26
 
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY16                                      116
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY17                                      117
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY18                                      118
+
 #define  _TXT_DIS__设备显示详情_TEXT_DISPLAY1                                      200
 
 #define  _TXT_DIS__设备显示详情_TEXT_DISPLAY2                                        1
@@ -9669,4 +9681,44 @@
 #define  _TXT_DIS__新检查界面_TEXT_DISPLAY47                                      224
 
 #define  _BTN_新检查界面_BUTTON1                                                  300
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY1                                      100
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY2                                      101
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY3                                      102
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY4                                        1
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY5                                        2
+
+#define  _MENU_阈值设定界面_MENU1                                                   51
+
+#define  _BTN_阈值设定界面_BUTTON1                                                 300
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY6                                        3
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY7                                        4
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY1                                     200
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY2                                       1
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY3                                       2
+
+#define  _MENU_打印机设置界面_MENU1                                                  50
+
+#define  _BTN_打印机设置界面_BUTTON1                                                 80
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY4                                     201
+
+#define  _BTN_打印机设置界面_BUTTON2                                                220
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY5                                       3
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY6                                       4
+
+#define  _MENU_打印机设置界面_MENU2                                                  51
+
+#define  _BTN_打印机设置界面_BUTTON3                                                 81
 

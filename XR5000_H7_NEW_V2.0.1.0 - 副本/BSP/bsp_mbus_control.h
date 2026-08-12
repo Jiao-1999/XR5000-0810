@@ -25,9 +25,6 @@
 #define MBUS_CONTROL_FLASH_ID            0x52U /* 故障簇ID(82簇) */
 
 /* 回路2固定设备地址 */
-#define MBUS_CONTROL_SOUND_LIGHT_ADDR    60U   /* 声光报警器(XR-SGBJQ)地址 */
-#define MBUS_CONTROL_MANUAL_ALARM_ADDR   61U   /* 手动报警器(XR2200)地址 */
-#define MBUS_CONTROL_FIRE_DISPLAY_DEFAULT_ADDR 62U /* 火灾显示盘(XR1530)地址 */
 
 /* 火灾显示盘探测器类型码(用于10功能码事件上报) */
 #define MBUS_FIRE_DISPLAY_DETECT_TEMP          1U  /* 温度探测器 */
@@ -45,7 +42,9 @@ typedef enum {
     MBUS_CONTROL_DEV_UNKNOWN = 0,        /* 未知类型 */
     MBUS_CONTROL_DEV_SGBJQ   = 1,        /* XR-SGBJQ 声光报警器 */
     MBUS_CONTROL_DEV_XR2200  = 2,        /* XR2200 手动报警器 */
-    MBUS_CONTROL_DEV_FIRE_DISPLAY = 3,   /* XR1530 火灾显示盘 */
+    MBUS_CONTROL_DEV_FIRE_DISPLAY = 3,
+    MBUS_CONTROL_DEV_GCM1002 = 4,
+    MBUS_CONTROL_DEV_FIM1017 = 5,   /* XR1530 火灾显示盘 */
 } MBusCtrlDevType;
 
 /* -------------------- 设备实例(每个地址维护一份) -------------------- */
@@ -54,7 +53,12 @@ typedef struct {
     uint8_t disconnect_count;    /* 掉线累计计数(连续无响应次数) */
     uint8_t dev_type;            /* 设备类型(MBusCtrlDevType) */
     uint8_t sensor_state;        /* 传感器状态(04功能码读取的寄存器值) */
-    uint8_t disconnect_memory;   /* 掉线记忆(0=在线, 1=已记录掉线) */
+    uint8_t disconnect_memory;
+    uint16_t product_code;
+    uint8_t type_confirmed;
+    uint8_t identify_fail_count;
+    uint8_t identify_request_pending;
+    uint32_t last_identify_tick;   /* 掉线记忆(0=在线, 1=已记录掉线) */
 } MBusCtrlDevice;
 
 /* FreeRTOS消息队列句柄(MBus2轮询数据发送队列) */
@@ -72,7 +76,9 @@ void MBusCtrl_SetOnlineRange(uint8_t start, uint8_t end, uint8_t state); /* 批量
 /* ---- 状态查询 ---- */
 uint8_t MBusCtrl_GetOnline(uint8_t addr);            /* 获取在线标志(屏幕下发值) */
 uint8_t MBusCtrl_IsDisconnected(uint8_t addr);       /* 判断是否掉线(计数>=阈值) */
-uint8_t MBusCtrl_GetOnlineCount(void);               /* 回路2在线设备总数 */
+uint8_t MBusCtrl_GetOnlineCount(void);
+uint8_t MBusCtrl_IsIdentified(uint8_t addr);
+uint8_t MBusCtrl_GetActiveCount(void);               /* 回路2在线设备总数 */
 uint8_t MBusCtrl_GetDisconnectCount(void);           /* 回路2掉线设备总数 */
 uint8_t MBusCtrl_GetAlarmCount(void);                /* 回路2报警设备总数 */
 
