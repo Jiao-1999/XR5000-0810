@@ -10,6 +10,7 @@
  * ============================================================================ */
 
 #include "bsp_rs485_detect.h"
+#include "bsp_device_registry.h"
 
 #include "FreeRTOS.h"          
 #include "cmsis_os.h"          
@@ -26,15 +27,6 @@
  * ============================================================ */
 
 /* 类型码映射表: 0x000E寄存器产品型号值 → 设备类型枚举 */
-static const RS485TypeMapEntry type_map[] = {
-    {1, RS485_DETECT_TYPE_XR805},
-    {2, RS485_DETECT_TYPE_XR805},
-    {3, RS485_DETECT_TYPE_XR805},
-    {7, RS485_DETECT_TYPE_XR8303},
-    {8, RS485_DETECT_TYPE_XR8305},
-};
-#define TYPE_MAP_SIZE  (sizeof(type_map) / sizeof(type_map[0]))
-
 /* XR805传感器寄存器布局: 04功能码读取16个寄存器(0x0000~0x000F), 响应帧含温度/烟雾/CH4/CO/VOC/H2的数值和状态 */
 static const RS485SensorRegDef XR805_SENSOR_LAYOUT[] = {
     {0x0000, 3,  RS485_SENSOR_TEMPERATURE, 1},  /* 温度值 */
@@ -83,22 +75,26 @@ static uint32_t g_last_poll_time = 0;    /* 上次轮询的系统tick */
 static uint8_t g_transaction_pending = 0;       /* 是否有进行中的事务 */
 static uint8_t g_transaction_addr = 0;          /* 当前事务的目标地址 */
 static uint8_t g_transaction_type_detect = 0;   /* 当前事务是否为类型探测(1=类型探测, 0=传感器数据) */
-static uint32_t g_transaction_start_tick = 0;   /* 事务启动时的系统tick(用于超时判断) */
+static uint32_t g_transaction_start_tick = 0;
+static uint8_t g_identify_fail_count[RS485_DETECT_MAX_DEVICES];
+static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
+#define RS485_IDENTIFY_FAIL_THRESHOLD 3U
+#define RS485_IDENTIFY_RETRY_MS 1000U   /* 事务启动时的系统tick(用于超时判断) */
 
 /* ============================================================
  * 内部辅助函数
  * ============================================================ */
 
 /* 根据0x000E寄存器产品型号值查找对应的设备类型枚举 */
-static uint8_t lookup_device_type(uint8_t product_code)
+static uint8_t lookup_device_type(uint16_t product_code)
 {
-    for (uint8_t i = 0; i < TYPE_MAP_SIZE; i++)
-    {
-        if (type_map[i].product_code == product_code)
-        {
-            return type_map[i].device_type;
-        }
-    }
+    uint8_t parser;
+    if(DeviceRegistry_IsSupportedOnLoop(product_code, DEVICE_REGISTRY_LOOP3) == 0U) return RS485_DETECT_TYPE_UNKNOWN;
+    parser = DeviceRegistry_GetParserType(product_code);
+    if(parser == DEVICE_PARSER_XR805) return RS485_DETECT_TYPE_XR805;
+    if(parser == DEVICE_PARSER_XR8303) return RS485_DETECT_TYPE_XR8303;
+    if(parser == DEVICE_PARSER_XR8305) return RS485_DETECT_TYPE_XR8305;
+    if(parser == DEVICE_PARSER_DLYGWG) return RS485_DETECT_TYPE_DLYGWG;
     return RS485_DETECT_TYPE_UNKNOWN;
 }
 
@@ -125,7 +121,9 @@ static uint8_t get_register_count(uint8_t device_type)
     if (device_type == RS485_DETECT_TYPE_XR805)
         return 16;  /* 0x0000 ~ 0x000F */
     else if (device_type == RS485_DETECT_TYPE_XR8303 || device_type == RS485_DETECT_TYPE_XR8305)
-        return 12;  /* 0x0000 ~ 0x000B */
+        return 12;
+    else if (device_type == RS485_DETECT_TYPE_DLYGWG)
+        return 1;  /* 0x0000 ~ 0x000B */
     return 0;
 }
 
@@ -201,6 +199,8 @@ void RS485Detect_SetOnline(uint8_t addr, uint8_t state)
         g_devices[addr].sensor_data_valid = 0; /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
         g_devices[addr].disconnect_count = 0;
         g_devices[addr].disconnect_memory = 0;
+        g_identify_fail_count[addr] = 0U;
+        DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP3, addr, 0U);
         if (g_transaction_pending != 0U && g_transaction_addr == addr)
         {
             g_transaction_pending = 0;
@@ -309,6 +309,21 @@ uint8_t RS485Detect_IsDisconnected(uint8_t addr)
 uint8_t RS485Detect_GetOnlineCount(void)
 {
     return g_online_count;
+}
+
+uint8_t RS485Detect_GetActiveCount(void)
+{
+    uint8_t count = 0U;
+    uint8_t addr;
+    for(addr = 1U; addr < RS485_DETECT_MAX_DEVICES; addr++)
+    {
+        if(g_devices[addr].online != 0U && g_devices[addr].type_confirmed != 0U &&
+           g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD)
+        {
+            count++;
+        }
+    }
+    return count;
 }
 
 /* 统计回路3掉线设备数量(上线但掉线计数>=阈值) */
@@ -425,30 +440,36 @@ static void build_type_detect_cmd(uint8_t *buf, uint8_t addr)
 }
 
 static void check_and_record_fault(uint8_t addr); /* 前向声明: 掉线/报警检测 */
+static void mark_identify_failure(uint8_t addr)
+{
+    if(addr == 0U || addr >= RS485_DETECT_MAX_DEVICES) return;
+    if(g_identify_fail_count[addr] < RS485_IDENTIFY_FAIL_THRESHOLD) g_identify_fail_count[addr]++;
+    g_last_identify_tick[addr] = osKernelGetTickCount();
+    if(g_identify_fail_count[addr] >= RS485_IDENTIFY_FAIL_THRESHOLD)
+        DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP3, addr, 1U);
+}
 
 /* 检查当前事务是否超时: 超时则计掉线+触发故障检测 */
 static void mark_transaction_timeout(void)
 {
     uint8_t addr;
-
-    if (g_transaction_pending == 0U)
-        return;
-
-    if ((osKernelGetTickCount() - g_transaction_start_tick) < RS485_DETECT_RESPONSE_TIMEOUT_MS)
-        return;
-
+    uint8_t was_type_detect;
+    if (g_transaction_pending == 0U) return;
+    if ((osKernelGetTickCount() - g_transaction_start_tick) < RS485_DETECT_RESPONSE_TIMEOUT_MS) return;
     addr = g_transaction_addr;
+    was_type_detect = g_transaction_type_detect;
     g_transaction_pending = 0;
     g_transaction_addr = 0;
     g_transaction_type_detect = 0;
-
     if (addr > 0U && addr < RS485_DETECT_MAX_DEVICES && g_devices[addr].online != 0U)
     {
-        if (g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD)
+        if(was_type_detect != 0U) mark_identify_failure(addr);
+        else
         {
-            g_devices[addr].disconnect_count++;
+            if (g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD)
+                g_devices[addr].disconnect_count++;
+            check_and_record_fault(addr);
         }
-        check_and_record_fault(addr);
     }
 }
 
@@ -470,7 +491,9 @@ static void poll_next_device(void)
         if (g_poll_current_addr >= RS485_DETECT_MAX_DEVICES)
             g_poll_current_addr = 1;
 
-        if (g_devices[g_poll_current_addr].online != 0U)
+        if (g_devices[g_poll_current_addr].online != 0U &&
+            (DeviceRegistry_IsProductUnknown(DEVICE_REGISTRY_LOOP3, g_poll_current_addr) == 0U ||
+             (osKernelGetTickCount() - g_last_identify_tick[g_poll_current_addr]) >= RS485_IDENTIFY_RETRY_MS))
         {
             found = 1;
             break;
@@ -667,14 +690,14 @@ static void receive_data_deal(void)
     if (func == 0x84U)
     {
         uint8_t was_type_detect = g_transaction_type_detect;
-        complete_transaction(addr);
-
-        if (was_type_detect != 0U)
+        g_transaction_pending = 0U; g_transaction_addr = 0U;
+        g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
+        if (was_type_detect != 0U) mark_identify_failure(addr);
+        else
         {
-            g_devices[addr].device_type = RS485_DETECT_TYPE_XR8303;
-            g_devices[addr].type_confirmed = 1;
+            if(g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD) g_devices[addr].disconnect_count++;
+            check_and_record_fault(addr);
         }
-        check_and_record_fault(addr);
         return;
     }
 
@@ -703,16 +726,24 @@ static void receive_data_deal(void)
     if (g_transaction_type_detect != 0U)
     {
         uint16_t product_code = (buf[3] << 8) | buf[4];
-        uint8_t detected_type = lookup_device_type((uint8_t)product_code);
+        uint8_t detected_type = lookup_device_type(product_code);
 
         if (detected_type != RS485_DETECT_TYPE_UNKNOWN)
         {
             g_devices[addr].device_type = detected_type;
             g_devices[addr].type_confirmed = 1;
+            g_identify_fail_count[addr] = 0U;
+            DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP3, addr, 0U);
+            g_devices[addr].sensor_enable = (buf[5] << 8) | buf[6];
+            g_devices[addr].sensor_enable_confirmed = 1;
+            complete_transaction(addr);
         }
-        g_devices[addr].sensor_enable = (buf[5] << 8) | buf[6];
-        g_devices[addr].sensor_enable_confirmed = 1;
-        complete_transaction(addr);
+        else
+        {
+            mark_identify_failure(addr);
+            g_transaction_pending = 0U; g_transaction_addr = 0U;
+            g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
+        }
     }
     else
     {

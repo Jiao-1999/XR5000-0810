@@ -1040,6 +1040,11 @@
               <FilePath>..\BSP\bsp_mbus_control.c</FilePath>
             </File>
             <File>
+              <FileName>bsp_device_registry.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_device_registry.c</FilePath>
+            </File>
+            <File>
               <FileName>bsp_rs485_01.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\bsp_rs485_01.c</FilePath>
