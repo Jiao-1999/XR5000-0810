@@ -64,6 +64,9 @@ static uint8_t g_sound_light_retry_count = 0;    /* 当前控制重试计数 */
 /* 设备中文名称映射表(索引=MBusCtrlDevType) */
 #define MBUS2_IDENTIFY_FAIL_THRESHOLD 3U
 #define MBUS2_IDENTIFY_RETRY_MS 1000U
+#define MBUS2_STAGE_NATIONAL 0U
+#define MBUS2_STAGE_PRODUCT  1U
+#define MBUS2_STAGE_COMPLETE 2U
 
 static uint8_t MBusCtrl_MapProductType(uint16_t product_code)
 {
@@ -87,14 +90,16 @@ static uint8_t MBusCtrl_FindAddressByType(uint8_t dev_type)
     return 0U;
 }
 
-static void MBusCtrl_MarkIdentifyFailure(uint8_t addr)
+static void MBusCtrl_MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error)
 {
     if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES) return;
+    if(error == DEVICE_IDENTIFY_NATIONAL_UNKNOWN || error == DEVICE_IDENTIFY_CODE_MISMATCH)
+        g_mbus_ctrl_devices[addr].identify_stage = MBUS2_STAGE_NATIONAL;
     if(g_mbus_ctrl_devices[addr].identify_fail_count < MBUS2_IDENTIFY_FAIL_THRESHOLD)
         g_mbus_ctrl_devices[addr].identify_fail_count++;
     g_mbus_ctrl_devices[addr].last_identify_tick = osKernelGetTickCount();
     if(g_mbus_ctrl_devices[addr].identify_fail_count >= MBUS2_IDENTIFY_FAIL_THRESHOLD)
-        DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP2, addr, 1U);
+        DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP2, addr, error);
 }
 /* ============================================================
  * 火灾显示盘事件处理: 10功能码写多寄存器, 环形队列+重试机制
@@ -237,7 +242,9 @@ void MBusCtrl_Init(void)
         g_mbus_ctrl_devices[i].sensor_state = 0;
         g_mbus_ctrl_devices[i].disconnect_memory = 0;
         g_mbus_ctrl_devices[i].product_code = 0U;
+        g_mbus_ctrl_devices[i].national_type_code = 0U;
         g_mbus_ctrl_devices[i].type_confirmed = 0U;
+        g_mbus_ctrl_devices[i].identify_stage = MBUS2_STAGE_NATIONAL;
         g_mbus_ctrl_devices[i].identify_fail_count = 0U;
         g_mbus_ctrl_devices[i].identify_request_pending = 0U;
         g_mbus_ctrl_devices[i].last_identify_tick = 0U;
@@ -261,8 +268,10 @@ void MBusCtrl_SetOnline(uint8_t addr, uint8_t state)
         g_mbus_ctrl_devices[addr].sensor_state = 0;
         g_mbus_ctrl_devices[addr].disconnect_memory = 0;
         g_mbus_ctrl_devices[addr].product_code = 0U;
+        g_mbus_ctrl_devices[addr].national_type_code = 0U;
         g_mbus_ctrl_devices[addr].dev_type = MBUS_CONTROL_DEV_UNKNOWN;
         g_mbus_ctrl_devices[addr].type_confirmed = 0U;
+        g_mbus_ctrl_devices[addr].identify_stage = MBUS2_STAGE_NATIONAL;
         g_mbus_ctrl_devices[addr].identify_fail_count = 0U;
         g_mbus_ctrl_devices[addr].identify_request_pending = 0U;
         DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP2, addr, 0U);
@@ -453,14 +462,16 @@ static void MBusControlPollingManage(void)
     {
         if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending != 0U)
         {
-            MBusCtrl_MarkIdentifyFailure(g_mbus_ctrl_polling_addr);
+            MBusCtrl_MarkIdentifyFailure(g_mbus_ctrl_polling_addr,
+                g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_stage == MBUS2_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
             if(DeviceRegistry_IsProductUnknown(DEVICE_REGISTRY_LOOP2, g_mbus_ctrl_polling_addr) != 0U)
             {
                 g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending = 0U;
                 return;
             }
         }
-        modbus_buff[2]=0U; modbus_buff[3]=0x0EU;
+        modbus_buff[2]=0U;
+        modbus_buff[3]=g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_stage == MBUS2_STAGE_NATIONAL ? 0x0DU : 0x0EU;
         g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending = 1U;
         g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].last_identify_tick = now;
     }
@@ -506,18 +517,31 @@ static void MBus2ReceiveSlaveDataDeal(void)
                 uint16_t data = (uartbuff[MBUS2SITE].recepetion_buff[3] << 8) | uartbuff[MBUS2SITE].recepetion_buff[4];
                 if(g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U)
                 {
-                    uint8_t type = MBusCtrl_MapProductType(data);
                     g_mbus_ctrl_devices[dev_addr].identify_request_pending = 0U;
-                    if(type != MBUS_CONTROL_DEV_UNKNOWN)
+                    if(g_mbus_ctrl_devices[dev_addr].identify_stage == MBUS2_STAGE_NATIONAL)
                     {
-                        g_mbus_ctrl_devices[dev_addr].product_code = data;
-                        g_mbus_ctrl_devices[dev_addr].dev_type = type;
-                        g_mbus_ctrl_devices[dev_addr].type_confirmed = 1U;
+                        g_mbus_ctrl_devices[dev_addr].national_type_code = data;
+                        g_mbus_ctrl_devices[dev_addr].identify_stage = MBUS2_STAGE_PRODUCT;
                         g_mbus_ctrl_devices[dev_addr].identify_fail_count = 0U;
-                        g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
-                        DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP2, dev_addr, 0U);
                     }
-                    else MBusCtrl_MarkIdentifyFailure(dev_addr);
+                    else
+                    {
+                        uint8_t type = MBusCtrl_MapProductType(data);
+                        if(type == MBUS_CONTROL_DEV_UNKNOWN)
+                            MBusCtrl_MarkIdentifyFailure(dev_addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
+                        else if(DeviceRegistry_IsNationalProductMatch(g_mbus_ctrl_devices[dev_addr].national_type_code, data) == 0U)
+                            MBusCtrl_MarkIdentifyFailure(dev_addr, DeviceRegistry_IsNationalTypeKnown(g_mbus_ctrl_devices[dev_addr].national_type_code) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
+                        else
+                        {
+                            g_mbus_ctrl_devices[dev_addr].product_code = data;
+                            g_mbus_ctrl_devices[dev_addr].dev_type = type;
+                            g_mbus_ctrl_devices[dev_addr].type_confirmed = 1U;
+                            g_mbus_ctrl_devices[dev_addr].identify_stage = MBUS2_STAGE_COMPLETE;
+                            g_mbus_ctrl_devices[dev_addr].identify_fail_count = 0U;
+                            g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
+                            DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP2, dev_addr, DEVICE_IDENTIFY_OK);
+                        }
+                    }
                 }
                 else
                 {
@@ -531,7 +555,8 @@ static void MBus2ReceiveSlaveDataDeal(void)
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x84U && g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U)
             {
                 g_mbus_ctrl_devices[dev_addr].identify_request_pending = 0U;
-                MBusCtrl_MarkIdentifyFailure(dev_addr);
+                MBusCtrl_MarkIdentifyFailure(dev_addr,
+                    g_mbus_ctrl_devices[dev_addr].identify_stage == MBUS2_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x05 &&
                      g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_SGBJQ &&

@@ -80,6 +80,10 @@ static uint8_t g_identify_fail_count[RS485_DETECT_MAX_DEVICES];
 static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
 #define RS485_IDENTIFY_FAIL_THRESHOLD 3U
 #define RS485_IDENTIFY_RETRY_MS 1000U   /* 事务启动时的系统tick(用于超时判断) */
+#define RS485_STAGE_NATIONAL 1U
+#define RS485_STAGE_PRODUCT  2U
+#define RS485_STAGE_SENSOR   3U
+#define RS485_STAGE_COMPLETE 4U
 
 /* ============================================================
  * 内部辅助函数
@@ -173,6 +177,7 @@ void RS485Detect_LoadOnlineState(void)
 void RS485Detect_Init(void)
 {
     memset(g_devices, 0, sizeof(g_devices));
+    for(uint8_t i = 0U; i < RS485_DETECT_MAX_DEVICES; i++) g_devices[i].identify_stage = RS485_STAGE_NATIONAL;
     g_online_count = 0;
     g_poll_current_addr = 1;
     g_last_poll_time = 0;
@@ -217,6 +222,9 @@ void RS485Detect_SetOnline(uint8_t addr, uint8_t state)
         {
             g_online_count++;
             g_devices[addr].type_confirmed = 0;
+            g_devices[addr].identify_stage = RS485_STAGE_NATIONAL;
+            g_devices[addr].national_type_code = 0U;
+            g_devices[addr].product_code = 0U;
             g_devices[addr].sensor_enable_confirmed = 0; 
             g_devices[addr].sensor_data_valid = 0; /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
             g_devices[addr].device_type = RS485_DETECT_TYPE_UNKNOWN;
@@ -228,6 +236,7 @@ void RS485Detect_SetOnline(uint8_t addr, uint8_t state)
             if (g_online_count > 0)
                 g_online_count--;
             g_devices[addr].type_confirmed = 0;
+            g_devices[addr].identify_stage = RS485_STAGE_NATIONAL;
             g_devices[addr].sensor_enable_confirmed = 0;
             g_devices[addr].sensor_data_valid = 0; /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
             g_devices[addr].disconnect_count = 0;
@@ -423,16 +432,16 @@ static void build_modbus_read_cmd(uint8_t *buf, uint8_t addr, uint8_t reg_count)
 }
 
 /* 构建类型探测Modbus帧(04功能码, 读0x000E和0x000F共2个寄存器) */
-static void build_type_detect_cmd(uint8_t *buf, uint8_t addr)
+static void build_type_detect_cmd(uint8_t *buf, uint8_t addr, uint16_t reg)
 {
     uint16_t crc16;
 
     buf[0] = addr;
     buf[1] = 0x04;
-    buf[2] = (RS485_DETECT_TYPE_REG >> 8) & 0xFF;
-    buf[3] = RS485_DETECT_TYPE_REG & 0xFF;
+    buf[2] = (reg >> 8) & 0xFF;
+    buf[3] = reg & 0xFF;
     buf[4] = 0x00;
-    buf[5] = 0x02; /* 读2个寄存器（0x000E + 0x000F） */
+    buf[5] = 0x01;
 
     crc16 = CalcCrc16(buf, 6);
     buf[6] = crc16 & 0xFF;
@@ -440,13 +449,15 @@ static void build_type_detect_cmd(uint8_t *buf, uint8_t addr)
 }
 
 static void check_and_record_fault(uint8_t addr); /* 前向声明: 掉线/报警检测 */
-static void mark_identify_failure(uint8_t addr)
+static void mark_identify_failure(uint8_t addr, DeviceIdentifyError error)
 {
     if(addr == 0U || addr >= RS485_DETECT_MAX_DEVICES) return;
+    if(error == DEVICE_IDENTIFY_NATIONAL_UNKNOWN || error == DEVICE_IDENTIFY_CODE_MISMATCH)
+        g_devices[addr].identify_stage = RS485_STAGE_NATIONAL;
     if(g_identify_fail_count[addr] < RS485_IDENTIFY_FAIL_THRESHOLD) g_identify_fail_count[addr]++;
     g_last_identify_tick[addr] = osKernelGetTickCount();
     if(g_identify_fail_count[addr] >= RS485_IDENTIFY_FAIL_THRESHOLD)
-        DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP3, addr, 1U);
+        DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP3, addr, error);
 }
 
 /* 检查当前事务是否超时: 超时则计掉线+触发故障检测 */
@@ -463,7 +474,8 @@ static void mark_transaction_timeout(void)
     g_transaction_type_detect = 0;
     if (addr > 0U && addr < RS485_DETECT_MAX_DEVICES && g_devices[addr].online != 0U)
     {
-        if(was_type_detect != 0U) mark_identify_failure(addr);
+        if(was_type_detect != 0U)
+            mark_identify_failure(addr, was_type_detect == RS485_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : was_type_detect == RS485_STAGE_PRODUCT ? DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE : DEVICE_IDENTIFY_SENSOR_READ_FAILED);
         else
         {
             if (g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD)
@@ -507,11 +519,12 @@ static void poll_next_device(void)
         return;
 
     addr = g_poll_current_addr;
-    type_detect = (g_devices[addr].type_confirmed == 0U) ? 1U : 0U;
+    type_detect = (g_devices[addr].type_confirmed == 0U) ? g_devices[addr].identify_stage : 0U;
 
     if (type_detect != 0U)
     {
-        build_type_detect_cmd(modbusbuf, addr);
+        uint16_t reg = type_detect == RS485_STAGE_NATIONAL ? RS485_DETECT_NATIONAL_TYPE_REG : type_detect == RS485_STAGE_PRODUCT ? RS485_DETECT_TYPE_REG : RS485_DETECT_SENSOR_ENABLE_REG;
+        build_type_detect_cmd(modbusbuf, addr, reg);
     }
     else
     {
@@ -692,7 +705,8 @@ static void receive_data_deal(void)
         uint8_t was_type_detect = g_transaction_type_detect;
         g_transaction_pending = 0U; g_transaction_addr = 0U;
         g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
-        if (was_type_detect != 0U) mark_identify_failure(addr);
+        if (was_type_detect != 0U)
+            mark_identify_failure(addr, was_type_detect == RS485_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : was_type_detect == RS485_STAGE_PRODUCT ? DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE : DEVICE_IDENTIFY_SENSOR_READ_FAILED);
         else
         {
             if(g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD) g_devices[addr].disconnect_count++;
@@ -706,11 +720,16 @@ static void receive_data_deal(void)
 
     byte_count = buf[2];
     if (len != (uint16_t)(byte_count + 5U))
+    {
+        /* A CRC-valid 0x04 frame from the polled device proves communication.
+         * Do not convert an unexpected payload length into a false disconnect. */
+        if(g_transaction_type_detect == 0U) complete_transaction(addr);
         return;
+    }
 
     if (g_transaction_type_detect != 0U)
     {
-        expected_byte_count = 4U;
+        expected_byte_count = 2U;
     }
     else
     {
@@ -721,28 +740,67 @@ static void receive_data_deal(void)
     }
 
     if (byte_count != expected_byte_count)
+    {
+        /* Keep the last valid sensor data, but release this normal polling
+         * transaction without increasing disconnect_count. */
+        if(g_transaction_type_detect == 0U) complete_transaction(addr);
         return;
+    }
 
     if (g_transaction_type_detect != 0U)
     {
-        uint16_t product_code = (buf[3] << 8) | buf[4];
-        uint8_t detected_type = lookup_device_type(product_code);
-
-        if (detected_type != RS485_DETECT_TYPE_UNKNOWN)
+        uint16_t identify_value = (buf[3] << 8) | buf[4];
+        if(g_transaction_type_detect == RS485_STAGE_NATIONAL)
         {
-            g_devices[addr].device_type = detected_type;
-            g_devices[addr].type_confirmed = 1;
+            g_devices[addr].national_type_code = identify_value;
+            g_devices[addr].identify_stage = RS485_STAGE_PRODUCT;
             g_identify_fail_count[addr] = 0U;
-            DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP3, addr, 0U);
-            g_devices[addr].sensor_enable = (buf[5] << 8) | buf[6];
-            g_devices[addr].sensor_enable_confirmed = 1;
             complete_transaction(addr);
+        }
+        else if(g_transaction_type_detect == RS485_STAGE_PRODUCT)
+        {
+            uint8_t detected_type = lookup_device_type(identify_value);
+            if(detected_type == RS485_DETECT_TYPE_UNKNOWN)
+                mark_identify_failure(addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
+            else if(DeviceRegistry_IsNationalProductMatch(g_devices[addr].national_type_code, identify_value) == 0U)
+                mark_identify_failure(addr, DeviceRegistry_IsNationalTypeKnown(g_devices[addr].national_type_code) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
+            else
+            {
+                g_devices[addr].product_code = identify_value;
+                g_devices[addr].device_type = detected_type;
+                g_identify_fail_count[addr] = 0U;
+                if(DeviceRegistry_RequiresSensorMask(identify_value) != 0U)
+                    g_devices[addr].identify_stage = RS485_STAGE_SENSOR;
+                else
+                {
+                    g_devices[addr].sensor_enable = 0U;
+                    g_devices[addr].sensor_enable_confirmed = 1U;
+                    g_devices[addr].type_confirmed = 1U;
+                    g_devices[addr].identify_stage = RS485_STAGE_COMPLETE;
+                    DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP3, addr, DEVICE_IDENTIFY_OK);
+                }
+                complete_transaction(addr);
+                return;
+            }
+            g_transaction_pending = 0U; g_transaction_addr = 0U; g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
         }
         else
         {
-            mark_identify_failure(addr);
-            g_transaction_pending = 0U; g_transaction_addr = 0U;
-            g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
+            if(DeviceRegistry_IsSensorMaskValid(g_devices[addr].product_code, identify_value) != 0U)
+            {
+                g_devices[addr].sensor_enable = identify_value;
+                g_devices[addr].sensor_enable_confirmed = 1U;
+                g_devices[addr].type_confirmed = 1U;
+                g_devices[addr].identify_stage = RS485_STAGE_COMPLETE;
+                g_identify_fail_count[addr] = 0U;
+                DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP3, addr, DEVICE_IDENTIFY_OK);
+                complete_transaction(addr);
+            }
+            else
+            {
+                mark_identify_failure(addr, DEVICE_IDENTIFY_SENSOR_TYPE_UNKNOWN);
+                g_transaction_pending = 0U; g_transaction_addr = 0U; g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
+            }
         }
     }
     else

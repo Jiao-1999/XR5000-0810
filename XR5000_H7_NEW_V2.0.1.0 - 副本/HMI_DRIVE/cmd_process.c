@@ -4336,6 +4336,10 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 */
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
+	 if(screen_id == 75U && control_id >= 1U && control_id <= 6U)
+	 {
+		CanMonitorSetChannelName((uint8_t)control_id, str);
+	 }
 	 if(screen_id==1)                                                                 //画面ID42：上线文本
    { 
 			if(control_id == 25) // 修改CAN2ID地址
@@ -4896,7 +4900,13 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 	}
 	else if(screen_id == 68)
 	{
-		if(control_id == 16 && state == 1)
+		if(control_id == 17 && state == 1 && item == 0U)
+		{
+			bsp_screen_switch_ctrl.target_screen = 75U;
+			bsp_screen_switch_ctrl.switch_flag = 1U;
+			SwitchCurrentScreenId(75U);
+		}
+		else if(control_id == 16 && state == 1)
 		{
 			switch(item)
 			{
@@ -4962,6 +4972,15 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 			}
 		}
 }
+	else if(screen_id == 75U && control_id == 350U && state == 1U)
+	{
+		uint8_t first = (item == 6U) ? 0U : item;
+		uint8_t last = (item == 6U) ? 5U : item;
+		uint8_t index;
+		CanMonitorResetChannelName(item);
+		for(index = first; index <= last && index < 6U; index++)
+			SetTextValue(75U, (uint16_t)(index + 1U), (uint8_t *)"");
+	}
 }
 
 /*! 
@@ -6048,9 +6067,10 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 				{
 					uint8_t unknown_loop = 0U;
 					uint8_t unknown_addr = 0U;
-                    static const uint8_t unknown_format[] = {0xB5U,0xDAU,'%','d',0xBBU,0xD8U,0xC2U,0xB7U,'%','0','2','d',0xBAU,0xC5U,' ',0xB2U,0xFAU,0xC6U,0xB7U,0xD0U,0xCDU,0xBAU,0xC5U,0xCEU,0xB4U,0xCAU,0xB6U,0xB1U,0xF0U,0U};
-					if(DeviceRegistry_GetProductUnknownAt((uint16_t)(data_index - pcfs_buttom_point), &unknown_loop, &unknown_addr) != 0U)
-                        sprintf((char*)baojingneirong, (const char*)unknown_format, unknown_loop, unknown_addr);
+                    DeviceIdentifyError identify_error = DEVICE_IDENTIFY_OK;
+                    static const uint8_t unknown_format[] = {0xB5U,0xDAU,'%','d',0xBBU,0xD8U,0xC2U,0xB7U,'%','0','2','d',0xBAU,0xC5U,' ','%','s',0U};
+					if(DeviceRegistry_GetIdentifyErrorAt((uint16_t)(data_index - pcfs_buttom_point), &unknown_loop, &unknown_addr, &identify_error) != 0U)
+                        sprintf((char*)baojingneirong, (const char*)unknown_format, unknown_loop, unknown_addr, DeviceRegistry_GetIdentifyErrorText(identify_error));
 					else baojingneirong[0] = 0;
 				}
 				else if(FormatLoop1FaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)

@@ -30,6 +30,7 @@
 
 /* 类型探测寄存器地址(04功能码读取) */
 #define RS485_DETECT_TYPE_REG    0x000E  /* 产品型号寄存器 */
+#define RS485_DETECT_NATIONAL_TYPE_REG 0x000D
 #define RS485_DETECT_SENSOR_ENABLE_REG  0x000F  /* 传感器启用位掩码寄存器 */
 
 /* -------------------- 设备类型枚举 -------------------- */
@@ -72,11 +73,14 @@ typedef struct {
     uint8_t  online;              /* 在线标志(屏幕下发设置) */
     uint8_t  device_type;         /* 设备类型(RS485DetectDeviceType) */
     uint8_t  type_confirmed;      /* 类型已确认(已成功读取0x000E) */
+    uint8_t  identify_stage;
     uint8_t  sensor_enable_confirmed; /* 传感器启用状态已确认(已成功读取0x000F) */
     uint8_t  sensor_data_valid;      /* 传感器实时数据有效(已收到完整传感器帧) */
     uint8_t  disconnect_count;       /* 掉线累计计数(连续无响应次数) */
     uint8_t  disconnect_memory;      /* 掉线记忆(0=在线, 1=已记录掉线) */
     uint16_t sensor_enable;          /* 0x000F传感器启用位掩码 */
+    uint16_t national_type_code;
+    uint16_t product_code;
     uint16_t sensor_values[RS485_SENSOR_COUNT];  /* 传感器数值(温度/烟雾/CO等) */
     uint8_t  sensor_states[RS485_SENSOR_COUNT];  /* 传感器状态(0=正常/1=预警/2=报警/...) */
     uint8_t  alarm_memory[RS485_SENSOR_COUNT];   /* 报警记忆(0=正常, 1=已记录报警) */

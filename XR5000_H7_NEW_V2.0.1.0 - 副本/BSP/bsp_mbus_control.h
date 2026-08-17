@@ -55,7 +55,9 @@ typedef struct {
     uint8_t sensor_state;        /* 传感器状态(04功能码读取的寄存器值) */
     uint8_t disconnect_memory;
     uint16_t product_code;
+    uint16_t national_type_code;
     uint8_t type_confirmed;
+    uint8_t identify_stage;
     uint8_t identify_fail_count;
     uint8_t identify_request_pending;
     uint32_t last_identify_tick;   /* 掉线记忆(0=在线, 1=已记录掉线) */

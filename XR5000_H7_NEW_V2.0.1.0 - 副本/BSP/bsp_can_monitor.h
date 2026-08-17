@@ -15,6 +15,8 @@ typedef enum
 void CanMonitorTask(void *parameter);
 void CanMonitorProcess(void);
 void CanMonitorRefreshDisplay(uint16_t screen_id);
+void CanMonitorSetChannelName(uint8_t channel, const uint8_t *name);
+void CanMonitorResetChannelName(uint8_t item);
 uint8_t CanMonitorIsOnline(void);
 uint8_t CanMonitorGetChannelState(uint8_t channel);
 
