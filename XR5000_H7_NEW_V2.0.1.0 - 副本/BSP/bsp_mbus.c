@@ -325,24 +325,39 @@ uint8_t getPointTypeMixtureStateClass(uint8_t detect_id)
     return 0U;
 }
 
-static void MBus1BuildReadCommand(uint8_t *buf, uint8_t addr, uint8_t count)
+static void MBus1BuildReadCommand(uint8_t *buf, uint8_t addr, uint16_t start, uint8_t count)
 {
     uint16_t crc16;
-    buf[0] = addr; buf[1] = 0x04; buf[2] = 0x00; buf[3] = 0x00; buf[4] = 0x00; buf[5] = count;
+    buf[0] = addr; buf[1] = 0x04; buf[2] = (uint8_t)(start >> 8); buf[3] = (uint8_t)start; buf[4] = 0x00; buf[5] = count;
     crc16 = CalcCrc16(buf, 6); buf[6] = crc16 & 0xFF; buf[7] = crc16 >> 8;
 }
 
 static uint8_t g_mbus1_type_confirmed[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint8_t g_mbus1_identify_fail_count[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint32_t g_mbus1_last_identify_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+static uint16_t g_mbus1_national_code[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+static uint8_t g_mbus1_identify_stage[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+static uint16_t g_mbus1_identify_candidate[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+static uint8_t g_mbus1_identify_confirm_count[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+static uint32_t g_mbus1_last_offline_probe_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+#define MBUS1_STAGE_NATIONAL 0U
+#define MBUS1_STAGE_PRODUCT  1U
+#define MBUS1_STAGE_COMPLETE 2U
 #define MBUS1_IDENTIFY_FAIL_THRESHOLD 3U
 #define MBUS1_IDENTIFY_RETRY_MS 1000U
+#define MBUS1_IDENTIFY_RETRY_GAP_MS 150U
+#define MBUS1_OFFLINE_PROBE_INTERVAL_MS 1000U
 static void MBus1ClearIdentification(uint8_t addr)
 {
     if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
     g_mbus1_type_confirmed[addr] = 0U;
     g_mbus1_identify_fail_count[addr] = 0U;
     g_mbus1_last_identify_tick[addr] = 0U;
+    g_mbus1_national_code[addr] = 0U;
+    g_mbus1_identify_stage[addr] = MBUS1_STAGE_NATIONAL;
+    g_mbus1_identify_candidate[addr] = 0U;
+    g_mbus1_identify_confirm_count[addr] = 0U;
+    g_mbus1_last_offline_probe_tick[addr] = 0U;
     PointTypeMixtureDetecteName[addr] = 0U;
     PointTypeMixtureDetecteType[addr] = 0U;
     PointTypeMixtureDisconnectCount[addr] = 0U;
@@ -350,7 +365,7 @@ static void MBus1ClearIdentification(uint8_t addr)
 }
 static uint8_t g_mbus1_transaction_pending = 0U;
 static uint8_t g_mbus1_transaction_addr = 0U;
-static uint8_t g_mbus1_transaction_full_read = 0U;
+static uint8_t g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
 static uint32_t g_mbus1_transaction_tick = 0U;
 static uint8_t g_mbus1_poll_addr = 0U;
 static uint8_t g_mbus1_retry_addr = 0U;
@@ -360,35 +375,44 @@ static void MBus1FinishTransaction(uint8_t addr)
 {
     PointTypeMixtureDisconnectCount[addr] = 0U;
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
-    g_mbus1_transaction_full_read = 0U; g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
+    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
 }
 
-static void MBus1MarkIdentifyFailure(uint8_t addr)
+static void MBus1MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error)
 {
     if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
+    g_mbus1_identify_candidate[addr] = 0U;
+    g_mbus1_identify_confirm_count[addr] = 0U;
+    if(error == DEVICE_IDENTIFY_NATIONAL_UNKNOWN || error == DEVICE_IDENTIFY_CODE_MISMATCH)
+        g_mbus1_identify_stage[addr] = MBUS1_STAGE_NATIONAL;
     if(g_mbus1_identify_fail_count[addr] < MBUS1_IDENTIFY_FAIL_THRESHOLD) g_mbus1_identify_fail_count[addr]++;
     g_mbus1_last_identify_tick[addr] = osKernelGetTickCount();
     if(g_mbus1_identify_fail_count[addr] >= MBUS1_IDENTIFY_FAIL_THRESHOLD)
-        DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP1, addr, 1U);
+        DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP1, addr, error);
 }
 
 static void MBus1MarkTimeout(void)
 {
     uint8_t addr;
-    uint8_t was_identify;
-    if(g_mbus1_bus_locked != 0U || g_mbus1_transaction_pending == 0U ||
-       (osKernelGetTickCount() - g_mbus1_transaction_tick) < MIXTURE_DEVICE_RESPONSE_TIMEOUT_MS) return;
+    uint8_t identify_stage;
+    uint32_t timeout_ms;
+    if(g_mbus1_bus_locked != 0U || g_mbus1_transaction_pending == 0U) return;
+    timeout_ms = g_mbus1_transaction_identify_stage == MBUS1_STAGE_COMPLETE ?
+                 MIXTURE_DEVICE_RESPONSE_TIMEOUT_MS : MIXTURE_DEVICE_IDENTIFY_RESPONSE_TIMEOUT_MS;
+    if((osKernelGetTickCount() - g_mbus1_transaction_tick) < timeout_ms) return;
     addr = g_mbus1_transaction_addr;
-    was_identify = g_mbus1_transaction_full_read;
+    identify_stage = g_mbus1_transaction_identify_stage;
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
-    g_mbus1_transaction_full_read = 0U; g_mbus1_transaction_tick = 0U;
+    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U;
     if(addr > 0U && addr <= MIXTURE_DEVICE_MAX_ADDR && PointTypeMixtureOnlieState[addr] != 0U)
     {
-        if(was_identify != 0U) MBus1MarkIdentifyFailure(addr);
+        if(identify_stage != MBUS1_STAGE_COMPLETE)
+            MBus1MarkIdentifyFailure(addr, identify_stage == MBUS1_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
         else
         {
             if(PointTypeMixtureDisconnectCount[addr] < MIXTURE_DEVICE_DISCONNECT_SUM) PointTypeMixtureDisconnectCount[addr]++;
-            if(PointTypeMixtureDisconnectCount[addr] < MIXTURE_DEVICE_DISCONNECT_SUM) g_mbus1_retry_addr = addr;
+            if(PointTypeMixtureDisconnectCount[addr] >= MIXTURE_DEVICE_DISCONNECT_SUM)
+                g_mbus1_last_offline_probe_tick[addr] = osKernelGetTickCount();
         }
     }
 }
@@ -396,15 +420,28 @@ static void MBus1MarkTimeout(void)
 static uint8_t MBus1FindNextOnlineAddress(void)
 {
     uint8_t attempt;
+    uint32_t now = osKernelGetTickCount();
     for(attempt = 0U; attempt < MIXTURE_DEVICE_MAX_ADDR; attempt++)
     {
         g_mbus1_poll_addr++;
         if(g_mbus1_poll_addr == 0U || g_mbus1_poll_addr > MIXTURE_DEVICE_MAX_ADDR) g_mbus1_poll_addr = 1U;
         if(PointTypeMixtureOnlieState[g_mbus1_poll_addr] != 0U)
         {
-            if(DeviceRegistry_IsProductUnknown(DEVICE_REGISTRY_LOOP1, g_mbus1_poll_addr) == 0U ||
-               (osKernelGetTickCount() - g_mbus1_last_identify_tick[g_mbus1_poll_addr]) >= MBUS1_IDENTIFY_RETRY_MS)
+            if(g_mbus1_type_confirmed[g_mbus1_poll_addr] == 0U)
+            {
+                uint32_t retry_gap = DeviceRegistry_IsProductUnknown(DEVICE_REGISTRY_LOOP1, g_mbus1_poll_addr) != 0U ?
+                                     MBUS1_IDENTIFY_RETRY_MS : MBUS1_IDENTIFY_RETRY_GAP_MS;
+                if(g_mbus1_last_identify_tick[g_mbus1_poll_addr] == 0U ||
+                   (now - g_mbus1_last_identify_tick[g_mbus1_poll_addr]) >= retry_gap)
+                    return g_mbus1_poll_addr;
+            }
+            else if(PointTypeMixtureDisconnectCount[g_mbus1_poll_addr] < MIXTURE_DEVICE_DISCONNECT_SUM ||
+                    (now - g_mbus1_last_offline_probe_tick[g_mbus1_poll_addr]) >= MBUS1_OFFLINE_PROBE_INTERVAL_MS)
+            {
+                if(PointTypeMixtureDisconnectCount[g_mbus1_poll_addr] >= MIXTURE_DEVICE_DISCONNECT_SUM)
+                    g_mbus1_last_offline_probe_tick[g_mbus1_poll_addr] = now;
                 return g_mbus1_poll_addr;
+            }
         }
     }
     return 0U;
@@ -413,11 +450,11 @@ static uint8_t MBus1FindNextOnlineAddress(void)
 static void MBus1StartTransaction(uint8_t addr)
 {
     uint8_t modbus_buff[8];
-    uint8_t full_read;
+    uint8_t identify_stage;
     uint32_t transaction_tick;
     if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR || PointTypeMixtureOnlieState[addr] == 0U) return;
-    full_read = g_mbus1_type_confirmed[addr] == 0U ? 1U : 0U;
-    MBus1BuildReadCommand(modbus_buff, addr, full_read ? 16U : 4U);
+    identify_stage = g_mbus1_type_confirmed[addr] == 0U ? g_mbus1_identify_stage[addr] : MBUS1_STAGE_COMPLETE;
+    MBus1BuildReadCommand(modbus_buff, addr, identify_stage == MBUS1_STAGE_NATIONAL ? 0x000DU : identify_stage == MBUS1_STAGE_PRODUCT ? 0x000EU : 0U, identify_stage == MBUS1_STAGE_COMPLETE ? 4U : 1U);
     transaction_tick = osKernelGetTickCount();
 
     taskENTER_CRITICAL();
@@ -427,7 +464,7 @@ static void MBus1StartTransaction(uint8_t addr)
         return;
     }
     g_mbus1_transaction_pending = 1U; g_mbus1_transaction_addr = addr;
-    g_mbus1_transaction_full_read = full_read; g_mbus1_transaction_tick = transaction_tick;
+    g_mbus1_transaction_identify_stage = identify_stage; g_mbus1_transaction_tick = transaction_tick;
     taskEXIT_CRITICAL();
 
     uartbuff[MBUS1SITE].recepetion_flag = 0U; uartbuff[MBUS1SITE].recepetion_len = 0U;
@@ -437,7 +474,7 @@ static void MBus1StartTransaction(uint8_t addr)
         if(g_mbus1_transaction_addr == addr)
         {
             g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
-            g_mbus1_transaction_full_read = 0U; g_mbus1_transaction_tick = 0U;
+            g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U;
         }
         taskEXIT_CRITICAL();
     }
@@ -464,30 +501,67 @@ void MBus1ReceiveSlaveDataDeal(void)
     if(CalcCrc16(buf, len - 2U) != crc16) return;
     addr = buf[0];
     if(addr != g_mbus1_transaction_addr || addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR || buf[1] != 0x04U) return;
-    byte_count = buf[2]; expected_count = g_mbus1_transaction_full_read ? 32U : 8U;
+    byte_count = buf[2]; expected_count = g_mbus1_transaction_identify_stage == MBUS1_STAGE_COMPLETE ? 8U : 2U;
     if(byte_count != expected_count || len != (uint16_t)(byte_count + 5U)) return;
-    PointTypeMixtureReceiveDataTemper[addr] = ((uint16_t)buf[3] << 8) | buf[4];
-    if(buf[5] != 0U || buf[9] != 0U) return;
-    PointTypeMixtureReceiveStateTemper[addr] = buf[6];
-    PointTypeMixtureReceiveDataSmoke[addr] = ((uint16_t)buf[7] << 8) | buf[8];
-    PointTypeMixtureReceiveStateSmoke[addr] = buf[10];
-    if(g_mbus1_transaction_full_read != 0U)
+    if(g_mbus1_transaction_identify_stage == MBUS1_STAGE_NATIONAL)
     {
-        uint8_t product_type;
-        if(buf[31] != 0U) return;
-        product_type = buf[32];
-        if(DeviceRegistry_IsSupportedOnLoop(product_type, DEVICE_REGISTRY_LOOP1) != 0U)
+        uint16_t national_code = ((uint16_t)buf[3] << 8) | buf[4];
+        if(g_mbus1_identify_candidate[addr] != national_code)
         {
-            PointTypeMixtureDetecteName[addr] = product_type;
-            PointTypeMixtureDetecteType[addr] = (product_type == DEVICE_PRODUCT_XR8002_TEMP) ? 0x20U : 0x01U;
-            g_mbus1_type_confirmed[addr] = 1U;
+            g_mbus1_identify_candidate[addr] = national_code;
+            g_mbus1_identify_confirm_count[addr] = 1U;
+        }
+        else if(g_mbus1_identify_confirm_count[addr] < 2U)
+        {
+            g_mbus1_identify_confirm_count[addr]++;
+        }
+        if(g_mbus1_identify_confirm_count[addr] >= 2U)
+        {
+            g_mbus1_national_code[addr] = national_code;
+            g_mbus1_identify_stage[addr] = MBUS1_STAGE_PRODUCT;
+            g_mbus1_identify_candidate[addr] = 0U;
+            g_mbus1_identify_confirm_count[addr] = 0U;
             g_mbus1_identify_fail_count[addr] = 0U;
-            DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP1, addr, 0U);
         }
-        else
+    }
+    else if(g_mbus1_transaction_identify_stage == MBUS1_STAGE_PRODUCT)
+    {
+        uint16_t product_type = ((uint16_t)buf[3] << 8) | buf[4];
+        if(g_mbus1_identify_candidate[addr] != product_type)
         {
-            MBus1MarkIdentifyFailure(addr);
+            g_mbus1_identify_candidate[addr] = product_type;
+            g_mbus1_identify_confirm_count[addr] = 1U;
         }
+        else if(g_mbus1_identify_confirm_count[addr] < 2U)
+        {
+            g_mbus1_identify_confirm_count[addr]++;
+        }
+        if(g_mbus1_identify_confirm_count[addr] >= 2U)
+        {
+            if(DeviceRegistry_IsSupportedOnLoop(product_type, DEVICE_REGISTRY_LOOP1) == 0U)
+                MBus1MarkIdentifyFailure(addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
+            else if(DeviceRegistry_IsNationalProductMatch(g_mbus1_national_code[addr], product_type) == 0U)
+                MBus1MarkIdentifyFailure(addr, DeviceRegistry_IsNationalTypeKnown(g_mbus1_national_code[addr]) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
+            else
+            {
+                PointTypeMixtureDetecteName[addr] = product_type;
+                PointTypeMixtureDetecteType[addr] = (product_type == DEVICE_PRODUCT_XR8002_TEMP) ? 0x20U : 0x01U;
+                g_mbus1_type_confirmed[addr] = 1U;
+                g_mbus1_identify_stage[addr] = MBUS1_STAGE_COMPLETE;
+                g_mbus1_identify_candidate[addr] = 0U;
+                g_mbus1_identify_confirm_count[addr] = 0U;
+                g_mbus1_identify_fail_count[addr] = 0U;
+                DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP1, addr, DEVICE_IDENTIFY_OK);
+            }
+        }
+    }
+    else
+    {
+        PointTypeMixtureReceiveDataTemper[addr] = ((uint16_t)buf[3] << 8) | buf[4];
+        if(buf[5] != 0U || buf[9] != 0U) return;
+        PointTypeMixtureReceiveStateTemper[addr] = buf[6];
+        PointTypeMixtureReceiveDataSmoke[addr] = ((uint16_t)buf[7] << 8) | buf[8];
+        PointTypeMixtureReceiveStateSmoke[addr] = buf[10];
     }
     MBus1FinishTransaction(addr);
 }
@@ -512,7 +586,7 @@ void MBus1ResetAllDevices(void)
 
     taskENTER_CRITICAL();
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
-    g_mbus1_transaction_full_read = 0U; g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
+    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
     taskEXIT_CRITICAL();
     uartbuff[MBUS1SITE].recepetion_flag = 0U; uartbuff[MBUS1SITE].recepetion_len = 0U;
     HAL_UART_Transmit(&huart7, reset_command, sizeof(reset_command), 30U);
