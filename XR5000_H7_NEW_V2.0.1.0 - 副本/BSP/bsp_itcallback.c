@@ -164,12 +164,12 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	}
 	else if (huart->Instance == UART7)
 	{
-		uartbuff[6].recepetion_flag = 1;
-		uartbuff[6].recepetion_len = Size;
-
 		// Î¬»¤CacheÒ»ÖÂÐÔ
-    SCB_InvalidateDCache_by_Addr((uint32_t*)uartbuff[6].recepetion_buff, BUFF_MAX);
+		SCB_InvalidateDCache_by_Addr((uint32_t*)uartbuff[6].recepetion_buff, BUFF_MAX);
+		uartbuff[6].recepetion_len = Size;
 		HAL_UARTEx_ReceiveToIdle_DMA(&huart7, uartbuff[6].recepetion_buff, BUFF_MAX);
+		__DMB();
+		uartbuff[6].recepetion_flag = 1;
 	}
 	else if (huart->Instance == UART8)
 	{

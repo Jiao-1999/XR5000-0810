@@ -30,6 +30,7 @@
 
 /* ÀàĞÍÌ½²â¼Ä´æÆ÷µØÖ·(04¹¦ÄÜÂë¶ÁÈ¡) */
 #define RS485_DETECT_TYPE_REG    0x000E  /* ²úÆ·ĞÍºÅ¼Ä´æÆ÷ */
+#define RS485_DETECT_NATIONAL_TYPE_REG 0x000D
 #define RS485_DETECT_SENSOR_ENABLE_REG  0x000F  /* ´«¸ĞÆ÷ÆôÓÃÎ»ÑÚÂë¼Ä´æÆ÷ */
 
 /* -------------------- Éè±¸ÀàĞÍÃ¶¾Ù -------------------- */
@@ -38,6 +39,7 @@ typedef enum {
     RS485_DETECT_TYPE_XR805   = 1,  /* XR805: ÑÌÎí+ÎÂ¶È+CO+CH4+H2+VOC */
     RS485_DETECT_TYPE_XR8303  = 2,  /* XR8303: ÑÌÎí+ÎÂ¶È+CO+H2+VOC+Ñ¹Á¦ */
     RS485_DETECT_TYPE_XR8305  = 3,  /* XR8305: ÓëXR8303Í¬²¼¾Ö */
+    RS485_DETECT_TYPE_DLYGWG = 4,
 } RS485DetectDeviceType;
 
 /* -------------------- ´«¸ĞÆ÷Ë÷Òı(Í³Ò»¶ÔÍâ) -------------------- */
@@ -71,11 +73,14 @@ typedef struct {
     uint8_t  online;              /* ÔÚÏß±êÖ¾(ÆÁÄ»ÏÂ·¢ÉèÖÃ) */
     uint8_t  device_type;         /* Éè±¸ÀàĞÍ(RS485DetectDeviceType) */
     uint8_t  type_confirmed;      /* ÀàĞÍÒÑÈ·ÈÏ(ÒÑ³É¹¦¶ÁÈ¡0x000E) */
+    uint8_t  identify_stage;
     uint8_t  sensor_enable_confirmed; /* ´«¸ĞÆ÷ÆôÓÃ×´Ì¬ÒÑÈ·ÈÏ(ÒÑ³É¹¦¶ÁÈ¡0x000F) */
     uint8_t  sensor_data_valid;      /* ´«¸ĞÆ÷ÊµÊ±Êı¾İÓĞĞ§(ÒÑÊÕµ½ÍêÕû´«¸ĞÆ÷Ö¡) */
     uint8_t  disconnect_count;       /* µôÏßÀÛ¼Æ¼ÆÊı(Á¬ĞøÎŞÏìÓ¦´ÎÊı) */
     uint8_t  disconnect_memory;      /* µôÏß¼ÇÒä(0=ÔÚÏß, 1=ÒÑ¼ÇÂ¼µôÏß) */
     uint16_t sensor_enable;          /* 0x000F´«¸ĞÆ÷ÆôÓÃÎ»ÑÚÂë */
+    uint16_t national_type_code;
+    uint16_t product_code;
     uint16_t sensor_values[RS485_SENSOR_COUNT];  /* ´«¸ĞÆ÷ÊıÖµ(ÎÂ¶È/ÑÌÎí/COµÈ) */
     uint8_t  sensor_states[RS485_SENSOR_COUNT];  /* ´«¸ĞÆ÷×´Ì¬(0=Õı³£/1=Ô¤¾¯/2=±¨¾¯/...) */
     uint8_t  alarm_memory[RS485_SENSOR_COUNT];   /* ±¨¾¯¼ÇÒä(0=Õı³£, 1=ÒÑ¼ÇÂ¼±¨¾¯) */
@@ -99,7 +104,8 @@ uint16_t RS485Detect_GetSensorEnable(uint8_t addr);               /* »ñÈ¡´«¸ĞÆ÷Æ
 uint8_t  RS485Detect_GetSensorState(uint8_t addr, uint8_t sensor_idx); /* »ñÈ¡´«¸ĞÆ÷×´Ì¬ */
 void     RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state); /* ×¢Èë´«¸ĞÆ÷×´Ì¬(½ö²âÊÔÓÃ) */
 uint8_t  RS485Detect_IsDisconnected(uint8_t addr);                /* ÅĞ¶ÏÊÇ·ñµôÏß(¼ÆÊı>=ãĞÖµ) */
-uint8_t  RS485Detect_GetOnlineCount(void);                        /* »ØÂ·3ÔÚÏßÉè±¸×ÜÊı */
+uint8_t  RS485Detect_GetOnlineCount(void);
+uint8_t  RS485Detect_GetActiveCount(void);                        /* »ØÂ·3ÔÚÏßÉè±¸×ÜÊı */
 uint8_t  RS485Detect_GetDisconnectCount(void);                    /* »ØÂ·3µôÏßÉè±¸×ÜÊı */
 uint8_t  RS485Detect_GetAlarmCount(void);                         /* »ØÂ·3±¨¾¯Éè±¸×ÜÊı */
 uint8_t  RS485Detect_IsAlarmState(uint8_t device_type, uint8_t sensor_idx, uint8_t state);  /* ÅĞ¶Ï´«¸ĞÆ÷×´Ì¬ÊÇ·ñÎª±¨¾¯ */

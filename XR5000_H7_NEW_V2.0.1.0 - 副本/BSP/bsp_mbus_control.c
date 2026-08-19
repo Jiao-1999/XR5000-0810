@@ -11,7 +11,8 @@
  * 回路标识: 回路2, Flash存储地址0x110000, 故障簇ID=0x52(82簇)
  * ============================================================================ */
 
-#include "bsp_mbus_control.h"   
+#include "bsp_mbus_control.h"
+#include "bsp_device_registry.h"
 #include "bsp_mbus.h"          
 #include "bsp_itcallback.h"     
 #include "system.h"             
@@ -60,20 +61,46 @@ static uint8_t g_sound_light_wait_ticks = 0;     /* 等待响应已计tick数 */
 static uint8_t g_sound_light_retry_count = 0;    /* 当前控制重试计数 */
 
 /* 固定地址设备类型映射表(索引=地址, 值=MBusCtrlDevType) */
-static const uint8_t g_device_type_map[MBUS_CONTROL_MAX_DEVICES] = {
-    [MBUS_CONTROL_SOUND_LIGHT_ADDR] = MBUS_CONTROL_DEV_SGBJQ,
-    [MBUS_CONTROL_MANUAL_ALARM_ADDR] = MBUS_CONTROL_DEV_XR2200,
-    [MBUS_CONTROL_FIRE_DISPLAY_DEFAULT_ADDR] = MBUS_CONTROL_DEV_FIRE_DISPLAY,
-};
-
 /* 设备中文名称映射表(索引=MBusCtrlDevType) */
-static const char* g_device_names[] = {
-    NULL,           /* MBUS_CONTROL_DEV_UNKNOWN */
-    "XR-SGBJQ",     /* MBUS_CONTROL_DEV_SGBJQ */
-    "XR2200",       /* MBUS_CONTROL_DEV_XR2200 */
-    "FireDisplay",  /* MBUS_CONTROL_DEV_FIRE_DISPLAY */
-};
+#define MBUS2_IDENTIFY_FAIL_THRESHOLD 3U
+#define MBUS2_IDENTIFY_RETRY_MS 1000U
+#define MBUS2_STAGE_NATIONAL 0U
+#define MBUS2_STAGE_PRODUCT  1U
+#define MBUS2_STAGE_COMPLETE 2U
 
+static uint8_t MBusCtrl_MapProductType(uint16_t product_code)
+{
+    uint8_t parser;
+    if(DeviceRegistry_IsSupportedOnLoop(product_code, DEVICE_REGISTRY_LOOP2) == 0U) return MBUS_CONTROL_DEV_UNKNOWN;
+    parser = DeviceRegistry_GetParserType(product_code);
+    if(parser == DEVICE_PARSER_SGBJQ) return MBUS_CONTROL_DEV_SGBJQ;
+    if(parser == DEVICE_PARSER_XR2200) return MBUS_CONTROL_DEV_XR2200;
+    if(parser == DEVICE_PARSER_XR1503) return MBUS_CONTROL_DEV_FIRE_DISPLAY;
+    if(parser == DEVICE_PARSER_GCM1002) return MBUS_CONTROL_DEV_GCM1002;
+    if(parser == DEVICE_PARSER_FIM1017) return MBUS_CONTROL_DEV_FIM1017;
+    return MBUS_CONTROL_DEV_UNKNOWN;
+}
+
+static uint8_t MBusCtrl_FindAddressByType(uint8_t dev_type)
+{
+    uint8_t addr;
+    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
+        if(g_mbus_ctrl_devices[addr].online != 0U && g_mbus_ctrl_devices[addr].type_confirmed != 0U &&
+           g_mbus_ctrl_devices[addr].dev_type == dev_type) return addr;
+    return 0U;
+}
+
+static void MBusCtrl_MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error)
+{
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES) return;
+    if(error == DEVICE_IDENTIFY_NATIONAL_UNKNOWN || error == DEVICE_IDENTIFY_CODE_MISMATCH)
+        g_mbus_ctrl_devices[addr].identify_stage = MBUS2_STAGE_NATIONAL;
+    if(g_mbus_ctrl_devices[addr].identify_fail_count < MBUS2_IDENTIFY_FAIL_THRESHOLD)
+        g_mbus_ctrl_devices[addr].identify_fail_count++;
+    g_mbus_ctrl_devices[addr].last_identify_tick = osKernelGetTickCount();
+    if(g_mbus_ctrl_devices[addr].identify_fail_count >= MBUS2_IDENTIFY_FAIL_THRESHOLD)
+        DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP2, addr, error);
+}
 /* ============================================================
  * 火灾显示盘事件处理: 10功能码写多寄存器, 环形队列+重试机制
  * ============================================================ */
@@ -85,7 +112,8 @@ static void MBusCtrl_SendFireDisplayEvent(void)
     uint16_t crc16;
     MBusFireDisplayEvent *event = &g_fire_display_event_queue[g_fire_display_event_head];
 
-    frame[0] = MBUS_CONTROL_FIRE_DISPLAY_DEFAULT_ADDR;
+    frame[0] = MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_FIRE_DISPLAY);
+    if(frame[0] == 0U) return;
     frame[1] = 0x10;
     frame[3] = 0x02;
     frame[5] = 0x04;
@@ -106,6 +134,8 @@ static void MBusCtrl_SendFireDisplayEvent(void)
 static uint8_t MBusCtrl_ServiceFireDisplayEvents(void)
 {
     if (g_fire_display_event_count == 0)
+        return 0;
+    if (MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_FIRE_DISPLAY) == 0U)
         return 0;
     if (g_fire_display_wait_response == 0)
     {
@@ -156,7 +186,8 @@ static void MBusCtrl_SendSoundLightControl(void)
     uint8_t frame[8] = {0};
     uint16_t crc16;
 
-    frame[0] = MBUS_CONTROL_SOUND_LIGHT_ADDR;
+    frame[0] = MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ);
+    if(frame[0] == 0U) return;
     frame[1] = 0x05;
     frame[4] = g_sound_light_target_state ? 0xFF : 0x00;
     crc16 = CalcCrc16(frame, 6);
@@ -171,6 +202,8 @@ static void MBusCtrl_SendSoundLightControl(void)
 static uint8_t MBusCtrl_ServiceSoundLightControl(void)
 {
     if (g_sound_light_target_valid == 0U || g_sound_light_request_pending == 0U)
+        return 0U;
+    if (MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ) == 0U)
         return 0U;
 
     if (g_sound_light_wait_response == 0U)
@@ -205,9 +238,16 @@ void MBusCtrl_Init(void)
     {
         g_mbus_ctrl_devices[i].online = 0;
         g_mbus_ctrl_devices[i].disconnect_count = 0;
-        g_mbus_ctrl_devices[i].dev_type = g_device_type_map[i];
+        g_mbus_ctrl_devices[i].dev_type = MBUS_CONTROL_DEV_UNKNOWN;
         g_mbus_ctrl_devices[i].sensor_state = 0;
         g_mbus_ctrl_devices[i].disconnect_memory = 0;
+        g_mbus_ctrl_devices[i].product_code = 0U;
+        g_mbus_ctrl_devices[i].national_type_code = 0U;
+        g_mbus_ctrl_devices[i].type_confirmed = 0U;
+        g_mbus_ctrl_devices[i].identify_stage = MBUS2_STAGE_NATIONAL;
+        g_mbus_ctrl_devices[i].identify_fail_count = 0U;
+        g_mbus_ctrl_devices[i].identify_request_pending = 0U;
+        g_mbus_ctrl_devices[i].last_identify_tick = 0U;
     }
     MBusCtrl_LoadOnlineState();
 }
@@ -227,6 +267,14 @@ void MBusCtrl_SetOnline(uint8_t addr, uint8_t state)
         g_mbus_ctrl_devices[addr].disconnect_count = 0;
         g_mbus_ctrl_devices[addr].sensor_state = 0;
         g_mbus_ctrl_devices[addr].disconnect_memory = 0;
+        g_mbus_ctrl_devices[addr].product_code = 0U;
+        g_mbus_ctrl_devices[addr].national_type_code = 0U;
+        g_mbus_ctrl_devices[addr].dev_type = MBUS_CONTROL_DEV_UNKNOWN;
+        g_mbus_ctrl_devices[addr].type_confirmed = 0U;
+        g_mbus_ctrl_devices[addr].identify_stage = MBUS2_STAGE_NATIONAL;
+        g_mbus_ctrl_devices[addr].identify_fail_count = 0U;
+        g_mbus_ctrl_devices[addr].identify_request_pending = 0U;
+        DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP2, addr, 0U);
     }
 }
 
@@ -271,6 +319,38 @@ uint8_t MBusCtrl_GetOnlineCount(void)
     return count;
 }
 
+uint8_t MBusCtrl_IsIdentified(uint8_t addr)
+{
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES)
+        return 0U;
+    return g_mbus_ctrl_devices[addr].type_confirmed != 0U ? 1U : 0U;
+}
+
+void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state)
+{
+    if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
+        return;
+    g_mbus_ctrl_devices[addr].online = 1;
+    g_mbus_ctrl_devices[addr].disconnect_count = 0;
+    g_mbus_ctrl_devices[addr].sensor_state = state;
+}
+
+uint8_t MBusCtrl_GetActiveCount(void)
+{
+    uint8_t count = 0U;
+    uint8_t addr;
+    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
+    {
+        if(g_mbus_ctrl_devices[addr].online != 0U &&
+           g_mbus_ctrl_devices[addr].type_confirmed != 0U &&
+           g_mbus_ctrl_devices[addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD)
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
 /* 统计回路2掉线设备数量(上线但掉线计数>=阈值) */
 uint8_t MBusCtrl_GetDisconnectCount(void)
 {
@@ -301,12 +381,8 @@ uint8_t MBusCtrl_GetAlarmCount(void)
 /* 根据地址获取设备中文名称(XR-SGBJQ/XR2200/FireDisplay) */
 const char* MBusCtrl_GetDeviceName(uint8_t addr)
 {
-    if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
-        return NULL;
-    uint8_t type = g_mbus_ctrl_devices[addr].dev_type;
-    if (type > MBUS_CONTROL_DEV_FIRE_DISPLAY)
-        return NULL;
-    return g_device_names[type];
+    if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES || g_mbus_ctrl_devices[addr].type_confirmed == 0U) return NULL;
+    return DeviceRegistry_GetName(g_mbus_ctrl_devices[addr].product_code);
 }
 
 /* 获取设备传感器状态值(04功能码读取的寄存器值) */
@@ -315,16 +391,6 @@ uint8_t MBusCtrl_GetDeviceState(uint8_t addr)
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
         return 0;
     return g_mbus_ctrl_devices[addr].sensor_state;
-}
-
-/* 注入设备传感器状态(仅测试用): 直接修改状态值并强制在线, 模拟从机报警 */
-void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state)
-{
-    if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
-        return;
-    g_mbus_ctrl_devices[addr].online = 1;
-    g_mbus_ctrl_devices[addr].disconnect_count = 0;
-    g_mbus_ctrl_devices[addr].sensor_state = state;
 }
 
 /* 获取设备类型(MBusCtrlDevType) */
@@ -390,50 +456,44 @@ void MBusCtrl_LoadOnlineState(void)
 /* 轮询下一个在线设备: 构建04功能码帧→发送到MBus2队列→发送失败则计掉线 */
 static void MBusControlPollingManage(void)
 {
-    uint8_t modbus_buff[8];
-    uint16_t crc16 = 0;
-    uint8_t start_addr = g_mbus_ctrl_polling_addr;
-    uint8_t found_online = 0;
-
+    uint8_t modbus_buff[8]; uint16_t crc16; uint8_t found = 0U; uint32_t now = osKernelGetTickCount();
     for (uint8_t i = 0; i < MBUS_CONTROL_MAX_DEVICES; i++)
     {
         g_mbus_ctrl_polling_addr++;
-        if (g_mbus_ctrl_polling_addr >= MBUS_CONTROL_MAX_DEVICES || g_mbus_ctrl_polling_addr < 1)
-        {
-            g_mbus_ctrl_polling_addr = 1;
-        }
-
-        if (g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].online)
-        {
-            found_online = 1;
-            break;
-        }
+        if (g_mbus_ctrl_polling_addr >= MBUS_CONTROL_MAX_DEVICES) g_mbus_ctrl_polling_addr = 1U;
+        if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].online != 0U &&
+           (DeviceRegistry_IsProductUnknown(DEVICE_REGISTRY_LOOP2, g_mbus_ctrl_polling_addr) == 0U ||
+            (now - g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].last_identify_tick) >= MBUS2_IDENTIFY_RETRY_MS))
+        { found = 1U; break; }
     }
-
-    if (!found_online)
+    if(found == 0U) return;
+    if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].type_confirmed == 0U)
     {
-        g_mbus_ctrl_polling_addr = start_addr;
-        return;
-    }
-
-    modbus_buff[0] = g_mbus_ctrl_polling_addr;
-    modbus_buff[1] = 0x04;
-    modbus_buff[2] = 0x00;
-    modbus_buff[3] = 0x00;
-    modbus_buff[4] = 0x00;
-    modbus_buff[5] = 0x01;
-
-    crc16 = CalcCrc16(modbus_buff, 6);
-    modbus_buff[6] = crc16 & 0xFF;
-    modbus_buff[7] = crc16 >> 8;
-
-    if (SendDataToMBus2Queue(modbus_buff, 8) == 1)
-    {
-        if (g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD)
+        if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending != 0U)
         {
+            MBusCtrl_MarkIdentifyFailure(g_mbus_ctrl_polling_addr,
+                g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_stage == MBUS2_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
+            if(DeviceRegistry_IsProductUnknown(DEVICE_REGISTRY_LOOP2, g_mbus_ctrl_polling_addr) != 0U)
+            {
+                g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending = 0U;
+                return;
+            }
+        }
+        modbus_buff[2]=0U;
+        modbus_buff[3]=g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_stage == MBUS2_STAGE_NATIONAL ? 0x0DU : 0x0EU;
+        g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending = 1U;
+        g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].last_identify_tick = now;
+    }
+    else
+    {
+        modbus_buff[2]=0U; modbus_buff[3]=0U;
+        if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD)
             g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].disconnect_count++;
-        }
     }
+    modbus_buff[0]=g_mbus_ctrl_polling_addr; modbus_buff[1]=0x04U; modbus_buff[4]=0U; modbus_buff[5]=1U;
+    crc16=CalcCrc16(modbus_buff,6U); modbus_buff[6]=crc16 & 0xFFU; modbus_buff[7]=crc16 >> 8;
+    if(SendDataToMBus2Queue(modbus_buff,8U) != 1 && g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].type_confirmed == 0U)
+        g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending = 0U;
 }
 
 /* ============================================================
@@ -461,24 +521,54 @@ static void MBus2ReceiveSlaveDataDeal(void)
             if (dev_addr == 0 || dev_addr >= MBUS_CONTROL_MAX_DEVICES)
                 return;
 
-            if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x04)
+            if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x04 && uartbuff[MBUS2SITE].recepetion_len == 7U && uartbuff[MBUS2SITE].recepetion_buff[2] == 2U)
             {
-                g_mbus_ctrl_devices[dev_addr].disconnect_count = 0;
-                uint16_t data = (uartbuff[MBUS2SITE].recepetion_buff[3] << 8) |
-                                uartbuff[MBUS2SITE].recepetion_buff[4];
-                g_mbus_ctrl_devices[dev_addr].sensor_state = (uint8_t)data;
-                if (dev_addr == MBUS_CONTROL_MANUAL_ALARM_ADDR)
+                uint16_t data = (uartbuff[MBUS2SITE].recepetion_buff[3] << 8) | uartbuff[MBUS2SITE].recepetion_buff[4];
+                if(g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U)
                 {
-                    MBusCtrl_UpdateManualSoundLightTarget((uint8_t)data);
+                    g_mbus_ctrl_devices[dev_addr].identify_request_pending = 0U;
+                    if(g_mbus_ctrl_devices[dev_addr].identify_stage == MBUS2_STAGE_NATIONAL)
+                    {
+                        g_mbus_ctrl_devices[dev_addr].national_type_code = data;
+                        g_mbus_ctrl_devices[dev_addr].identify_stage = MBUS2_STAGE_PRODUCT;
+                        g_mbus_ctrl_devices[dev_addr].identify_fail_count = 0U;
+                    }
+                    else
+                    {
+                        uint8_t type = MBusCtrl_MapProductType(data);
+                        if(type == MBUS_CONTROL_DEV_UNKNOWN)
+                            MBusCtrl_MarkIdentifyFailure(dev_addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
+                        else if(DeviceRegistry_IsNationalProductMatch(g_mbus_ctrl_devices[dev_addr].national_type_code, data) == 0U)
+                            MBusCtrl_MarkIdentifyFailure(dev_addr, DeviceRegistry_IsNationalTypeKnown(g_mbus_ctrl_devices[dev_addr].national_type_code) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
+                        else
+                        {
+                            g_mbus_ctrl_devices[dev_addr].product_code = data;
+                            g_mbus_ctrl_devices[dev_addr].dev_type = type;
+                            g_mbus_ctrl_devices[dev_addr].type_confirmed = 1U;
+                            g_mbus_ctrl_devices[dev_addr].identify_stage = MBUS2_STAGE_COMPLETE;
+                            g_mbus_ctrl_devices[dev_addr].identify_fail_count = 0U;
+                            g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
+                            DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP2, dev_addr, DEVICE_IDENTIFY_OK);
+                        }
+                    }
                 }
-                else if (dev_addr == MBUS_CONTROL_SOUND_LIGHT_ADDR && data <= 1U)
+                else
                 {
-                    g_sound_light_confirmed_valid = 1U;
-                    g_sound_light_confirmed_state = (uint8_t)data;
+                    g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
+                    g_mbus_ctrl_devices[dev_addr].sensor_state = (uint8_t)data;
+                    if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_XR2200) MBusCtrl_UpdateManualSoundLightTarget((uint8_t)data);
+                    else if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_SGBJQ && data <= 1U)
+                    { g_sound_light_confirmed_valid = 1U; g_sound_light_confirmed_state = (uint8_t)data; }
                 }
             }
+            else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x84U && g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U)
+            {
+                g_mbus_ctrl_devices[dev_addr].identify_request_pending = 0U;
+                MBusCtrl_MarkIdentifyFailure(dev_addr,
+                    g_mbus_ctrl_devices[dev_addr].identify_stage == MBUS2_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
+            }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x05 &&
-                     dev_addr == MBUS_CONTROL_SOUND_LIGHT_ADDR &&
+                     g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_SGBJQ &&
                      g_sound_light_wait_response != 0U &&
                      uartbuff[MBUS2SITE].recepetion_len >= 8U &&
                      uartbuff[MBUS2SITE].recepetion_buff[2] == 0x00U &&
@@ -499,7 +589,7 @@ static void MBus2ReceiveSlaveDataDeal(void)
             {
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x10 &&
-                     dev_addr == MBUS_CONTROL_FIRE_DISPLAY_DEFAULT_ADDR &&
+                     g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_FIRE_DISPLAY &&
                      g_fire_display_wait_response != 0 &&
                      uartbuff[MBUS2SITE].recepetion_len >= 8)
             {
