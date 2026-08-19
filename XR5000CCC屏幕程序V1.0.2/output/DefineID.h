@@ -217,6 +217,9 @@
 //创建画面新检查界面的命令索引ID
 #define  _SCREEN_新检查界面                                                        72
 
+//创建画面阈值设定界面的命令索引ID
+#define  _SCREEN_阈值设定界面                                                       73
+
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
 #define  _BTN_开机视频_BUTTON1                                                     2
@@ -7977,6 +7980,20 @@
 
 #define  _BTN_火警逻辑设定_BUTTON23                                                 23
 
+#define  _BTN_火警逻辑设定_BUTTON20                                                 19
+
+#define  _BTN_火警逻辑设定_BUTTON24                                                 24
+
+#define  _BTN_火警逻辑设定_BUTTON25                                                 25
+
+#define  _BTN_火警逻辑设定_BUTTON26                                                 26
+
+#define  _BTN_火警逻辑设定_BUTTON27                                                 27
+
+#define  _BTN_火警逻辑设定_BUTTON28                                                 28
+
+#define  _BTN_火警逻辑设定_BUTTON29                                                 29
+
 //画面喷房逻辑设定帮助界面的背景图片
 #define  _IMG_喷房逻辑设定帮助界面                                                      11
 
@@ -9669,4 +9686,22 @@
 #define  _TXT_DIS__新检查界面_TEXT_DISPLAY47                                      224
 
 #define  _BTN_新检查界面_BUTTON1                                                  300
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY1                                      100
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY2                                      101
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY3                                      102
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY4                                        1
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY5                                        2
+
+#define  _MENU_阈值设定界面_MENU1                                                   51
+
+#define  _BTN_阈值设定界面_BUTTON1                                                 300
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY6                                        3
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY7                                        4
 
