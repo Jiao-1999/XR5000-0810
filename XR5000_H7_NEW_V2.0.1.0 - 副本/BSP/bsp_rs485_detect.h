@@ -97,6 +97,7 @@ uint16_t RS485Detect_GetSensorValue(uint8_t addr, uint8_t sensor_idx); /* 获取传
 int16_t  RS485Detect_GetTemperature(uint8_t addr);                /* 获取温度值(有符号) */
 uint16_t RS485Detect_GetSensorEnable(uint8_t addr);               /* 获取传感器启用位掩码 */
 uint8_t  RS485Detect_GetSensorState(uint8_t addr, uint8_t sensor_idx); /* 获取传感器状态 */
+void     RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state); /* 注入传感器状态(仅测试用) */
 uint8_t  RS485Detect_IsDisconnected(uint8_t addr);                /* 判断是否掉线(计数>=阈值) */
 uint8_t  RS485Detect_GetOnlineCount(void);                        /* 回路3在线设备总数 */
 uint8_t  RS485Detect_GetDisconnectCount(void);                    /* 回路3掉线设备总数 */

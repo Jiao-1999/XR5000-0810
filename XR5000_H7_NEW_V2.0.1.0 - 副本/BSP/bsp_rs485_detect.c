@@ -297,6 +297,20 @@ uint8_t RS485Detect_GetSensorState(uint8_t addr, uint8_t sensor_idx)
     return g_devices[addr].sensor_states[sensor_idx];
 }
 
+/* XR5000_INJECT_EXT_20260818: Inject sensor state for test only.
+ * Force device online and clear disconnect counter, then write sensor
+ * state to simulate slave alarm without real RS485 hardware. */
+void RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state)
+{
+    if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES || sensor_idx >= RS485_SENSOR_COUNT)
+        return;
+    g_devices[addr].online = 1;
+    g_devices[addr].disconnect_count = 0;
+    g_devices[addr].type_confirmed = 1;
+    g_devices[addr].sensor_data_valid = 1;
+    g_devices[addr].sensor_states[sensor_idx] = state;
+}
+
 /* 判断是否掉线(连续无响应次数>=阈值) */
 uint8_t RS485Detect_IsDisconnected(uint8_t addr)
 {

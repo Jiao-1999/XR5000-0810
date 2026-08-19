@@ -79,6 +79,7 @@ uint8_t MBusCtrl_GetAlarmCount(void);                /* 回路2报警设备总数 */
 /* ---- 设备信息查询 ---- */
 const char* MBusCtrl_GetDeviceName(uint8_t addr);    /* 根据地址获取设备名称(中文) */
 uint8_t MBusCtrl_GetDeviceState(uint8_t addr);       /* 获取设备传感器状态值 */
+void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state);       /* 注入传感器状态(仅测试用) */
 uint8_t MBusCtrl_GetDeviceType(uint8_t addr);        /* 获取设备类型(MBusCtrlDevType) */
 uint8_t MBusCtrl_IsAlarmState(uint8_t addr);         /* 判断设备是否处于报警状态 */
 
