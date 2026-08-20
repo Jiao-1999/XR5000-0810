@@ -220,6 +220,18 @@
 //创建画面阈值设定界面的命令索引ID
 #define  _SCREEN_阈值设定界面                                                       73
 
+//创建画面打印机设置界面的命令索引ID
+#define  _SCREEN_打印机设置界面                                                      74
+
+//创建画面按键与输出定义的命令索引ID
+#define  _SCREEN_按键与输出定义                                                      75
+
+//创建画面阈值查询界面的命令索引ID
+#define  _SCREEN_阈值查询界面                                                       76
+
+//创建画面阈值查看界面的命令索引ID
+#define  _SCREEN_阈值查看界面                                                       77
+
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
 #define  _BTN_开机视频_BUTTON1                                                     2
@@ -8035,8 +8047,6 @@
 
 #define  _TXT_DIS__逻辑查看界面_TEXT_DISPLAY18                                      18
 
-#define  _BTN_逻辑查看界面_BUTTON1                                                  19
-
 #define  _BTN_逻辑查看界面_BUTTON2                                                  20
 
 #define  _BTN_逻辑查看界面_BUTTON3                                                  21
@@ -8044,6 +8054,8 @@
 #define  _BTN_逻辑查看界面_BUTTON4                                                  22
 
 #define  _BTN_逻辑查看界面_BUTTON5                                                  23
+
+#define  _BTN_逻辑查看界面_BUTTON6                                                  19
 
 #define  _BTN_超级管理员界面_BUTTON1                                                  1
 
@@ -9405,6 +9417,12 @@
 
 #define  _MENU_新菜单界面_MENU11                                                   26
 
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY16                                      116
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY17                                      117
+
+#define  _TXT_DIS__新菜单界面_TEXT_DISPLAY18                                      118
+
 #define  _TXT_DIS__设备显示详情_TEXT_DISPLAY1                                      200
 
 #define  _TXT_DIS__设备显示详情_TEXT_DISPLAY2                                        1
@@ -9687,21 +9705,325 @@
 
 #define  _BTN_新检查界面_BUTTON1                                                  300
 
+#define  _RECORD_阈值设定界面_RECORD1                                              400
+
 #define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY1                                      100
 
-#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY2                                      101
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY2                                        1
 
-#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY3                                      102
-
-#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY4                                        1
-
-#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY5                                        2
-
-#define  _MENU_阈值设定界面_MENU1                                                   51
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY3                                        2
 
 #define  _BTN_阈值设定界面_BUTTON1                                                 300
 
-#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY6                                        3
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY4                                        3
 
-#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY7                                        4
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY5                                        4
+
+#define  _BTN_阈值设定界面_BUTTON2                                                 301
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY6                                        6
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY7                                        7
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY8                                        8
+
+#define  _BTN_阈值设定界面_BUTTON3                                                 302
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY9                                        9
+
+#define  _BTN_阈值设定界面_BUTTON4                                                 303
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY10                                       5
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY12                                      12
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY11                                      11
+
+#define  _MENU_阈值设定界面_MENU1                                                  350
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY13                                      13
+
+#define  _MENU_阈值设定界面_MENU2                                                  351
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY14                                      14
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY15                                      15
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY16                                      10
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY17                                      16
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY18                                      17
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY20                                      19
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY19                                      18
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY23                                      22
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY24                                      23
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY25                                      24
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY26                                      25
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY27                                      26
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY30                                      29
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY31                                      30
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY32                                      31
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY33                                      32
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY34                                      33
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY37                                      36
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY38                                      37
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY39                                      38
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY40                                      39
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY41                                      40
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY44                                      43
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY45                                      44
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY46                                      45
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY47                                      46
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY48                                      47
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY21                                      20
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY22                                      21
+
+#define  _BTN_阈值设定界面_BUTTON5                                                 305
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY1                                     200
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY2                                       1
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY3                                       2
+
+#define  _MENU_打印机设置界面_MENU1                                                  50
+
+#define  _BTN_打印机设置界面_BUTTON1                                                 80
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY4                                     201
+
+#define  _BTN_打印机设置界面_BUTTON2                                                220
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY5                                       3
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY6                                       4
+
+#define  _MENU_打印机设置界面_MENU2                                                  51
+
+#define  _BTN_打印机设置界面_BUTTON3                                                 81
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY1                                     200
+
+#define  _BTN_按键与输出定义_BUTTON1                                                300
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY2                                     210
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY3                                     201
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY4                                     202
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY5                                     203
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY6                                     204
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY7                                     205
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY8                                     206
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY9                                       1
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY10                                      2
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY11                                      3
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY12                                      4
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY13                                      5
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY14                                      6
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY15                                    207
+
+#define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY16                                    208
+
+#define  _BTN_按键与输出定义_BUTTON2                                                301
+
+#define  _MENU_按键与输出定义_MENU1                                                 350
+
+#define  _RECORD_阈值查询界面_RECORD1                                              400
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY1                                      100
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY9                                        9
+
+#define  _BTN_阈值查询界面_BUTTON4                                                 303
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY12                                      12
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY11                                      11
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY13                                      13
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY14                                      14
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY15                                      15
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY16                                      10
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY17                                      16
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY18                                      17
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY20                                      19
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY19                                      18
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY23                                      22
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY24                                      23
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY25                                      24
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY26                                      25
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY27                                      26
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY30                                      29
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY31                                      30
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY32                                      31
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY33                                      32
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY34                                      33
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY37                                      36
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY38                                      37
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY39                                      38
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY40                                      39
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY41                                      40
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY44                                      43
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY45                                      44
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY46                                      45
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY47                                      46
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY48                                      47
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY21                                      20
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY2                                        1
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY3                                        2
+
+#define  _BTN_阈值查询界面_BUTTON1                                                 300
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY4                                        4
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY5                                        5
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY6                                        6
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY7                                        7
+
+#define  _BTN_阈值查询界面_BUTTON2                                                 301
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY8                                        3
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY10                                       8
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY22                                      21
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY28                                      27
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY29                                      28
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY35                                      34
+
+#define  _MENU_阈值查询界面_MENU1                                                  350
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY1                                      100
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY9                                      200
+
+#define  _BTN_阈值查看界面_BUTTON4                                                 303
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY2                                        1
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY3                                        2
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY4                                        3
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY5                                        4
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY6                                        5
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY7                                        6
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY8                                        7
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY10                                       8
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY11                                       9
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY12                                      10
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY16                                      11
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY17                                      12
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY18                                      13
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY19                                      14
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY20                                      15
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY21                                      16
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY22                                      17
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY23                                      18
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY24                                      19
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY25                                      20
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY13                                      21
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY14                                      22
+
+#define  _BTN_阈值查看界面_BUTTON1                                                 300
+
+#define  _MENU_阈值查看界面_MENU1                                                  350
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY15                                     500
+
+#define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY26                                     501
+
+#define  _BTN_阈值查看界面_BUTTON2                                                 301
+
+#define  _BTN_阈值查看界面_BUTTON3                                                 302
 
