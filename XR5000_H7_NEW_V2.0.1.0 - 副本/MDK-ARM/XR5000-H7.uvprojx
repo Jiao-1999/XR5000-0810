@@ -16,8 +16,8 @@
         <TargetCommonOption>
           <Device>STM32H723ZGTx</Device>
           <Vendor>STMicroelectronics</Vendor>
-          <PackID>Keil.STM32H7xx_DFP.3.1.1</PackID>
-          <PackURL>https://www.keil.com/pack/</PackURL>
+          <PackID>Keil.STM32H7xx_DFP.2.7.0</PackID>
+          <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IRAM(0x20000000-0x2001FFFF) IRAM2(0x24000000-0x2401FFFF) IROM(0x8000000-0x80FFFFF) CLOCK(12000000) FPU3(DFPU) CPUTYPE("Cortex-M7") ELITTLE TZ</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
           <StartupFile></StartupFile>
@@ -339,7 +339,7 @@
               <MiscControls>--locale=english</MiscControls>
               <Define>USE_PWR_LDO_SUPPLY,USE_HAL_DRIVER,STM32H723xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../HMI_DRIVE;../BSP;../FECbus;../LINKAGE;../STORAGE</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../HMI_DRIVE;../BSP</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1015,11 +1015,6 @@
               <FilePath>..\BSP\bsp_debug.c</FilePath>
             </File>
             <File>
-              <FileName>bsp_test_inject.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\BSP\bsp_test_inject.c</FilePath>
-            </File>
-            <File>
               <FileName>system.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\system.c</FilePath>
@@ -1048,6 +1043,11 @@
               <FileName>bsp_device_registry.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\bsp_device_registry.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_device_threshold.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_device_threshold.c</FilePath>
             </File>
             <File>
               <FileName>bsp_rs485_01.c</FileName>
@@ -1153,66 +1153,6 @@
               <FileName>bsp_password.lib</FileName>
               <FileType>4</FileType>
               <FilePath>..\BSP\bsp_password.lib</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>LINKAGE</GroupName>
-          <Files>
-            <File>
-              <FileName>bsp_logic_expr.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\LINKAGE\bsp_logic_expr.c</FilePath>
-            </File>
-            <File>
-              <FileName>bsp_logic_dev.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\LINKAGE\bsp_logic_dev.c</FilePath>
-            </File>
-            <File>
-              <FileName>bsp_logic_engine.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\LINKAGE\bsp_logic_engine.c</FilePath>
-            </File>
-            <File>
-              <FileName>bsp_logic_screen.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\LINKAGE\bsp_logic_screen.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>STORAGE</GroupName>
-          <Files>
-            <File>
-              <FileName>bsp_storage_tx.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\STORAGE\bsp_storage_tx.c</FilePath>
-            </File>
-            <File>
-              <FileName>bsp_storage_event.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\STORAGE\bsp_storage_event.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
-          <GroupName>FECbus</GroupName>
-          <Files>
-            <File>
-              <FileName>bsp_fecbus.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\FECbus\bsp_fecbus.c</FilePath>
-            </File>
-            <File>
-              <FileName>bsp_fecbus_report.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\FECbus\bsp_fecbus_report.c</FilePath>
-            </File>
-            <File>
-              <FileName>bsp_fecbus_rx.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\FECbus\bsp_fecbus_rx.c</FilePath>
             </File>
           </Files>
         </Group>

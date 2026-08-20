@@ -6,7 +6,6 @@
 #include "cmd_queue.h"
 #include "cmd_process.h"
 #include "bsp_debug.h"
-#include "bsp_fecbus_rx.h"   /* FECbus RX: USART3 逐字节IT接收入环 */
 
 //UartBuffer_t uartbuff[10];
 
@@ -29,14 +28,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		while(HAL_UART_Receive_IT(&huart8,&screendata,1)!= HAL_OK)
 		{
 				__HAL_UNLOCK(&huart8);
-		}
-  }
-  else if (huart->Instance == USART3) {
-		/* FECbus RX: 字节入环 + 重启下一字节接收 */
-		FecbusRx_OnByte(g_fecbus_rx_byte);
-		while(HAL_UART_Receive_IT(&huart3,(uint8_t *)&g_fecbus_rx_byte,1)!= HAL_OK)
-		{
-				__HAL_UNLOCK(&huart3);
 		}
   }
 }
@@ -133,7 +124,12 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	}
 	else if (huart->Instance == USART3)
   {
-		/* FECbus 独占 USART3 接收 (bsp_fecbus_rx.c 逐字节IT), 不走DMA/uartbuff[2] */
+		uartbuff[2].recepetion_flag = 1;
+		uartbuff[2].recepetion_len = Size;
+
+		// 维护Cache一致性
+    SCB_InvalidateDCache_by_Addr((uint32_t*)uartbuff[2].recepetion_buff, BUFF_MAX);
+		HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX);
 	}
 	else if (huart->Instance == UART4)
   {
@@ -285,8 +281,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     /* 2. 溢出错误处理 (ORE) */
     if(huart->ErrorCode & HAL_UART_ERROR_ORE) {
         __HAL_UART_CLEAR_OREFLAG(huart); // 溢出错误
-        // 对于DMA模式需要特殊处理 (USART3=FECbus IT接收, 排除避免误启DMA)
-        if((huart->hdmarx != NULL) && (huart->Instance != USART3)) {
+        // 对于DMA模式需要特殊处理
+        if(huart->hdmarx != NULL) {
             HAL_UART_DMAStop(huart);
 						//huart->hdmarx->Instance->CNDTR = BUFF_MAX;
             __HAL_DMA_ENABLE(huart->hdmarx);
@@ -323,8 +319,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 		}
 		else if (huart->Instance == USART3)
 		{
-			/* FECbus RX: 错误恢复, 重启逐字节IT接收 (bsp_fecbus_rx.c) */
-			HAL_UART_Receive_IT(&huart3, (uint8_t *)&g_fecbus_rx_byte, 1);
+			HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX);
 		}
 		else if (huart->Instance == UART4)
 		{

@@ -16,9 +16,7 @@
 #include "bsp_screen.h"         
 #include "hmi_driver.h"          
 #include "system.h"              
-#include "w25qxx.h"
-#include "bsp_storage_event.h"  /* 黑匣子存储事件接入层 */
-#include "bsp_fecbus_report.h" /* FECbus RS485 上报接入层 (GB4717 附录C) */
+#include "w25qxx.h"             
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -454,18 +452,6 @@ static DeviceDisableResult DeviceDisableValidateSet(const DeviceIdentity *identi
     return DEVICE_DISABLE_OK;
 }
 
-/* 设备注册类型→黑匣子设备类型代码映射(供LogShield调用) */
-static uint16_t DeviceDisableMapStorageType(DeviceRegistryType type)
-{
-    switch(type)
-    {
-        case DEVICE_TYPE_SMOKE:        return DEV_TYPE_SMOKE;       /* 感烟探测器 */
-        case DEVICE_TYPE_TEMPERATURE:  return DEV_TYPE_TEMPERATURE; /* 感温探测器 */
-        case DEVICE_TYPE_MULTI_SENSOR: return DEV_TYPE_FIRE_ALARM;  /* 复合探测器暂用火灾报警器件代码 */
-        default:                       return DEV_TYPE_CONTROL_DEV; /* 未知类型按控制设备 */
-    }
-}
-
 /* 设置屏蔽: 校验→写位图→保存Flash→写历史(失败则回滚并恢复备份) */
 DeviceDisableResult DeviceDisableSet(const DeviceIdentity *identity)
 {
@@ -497,10 +483,6 @@ DeviceDisableResult DeviceDisableSet(const DeviceIdentity *identity)
         return DEVICE_DISABLE_STORAGE_ERROR;
     }
     shielding_state = 1U;
-    StorageEvent_LogShield((uint8_t)identity->address,
-                           DeviceDisableMapStorageType(info.type), 0U); /* 黑匣子:记录屏蔽 */
-    FecbusReport_Shield((uint8_t)identity->address,
-                        DeviceDisableMapStorageType(info.type), 0U); /* FECbus:上报屏蔽 */
     return DEVICE_DISABLE_OK;
 }
 
@@ -546,10 +528,6 @@ DeviceDisableResult DeviceDisableClear(const DeviceIdentity *identity)
         return DEVICE_DISABLE_STORAGE_ERROR;
     }
     shielding_state = g_disable_state.disabled_count != 0U;
-    StorageEvent_LogShield((uint8_t)identity->address,
-                           DeviceDisableMapStorageType(info.type), 1U); /* 黑匣子:记录解除屏蔽 */
-    FecbusReport_Shield((uint8_t)identity->address,
-                        DeviceDisableMapStorageType(info.type), 1U); /* FECbus:上报解除屏蔽 */
     return DEVICE_DISABLE_OK;
 }
 

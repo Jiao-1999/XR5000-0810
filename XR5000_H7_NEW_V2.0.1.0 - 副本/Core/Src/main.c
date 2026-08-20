@@ -48,11 +48,6 @@
 #include "bsp_adc.h"
 #include "bsp_save_ctrl.h"
 #include "bsp_fdcan1.h"
-#include "bsp_fecbus.h"  /* FECbus RS485 Ğ­Òé: USART3(PB10/PB11), GB4717 ¸½Â¼C */
-#include "bsp_logic_expr.h"    /* Logic module: rule CRUD/expr eval */
-#include "bsp_logic_dev.h"     /* Logic module: device abstraction layer */
-#include "bsp_logic_engine.h"  /* Logic module: linkage engine state machine */
-#include "bsp_logic_screen.h"  /* Logic module: screen edit/view UI */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -150,8 +145,7 @@ int main(void)
   MX_SPI2_Init();
   MX_TIM7_Init();
   MX_IWDG1_Init();
-  /* ¸ÄPB6ÎªLPUART1_TX, PB7ÎªLPUART1_RX, ¹©´æ´¢²àÍ¨ĞÅ(bsp_storage_tx)Ê¹ÓÃ */
-//  MX_FDCAN2_Init();
+  MX_FDCAN2_Init();
   MX_FDCAN1_Init();
   /* USER CODE BEGIN 2 */
 
@@ -163,14 +157,6 @@ int main(void)
 	Bsp_Screen_Buff_Init();
 	InternalSwitchInterfaceCtrlInit();
 	LinkageDeviceStateInit();
-	/* Linkage logic init: expr(Flash rules) -> dev(register callbacks) -> engine(runtime) -> screen(UI state) */
-	LogicExpr_Init();
-	LogicDev_Register();
-	LogicEngine_Init();
-	LogicScreen_Init();
-	/* ×¢: Fecbus_Init() ¸ÄÔÚ RTOS ÈÎÎñÄÚµ÷ÓÃ(freertos.c FecbusPeriodicTask),
-	 * Òò osKernelStart Ö®ºó FreeRTOS ÖĞ¶ÏÇ¶Ì×Ê¹ÓÃ BASEPRI=0x50,
-	 * ÒÔ¼° TIM6 ÖĞ¶ÏÄÚµ÷ÓÃ HAL_Delay »á¸ÉÈÅ(IWDGÎ¹¹·Ê±»ú) */
 //	SystemDebugTest();
 	
 //	HAL_UARTEx_ReceiveToIdle_IT(&huart1, uartbuff[0].recepetion_buff, BUFF_MAX);
@@ -184,14 +170,14 @@ int main(void)
 //	HAL_UARTEx_ReceiveToIdle_IT(&huart9, uartbuff[8].recepetion_buff, BUFF_MAX);
 //	HAL_UARTEx_ReceiveToIdle_IT(&huart10, uartbuff[9].recepetion_buff, BUFF_MAX);
 
-	// ÓÉÓÚ´®¿ÚÆÁµÄÌØÊâĞÔ£¬²ÉÓÃµ¥¶ÀÖĞ¶Ï¼ÓÖ¡Í·Ö¡Î²ÅĞ¶Ï½áÊø
+	// ç”±äºä¸²å£å±çš„ç‰¹æ®Šæ€§ï¼Œé‡‡ç”¨å•ç‹¬ä¸­æ–­åŠ å¸§å¤´å¸§å°¾åˆ¤æ–­ç»“æŸ
 	HAL_UART_Receive_IT(&huart8, &screendata, 1);
 	
-	// ĞŞ¸ÄÎª´®¿Ú¿ÕÏĞÖĞ¶Ï¼ÓDMA°áÔË
+	// ä¿®æ”¹ä¸ºä¸²å£ç©ºé—²ä¸­æ–­åŠ DMAæ¬è¿
 	
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uartbuff[0].recepetion_buff, BUFF_MAX);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, uartbuff[1].recepetion_buff, BUFF_MAX);
-// HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX); /* XR5000_FECBUS_TEST: ¸ÄUSART3 DMA½ÓÊÕ, FECbus¶ÀÕ¼ */
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart4, uartbuff[3].recepetion_buff, BUFF_MAX);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart5, uartbuff[4].recepetion_buff, BUFF_MAX);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart6, uartbuff[5].recepetion_buff, BUFF_MAX);
@@ -199,12 +185,14 @@ int main(void)
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart9, uartbuff[8].recepetion_buff, BUFF_MAX);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart10, uartbuff[9].recepetion_buff, BUFF_MAX);
 	
+	
+	
 	HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET, ADC_SINGLE_ENDED);
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_DMA_BUFF, ADC_CARRY_NUM);
 	
 	FDCAN1_Start();
-	// ÈÃADCÏÈ²É¼¯Á½Ãë
-	HAL_Delay(2000);  // 2ÃëÑÓÊ±£¬ADCÒÑ¹¤×÷2Ãë
+	// è®©ADCå…ˆé‡‡é›†ä¸¤ç§’
+	HAL_Delay(2000);  // 2ç§’å»¶æ—¶ï¼ŒADCå·²å·¥ä½œ2ç§’
 	
 //	uint8_t temp[20] = {0};
 //	sprintf((char *)temp, "id = %d \r\n", W25QXX_ReadID());

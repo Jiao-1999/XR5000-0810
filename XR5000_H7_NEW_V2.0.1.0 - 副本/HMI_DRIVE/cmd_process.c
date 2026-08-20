@@ -8,7 +8,6 @@
 #include "bsp_adc.h"
 
 #include "bsp_logic_set.h"
-#include "bsp_logic_screen.h" /* 联动逻辑：屏幕编辑/查看界面处理 */
 
 #include "bsp_debug.h"
 
@@ -29,6 +28,7 @@
 #include "bsp_rs485_detect.h"
 #include "bsp_mbus_control.h"
 #include "bsp_device_registry.h"
+#include "bsp_device_threshold.h"
 #include "bsp_aht20.h"
 
 #include "bsp_key.h"
@@ -39,9 +39,6 @@
 #include "bsp_can_monitor.h"
 
 #include "bsp_password.h"
-
-#include "bsp_storage_event.h"  /* 黑匣子存储事件接入层 */
-#include "bsp_fecbus_report.h" /* FECbus RS485 上报接入层 (GB4717 附录C) */
 
 #include <time.h>
 
@@ -1071,9 +1068,6 @@ void BspCmdProcessInit(void)
 	PowerStateInit(); // 电池状态初始化
 	BspBeepStateClear(); // 蜂鸣器状态初始化
 	BspScreenArrowSite(&bkcnc); // 屏幕箭头初始化
-	StorageEvent_ResetFirstFire(); /* 黑匣子:复位首警标志,下次火警重新判定首警 */
-	StorageEvent_LogReset();       /* 黑匣子:记录系统复位事件 */
-	FecbusReport_Reset();         /* FECbus:广播系统复位(功能码1) */
 }
 
 uint8_t getCurrentSystemRunState(void)
@@ -2044,7 +2038,8 @@ void NotifyScreen(uint16 screen_id)
 {
 	uint16_t prev_screen_id = current_screen_id; /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
     //TODO: 添加用户代码
-    current_screen_id = screen_id; //在工程配置中开启画面切换通知，记录当前画面ID
+    current_screen_id = screen_id;
+    DeviceThreshold_NotifyScreen(screen_id); //在工程配置中开启画面切换通知，记录当前画面ID
 	if(screen_id == MONITOR_PAGE_SCREEN_ID)
 	{
 		if(monitor_page_return_target == 0U)
@@ -2867,12 +2862,9 @@ void UpdateUI(void)
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, HANDPOT_Package_ID, 0xFFFF);
 			//
 			StoragePackFireAlarm(&pcfas, LINKAGE_CLUSTER_ID, HANDPOT_Package_ID, HandAlarm); // 记录手报按下
-
+			
 			fire_alarm_state = 1; // 点亮火警指示灯
 			silencers_state = 0;  // 有新的报警 关闭消音指示灯
-			/* 黑匣子:记录手报火警(自动判定首警) */
-			StorageEvent_LogFire(HANDPOT_Package_ID, DEV_TYPE_HAND_REPORT, 1, 0);
-			FecbusReport_Fire(HANDPOT_Package_ID, DEV_TYPE_HAND_REPORT, 1, 0); /* FECbus:手报火警 */
 		}
 		
 		// 有报警后切换主界面 点亮屏幕 
@@ -3516,12 +3508,12 @@ void UpdateUI(void)
 	
 	OutFireDeviceInternalScreenUpdataUI(current_screen_id, out_fire_start_ctrl);
 	
-	//FireAlarmTriggerLogicUpdataUI(current_screen_id, fire_alarm_logic_ctrl, fire_alarm_judge); /* 旧火警逻辑UI已由bsp_logic_screen模块取代 */
-	LogicScreen_UpdateUI(current_screen_id); /* 联动逻辑：编辑页预览/列表页规则刷新 */
+	FireAlarmTriggerLogicUpdataUI(current_screen_id, fire_alarm_logic_ctrl, fire_alarm_judge);
 	
 	FireAlarmThresholdUpdataUI(current_screen_id, fire_alarm_threshold);
 	/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
 	CanMonitorRefreshDisplay(current_screen_id);
+	DeviceThreshold_UpdateUI(current_screen_id, getCurrentSystemRunState() == 2U);
 }
 /*! 
 *  \brief  图标按钮控件通知
@@ -3552,6 +3544,7 @@ void TB_sahngchuan(uint16 screen_id, uint16 control_id, uint8  state, uint8  tub
 */
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 {
+	DeviceThreshold_NotifyButton(screen_id, control_id, state);
 	if(screen_id == 1)
 	{
 		if(control_id==10 && state == 1)                                            
@@ -4329,8 +4322,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		}
 	}
 	InternalLinkageMonitorButtonDeal(screen_id, control_id, state);
-	//FireAlarmTriggerLogicButtonSet(screen_id, control_id, state, &fire_alarm_logic_ctrl); /* 旧火警逻辑按键已由bsp_logic_screen模块取代 */
-	LogicScreen_OnButton(screen_id, control_id, state); /* 联动逻辑：逻辑设定界面按键处理 */
+	FireAlarmTriggerLogicButtonSet(screen_id, control_id, state, &fire_alarm_logic_ctrl);
 	SuperAdminButtonCtrl(screen_id, control_id, state, &button_ctrl);
 	SuperAdminPasswordButtonCtrl(screen_id, control_id, state, &super_admin_password);
 	
@@ -4348,7 +4340,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 */
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
-	 LogicScreen_OnText(screen_id, control_id, str); /* 联动逻辑：文本输入事件转发（预留） */
+	DeviceThreshold_NotifyText(screen_id, control_id, str);
 	 if(screen_id == 75U && control_id >= 1U && control_id <= 6U)
 	 {
 		CanMonitorSetChannelName((uint8_t)control_id, str);
@@ -4870,6 +4862,7 @@ void NotifyMeter(uint16 screen_id, uint16 control_id, uint32 value)
 */
 void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 {
+  DeviceThreshold_NotifyMenu(screen_id, control_id, item, state);
   //TODO: 添加用户代码
 	// 菜单更新控件 灭火喷放逻辑设定 火警触发逻辑设定 在此处调用
 	
@@ -4982,6 +4975,16 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 				bsp_screen_switch_ctrl.target_screen = 71U;
 				bsp_screen_switch_ctrl.switch_flag = 1U;
 				SwitchCurrentScreenId(71U);
+			}
+		}
+		else if(control_id == 26U && state == 1U)
+		{
+			uint16_t target = (item == 0U) ? 73U : 76U;
+			if(item <= 1U)
+			{
+				bsp_screen_switch_ctrl.target_screen = target;
+				bsp_screen_switch_ctrl.switch_flag = 1U;
+				SwitchCurrentScreenId(target);
 			}
 		}
 }
@@ -5953,16 +5956,12 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 				pas[pas_pointer].atr.minute = minutes;
 				
 				// 2025/11/19 10:59 新增记录报警秒
-			pas[pas_pointer].atr.second = secs;
-
-			pas_pointer++;
-
-			/* 黑匣子:记录舱内复合火警(仅新增舱记录时,避免重复) */
-			StorageEvent_LogFire(jsz, DEV_TYPE_FIRE_ALARM, 1, 0);
-			FecbusReport_Fire(jsz, DEV_TYPE_FIRE_ALARM, 1, 0); /* FECbus:舱内复合火警 */
-
-			beep_fire_ctrl = 1;  // 火警/预警 长鸣
-			silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
+				pas[pas_pointer].atr.second = secs;
+				
+				pas_pointer++;
+				
+				beep_fire_ctrl = 1;  // 火警/预警 长鸣
+				silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
 			}
 			// end
 		}
@@ -7199,8 +7198,6 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 		Part1FeedbackLedCtrl(LED_ON);
 		// 记录到FLASH中 反馈一动作
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_FEEDBACK1, LINKAGE_CLUSTER_ID, FEEDBK1_Package_ID);
-		StorageEvent_LogFeedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0); /* 黑匣子:反馈1记录 */
-		FecbusReport_Feedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0);    /* FECbus:反馈1上报 */
 
 		// 创建一条新纪录
 		// 记录创建时间
@@ -11942,9 +11939,6 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
             {
                 if(old_state == 1U) Loop1RemoveWarning(addr, Loop1TempWarning, LOOP1_TEMP_WARNING_RECOVERY, value);
                 if(old_state == 3U) Loop1RemoveFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_RECOVERY);
-                /* 黑匣子:温度故障恢复 */
-                if(old_state == 3U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1);
-                if(old_state == 3U) FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1); /* FECbus:温度故障恢复 */
                 setPointTypeMixtureDetectTempertureMemory(addr, raw_state == 2U ? 1U : 0U);
 
                 if(raw_state == 1U) Loop1AddWarning(addr, Loop1TempWarning, LOOP1_TEMP_WARNING, value);
@@ -11958,17 +11952,11 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, 0U, addr, value);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FIRE);
-                    /* 黑匣子:记录Loop1温度火警(自动判定首警) */
-                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 1, 0);
-                    FecbusReport_Fire(addr, DEV_TYPE_TEMPERATURE, 1, 0); /* FECbus:温度火警 */
                 }
                 else if(raw_state == 3U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FAULT);
-                    /* 黑匣子:温度传感器故障 */
-                    StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 0);
-                    FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 0); /* FECbus:温度故障 */
                 }
             }
             else
@@ -11976,11 +11964,6 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                 if(old_state == 1U) Loop1RemoveWarning(addr, Loop1SmokeWarning, LOOP1_SMOKE_WARNING_RECOVERY, value);
                 if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_SMOKE_POLLUTION, LOOP1_SMOKE_POLLUTION_RECOVERY);
                 if(old_state == 9U) Loop1RemoveFault(addr, LOOP1_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_RECOVERY);
-                /* 黑匣子:烟雾污染/传感器故障恢复 */
-                if(old_state == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);
-                if(old_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);
-                if(old_state == 8U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:烟雾污染恢复 */
-                if(old_state == 9U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:烟雾传感器恢复 */
                 setPointTypeMixtureDetectSmokeMemory(addr, raw_state == 2U ? 1U : 0U);
 
                 if(raw_state == 1U) Loop1AddWarning(addr, Loop1SmokeWarning, LOOP1_SMOKE_WARNING, value);
@@ -11994,25 +11977,16 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, 0U, addr, value);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FIRE);
-                    /* 黑匣子:记录Loop1烟雾火警(自动判定首警) */
-                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 1, 0);
-                    FecbusReport_Fire(addr, DEV_TYPE_SMOKE, 1, 0); /* FECbus:烟雾火警 */
                 }
                 else if(raw_state == 8U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_SMOKE_POLLUTION, LOOP1_SMOKE_POLLUTION_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FAULT);
-                    /* 黑匣子:烟雾污染故障 */
-                    StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 0);
-                    FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:烟雾污染故障 */
                 }
                 else if(raw_state == 9U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FAULT);
-                    /* 黑匣子:烟雾传感器故障 */
-                    StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 0);
-                    FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:烟雾传感器故障 */
                 }
             }
             loop1_raw_state_memory[addr] = raw_state;
