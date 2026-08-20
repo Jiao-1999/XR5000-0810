@@ -60,13 +60,9 @@
 #include "bsp_ctrl_bus.h"
 #include "bsp_rs485_detect.h"
 #include "bsp_fdcan1.h"
-#include "bsp_can_monitor.h" /* CAN×´Ì¬¼à²â, FCP-1011ÁùÂ·¿ØÖÆ°å; ÐÂ¼Ó2026-08-06 */
+#include "bsp_can_monitor.h" /* æ–°åŠ åŠŸèƒ½ï¼šFCP-1011å…­è·¯æŽ§åˆ¶æ¿ï¼›æ—¶é—´ï¼š2026-08-06 */
 #include "bsp_aht20.h"
 #include "iwdg.h"
-#include "bsp_storage_tx.h"  /* ´æ´¢¶ËÍ¨Ñ¶: LPUART1(PB6/PB7) */
-#include "bsp_fecbus.h"      /* FECbus RS485 Ð­Òé²ã: USART3(PB10/PB11), GB4717 ¸½Â¼C */
-#include "bsp_test_inject.h" /* COM4´®¿Ú×¢Èëµ÷ÊÔ: UART4 RX¹Ò½Ó, ÓÉDMAÖÐ¶ÏÌî³ä¹©ÈÎÎñÂÖÑ¯ */
-#include "bsp_logic_engine.h" /* Linkage logic engine task: rule eval + action exec, 100ms cycle */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -87,128 +83,120 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
-// 01Ä£¿éÂÖÑ¯ÈÎÎñ
-osThreadId_t PackPollingTaskHandle; // Ä£¿éÂÖÑ¯ÈÎÎñ¾ä±ú
+// 01æ¨¡å—è½®è¯¢ä»»åŠ¡
+osThreadId_t PackPollingTaskHandle; // 
 const osThreadAttr_t PackPollingTask_attributes = {
 	.name = "pack_pollingTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// PACK485 ÂÖÑ¯½ÓÊÕÈÎÎñ
-osThreadId_t PackPollAndReceiveTaskHandle; // PACK485ÂÖÑ¯½ÓÊÕÈÎÎñ¾ä±ú
+// PACK485 polling task
+osThreadId_t PackPollAndReceiveTaskHandle; // 
 const osThreadAttr_t PackPollAndReceiveTask_attributes = {
 	.name = "PackPollAndReceiveTask",
 	.stack_size = 256 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// BSP485 PACKÂÖÑ¯ÈÎÎñ
-osThreadId_t BSP485PollTaskHandle; // ÈÎÎñ¾ä±ú
+// BSP485PACKè½®è¯¢ä»»åŠ¡
+osThreadId_t BSP485PollTaskHandle; // ä»»åŠ¡å¥æŸ„
 const osThreadAttr_t BSP485PollTask_attributes = {
 	.name = " BSP485_PollTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal2,
 };
 
-// 485¶ÓÁÐÄ£¿éÂÖÑ¯ÈÎÎñ
-osThreadId_t QueuePollingTaskHandle; // ¶ÓÁÐÂÖÑ¯ÈÎÎñ¾ä±ú
+// 485é˜Ÿåˆ—æ¨¡å—è½®è¯¢ä»»åŠ¡
+osThreadId_t QueuePollingTaskHandle; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 const osThreadAttr_t QueuePollingTask_attributes = {
 	.name = "pack_pollingTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// °ü½ÓÊÕ´¦Àíº¯Êý
-osThreadId_t QueueRcevDealTaskHandle; // °ü½ÓÊÕ´¦ÀíÈÎÎñ¾ä±ú
+// åŒ…æŽ¥æ”¶å¤„ç†å‡½æ•°
+osThreadId_t QueueRcevDealTaskHandle; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 const osThreadAttr_t QueueRcevDealTask_attributes = {
 	.name = "QueueRcevDealTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// ÄÚÆÁ
-osThreadId_t InternalScreenTaskHandle; // ÄÚÆÁÈÎÎñ¾ä±ú
+// å†…å±
+osThreadId_t InternalScreenTaskHandle; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 const osThreadAttr_t InternalScreen_attributes = {
 	.name = "InternalScreenTask",
-	.stack_size = 384 * 4,  /* enlarged: NotifyButton ctx runs DebugPrintf vsnprintf frame */
+	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal3,
 };
-
-/* Debug log pump task: drain ring queue to UART4 async, never blocks callers */
-osThreadId_t DebugPrintTaskHandle;
-const osThreadAttr_t DebugPrintTask_attributes = {
-	.name = "DebugPrintTask",
-	.stack_size = 1024,
-	.priority = (osPriority_t) osPriorityBelowNormal,
-};
-// ÄÚÆÁË¢ÐÂÈÎÎñ
-osThreadId_t InterScreenUpdataTaskHandle; // ÄÚÆÁË¢ÐÂÈÎÎñ¾ä±ú
+// å†…å±åˆ·æ–°ä»»åŠ¡
+osThreadId_t InterScreenUpdataTaskHandle; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 const osThreadAttr_t InterScreenUpdataTask_attributes = {
 	.name = "InterScreenUpdataTask",
 	.stack_size = 384 * 4,
 	.priority = (osPriority_t) osPriorityNormal2,
 };
-// ÍâÁªÉè±¸×´Ì¬ÅÐ¶Ï
-osThreadId_t LinkageOnlineTaskHandle; // ¾ä±ú
+// å¤–è”è®¾å¤‡çŠ¶æ€åˆ¤æ–­
+osThreadId_t LinkageOnlineTaskHandle; // å¥æŸ„
 const osThreadAttr_t LinkageOnlineTask_attributes = {
 	.name = "LinkageOnlineJudgeTask",
 	.stack_size = 256 * 4,
 	.priority = (osPriority_t) osPriorityNormal,
 };
-// °´¼üÉè±¸×´Ì¬ÅÐ¶Ï
-osThreadId_t KeyOnlineJudgeTaskHandle; // ¾ä±ú
+// æŒ‰é”®è®¾å¤‡çŠ¶æ€åˆ¤æ–­
+osThreadId_t KeyOnlineJudgeTaskHandle; // å¥æŸ„
 const osThreadAttr_t KeyOnlineJudgeTask_attributes = {
 	.name = "KeyOnlineJudgeTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal,
 };
-// Ö÷±¸µç×´Ì¬ÅÐ¶Ï ¼°µçÁ÷¼à²â
-osThreadId_t MainStandbyPwrJudgeTaskHandle; // ¾ä±ú
+// ä¸»å¤‡ç”µçŠ¶æ€åˆ¤æ–­ åŠç”µæµç›‘æµ‹
+osThreadId_t MainStandbyPwrJudgeTaskHandle; // å¥æŸ„
 const osThreadAttr_t MSPwrJudgeTask_attributes = {
 	.name = "MSPJudgeAndCurrTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityAboveNormal,
 };
-// BMS²éÑ¯»Ø¸´ÈÎÎñ
-osThreadId_t BMSRecvDealTaskHandle; // ¾ä±ú
+// BMSæŸ¥è¯¢å›žå¤ä»»åŠ¡
+osThreadId_t BMSRecvDealTaskHandle; // å¥æŸ„
 const osThreadAttr_t BMSRecvDealTask_attributes = {
 	.name = "BMSRecvDeal",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal,
 };
 
-// ÍâÁªÉè±¸¿ØÖÆÈÎÎñ
-osThreadId_t LinkageCtrlTaskHandle; // ¾ä±ú
+// å¤–è”è®¾å¤‡æŽ§åˆ¶ä»»åŠ¡
+osThreadId_t LinkageCtrlTaskHandle; // å¥æŸ„
 const osThreadAttr_t LinkageCtrlTask_attributes = {
 	.name = "LinkageCtrl",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal,
 };
 
-// Ö÷»ú×´Ì¬ÉÏÐÐÈÎÎñ
-osThreadId_t HostUploadTaskHandle; // ¾ä±ú
+// ä¸»æœºçŠ¶æ€ä¸Šè¡Œä»»åŠ¡
+osThreadId_t HostUploadTaskHandle; // å¥æŸ„
 const osThreadAttr_t HostUploadTask_attributes = {
 	.name = "HostUploadCtrl",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal2,
 };
-// ÄÚÆÁ°å½ÓÊÕ´¦Àí
-osThreadId_t InternalBoardRecvTaskHandle; // ¾ä±ú
+// å†…å±æ¿æŽ¥æ”¶å¤„ç†
+osThreadId_t InternalBoardRecvTaskHandle; // å¥æŸ„
 const osThreadAttr_t InternalBoardRecvTask_attributes = {
 	.name = "InternalBoardRecv",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal2,
 };
 //
-osThreadId_t StationResponseTaskHandle; // ¾ä±ú
+osThreadId_t StationResponseTaskHandle; // å¥æŸ„
 const osThreadAttr_t StationResponseTask_attributes = {
 	.name = "StationResponse",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// 2025/10/29 09:49 ´´½¨
+// 2025/10/29 09:49 åˆ›å»º
 //osThreadId_t CtrlBusPollingTaskHandle; // ctrl bus send task
 //const osThreadAttr_t CtrlBusPollingTask_attributes = {
 //	.name = "CtrlBusPolling",
@@ -223,7 +211,7 @@ const osThreadAttr_t StationResponseTask_attributes = {
 //	.priority = (osPriority_t) osPriorityNormal1,
 //};
 
-// 2025/11/19 18:35 ´´½¨ ÓÅ»¯ÈÎÎñ´¦Àí ºÏ²¢Á½¸öÈÎÎñ ¼õÉÙÕ»ÇøÏûºÄ
+// 2025/11/19 18:35 åˆ›å»º ä¼˜åŒ–ä»»åŠ¡å¤„ç† åˆå¹¶ä¸¤ä¸ªä»»åŠ¡ å‡å°‘æ ˆåŒºæ¶ˆè€—
 osThreadId_t CtrlBusPollAndReceiveTaskHandle; // ctrl bus send task
 const osThreadAttr_t CtrlBusPollAndReceiveTask_attributes = {
 	.name = "CtrlBusPollAndReceiveTask",
@@ -231,7 +219,7 @@ const osThreadAttr_t CtrlBusPollAndReceiveTask_attributes = {
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// »ØÂ·3 RS485Ì½²âÂÖÑ¯ÈÎÎñ (XR805 + XR8303)
+// å›žè·¯3 RS485æŽ¢æµ‹è½®è¯¢ä»»åŠ¡ (XR805 + XR8303)
 osThreadId_t RS485DetectPollAndReceiveTaskHandle;
 const osThreadAttr_t RS485DetectPollAndReceiveTask_attributes = {
 	.name = "RS485DetectPollAndRecv",
@@ -239,7 +227,7 @@ const osThreadAttr_t RS485DetectPollAndReceiveTask_attributes = {
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// 2025/11/17 11:24 ´´½¨
+// 2025/11/17 11:24 åˆ›å»º
 //osThreadId_t MBusPollingTaskHandle; // Mbus send task
 //const osThreadAttr_t MBusPollingTask_attributes = {
 //	.name = "MBusPolling",
@@ -254,7 +242,7 @@ const osThreadAttr_t RS485DetectPollAndReceiveTask_attributes = {
 //	.priority = (osPriority_t) osPriorityNormal1,
 //};
 
-// 2025/11/19 18:24 ´´½¨ ÓÅ»¯ÈÎÎñ´¦Àí ºÏ²¢Á½¸öÈÎÎñ ¼õÉÙÕ»ÇøÏûºÄ
+// 2025/11/19 18:24 åˆ›å»º ä¼˜åŒ–ä»»åŠ¡å¤„ç† åˆå¹¶ä¸¤ä¸ªä»»åŠ¡ å‡å°‘æ ˆåŒºæ¶ˆè€—
 osThreadId_t MBus1PollAndReceiveTaskHandle; // Mbus receive task
 const osThreadAttr_t MBus1PollAndReceiveTask_attributes = {
 	.name = "MBusPollAndReceiveTask",
@@ -269,69 +257,29 @@ const osThreadAttr_t MBus2PollAndReceiveTask_attributes = {
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// 2025/11/20 18:11 ´´½¨ ÓÅ»¯ÈÎÎñ´¦Àí ºÏ²¢Á½¸öÈÎÎñ ¼õÉÙÕ»ÇøÏûºÄ
-osThreadId_t CanMonitorTaskHandle; /* CAN×´Ì¬¼à²â, FCP-1011ÁùÂ·¿ØÖÆ°å; ÐÂ¼Ó2026-08-06 */
+// 2025/11/20 18:11 åˆ›å»º ä¼˜åŒ–ä»»åŠ¡å¤„ç† åˆå¹¶ä¸¤ä¸ªä»»åŠ¡ å‡å°‘æ ˆåŒºæ¶ˆè€—
+osThreadId_t CanMonitorTaskHandle; /* æ–°åŠ åŠŸèƒ½ï¼šFCP-1011å…­è·¯æŽ§åˆ¶æ¿ï¼›æ—¶é—´ï¼š2026-08-06 */
 const osThreadAttr_t CanMonitorTask_attributes = {
 	.name = "CanMonitorTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-/* ´æ´¢¶ËÍ¨Ñ¶ÈÎÎñ: Í¨¹ýLPUART1Ïò´æ´¢¶Ë·¢ËÍÊÂ¼þ¼ÇÂ¼, Ñ­»·´¦Àí·¢ËÍ¶ÓÁÐ */
-osThreadId_t StorageTxTaskHandle;
-const osThreadAttr_t StorageTxTask_attributes = {
-	.name = "StorageTxTask",
-	.stack_size = 512 * 4,  /* Õ»: DebugPrintfÐè400×Ö½Ú + StorageTx_SendFrameº¬buf[260] */
-	.priority = (osPriority_t) osPriorityNormal1,
-};
-
-/* FECbus ·¢ËÍ½ÓÊÕÈÎÎñ: ×ßUSART3(PB10/PB11) RS485 ·¢ËÍ½ÓÊÕÐ­ÒéÖ¡, GB4717 ¸½Â¼C */
-osThreadId_t FecbusTxTaskHandle;
-const osThreadAttr_t FecbusTxTask_attributes = {
-	.name = "FecbusTxTask",
-	.stack_size = 512 * 4,  /* Õ»: Fecbus_SendEventº¬buf[270] + ÈÎÎñµ÷ÓÃÕ» */
-	.priority = (osPriority_t) osPriorityBelowNormal1,  /* µÍÓÚStorageTx, ·¢ËÍÁ¿½ÏÐ¡ÓÅÏÈ¼¶µÍ */
-};
-
-/* FECbus ÖÜÆÚ¹ã²¥ÈÎÎñ: 1sÍ¬²½ÐÄÌø/5sÐÄÌø/10sÊ±ÖÓ¹ã²¥, ·¢ËÍ×ßUSART3 */
-osThreadId_t FecbusPeriodicTaskHandle;
-const osThreadAttr_t FecbusPeriodicTask_attributes = {
-	.name = "FecbusPeriodicTask",
-	.stack_size = 256 * 4,  /* ÖÜÆÚ¹ã²¥Êý¾ÝÁ¿Ð¡: µ¥Ö¡×î´ópayload[7] */
-	.priority = (osPriority_t) osPriorityLow,  /* ÖÜÆÚ¹ã²¥ÓÅÏÈ¼¶µÍ, ²»Ó°Ïì¹Ø¼üÒµÎñ */
-};
-
-/* COM4´®¿Ú×¢Èëµ÷ÊÔÈÎÎñ: UART4 RX¹Ò½ÓDMA½ÓÊÕ, Ö§³ÖONL/TF/SFÃüÁî´¥·¢±¨¾¯ÅÐ¶Ï */
-osThreadId_t TestInjectTaskHandle;
-const osThreadAttr_t TestInjectTask_attributes = {
-	.name = "TestInjectTask",
-	.stack_size = 512 * 4,  /* Õ»: DebugPrintfÐè400×Ö½Ú + rx_buf[32] + ParseLine½âÎö */
-	.priority = (osPriority_t) osPriorityNormal1,
-};
-
-/* Linkage logic engine task: evaluate rules and execute actions every 100ms */
-osThreadId_t LogicEngineTaskHandle;
-const osThreadAttr_t LogicEngineTask_attributes = {
-	.name = "LogicEngineTask",
-	.stack_size = 512 * 4,  /* stack: rule table walk + control callbacks */
-	.priority = (osPriority_t) osPriorityNormal,
-};
-
 
 extern uint8_t timeout_led_ctrl;
 
-// ¶¨Òå485×ÜÏß·¢ËÍÏûÏ¢¶ÓÁÐ
+// å®šä¹‰485æ€»çº¿å‘é€æ¶ˆæ¯é˜Ÿåˆ—
 QueueHandle_t xMyRs485QueueHandle;
 // XR5000_UART5_EXCLUSIVE_FIX_20260730: legacy fan traffic has its own disabled transport queue.
 QueueHandle_t xFanBusQueueHandle;
-// ¶¨ÒåMBUS×ÜÏß·¢ËÍÏûÏ¢¶ÓÁÐ
+// å®šä¹‰MBUSæ€»çº¿å‘é€æ¶ˆæ¯é˜Ÿåˆ—
 QueueHandle_t xMyMBusQueueHandle;
-// ¶¨ÒåMBUS2×ÜÏß·¢ËÍÏûÏ¢¶ÓÁÐ£¨»ØÂ·2 ¶þ×ÜÏß¿ØÖÆ£©
+// å®šä¹‰MBUS2æ€»çº¿å‘é€æ¶ˆæ¯é˜Ÿåˆ—ï¼ˆå›žè·¯2 äºŒæ€»çº¿æŽ§åˆ¶ï¼‰
 QueueHandle_t xMBus2QueueHandle;
 
 
 //StaticSemaphore_t xMutexBuffer;
-//SemaphoreHandle_t xMutex; // ³õÊ¼»¯»¥³âËø
+//SemaphoreHandle_t xMutex; // åˆå§‹åŒ–äº’æ–¥é”
 
 
 /* USER CODE END Variables */
@@ -339,7 +287,7 @@ QueueHandle_t xMBus2QueueHandle;
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 512 * 4,  /* Õ»Çø´óÐ¡: DebugPrintfÐè400×Ö½Ú + vsnprintfÁÙÊ±»º³å */
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for led_test */
@@ -369,17 +317,8 @@ void CreatUpdataUITask(void);
 void SuspendTask(uint8_t task_id);
 void ResumeTask(uint8_t task_id);
 
-/* ´æ´¢¶ËÍ¨Ñ¶ÈÎÎñº¯ÊýÉùÃ÷ */
-void StorageTxTask(void *argument);
 
-/* FECbus ·¢ËÍÈÎÎñº¯ÊýÉùÃ÷ (GB4717 ¸½Â¼C, USART3 RS485) */
-void FecbusTxTask(void *argument);
 
-/* FECbus ÖÜÆÚ¹ã²¥ÈÎÎñº¯ÊýÉùÃ÷ (1sÐÄÌø/5sÐÄÌø/10sÊ±ÖÓ) */
-void FecbusPeriodicTask(void *argument);
-
-/* COM4´®¿Ú×¢Èëµ÷ÊÔÈÎÎñ */
-void TestInjectTask(void *argument);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -403,8 +342,8 @@ void MX_FREERTOS_Init(void) {
   HmiTxInit(); /* XR5000_HMI_UART_LOCK_FIX_20260729: create UART8 frame mutex before screen tasks. */
   BspSaveCtrlInit(); /* XR5000_W25Q_MUTEX_FIX_20260804: create the shared Flash mutex before tasks. */
   /* add mutexes, ... */
-//	xMutex = xSemaphoreCreateMutexStatic(&xMutexBuffer); // ³õÊ¼»¯»¥³âËø
-
+//	xMutex = xSemaphoreCreateMutexStatic(&xMutexBuffer); // åˆå§‹åŒ–äº’æ–¥é”
+	
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -417,18 +356,18 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
-	osTimerStart(SecondTimerHandle, 1000);  // ÉèÖÃ1ÃëÖÜÆÚ
+	osTimerStart(SecondTimerHandle, 1000);  // è®¾ç½®1ç§’å‘¨æœŸ
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
-	xMyRs485QueueHandle = xQueueCreate(10, sizeof(char[8])); // ´´½¨Ò»¸ö×î¶à´æ´¢10ÌõÏûÏ¢µÄ¶ÓÁÐ£¬Ã¿ÌõÏûÏ¢ÊÇ8×Ö½ÚµÄcharÊý×é
-
+	xMyRs485QueueHandle = xQueueCreate(10, sizeof(char[8])); // åˆ›å»ºä¸€ä¸ªæœ€å¤šå­˜å‚¨10æ¡æ¶ˆæ¯çš„é˜Ÿåˆ—ï¼Œæ¯æ¡æ¶ˆæ¯æ˜¯8å­—èŠ‚çš„charæ•°ç»„
+	
 	xFanBusQueueHandle = xQueueCreate( 5, sizeof(char[8])); // XR5000_UART5_EXCLUSIVE_FIX_20260730: fan-only queue; UART5 is not its transport.
-
-	xMyMBusQueueHandle = xQueueCreate( 5, sizeof(char[8])); // ´´½¨Ò»¸ö×î¶à´æ´¢5ÌõÏûÏ¢µÄ¶ÓÁÐ£¬Ã¿ÌõÏûÏ¢ÊÇ8×Ö½ÚµÄcharÊý×é
-
-	xMBus2QueueHandle = xQueueCreate( 5, sizeof(char[8])); // ´´½¨Ò»¸ö×î¶à´æ´¢5ÌõÏûÏ¢µÄ¶ÓÁÐ£¬Ã¿ÌõÏûÏ¢ÊÇ8×Ö½ÚµÄcharÊý×é£¨»ØÂ·2 ¶þ×ÜÏß¿ØÖÆ£©
+	
+	xMyMBusQueueHandle = xQueueCreate( 5, sizeof(char[8])); // åˆ›å»ºä¸€ä¸ªæœ€å¤šå­˜å‚¨5æ¡æ¶ˆæ¯çš„é˜Ÿåˆ—ï¼Œæ¯æ¡æ¶ˆæ¯æ˜¯8å­—èŠ‚çš„charæ•°ç»„
+	
+	xMBus2QueueHandle = xQueueCreate( 5, sizeof(char[8])); // åˆ›å»ºä¸€ä¸ªæœ€å¤šå­˜å‚¨5æ¡æ¶ˆæ¯çš„é˜Ÿåˆ—ï¼Œæ¯æ¡æ¶ˆæ¯æ˜¯8å­—èŠ‚çš„charæ•°ç»„ï¼ˆå›žè·¯2 äºŒæ€»çº¿æŽ§åˆ¶ï¼‰
 
   /* USER CODE END RTOS_QUEUES */
 
@@ -441,87 +380,65 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-
-	// ÄÚÆÁ½ÓÊÕ´¦ÀíÈÎÎñ
+	
+	// å†…å±æŽ¥æ”¶å¤„ç†ä»»åŠ¡
 	InternalScreenTaskHandle = osThreadNew(InternalScreenRecvDealTask, NULL, &InternalScreen_attributes);
-	DebugPrintTaskHandle = osThreadNew(DebugPrintTask, NULL, &DebugPrintTask_attributes);  /* async log pump */
-//	// ÆÁÄ»UI¸üÐÂÈÎÎñ
+//	// å±å¹•UIæ›´æ–°ä»»åŠ¡
 	InterScreenUpdataTaskHandle = osThreadNew(InterScreenFresh, NULL, &InterScreenUpdataTask_attributes);
 
 //	//BSP485 PACK POLL TASK
 //	PackPollingTaskHandle = osThreadNew(BSP_RS485_01_Poll, NULL, &BSP485PollTask_attributes);
-//	// ÏûÏ¢¶ÓÁÐÂÖÑ¯ºó ½ÓÊÕ´¦ÀíÈÎÎñ
+//	// æ¶ˆæ¯é˜Ÿåˆ—è½®è¯¢åŽ æŽ¥æ”¶å¤„ç†ä»»åŠ¡
 //	QueueRcevDealTaskHandle = osThreadNew(QueuePollRecvDealTask, NULL, &QueueRcevDealTask_attributes);
-
-	// 2025/11/25 11:03 ÆôÓÃÐÂ¹¦ÄÜ
+	
+	// 2025/11/25 11:03 å¯ç”¨æ–°åŠŸèƒ½
 	PackPollAndReceiveTaskHandle = osThreadNew(RS485_01_PollAndRecieve, NULL, &PackPollAndReceiveTask_attributes);
-
-
-	// 2025/11/17 17:22 ÆôÓÃMBUS
-//	//
+	
+	
+	// 2025/11/17 17:22 å¯ç”¨MBUS
+//	// 
 //	MBusPollingTaskHandle = osThreadNew(MBus1PollSlaveTsk, NULL, &MBusPollingTask_attributes);
-//	//
+//	// 
 //	MBusReceiveTaskHandle = osThreadNew(MBus1RecvDealTask, NULL, &MBusReceiveTask_attributes);
-
-	// // 2025/11/19 18:24 ´´½¨ ÓÅ»¯ÈÎÎñ´¦Àí ºÏ²¢Á½¸öÈÎÎñ ¼õÉÙÕ»ÇøÏûºÄ
+	
+	// // 2025/11/19 18:24 åˆ›å»º ä¼˜åŒ–ä»»åŠ¡å¤„ç† åˆå¹¶ä¸¤ä¸ªä»»åŠ¡ å‡å°‘æ ˆåŒºæ¶ˆè€—
 	MBus1PollAndReceiveTaskHandle = osThreadNew(MBus1PollSlaveAndReceiveTask, NULL, &MBus1PollAndReceiveTask_attributes);
-
+	
 	MBus2PollAndReceiveTaskHandle = osThreadNew(MBusControlPollSlaveAndReceiveTask, NULL, &MBus2PollAndReceiveTask_attributes);
-
-	// Ö÷»ú×´Ì¬ÉÏÐÐ
+	
+	// ä¸»æœºçŠ¶æ€ä¸Šè¡Œ
 	HostUploadTaskHandle = osThreadNew(HostUploadDataTask, NULL, &HostUploadTask_attributes);
-
-	// ÍâÁªÉè±¸ÔÚÏßµôÏß×´Ì¬ÅÐ¶Ï
+	
+	// å¤–è”è®¾å¤‡åœ¨çº¿æŽ‰çº¿çŠ¶æ€åˆ¤æ–­
 	LinkageOnlineTaskHandle = osThreadNew(LinkageOnlineJudgeTask, NULL, &LinkageOnlineTask_attributes);
-	// °´¼üÉè±¸ÔÚÏßµôÏß×´Ì¬ÅÐ¶Ï
+	// æŒ‰é”®è®¾å¤‡åœ¨çº¿æŽ‰çº¿çŠ¶æ€åˆ¤æ–­
 	KeyOnlineJudgeTaskHandle = osThreadNew(KeyStateJudgeTask, NULL, &KeyOnlineJudgeTask_attributes);
-	// ³¡Õ¾»Ø¸´ÈÎÎñ
+	// åœºç«™å›žå¤ä»»åŠ¡
 	StationResponseTaskHandle = osThreadNew(StationResponseTesk, NULL, &StationResponseTask_attributes);
-
-	// Ö÷±¸µç¼°µçÁ÷×´Ì¬ÅÐ¶Ï
+	
+	// ä¸»å¤‡ç”µåŠç”µæµçŠ¶æ€åˆ¤æ–­
 	MainStandbyPwrJudgeTaskHandle = osThreadNew(PowerOnlineJudgeTask, NULL, &MSPwrJudgeTask_attributes);
-
+	
 	// CtrlBusPollingTask
 //	CtrlBusPollingTaskHandle = osThreadNew(CtrlBusPollingTask, NULL, &CtrlBusPollingTask_attributes);
 //	//
 //	CtrlBusReceiveTaskHandle = osThreadNew(CtrlBusReceiveDealTask, NULL, &CtrlBusReceiveTask_attributes);
-
-	// 2025/11/19 18:36 ´´½¨ ÓÅ»¯ÈÎÎñ´¦Àí ºÏ²¢Á½¸öÈÎÎñ ¼õÉÙÕ»ÇøÏûºÄ
+	
+	// 2025/11/19 18:36 åˆ›å»º ä¼˜åŒ–ä»»åŠ¡å¤„ç† åˆå¹¶ä¸¤ä¸ªä»»åŠ¡ å‡å°‘æ ˆåŒºæ¶ˆè€—
 //	CtrlBusPollAndReceiveTaskHandle = osThreadNew(CtrlBusPollAndReceiveTask, NULL, &CtrlBusPollAndReceiveTask_attributes);
-	// ×¢£ºÔ­CtrlBusPollAndReceiveTaskÒÑÍ£ÓÃ£¬uart5ÓÉ»ØÂ·3 RS485Ì½²âÈÎÎñ½Ó¹Ü
+	// æ³¨ï¼šåŽŸCtrlBusPollAndReceiveTaskå·²åœç”¨ï¼Œuart5ç”±å›žè·¯3 RS485æŽ¢æµ‹ä»»åŠ¡æŽ¥ç®¡
 
-	// »ØÂ·3 RS485Ì½²âÂÖÑ¯ÈÎÎñ (XR805 + XR8303)
+	// å›žè·¯3 RS485æŽ¢æµ‹è½®è¯¢ä»»åŠ¡ (XR805 + XR8303)
 	RS485DetectPollAndReceiveTaskHandle = osThreadNew(RS485DetectPollAndReceiveTask, NULL, &RS485DetectPollAndReceiveTask_attributes);
-
-	// 2025/11/20 18:12
-	CanMonitorTaskHandle = osThreadNew(CanMonitorTask, NULL, &CanMonitorTask_attributes); /* CAN×´Ì¬¼à²â, FCP-1011ÁùÂ·¿ØÖÆ°å; ÐÂ¼Ó2026-08-06 */
-
-	// BMS²éÑ¯»Ø¸´ÈÎÎñ 2025/11/28 11:49 ÆôÓÃ¸ÃÈÎÎñ
-	// XR5000_FECBUS_TEST: BMS½ÓÊÕ²»ÔÙÓÃUSART3(PB10/PB11)ÈÃÎ»FECbus×ÜÏß, ÎÞÐè´´½¨BMSÈÎÎñ
- // BMSRecvDealTaskHandle = osThreadNew(BMSRecvDealTask, NULL, &BMSRecvDealTask_attributes);
-//	// ÍâÁªÉè±¸¼ÌµçÆ÷¿ØÖÆ
+	
+	// 2025/11/20 18:12 
+	CanMonitorTaskHandle = osThreadNew(CanMonitorTask, NULL, &CanMonitorTask_attributes); /* æ–°åŠ åŠŸèƒ½ï¼šFCP-1011å…­è·¯æŽ§åˆ¶æ¿ï¼›æ—¶é—´ï¼š2026-08-06 */
+	
+	// BMSæŸ¥è¯¢å›žå¤ä»»åŠ¡ 2025/11/28 11:49 å¯ç”¨è¯¥ä»»åŠ¡
+	BMSRecvDealTaskHandle = osThreadNew(BMSRecvDealTask, NULL, &BMSRecvDealTask_attributes);
+//	// å¤–è”è®¾å¤‡ç»§ç”µå™¨æŽ§åˆ¶
 //	LinkageCtrlTaskHandle = osThreadNew(LinkageRelayCtrlTask, NULL, &LinkageCtrlTask_attributes);
-
-	// Æô¶¯´æ´¢¶ËÍ¨Ñ¶ÈÎÎñ
-	StorageTxTaskHandle = osThreadNew(StorageTxTask, NULL, &StorageTxTask_attributes);
-	DebugPrintf("StorageTxTask create: %s\r\n", StorageTxTaskHandle ? "OK" : "FAIL");
-
-	// FECbus ·¢ËÍÈÎÎñ: GB4717 ¸½Â¼C, USART3 RS485 Ð­ÒéÖ¡ÊÕ·¢
-	FecbusTxTaskHandle = osThreadNew(FecbusTxTask, NULL, &FecbusTxTask_attributes);
-	DebugPrintf("FecbusTxTask create: %s\r\n", FecbusTxTaskHandle ? "OK" : "FAIL");
-
-	// FECbus ÖÜÆÚ¹ã²¥ÈÎÎñ: 1sÍ¬²½ÐÄÌø/5sÐÄÌø/10sÊ±ÖÓ¹ã²¥
-	FecbusPeriodicTaskHandle = osThreadNew(FecbusPeriodicTask, NULL, &FecbusPeriodicTask_attributes);
-	DebugPrintf("FecbusPeriodicTask create: %s\r\n", FecbusPeriodicTaskHandle ? "OK" : "FAIL");
-
-	// COM4´®¿Ú×¢Èëµ÷ÊÔ: PC·¢ONL/TF/SFÃüÁî´¥·¢±¨¾¯/¹ÊÕÏÉÏ±¨
-	TestInjectTaskHandle = osThreadNew(TestInjectTask, NULL, &TestInjectTask_attributes);
-	DebugPrintf("TestInjectTask create: %s\r\n", TestInjectTaskHandle ? "OK" : "FAIL");
-
-	// Linkage logic engine task: rule evaluation + linkage action execution
-	LogicEngineTaskHandle = osThreadNew(LogicEngineTask, NULL, &LogicEngineTask_attributes);
-	DebugPrintf("LogicEngineTask create: %s\r\n", LogicEngineTaskHandle ? "OK" : "FAIL");
-
+	
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -544,15 +461,13 @@ void StartDefaultTask(void *argument)
 //	uint8_t read_sum;
 	size_t freeHeap;
 //	uint8_t fresh_screen_timeout = 0;
-
+	
 //	uint8_t test_data[8] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
-
+	
 	osDelay(1000);
-	// ´æ´¢¿ª»úÊ±¼ä
+	// å­˜å‚¨å¼€æœºæ—¶é—´
 	BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_TURN_ON, LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID);
-
-	/* ÉÏµçµÈ´ýosDelay(2000)ºóË¢ÐÂIWDG·ÀÖ¹¿´ÃÅ¹·¸´Î» */
-	HAL_IWDG_Refresh(&hiwdg1);
+	
 	osDelay(2000);
 	SetInternalScreenRTCTime();
 	GetScreen();
@@ -560,127 +475,16 @@ void StartDefaultTask(void *argument)
 	AHT20_Init();
 	(void)AHT20_Update();
 	MBusCtrl_Init();
-	// ÄÚÆÁ°å×Ó½ÓÊÕ´¦Àíº¯Êý ¿ª»úÈýÃëºó²Å´´½¨¸ÃÈÎÎñ
+	// å†…å±æ¿å­æŽ¥æ”¶å¤„ç†å‡½æ•° å¼€æœºä¸‰ç§’åŽæ‰åˆ›å»ºè¯¥ä»»åŠ¡
 	InternalBoardRecvTaskHandle = osThreadNew(InternalScreenBoradRecvDealTask, NULL, &InternalBoardRecvTask_attributes);
-
-	/* ´æ´¢¶Ë³õÊ¼»¯: Æô¶¯LPUART1·¢ËÍÍ¨µÀ, µÈ´ý½ÓÊÕ¶ËACK=0È·ÈÏÁ´Â·Õý³£ */
-	HAL_IWDG_Refresh(&hiwdg1);
-	StorageTx_Init();
-	{
-		EventRecord_t rec;
-		uint8_t ret;
-		uint8_t pass = 0, fail = 0;
-
-		DebugPrintf("=== STX VERIFY (sync send + ACK) ===\r\n");
-
-		/* 1. Ê×¾¯(0x02): dev=1 type=61 evt=2 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_HAND_REPORT, EVT_FIRST_FIRE, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FIRST_ALARM, &rec);
-		DebugPrintf("#1 FIRST dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 2. »ð¾¯(0x03): dev=1 type=61 evt=3 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_HAND_REPORT, EVT_FIRE, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FIRE_ALARM, &rec);
-		DebugPrintf("#2 FIRE  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 3. »ð¾¯2(0x03): dev=2 type=21 evt=3 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 2, DEV_TYPE_SMOKE, EVT_FIRE, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FIRE_ALARM, &rec);
-		DebugPrintf("#3 FIRE  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 4. ¹ÊÕÏ(0x04): dev=3 type=31 evt=80 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 3, DEV_TYPE_TEMPERATURE, EVT_FAULT, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FAULT, &rec);
-		DebugPrintf("#4 FAULT dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 5. ¹ÊÕÏ»Ö¸´(0x04): dev=3 type=31 evt=100 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 3, DEV_TYPE_TEMPERATURE, EVT_FAULT_RECOVER, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FAULT, &rec);
-		DebugPrintf("#5 RECOV dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 6. ·´À¡(0x01): dev=4 type=163 evt=26 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 4, DEV_TYPE_CONTROL_DEV, EVT_FEEDBACK, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#6 FEED  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 7. ÊÖ¶¯(0x01): dev=1 type=163 evt=125 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_CONTROL_DEV, EVT_MANUAL, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#7 MANU  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 8. ×Ô¶¯(0x01): dev=1 type=163 evt=126 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_CONTROL_DEV, EVT_AUTO, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#8 AUTO  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 9. Æô¶¯(0x01): dev=1 type=163 evt=19 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_CONTROL_DEV, EVT_START, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#9 START dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 10. ÆÁ±Î(0x01): dev=5 type=21 evt=72 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 5, DEV_TYPE_SMOKE, EVT_SHIELD, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#10 SHLD  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 11. ½â³ýÆÁ±Î(0x01): dev=5 type=21 evt=73 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 5, DEV_TYPE_SMOKE, EVT_SHIELD_RELEASE, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#11 REL   dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 12. ¸´Î»(0x01): dev=1 type=1 evt=1 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_CONTROLLER, EVT_NORMAL, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#12 RESET dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		DebugPrintf("=== RESULT: %d PASS / %d FAIL (ACK=0 means storage verified write) ===\r\n", pass, fail);
-	}
-
   /* Infinite loop */
-	DebugPrintf("XR5000 Boot OK\r\n");  /* UART4µ÷ÊÔ´®¿ÚÊä³ö */
   for(;;)
   {
 		freeHeap = xPortGetFreeHeapSize();
 		HAL_IWDG_Refresh(&hiwdg1);
 		// XR5000_AHT20_CHANGE_20260727: refresh cached home-screen temperature/humidity.
 		(void)AHT20_Update();
-		DebugPrintf("maintain:%d\r\n", freeHeap);  /* Êä³öÊ£Óà¶Ñ´óÐ¡, ·½±ãµ÷ÊÔ¹Û²ì */
-
-		/* STX_LOOP: cyclic send test frame to storage side for link verification */
-		{
-			EventRecord_t rec;
-			uint8_t ret;
-			static uint32_t stx_loop_cnt = 0;
-			HAL_IWDG_Refresh(&hiwdg1);
-			StorageTx_BuildRecord(&rec, 1, DEV_TYPE_HAND_REPORT, EVT_FIRE, 0);
-			ret = StorageTx_SendRecord(STX_CMD_STORE_FIRE_ALARM, &rec);
-			stx_loop_cnt++;
-			DebugPrintf("[STX_LOOP] #%lu FIRE -> ACK=%d %s\r\n", (unsigned long)stx_loop_cnt, ret, ret==0?"OK":"FAIL");
-		}
+//		DebugPrintf("maintain:%d\r\n", freeHeap);
 
 //		FDCAN1_SendStdDataFrame(0x123, test_data, 8);
 		osDelay(2000);
@@ -699,38 +503,38 @@ void LED_TEST(void *argument)
 {
   /* USER CODE BEGIN LED_TEST */
 	uint32_t last_tick = osKernelGetTickCount();
-	uint8_t led_state = 0; // 0:¹Ø±Õ, 1:ºìµÆÉÁË¸, 2:ÂÌµÆÉÁË¸
-
+	uint8_t led_state = 0; // 0:å…³é—­, 1:çº¢ç¯é—ªçƒ, 2:ç»¿ç¯é—ªçƒ
+	
   /* Infinite loop */
   for(;;)
   {
-		// ´¦ÀíÍâ²¿¿ØÖÆÐÅºÅ
-		if(timeout_led_ctrl == 1) { // ¹ÊÕÏ×´Ì¬
+		// å¤„ç†å¤–éƒ¨æŽ§åˆ¶ä¿¡å·
+		if(timeout_led_ctrl == 1) { // æ•…éšœçŠ¶æ€
 				led_state = 1;
 				timeout_led_ctrl = 0;
-				HAL_GPIO_WritePin(PMLED_G_GPIO_Port, PMLED_G_Pin, GPIO_PIN_SET); // È·±£ÂÌµÆ¹Ø±Õ
-		}
-		else if(timeout_led_ctrl == 2) { // Õý³£×´Ì¬
+				HAL_GPIO_WritePin(PMLED_G_GPIO_Port, PMLED_G_Pin, GPIO_PIN_SET); // ç¡®ä¿ç»¿ç¯å…³é—­
+		} 
+		else if(timeout_led_ctrl == 2) { // æ­£å¸¸çŠ¶æ€
 				led_state = 2;
 				timeout_led_ctrl = 0;
-				HAL_GPIO_WritePin(PMLED_R_GPIO_Port, PMLED_R_Pin, GPIO_PIN_SET); // È·±£ºìµÆ¹Ø±Õ
+				HAL_GPIO_WritePin(PMLED_R_GPIO_Port, PMLED_R_Pin, GPIO_PIN_SET); // ç¡®ä¿çº¢ç¯å…³é—­
 		}
 
-		// ´¦ÀíLEDÉÁË¸£¨500msÖÜÆÚ£©
+		// å¤„ç†LEDé—ªçƒï¼ˆ500mså‘¨æœŸï¼‰
 		if(osKernelGetTickCount() - last_tick >= 500) {
 				last_tick = osKernelGetTickCount();
-
-				if(led_state == 1) { // ºìµÆÉÁË¸
+				
+				if(led_state == 1) { // çº¢ç¯é—ªçƒ
 						HAL_GPIO_TogglePin(PMLED_R_GPIO_Port, PMLED_R_Pin);
-				}
-				else if(led_state == 2) { // ÂÌµÆÉÁË¸
+				} 
+				else if(led_state == 2) { // ç»¿ç¯é—ªçƒ
 						HAL_GPIO_TogglePin(PMLED_G_GPIO_Port, PMLED_G_Pin);
 				}
 		}
 
-		// ¶ÀÁ¢´¦ÀíµÄÆÁÄ»LED£¨500msÖÜÆÚ£©
+		// ç‹¬ç«‹å¤„ç†çš„å±å¹•LEDï¼ˆ500mså‘¨æœŸï¼‰
 		HAL_GPIO_TogglePin(PWLED_G_GPIO_Port, PWLED_G_Pin);
-		osDelay(500); // Ö±½ÓÑÓ³Ù500ms
+		osDelay(500); // ç›´æŽ¥å»¶è¿Ÿ500ms
   }
   /* USER CODE END LED_TEST */
 }
@@ -741,7 +545,7 @@ void SecondTimerCallback(void *argument)
   /* USER CODE BEGIN SecondTimerCallback */
 
 	baojingjishi++;
-
+	
 	if(button_ctrl.press_flag == 1)
 	{
 		button_ctrl.timout_count++;
@@ -764,11 +568,11 @@ void InterScreenFresh(void* parameter)
 int8_t SendDataToFanBusQueue(uint8_t *buf, uint8_t buf_len)
 {
 	BaseType_t send_state = pdFALSE;
-
+	
 	if(buf_len == 0 || buf_len > 8)
 		return -1;
 	send_state = xQueueSend(xFanBusQueueHandle, buf, 0);
-
+	
 	return send_state;
 }
 
@@ -780,7 +584,7 @@ int8_t ReceiveDataFromFanBusQueue(uint8_t *buf)
 		return -1;
 	}
 	send_state = xQueueReceive(xFanBusQueueHandle, buf, 0);
-
+	
 	return send_state;
 }
 
@@ -816,41 +620,41 @@ void DeletUpdataUITask(void)
 }
 void CreatUpdataUITask(void)
 {
-	//	// ÆÁÄ»UI¸üÐÂÈÎÎñ
+	//	// å±å¹•UIæ›´æ–°ä»»åŠ¡
 	InterScreenUpdataTaskHandle = osThreadNew(InterScreenFresh, NULL, &InterScreenUpdataTask_attributes);
 }
 
-//
+// 
 void SuspendTask(uint8_t task_id)
 {
 	switch(task_id)
 	{
 		case 1:{
-			vTaskSuspend(MBus1PollAndReceiveTaskHandle); // ¹ÒÆð¶þ×ÜÏß1
+			vTaskSuspend(MBus1PollAndReceiveTaskHandle); // æŒ‚èµ·äºŒæ€»çº¿1
 			break;
 		}
 		case 2:{
-
+			
 			break;
 		}
 		case 3:{
-			vTaskSuspend(PackPollAndReceiveTaskHandle); // ¹ÒÆðPACK 485×ÜÏß
+			vTaskSuspend(PackPollAndReceiveTaskHandle); // æŒ‚èµ·PACK 485æ€»çº¿
 			break;
 		}
 		case 4:{
-//                 vTaskSuspend(BMSRecvDealTaskHandle); // ¹ÒÆðBMS½ÓÊÕÈÎÎñ (FECBUS_TEST: BMSÈÎÎñÎ´´´½¨, handle=NULL)
+			vTaskSuspend(BMSRecvDealTaskHandle); // æŒ‚èµ·BMSæ€»çº¿
 			break;
 		}
 		case 5:{
-			vTaskSuspend(StationResponseTaskHandle); // ¹ÒÆð ³¡Õ¾ ×ÜÏß
+			vTaskSuspend(StationResponseTaskHandle); // æŒ‚èµ· åœºç«™ æ€»çº¿
 			break;
 		}
 		case 6:{
-//			vTaskSuspend(CtrlBusPollAndReceiveTaskHandle); // ÒÑÍ£ÓÃ£¬uart5ÓÉ»ØÂ·3½Ó¹Ü
+//			vTaskSuspend(CtrlBusPollAndReceiveTaskHandle); // å·²åœç”¨ï¼Œuart5ç”±å›žè·¯3æŽ¥ç®¡
 			break;
 		}
 		case 7:{
-			vTaskSuspend(RS485DetectPollAndReceiveTaskHandle); // ¹ÒÆð»ØÂ·3 RS485Ì½²â
+			vTaskSuspend(RS485DetectPollAndReceiveTaskHandle); // æŒ‚èµ·å›žè·¯3 RS485æŽ¢æµ‹
 			break;
 		}
 		default:{
@@ -859,90 +663,42 @@ void SuspendTask(uint8_t task_id)
 	}
 }
 
-//
+// 
 void ResumeTask(uint8_t task_id)
 {
 	switch(task_id)
 	{
 		case 1:{
-			vTaskResume(MBus1PollAndReceiveTaskHandle); // ¹ÒÆð¶þ×ÜÏß1
+			vTaskResume(MBus1PollAndReceiveTaskHandle); // æŒ‚èµ·äºŒæ€»çº¿1
 			break;
 		}
 		case 2:{
 			break;
 		}
 		case 3:{
-			vTaskResume(PackPollAndReceiveTaskHandle); // ¹ÒÆðPACK 485×ÜÏß
+			vTaskResume(PackPollAndReceiveTaskHandle); // æŒ‚èµ·PACK 485æ€»çº¿
 			break;
 		}
 		case 4:{
-//                 vTaskResume(BMSRecvDealTaskHandle); // »Ö¸´BMS½ÓÊÕÈÎÎñ (FECBUS_TEST: BMSÈÎÎñÎ´´´½¨, handle=NULL)
+			vTaskResume(BMSRecvDealTaskHandle); // æŒ‚èµ·BMSæ€»çº¿
 			break;
 		}
 		case 5:{
-			vTaskResume(StationResponseTaskHandle); // ¹ÒÆð ³¡Õ¾ ×ÜÏß
+			vTaskResume(StationResponseTaskHandle); // æŒ‚èµ· åœºç«™ æ€»çº¿
 			break;
 		}
 		case 6:{
-//			vTaskResume(CtrlBusPollAndReceiveTaskHandle); // ÒÑÍ£ÓÃ£¬uart5ÓÉ»ØÂ·3½Ó¹Ü
+//			vTaskResume(CtrlBusPollAndReceiveTaskHandle); // å·²åœç”¨ï¼Œuart5ç”±å›žè·¯3æŽ¥ç®¡
 			break;
 		}
 		case 7:{
-			vTaskResume(RS485DetectPollAndReceiveTaskHandle); // »Ö¸´»ØÂ·3 RS485Ì½²â
+			vTaskResume(RS485DetectPollAndReceiveTaskHandle); // æ¢å¤å›žè·¯3 RS485æŽ¢æµ‹
 			break;
 		}
 		default:{
 			break;
 		}
 	}
-}
-
-
-/* ´æ´¢¶ËÍ¨Ñ¶ÈÎÎñ: Í¨¹ýLPUART1Ïò´æ´¢¶Ë·¢ËÍÊÂ¼þ¼ÇÂ¼, Ñ­»·´¦Àí·¢ËÍ¶ÓÁÐ */
-void StorageTxTask(void *argument)
-{
-	/* ³õÊ¼»¯´æ´¢¶ËÍ¨Ñ¶(LPUART1 PB6/PB7 + ÖÐ¶Ï½ÓÊÕ½âÎö) */
-	StorageTx_Init();
-	DebugPrintf("StorageTxTask started\r\n");
-
-	for(;;)
-	{
-		/* Ñ­»·´¦Àí·¢ËÍ¶ÓÁÐ, µÈ´ý½ÓÊÕ¶ËÏìÓ¦(×î¶à3´ÎÖØÊÔµÈ´ýACK) */
-		StorageTx_TaskLoop();
-	}
-}
-
-
-/* FECbus ·¢ËÍÈÎÎñ: GB4717 ¸½Â¼C, ÓÃUSART3(PB10/PB11) RS485 ÊÕ·¢Ð­ÒéÖ¡ */
-void FecbusTxTask(void *argument)
-{
-	/* Æô¶¯FECbusÐ­ÒéÕ»: ³õÊ¼»¯·¢ËÍ¶ÓÁÐ/»¥³âËø + Æô¶¯USART3Öð×Ö½ÚIT½ÓÊÕ
-	 * ×¢Òâ: Fecbus_Init Ö»Ö´ÐÐÒ»´Î, ÄÚ²¿ÃÝµÈ±£»¤ */
-	Fecbus_Init();
-	DebugPrintf("FecbusTxTask started\r\n");
-
-	for(;;)
-	{
-		/* ´Ó¶ÓÁÐÈ¡ÊÂ¼þ×éÖ¡·¢ËÍ, µ¥²¥µÈ´ýÓ¦´ð(³¬Ê±1sÖØÊÔ3´Î, ¹²Ô¼9s)
-		 * ·¢ËÍÆÚ¼äÄÚ²¿Î¹IWDG·ÀÖ¹¿´ÃÅ¹·¸´Î» */
-		Fecbus_TxTaskLoop();
-	}
-}
-
-
-/* FECbus ÖÜÆÚ¹ã²¥ÈÎÎñ: 1sÍ¬²½ÐÄÌø + 5sÐÄÌø + 10sÊ±ÖÓ¹ã²¥, ·¢ËÍ×ßUSART3 */
-void FecbusPeriodicTask(void *argument)
-{
-	/* Æô¶¯FECbusÐ­ÒéÕ»(ÓëFecbusTxTaskÖØ¸´µ÷ÓÃ, ÄÚ²¿ÃÝµÈ±£»¤) */
-	Fecbus_Init();
-	DebugPrintf("FecbusPeriodicTask started\r\n");
-
-	/* ×¢: XR5000_FECBUS_TEST_EVENT ÊÂ¼þÉÏ±¨Á´Â·(»ðÔÖ±¨¾¯Á÷³Ì):
-	 * ÊÂ¼þÔ´Á´Â·(TF/SF°´¼ü->PointTypeDetectorDataDeal->FecbusReport->Èë¶Ó->FecbusTxTask)
-	 * ¿É×¥COM6ÑéÖ¤: ¹¦ÄÜÂë5/»ØÂ·1/Éè±¸2/ÀàÐÍ31/×´Ì¬Âë3×é 3Ö¡ÊÂ¼þÉÏ±¨ */
-
-	/* ÖÜÆÚ¹ã²¥ÈÎÎñÖ÷Ñ­»·(Ã¿ÖÜÆÚÎ¹IWDG·ÀÖ¹¸´Î») */
-	Fecbus_PeriodicTaskLoop();
 }
 
 

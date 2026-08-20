@@ -336,6 +336,7 @@ static uint8_t g_mbus1_type_confirmed[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint8_t g_mbus1_identify_fail_count[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint32_t g_mbus1_last_identify_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint16_t g_mbus1_national_code[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+static uint16_t g_mbus1_product_code[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint8_t g_mbus1_identify_stage[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint16_t g_mbus1_identify_candidate[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint8_t g_mbus1_identify_confirm_count[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
@@ -347,6 +348,19 @@ static uint32_t g_mbus1_last_offline_probe_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = 
 #define MBUS1_IDENTIFY_RETRY_MS 1000U
 #define MBUS1_IDENTIFY_RETRY_GAP_MS 150U
 #define MBUS1_OFFLINE_PROBE_INTERVAL_MS 1000U
+
+uint16_t MBus1_GetNationalTypeCode(uint8_t addr)
+{
+    if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return 0U;
+    return g_mbus1_national_code[addr];
+}
+
+uint16_t MBus1_GetProductCode(uint8_t addr)
+{
+    if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return 0U;
+    return g_mbus1_product_code[addr];
+}
+
 static void MBus1ClearIdentification(uint8_t addr)
 {
     if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
@@ -354,6 +368,7 @@ static void MBus1ClearIdentification(uint8_t addr)
     g_mbus1_identify_fail_count[addr] = 0U;
     g_mbus1_last_identify_tick[addr] = 0U;
     g_mbus1_national_code[addr] = 0U;
+    g_mbus1_product_code[addr] = 0U;
     g_mbus1_identify_stage[addr] = MBUS1_STAGE_NATIONAL;
     g_mbus1_identify_candidate[addr] = 0U;
     g_mbus1_identify_confirm_count[addr] = 0U;
@@ -544,6 +559,7 @@ void MBus1ReceiveSlaveDataDeal(void)
                 MBus1MarkIdentifyFailure(addr, DeviceRegistry_IsNationalTypeKnown(g_mbus1_national_code[addr]) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
             else
             {
+                g_mbus1_product_code[addr] = product_type;
                 PointTypeMixtureDetecteName[addr] = product_type;
                 PointTypeMixtureDetecteType[addr] = (product_type == DEVICE_PRODUCT_XR8002_TEMP) ? 0x20U : 0x01U;
                 g_mbus1_type_confirmed[addr] = 1U;

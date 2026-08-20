@@ -11,6 +11,7 @@
 
 #include "bsp_rs485_detect.h"
 #include "bsp_device_registry.h"
+#include "bsp_device_threshold.h"
 
 #include "FreeRTOS.h"          
 #include "cmsis_os.h"          
@@ -74,7 +75,8 @@ static uint32_t g_last_poll_time = 0;    /* 上次轮询的系统tick */
 /* UART5事务锁: 同一时刻仅允许一个请求占用UART5 */
 static uint8_t g_transaction_pending = 0;       /* 是否有进行中的事务 */
 static uint8_t g_transaction_addr = 0;          /* 当前事务的目标地址 */
-static uint8_t g_transaction_type_detect = 0;   /* 当前事务是否为类型探测(1=类型探测, 0=传感器数据) */
+static uint8_t g_transaction_type_detect = 0; /* identify stage, zero for normal polling */
+static uint8_t g_transaction_threshold = 0;   /* threshold 03/06 transaction, never counts as disconnect */
 static uint32_t g_transaction_start_tick = 0;
 static uint8_t g_identify_fail_count[RS485_DETECT_MAX_DEVICES];
 static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
@@ -184,7 +186,9 @@ void RS485Detect_Init(void)
     g_transaction_pending = 0;
     g_transaction_addr = 0;
     g_transaction_type_detect = 0;
+    g_transaction_threshold = 0;
     g_transaction_start_tick = 0;
+    DeviceThreshold_Init();
 
     RS485Detect_LoadOnlineState();
 }
@@ -208,9 +212,11 @@ void RS485Detect_SetOnline(uint8_t addr, uint8_t state)
         DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP3, addr, 0U);
         if (g_transaction_pending != 0U && g_transaction_addr == addr)
         {
+            if(g_transaction_threshold != 0U) DeviceThreshold_HandleTimeout();
             g_transaction_pending = 0;
             g_transaction_addr = 0;
             g_transaction_type_detect = 0;
+            g_transaction_threshold = 0;
             g_transaction_start_tick = 0;
         }
     }
@@ -277,7 +283,31 @@ uint8_t RS485Detect_GetType(uint8_t addr)
     return g_devices[addr].device_type;
 }
 
+uint16_t RS485Detect_GetNationalTypeCode(uint8_t addr)
+{
+    if(addr == 0U || addr >= RS485_DETECT_MAX_DEVICES) return 0U;
+    return g_devices[addr].national_type_code;
+}
+
+uint16_t RS485Detect_GetProductCode(uint8_t addr)
+{
+    if(addr == 0U || addr >= RS485_DETECT_MAX_DEVICES) return 0U;
+    return g_devices[addr].product_code;
+}
+
 /* 获取指定传感器的数值(温度/烟雾/CO等) */
+uint8_t DeviceThreshold_GetLoop3Identity(uint8_t address, DeviceThresholdIdentity *identity)
+{
+    if(identity == NULL || address == 0U || address >= RS485_DETECT_MAX_DEVICES) return 0U;
+    identity->online = RS485Detect_IsOnline(address);
+    identity->identified = g_devices[address].type_confirmed;
+    identity->device_type = g_devices[address].device_type;
+    identity->national_code = g_devices[address].national_type_code;
+    identity->product_code = g_devices[address].product_code;
+    identity->sensor_enable = g_devices[address].sensor_enable;
+    return 1U;
+}
+
 uint16_t RS485Detect_GetSensorValue(uint8_t addr, uint8_t sensor_idx)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES || sensor_idx >= RS485_SENSOR_COUNT)
@@ -304,20 +334,6 @@ uint8_t RS485Detect_GetSensorState(uint8_t addr, uint8_t sensor_idx)
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES || sensor_idx >= RS485_SENSOR_COUNT)
         return 0;
     return g_devices[addr].sensor_states[sensor_idx];
-}
-
-/* XR5000_INJECT_EXT_20260818: Inject sensor state for test only.
- * Force device online and clear disconnect counter, then write sensor
- * state to simulate slave alarm without real RS485 hardware. */
-void RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state)
-{
-    if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES || sensor_idx >= RS485_SENSOR_COUNT)
-        return;
-    g_devices[addr].online = 1;
-    g_devices[addr].disconnect_count = 0;
-    g_devices[addr].type_confirmed = 1;
-    g_devices[addr].sensor_data_valid = 1;
-    g_devices[addr].sensor_states[sensor_idx] = state;
 }
 
 /* 判断是否掉线(连续无响应次数>=阈值) */
@@ -483,6 +499,17 @@ static void mark_transaction_timeout(void)
     if ((osKernelGetTickCount() - g_transaction_start_tick) < RS485_DETECT_RESPONSE_TIMEOUT_MS) return;
     addr = g_transaction_addr;
     was_type_detect = g_transaction_type_detect;
+    if(g_transaction_threshold != 0U)
+    {
+        DeviceThreshold_HandleTimeout();
+        g_poll_current_addr = (addr > 1U) ? (uint8_t)(addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
+        g_transaction_pending = 0U;
+        g_transaction_addr = 0U;
+        g_transaction_type_detect = 0U;
+        g_transaction_threshold = 0U;
+        g_transaction_start_tick = 0U;
+        return;
+    }
     g_transaction_pending = 0;
     g_transaction_addr = 0;
     g_transaction_type_detect = 0;
@@ -492,6 +519,7 @@ static void mark_transaction_timeout(void)
             mark_identify_failure(addr, was_type_detect == RS485_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : was_type_detect == RS485_STAGE_PRODUCT ? DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE : DEVICE_IDENTIFY_SENSOR_READ_FAILED);
         else
         {
+            DeviceThreshold_NotifyNormalPoll();
             if (g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD)
                 g_devices[addr].disconnect_count++;
             check_and_record_fault(addr);
@@ -554,6 +582,7 @@ static void poll_next_device(void)
     g_transaction_pending = 1;
     g_transaction_addr = addr;
     g_transaction_type_detect = type_detect;
+    g_transaction_threshold = 0U;
     g_transaction_start_tick = osKernelGetTickCount();
 
     if (HAL_UART_Transmit(&huart5, modbusbuf, sizeof(modbusbuf), RS485_DETECT_TX_TIMEOUT_MS) != HAL_OK)
@@ -679,6 +708,8 @@ static void check_and_record_fault(uint8_t addr)
 static void complete_transaction(uint8_t addr)
 {
     g_devices[addr].disconnect_count = 0;
+    if(g_transaction_threshold == 0U && g_transaction_type_detect == 0U)
+        DeviceThreshold_NotifyNormalPoll();
     g_transaction_pending = 0;
     g_transaction_addr = 0;
     g_transaction_type_detect = 0;
@@ -713,6 +744,20 @@ static void receive_data_deal(void)
     /* XR5000_UART5_EXCLUSIVE_FIX_20260730: only the owned request may consume a response. */
     if (addr != g_transaction_addr || addr == 0U || addr >= RS485_DETECT_MAX_DEVICES)
         return;
+
+    if(g_transaction_threshold != 0U)
+    {
+        if(DeviceThreshold_HandleResponse(buf, len) != 0U)
+        {
+            g_poll_current_addr = (addr > 1U) ? (uint8_t)(addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
+            g_transaction_pending = 0U;
+            g_transaction_addr = 0U;
+            g_transaction_type_detect = 0U;
+            g_transaction_threshold = 0U;
+            g_transaction_start_tick = 0U;
+        }
+        return;
+    }
 
     if (func == 0x84U)
     {
@@ -870,8 +915,32 @@ void RS485DetectPollAndReceiveTask(void *parameter)
         if (g_transaction_pending == 0U &&
             (current_tick - g_last_poll_time) >= RS485_DETECT_POLL_INTERVAL_MS)
         {
+            uint8_t threshold_frame[8];
+            uint8_t threshold_addr = 0U;
             g_last_poll_time = current_tick;
-            poll_next_device();
+            if(DeviceThreshold_BuildNextFrame(threshold_frame, &threshold_addr) != 0U)
+            {
+                uartbuff[DEBUGSITE].recepetion_flag = 0U;
+                uartbuff[DEBUGSITE].recepetion_len = 0U;
+                g_transaction_pending = 1U;
+                g_transaction_addr = threshold_addr;
+                g_transaction_type_detect = 0U;
+                g_transaction_threshold = 1U;
+                g_transaction_start_tick = current_tick;
+                if(HAL_UART_Transmit(&huart5, threshold_frame, sizeof(threshold_frame), RS485_DETECT_TX_TIMEOUT_MS) != HAL_OK)
+                {
+                    DeviceThreshold_HandleTimeout();
+                    g_poll_current_addr = (threshold_addr > 1U) ? (uint8_t)(threshold_addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
+                    g_transaction_pending = 0U;
+                    g_transaction_addr = 0U;
+                    g_transaction_threshold = 0U;
+                    g_transaction_start_tick = 0U;
+                }
+            }
+            else
+            {
+                poll_next_device();
+            }
         }
 
         osDelay(RS485_DETECT_TASK_INTERVAL_MS);

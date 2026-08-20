@@ -78,6 +78,8 @@ uint8_t getPointTypeMixtureReceiveState(ePointTypeDataOrder detect_data_type, ui
 
 // 获取探测器型号名
 uint8_t getPointTypeMixtureDetectName(uint8_t detect_id);
+uint16_t MBus1_GetNationalTypeCode(uint8_t addr); /* 获取设备实际返回并保存的0x000D国标类型码 */
+uint16_t MBus1_GetProductCode(uint8_t addr); /* 获取设备实际返回并保存的0x000E内部产品码 */
 // 获取探测器监测类型
 uint8_t getPointTypeMixtureDetectType(uint8_t detect_id);
 // 获取探测器上线状态
