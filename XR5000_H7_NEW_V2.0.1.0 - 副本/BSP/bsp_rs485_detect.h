@@ -98,11 +98,12 @@ void RS485Detect_SetOnlineRange(uint8_t start, uint8_t end, uint8_t state); /* Å
 /* ---- ×´Ì¬²éÑ¯ ---- */
 uint8_t  RS485Detect_GetOnline(uint8_t addr);                     /* »ñÈ¡ÔÚÏß±êÖ¾(ÆÁÄ»ÏÂ·¢Öµ) */
 uint8_t  RS485Detect_GetType(uint8_t addr);                       /* »ñÈ¡Éè±¸ÀàĞÍ */
+uint16_t RS485Detect_GetNationalTypeCode(uint8_t addr);           /* »ñÈ¡Éè±¸Êµ¼Ê·µ»Ø²¢±£´æµÄ0x000D¹ú±êÀàĞÍÂë */
+uint16_t RS485Detect_GetProductCode(uint8_t addr);                /* »ñÈ¡Éè±¸Êµ¼Ê·µ»Ø²¢±£´æµÄ0x000EÄÚ²¿²úÆ·Âë */
 uint16_t RS485Detect_GetSensorValue(uint8_t addr, uint8_t sensor_idx); /* »ñÈ¡´«¸ĞÆ÷ÊıÖµ */
 int16_t  RS485Detect_GetTemperature(uint8_t addr);                /* »ñÈ¡ÎÂ¶ÈÖµ(ÓĞ·ûºÅ) */
 uint16_t RS485Detect_GetSensorEnable(uint8_t addr);               /* »ñÈ¡´«¸ĞÆ÷ÆôÓÃÎ»ÑÚÂë */
 uint8_t  RS485Detect_GetSensorState(uint8_t addr, uint8_t sensor_idx); /* »ñÈ¡´«¸ĞÆ÷×´Ì¬ */
-void     RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state); /* ×¢Èë´«¸ĞÆ÷×´Ì¬(²âÊÔÓÃ) */
 uint8_t  RS485Detect_IsDisconnected(uint8_t addr);                /* ÅĞ¶ÏÊÇ·ñµôÏß(¼ÆÊı>=ãĞÖµ) */
 uint8_t  RS485Detect_GetOnlineCount(void);
 uint8_t  RS485Detect_GetActiveCount(void);                        /* »ØÂ·3ÔÚÏßÉè±¸×ÜÊı */
@@ -110,7 +111,6 @@ uint8_t  RS485Detect_GetDisconnectCount(void);                    /* »ØÂ·3µôÏßÉè
 uint8_t  RS485Detect_GetAlarmCount(void);                         /* »ØÂ·3±¨¾¯Éè±¸×ÜÊı */
 uint8_t  RS485Detect_IsAlarmState(uint8_t device_type, uint8_t sensor_idx, uint8_t state);  /* ÅĞ¶Ï´«¸ĞÆ÷×´Ì¬ÊÇ·ñÎª±¨¾¯ */
 uint8_t  RS485Detect_IsFaultState(uint8_t device_type, uint8_t sensor_idx, uint8_t state);  /* ÅĞ¶Ï´«¸ĞÆ÷×´Ì¬ÊÇ·ñÎª¹ÊÕÏ */
-uint16_t RS485Detect_GetNationalCode(uint8_t addr);              /* »ñÈ¡Éè±¸¹ú±êÉè±¸ÀàĞÍÂë(¹©Áª¶¯Âß¼­ÏÔÊ¾ÓÃ) */
 
 /* ---- ±ã½İ²éÑ¯ ---- */
 uint16_t RS485Detect_GetSensorEnable(uint8_t addr);               /* »ñÈ¡´«¸ĞÆ÷ÆôÓÃÎ»ÑÚÂë */
@@ -125,5 +125,8 @@ void RS485Detect_LoadOnlineState(void);  /* ´ÓFlash¼ÓÔØÔÚÏß×´Ì¬±í */
 /* ---- RTOSÂÖÑ¯ÈÎÎñ ---- */
 void RS485DetectPollAndReceiveTask(void *parameter); /* »ØÂ·3ÂÖÑ¯ÈÎÎñ(·¢ËÍ²éÑ¯¡ú½ÓÊÕ½âÎö¡ú³¬Ê±¼ì²â) */
 
+
+void     RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state); /* ²âÊÔ×¢Èë:ÉèÖÃ´«¸ĞÆ÷×´Ì¬ */
+uint16_t RS485Detect_GetNationalCode(uint8_t addr);              /* »ñÈ¡¹ú±êÉè±¸ÀàĞÍÂë(¹©Âß¼­ÆÁÏÔÊ¾) */
 #endif
 

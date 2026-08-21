@@ -1,16 +1,17 @@
 /* ============================================================================
- * 文件功能: RS485探测器轮询管理 (RS485 Detector Management)
- * 功能描述: 负责回路3(UART5) RS485探测器轮询, 采用Modbus RTU协议
- *          轮询结果通过回调函数通知上层模块/更新设备状态Flash存储
- * 通信协议: Modbus RTU, 功能码04(读取输入寄存器), UART5/115200/8N1
- * 寄存器定义: 使用设备寄存器表(查0x000E/0x000F), 按产品类型差异化布局
- *           (XR805含16个寄存器, XR8303/XR8305含12个寄存器)
- * 数据流向: 轮询/超时/状态更新, 逐层上报至cmd_process.c处理
- * 回路编号: 回路3, Flash存储地址0x10F000, 产品ID=0x53(83进制)
+ * 模块名称: RS485探测器管理模块 (RS485 Detector Management)
+ * 功能描述: 实现回路3(UART5) RS485总线探测器的轮询调度、Modbus RTU通信、
+ *          传感器数据解析、设备状态管理、掉线/报警检测、Flash持久化。
+ * 通信协议: Modbus RTU, 功能码04(读输入寄存器), UART5/115200/8N1
+ * 轮询流程: 先探测设备类型(读0x000E/0x000F), 确认后读取传感器数据
+ *           (XR805读16个寄存器, XR8303/XR8305读12个寄存器)
+ * 故障记录: 掉线/报警由本模块检测, 故障记录由cmd_process.c统一处理
+ * 回路标识: 回路3, Flash存储地址0x10F000, 故障簇ID=0x53(83簇)
  * ============================================================================ */
 
 #include "bsp_rs485_detect.h"
 #include "bsp_device_registry.h"
+#include "bsp_device_threshold.h"
 
 #include "FreeRTOS.h"          
 #include "cmsis_os.h"          
@@ -23,11 +24,11 @@
 #include "w25qxx.h"            
 
 /* ============================================================
- * 第一层: 传感器寄存器布局表 & 设备类型映射
+ * 第一层: 可配置映射表与传感器寄存器布局
  * ============================================================ */
 
-/* 产品类型映射: 0x000E寄存器值对应设备类型 */
-/* XR805传感器寄存器布局: 04功能码读16个寄存器(0x0000~0x000F), 含温度/烟雾/CH4/CO/VOC/H2共6种传感器 */
+/* 类型码映射表: 0x000E寄存器产品型号值 → 设备类型枚举 */
+/* XR805传感器寄存器布局: 04功能码读取16个寄存器(0x0000~0x000F), 响应帧含温度/烟雾/CH4/CO/VOC/H2的数值和状态 */
 static const RS485SensorRegDef XR805_SENSOR_LAYOUT[] = {
     {0x0000, 3,  RS485_SENSOR_TEMPERATURE, 1},  /* 温度值 */
     {0x0001, 5,  RS485_SENSOR_TEMPERATURE, 0},  /* 温度状态 */
@@ -44,7 +45,7 @@ static const RS485SensorRegDef XR805_SENSOR_LAYOUT[] = {
 };
 #define XR805_SENSOR_COUNT  (sizeof(XR805_SENSOR_LAYOUT) / sizeof(XR805_SENSOR_LAYOUT[0]))
 
-/* XR8303/XR8305传感器寄存器布局: 04功能码读12个寄存器(0x0000~0x000B), 含温度/烟雾/CO/H2/VOC/压力共6种传感器 */
+/* XR8303/XR8305传感器寄存器布局: 04功能码读取12个寄存器(0x0000~0x000B), 响应帧含温度/烟雾/CO/H2/VOC/压力的数值和状态 */
 static const RS485SensorRegDef XR8303_SENSOR_LAYOUT[] = {
     {0x0000, 3,  RS485_SENSOR_TEMPERATURE, 1},  /* 温度值 */
     {0x0001, 5,  RS485_SENSOR_TEMPERATURE, 0},  /* 温度状态 */
@@ -62,24 +63,25 @@ static const RS485SensorRegDef XR8303_SENSOR_LAYOUT[] = {
 #define XR8303_SENSOR_COUNT  (sizeof(XR8303_SENSOR_LAYOUT) / sizeof(XR8303_SENSOR_LAYOUT[0]))
 
 /* ============================================================
- * 第二层: 全局设备状态变量
+ * 第二层: 全局设备实例表与轮询状态
  * ============================================================ */
 
-static RS485DetectDevice g_devices[RS485_DETECT_MAX_DEVICES]; /* 设备状态数组(地址=索引) */
+static RS485DetectDevice g_devices[RS485_DETECT_MAX_DEVICES]; /* 设备实例数组(索引=地址) */
 
-static uint8_t g_online_count = 0;       /* 当前在线设备总数 */
+static uint8_t g_online_count = 0;       /* 当前上线设备数量 */
 static uint8_t g_poll_current_addr = 1;  /* 当前轮询地址(1~33循环) */
-static uint32_t g_last_poll_time = 0;    /* 上次轮询时间tick */
+static uint32_t g_last_poll_time = 0;    /* 上次轮询的系统tick */
 
-/* UART5事务控制: 防止并发发送请求占用UART5 */
-static uint8_t g_transaction_pending = 0;       /* 是否有事务正在进行中 */
+/* UART5事务锁: 同一时刻仅允许一个请求占用UART5 */
+static uint8_t g_transaction_pending = 0;       /* 是否有进行中的事务 */
 static uint8_t g_transaction_addr = 0;          /* 当前事务的目标地址 */
-static uint8_t g_transaction_type_detect = 0;   /* 当前事务是否为类型探测(1=类型探测, 0=普通数据轮询) */
+static uint8_t g_transaction_type_detect = 0; /* identify stage, zero for normal polling */
+static uint8_t g_transaction_threshold = 0;   /* threshold 03/06 transaction, never counts as disconnect */
 static uint32_t g_transaction_start_tick = 0;
 static uint8_t g_identify_fail_count[RS485_DETECT_MAX_DEVICES];
 static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
 #define RS485_IDENTIFY_FAIL_THRESHOLD 3U
-#define RS485_IDENTIFY_RETRY_MS 1000U   /* 重试类型探测间隔tick(避免连续发送阻塞) */
+#define RS485_IDENTIFY_RETRY_MS 1000U   /* 事务启动时的系统tick(用于超时判断) */
 #define RS485_STAGE_NATIONAL 1U
 #define RS485_STAGE_PRODUCT  2U
 #define RS485_STAGE_SENSOR   3U
@@ -89,7 +91,7 @@ static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
  * 内部辅助函数
  * ============================================================ */
 
-/* 通过0x000E寄存器值查询产品类型是否属于回路3支持设备 */
+/* 根据0x000E寄存器产品型号值查找对应的设备类型枚举 */
 static uint8_t lookup_device_type(uint16_t product_code)
 {
     uint8_t parser;
@@ -102,7 +104,7 @@ static uint8_t lookup_device_type(uint16_t product_code)
     return RS485_DETECT_TYPE_UNKNOWN;
 }
 
-/* 获取传感器布局: 按设备类型返回对应的传感器寄存器表 */
+/* 根据设备类型返回对应的传感器寄存器布局表及条目数 */
 static const RS485SensorRegDef* get_sensor_layout(uint8_t device_type, uint8_t *count)
 {
     if (device_type == RS485_DETECT_TYPE_XR805)
@@ -119,7 +121,7 @@ static const RS485SensorRegDef* get_sensor_layout(uint8_t device_type, uint8_t *
     return NULL;
 }
 
-/* 获取寄存器数量: 按设备类型返回04功能码读取的寄存器数(XR805=16, XR8303/XR8305=12) */
+/* 根据设备类型返回04功能码需读取的寄存器数量(XR805=16, XR8303/XR8305=12) */
 static uint8_t get_register_count(uint8_t device_type)
 {
     if (device_type == RS485_DETECT_TYPE_XR805)
@@ -132,10 +134,10 @@ static uint8_t get_register_count(uint8_t device_type)
 }
 
 /* ============================================================
- * Flash存储: 在线状态持久化存储
+ * Flash持久化: 在线状态表存储与加载
  * ============================================================ */
 
-/* 将当前在线状态保存到Flash(地址0x10F000) */
+/* 将当前在线状态表保存到Flash(地址0x10F000) */
 void RS485Detect_SaveOnlineState(void)
 {
     uint8_t online_states[RS485_DETECT_MAX_DEVICES];
@@ -146,7 +148,7 @@ void RS485Detect_SaveOnlineState(void)
     W25QXX_Write(online_states, RS485_DETECT_FLASH_ADDR, sizeof(online_states));
 }
 
-/* 从Flash恢复在线状态(0xFF表示未初始化, 视为离线) */
+/* 从Flash加载在线状态表(0xFF视为未配置, 设为离线) */
 void RS485Detect_LoadOnlineState(void)
 {
     uint8_t online_states[RS485_DETECT_MAX_DEVICES];
@@ -171,7 +173,7 @@ void RS485Detect_LoadOnlineState(void)
 }
 
 /* ============================================================
- * 初始化: 重置设备状态, 从Flash恢复在线
+ * 初始化: 清零设备表, 从Flash恢复在线状态
  * ============================================================ */
 
 void RS485Detect_Init(void)
@@ -184,16 +186,18 @@ void RS485Detect_Init(void)
     g_transaction_pending = 0;
     g_transaction_addr = 0;
     g_transaction_type_detect = 0;
+    g_transaction_threshold = 0;
     g_transaction_start_tick = 0;
+    DeviceThreshold_Init();
 
     RS485Detect_LoadOnlineState();
 }
 
 /* ============================================================
- * 在线状态管理: 设置/获取设备在线状态
+ * 在线状态管理: 屏幕下发设置/清除设备在线
  * ============================================================ */
 
-/* 设置设备在线状态: 同时更新类型/产品码/识别标志, 触发DeviceRegistry回调 */
+/* 设置单个设备在线状态: 上线时重置类型/传感器/掉线状态, 下线时清空并中止当前事务 */
 void RS485Detect_SetOnline(uint8_t addr, uint8_t state)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
@@ -208,9 +212,11 @@ void RS485Detect_SetOnline(uint8_t addr, uint8_t state)
         DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP3, addr, 0U);
         if (g_transaction_pending != 0U && g_transaction_addr == addr)
         {
+            if(g_transaction_threshold != 0U) DeviceThreshold_HandleTimeout();
             g_transaction_pending = 0;
             g_transaction_addr = 0;
             g_transaction_type_detect = 0;
+            g_transaction_threshold = 0;
             g_transaction_start_tick = 0;
         }
     }
@@ -258,10 +264,10 @@ void RS485Detect_SetOnlineRange(uint8_t start, uint8_t end, uint8_t state)
 }
 
 /* ============================================================
- * 查询接口
+ * 状态查询接口
  * ============================================================ */
 
-/* 获取在线状态(地址无效返回0) */
+/* 获取在线标志(屏幕下发值, 非实时在线状态) */
 uint8_t RS485Detect_GetOnline(uint8_t addr)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
@@ -269,7 +275,7 @@ uint8_t RS485Detect_GetOnline(uint8_t addr)
     return g_devices[addr].online;
 }
 
-/* 获取设备类型(地址无效返回UNKNOWN) */
+/* 获取设备类型(需等类型探测完成) */
 uint8_t RS485Detect_GetType(uint8_t addr)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
@@ -277,7 +283,31 @@ uint8_t RS485Detect_GetType(uint8_t addr)
     return g_devices[addr].device_type;
 }
 
-/* 获取传感器原始值(温度/烟雾/CO等) */
+uint16_t RS485Detect_GetNationalTypeCode(uint8_t addr)
+{
+    if(addr == 0U || addr >= RS485_DETECT_MAX_DEVICES) return 0U;
+    return g_devices[addr].national_type_code;
+}
+
+uint16_t RS485Detect_GetProductCode(uint8_t addr)
+{
+    if(addr == 0U || addr >= RS485_DETECT_MAX_DEVICES) return 0U;
+    return g_devices[addr].product_code;
+}
+
+/* 获取指定传感器的数值(温度/烟雾/CO等) */
+uint8_t DeviceThreshold_GetLoop3Identity(uint8_t address, DeviceThresholdIdentity *identity)
+{
+    if(identity == NULL || address == 0U || address >= RS485_DETECT_MAX_DEVICES) return 0U;
+    identity->online = RS485Detect_IsOnline(address);
+    identity->identified = g_devices[address].type_confirmed;
+    identity->device_type = g_devices[address].device_type;
+    identity->national_code = g_devices[address].national_type_code;
+    identity->product_code = g_devices[address].product_code;
+    identity->sensor_enable = g_devices[address].sensor_enable;
+    return 1U;
+}
+
 uint16_t RS485Detect_GetSensorValue(uint8_t addr, uint8_t sensor_idx)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES || sensor_idx >= RS485_SENSOR_COUNT)
@@ -285,12 +315,12 @@ uint16_t RS485Detect_GetSensorValue(uint8_t addr, uint8_t sensor_idx)
     return g_devices[addr].sensor_values[sensor_idx];
 }
 
-/* 获取温度值(带符号, 单位0.1℃) */
+/* 获取温度值(有符号, 支持负温) */
 int16_t RS485Detect_GetTemperature(uint8_t addr)
 {
     return (int16_t)RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE);
 }
-/* 获取传感器使能位掩码(0x000F寄存器值) */
+/* 获取传感器启用位掩码(0x000F寄存器值) */
 uint16_t RS485Detect_GetSensorEnable(uint8_t addr)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
@@ -298,7 +328,7 @@ uint16_t RS485Detect_GetSensorEnable(uint8_t addr)
     return g_devices[addr].sensor_enable;
 }
 
-/* 获取传感器状态值(0=正常, 1=预警, 2=报警, 3=故障, 8=传感器故障需清洗) */
+/* 获取传感器状态(0=正常, 1=预警, 2=报警, 3=故障, 8=传感器故障等) */
 uint8_t RS485Detect_GetSensorState(uint8_t addr, uint8_t sensor_idx)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES || sensor_idx >= RS485_SENSOR_COUNT)
@@ -306,29 +336,7 @@ uint8_t RS485Detect_GetSensorState(uint8_t addr, uint8_t sensor_idx)
     return g_devices[addr].sensor_states[sensor_idx];
 }
 
-/* 获取设备国标设备类型码(供联动逻辑显示用), 地址无效返回0 */
-uint16_t RS485Detect_GetNationalCode(uint8_t addr)
-{
-    if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
-        return 0;
-    return g_devices[addr].national_type_code;
-}
-
-/* XR5000_INJECT_EXT_20260818: Inject sensor state for test only.
- * Force device online and clear disconnect counter, then write sensor
- * state to simulate slave alarm without real RS485 hardware. */
-void RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state)
-{
-    if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES || sensor_idx >= RS485_SENSOR_COUNT)
-        return;
-    g_devices[addr].online = 1;
-    g_devices[addr].disconnect_count = 0;
-    g_devices[addr].type_confirmed = 1;
-    g_devices[addr].sensor_data_valid = 1;
-    g_devices[addr].sensor_states[sensor_idx] = state;
-}
-
-/* 判断断线状态(断线计数>=阈值) */
+/* 判断是否掉线(连续无响应次数>=阈值) */
 uint8_t RS485Detect_IsDisconnected(uint8_t addr)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
@@ -357,7 +365,7 @@ uint8_t RS485Detect_GetActiveCount(void)
     return count;
 }
 
-/* 获取回路3在线且活跃设备数(在线且已识别且断线计数<阈值) */
+/* 统计回路3掉线设备数量(上线但掉线计数>=阈值) */
 uint8_t RS485Detect_GetDisconnectCount(void)
 {
     uint8_t count = 0;
@@ -373,7 +381,7 @@ uint8_t RS485Detect_GetDisconnectCount(void)
     return count;
 }
 
-/* 判断报警状态: XR805(state=1/2), XR8303/XR8305(温度/烟雾/CO/H2/VOC各有不同阈值) */
+/* 判断传感器状态是否为报警: XR805(state=1/2), XR8303/XR8305(温度/烟雾/CO/H2/VOC各有不同阈值) */
 uint8_t RS485Detect_IsAlarmState(uint8_t device_type, uint8_t sensor_idx, uint8_t state)
 {
     if(device_type == RS485_DETECT_TYPE_XR805) return state == 1U || state == 2U;
@@ -387,7 +395,7 @@ uint8_t RS485Detect_IsAlarmState(uint8_t device_type, uint8_t sensor_idx, uint8_
     return 0U;
 }
 
-/* 判断故障状态: XR805(state=9), XR8303/XR8305(温度state=3/烟雾state=8) */
+/* 判断传感器状态是否为故障: XR805(state=9), XR8303/XR8305(温度state=3/烟雾state=8) */
 uint8_t RS485Detect_IsFaultState(uint8_t device_type, uint8_t sensor_idx, uint8_t state)
 {
     if(device_type == RS485_DETECT_TYPE_XR805) return state == 9U;
@@ -398,7 +406,7 @@ uint8_t RS485Detect_IsFaultState(uint8_t device_type, uint8_t sensor_idx, uint8_
     }
     return 0U;
 }
-/* 获取回路3总报警设备数(仅计算在线设备, 任一传感器报警即计数) */
+/* 统计回路3当前报警设备数(遍历在线设备, 任一传感器报警即计数) */
 uint8_t RS485Detect_GetAlarmCount(void)
 {
     uint8_t count = 0;
@@ -433,10 +441,10 @@ uint8_t RS485Detect_GetAlarmCount(void)
 }
 
 /* ============================================================
- * 第三层: Modbus RTU协议收发
+ * 轮询层: Modbus RTU请求构建与发送
  * ============================================================ */
 
-/* 构建Modbus读数据命令(04功能码, 指定reg_count寄存器数) */
+/* 构建传感器数据读取Modbus帧(04功能码, 读reg_count个寄存器) */
 static void build_modbus_read_cmd(uint8_t *buf, uint8_t addr, uint8_t reg_count)
 {
     uint16_t crc16;
@@ -453,7 +461,7 @@ static void build_modbus_read_cmd(uint8_t *buf, uint8_t addr, uint8_t reg_count)
     buf[7] = crc16 >> 8;
 }
 
-/* 构建类型探测Modbus命令(04功能码, 读0x000E或0x000F单寄存器) */
+/* 构建类型探测Modbus帧(04功能码, 读0x000E和0x000F共2个寄存器) */
 static void build_type_detect_cmd(uint8_t *buf, uint8_t addr, uint16_t reg)
 {
     uint16_t crc16;
@@ -470,7 +478,7 @@ static void build_type_detect_cmd(uint8_t *buf, uint8_t addr, uint16_t reg)
     buf[7] = crc16 >> 8;
 }
 
-static void check_and_record_fault(uint8_t addr); /* 前向声明: 断线/故障记录 */
+static void check_and_record_fault(uint8_t addr); /* 前向声明: 掉线/报警检测 */
 static void mark_identify_failure(uint8_t addr, DeviceIdentifyError error)
 {
     if(addr == 0U || addr >= RS485_DETECT_MAX_DEVICES) return;
@@ -482,7 +490,7 @@ static void mark_identify_failure(uint8_t addr, DeviceIdentifyError error)
         DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP3, addr, error);
 }
 
-/* 检查当前事务: 超时则重置事务+增加断线计数 */
+/* 检查当前事务是否超时: 超时则计掉线+触发故障检测 */
 static void mark_transaction_timeout(void)
 {
     uint8_t addr;
@@ -491,6 +499,17 @@ static void mark_transaction_timeout(void)
     if ((osKernelGetTickCount() - g_transaction_start_tick) < RS485_DETECT_RESPONSE_TIMEOUT_MS) return;
     addr = g_transaction_addr;
     was_type_detect = g_transaction_type_detect;
+    if(g_transaction_threshold != 0U)
+    {
+        DeviceThreshold_HandleTimeout();
+        g_poll_current_addr = (addr > 1U) ? (uint8_t)(addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
+        g_transaction_pending = 0U;
+        g_transaction_addr = 0U;
+        g_transaction_type_detect = 0U;
+        g_transaction_threshold = 0U;
+        g_transaction_start_tick = 0U;
+        return;
+    }
     g_transaction_pending = 0;
     g_transaction_addr = 0;
     g_transaction_type_detect = 0;
@@ -500,6 +519,7 @@ static void mark_transaction_timeout(void)
             mark_identify_failure(addr, was_type_detect == RS485_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : was_type_detect == RS485_STAGE_PRODUCT ? DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE : DEVICE_IDENTIFY_SENSOR_READ_FAILED);
         else
         {
+            DeviceThreshold_NotifyNormalPoll();
             if (g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD)
                 g_devices[addr].disconnect_count++;
             check_and_record_fault(addr);
@@ -507,7 +527,7 @@ static void mark_transaction_timeout(void)
     }
 }
 
-/* 轮询下一个在线设备: 未识别则先类型探测, 已识别则读传感器数据 */
+/* 轮询下一个在线设备: 未确认类型则发类型探测帧, 已确认则发传感器数据帧 */
 static void poll_next_device(void)
 {
     uint8_t modbusbuf[8];
@@ -562,6 +582,7 @@ static void poll_next_device(void)
     g_transaction_pending = 1;
     g_transaction_addr = addr;
     g_transaction_type_detect = type_detect;
+    g_transaction_threshold = 0U;
     g_transaction_start_tick = osKernelGetTickCount();
 
     if (HAL_UART_Transmit(&huart5, modbusbuf, sizeof(modbusbuf), RS485_DETECT_TX_TIMEOUT_MS) != HAL_OK)
@@ -572,7 +593,7 @@ static void poll_next_device(void)
         g_transaction_type_detect = 0;
     }
 }
-/* 解析传感器数据: 将设备返回的原始字节按布局解析到sensor_values和sensor_states */
+/* 解析传感器数据帧: 按设备类型对应的布局表, 将响应字节填入sensor_values和sensor_states */
 static void parse_sensor_data(uint8_t addr, const uint8_t *bytes, uint8_t device_type)
 {
     uint8_t sensor_count;
@@ -588,7 +609,7 @@ static void parse_sensor_data(uint8_t addr, const uint8_t *bytes, uint8_t device
         uint8_t offset = layout[i].byte_offset;
         uint8_t sensor_idx = layout[i].sensor_index;
 
-        /* 匹配sensor_index到0x000F中的bit位 */
+        /* 根据sensor_index查0x000F中的bit位 */
         uint8_t bit;
         switch (sensor_idx)
         {
@@ -604,7 +625,7 @@ static void parse_sensor_data(uint8_t addr, const uint8_t *bytes, uint8_t device
 
         if (!(enable & (1 << bit)))
         {
-            /* 传感器未使能, 跳过 */
+            /* 传感器未启用，清零 */
             if (layout[i].is_value)
                 g_devices[addr].sensor_values[sensor_idx] = 0;
             else
@@ -625,12 +646,12 @@ static void parse_sensor_data(uint8_t addr, const uint8_t *bytes, uint8_t device
     }
 }
 
-/* 故障检查: 检查断线和传感器报警, 设置disconnect_memory和alarm_memory(实际记录在cmd_process.c中处理) */
+/* 故障检测: 检查掉线状态和报警状态, 更新disconnect_memory和alarm_memory(故障记录由cmd_process.c统一处理) */
 static void check_and_record_fault(uint8_t addr)
 {
     RS485DetectDevice *dev = &g_devices[addr];
 
-    /* 断线检查 */
+    /* 掉线检测 */
     if (dev->disconnect_count >= RS485_DETECT_DISCONNECT_THRESHOLD)
     {
         if (dev->disconnect_memory == 0)
@@ -648,7 +669,7 @@ static void check_and_record_fault(uint8_t addr)
         }
     }
 
-    /* 传感器报警检查: 温度/烟雾/CO/H2/CH4/VOC等 */
+    /* 报警检测（温度、烟雾、CO、H2、CH4、VOC） */
     uint8_t alarm_sensors[] = {
         RS485_SENSOR_TEMPERATURE,
         RS485_SENSOR_SMOKE,
@@ -683,17 +704,19 @@ static void check_and_record_fault(uint8_t addr)
     }
 }
 
-/* 完成事务: 清除断线计数, 释放UART5占用 */
+/* 完成当前事务: 清零掉线计数, 释放UART5事务锁 */
 static void complete_transaction(uint8_t addr)
 {
     g_devices[addr].disconnect_count = 0;
+    if(g_transaction_threshold == 0U && g_transaction_type_detect == 0U)
+        DeviceThreshold_NotifyNormalPoll();
     g_transaction_pending = 0;
     g_transaction_addr = 0;
     g_transaction_type_detect = 0;
     g_transaction_start_tick = 0;
 }
 
-/* 接收数据处理: 校验CRC后根据事务类型分发解析 */
+/* 接收数据处理: 校验CRC→解析响应帧→类型探测或传感器数据分发→完成事务 */
 static void receive_data_deal(void)
 {
     uint16_t crc16;
@@ -721,6 +744,20 @@ static void receive_data_deal(void)
     /* XR5000_UART5_EXCLUSIVE_FIX_20260730: only the owned request may consume a response. */
     if (addr != g_transaction_addr || addr == 0U || addr >= RS485_DETECT_MAX_DEVICES)
         return;
+
+    if(g_transaction_threshold != 0U)
+    {
+        if(DeviceThreshold_HandleResponse(buf, len) != 0U)
+        {
+            g_poll_current_addr = (addr > 1U) ? (uint8_t)(addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
+            g_transaction_pending = 0U;
+            g_transaction_addr = 0U;
+            g_transaction_type_detect = 0U;
+            g_transaction_threshold = 0U;
+            g_transaction_start_tick = 0U;
+        }
+        return;
+    }
 
     if (func == 0x84U)
     {
@@ -834,7 +871,7 @@ static void receive_data_deal(void)
         check_and_record_fault(addr);
     }
 }
-/* 判断在线且有效(非断线状态) */
+/* 判断是否真正在线(上线且未掉线) */
 uint8_t RS485Detect_IsOnline(uint8_t addr)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
@@ -842,7 +879,7 @@ uint8_t RS485Detect_IsOnline(uint8_t addr)
     return (g_devices[addr].online && g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD);
 }
 
-/* 判断传感器数据是否有效 */
+/* 是否已收到有效的传感器数据帧 */
 uint8_t RS485Detect_HasSensorData(uint8_t addr)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
@@ -850,7 +887,7 @@ uint8_t RS485Detect_HasSensorData(uint8_t addr)
     return g_devices[addr].sensor_data_valid;
 }
 
-/* 判断传感器使能配置是否已确认(读取过0x000F寄存器) */
+/* 是否已确认传感器启用状态(已成功读取0x000F寄存器) */
 uint8_t RS485Detect_HasSensorEnableData(uint8_t addr)
 {
     if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
@@ -859,7 +896,7 @@ uint8_t RS485Detect_HasSensorEnableData(uint8_t addr)
 }
 
 /* ============================================================
- * RTOS轮询任务: 10ms周期检查超时/轮询/接收处理, 耗时约10ms
+ * RTOS轮询任务: 主循环→接收处理→超时检测→定时轮询, 间隔10ms
  * ============================================================ */
 
 void RS485DetectPollAndReceiveTask(void *parameter)
@@ -878,11 +915,55 @@ void RS485DetectPollAndReceiveTask(void *parameter)
         if (g_transaction_pending == 0U &&
             (current_tick - g_last_poll_time) >= RS485_DETECT_POLL_INTERVAL_MS)
         {
+            uint8_t threshold_frame[8];
+            uint8_t threshold_addr = 0U;
             g_last_poll_time = current_tick;
-            poll_next_device();
+            if(DeviceThreshold_BuildNextFrame(threshold_frame, &threshold_addr) != 0U)
+            {
+                uartbuff[DEBUGSITE].recepetion_flag = 0U;
+                uartbuff[DEBUGSITE].recepetion_len = 0U;
+                g_transaction_pending = 1U;
+                g_transaction_addr = threshold_addr;
+                g_transaction_type_detect = 0U;
+                g_transaction_threshold = 1U;
+                g_transaction_start_tick = current_tick;
+                if(HAL_UART_Transmit(&huart5, threshold_frame, sizeof(threshold_frame), RS485_DETECT_TX_TIMEOUT_MS) != HAL_OK)
+                {
+                    DeviceThreshold_HandleTimeout();
+                    g_poll_current_addr = (threshold_addr > 1U) ? (uint8_t)(threshold_addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
+                    g_transaction_pending = 0U;
+                    g_transaction_addr = 0U;
+                    g_transaction_threshold = 0U;
+                    g_transaction_start_tick = 0U;
+                }
+            }
+            else
+            {
+                poll_next_device();
+            }
         }
 
         osDelay(RS485_DETECT_TASK_INTERVAL_MS);
     }
 }
 
+
+/* 测试注入: 设置RS485探测器传感器状态(bsp_test_inject调用) */
+void RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state)
+{
+    if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES || sensor_idx >= RS485_SENSOR_COUNT)
+        return;
+    g_devices[addr].online = 1;
+    g_devices[addr].disconnect_count = 0;
+    g_devices[addr].type_confirmed = 1;
+    g_devices[addr].sensor_data_valid = 1;
+    g_devices[addr].sensor_states[sensor_idx] = state;
+}
+
+/* 获取国标设备类型码(供逻辑屏显示), 地址非法返回0 */
+uint16_t RS485Detect_GetNationalCode(uint8_t addr)
+{
+    if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES)
+        return 0;
+    return g_devices[addr].national_type_code;
+}
