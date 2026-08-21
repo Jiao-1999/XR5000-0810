@@ -947,3 +947,15 @@ void RS485DetectPollAndReceiveTask(void *parameter)
     }
 }
 
+
+/* ²âÊÔ×¢Èë: ÉèÖÃRS485Ì½²âÆ÷´«¸ÐÆ÷×´Ì¬(bsp_test_injectµ÷ÓÃ) */
+void RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state)
+{
+    if (addr == 0 || addr >= RS485_DETECT_MAX_DEVICES || sensor_idx >= RS485_SENSOR_COUNT)
+        return;
+    g_devices[addr].online = 1;
+    g_devices[addr].disconnect_count = 0;
+    g_devices[addr].type_confirmed = 1;
+    g_devices[addr].sensor_data_valid = 1;
+    g_devices[addr].sensor_states[sensor_idx] = state;
+}

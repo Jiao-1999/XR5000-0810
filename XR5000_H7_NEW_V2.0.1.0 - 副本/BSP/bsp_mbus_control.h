@@ -106,5 +106,7 @@ int8_t ReceiveDataFromMBus2Queue(uint8_t *buf);              /* ´ÓMBus2¶ÓÁĞ½ÓÊÕÊ
 /* ---- RTOSÂÖÑ¯ÈÎÎñ ---- */
 void MBusControlPollSlaveAndReceiveTask(void* parameter);    /* »ØÂ·2ÂÖÑ¯ÈÎÎñ(·¢ËÍ²éÑ¯¡ú½ÓÊÕ½âÎö¡ú¿ØÖÆ·şÎñ) */
 
+
+void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state);  /* ²âÊÔ×¢Èë:ÉèÖÃ´«¸ĞÆ÷×´Ì¬ */
 #endif
 

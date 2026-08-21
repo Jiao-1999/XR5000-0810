@@ -125,5 +125,7 @@ void RS485Detect_LoadOnlineState(void);  /* 从Flash加载在线状态表 */
 /* ---- RTOS轮询任务 ---- */
 void RS485DetectPollAndReceiveTask(void *parameter); /* 回路3轮询任务(发送查询→接收解析→超时检测) */
 
+
+void     RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t state); /* 测试注入:设置传感器状态 */
 #endif
 
