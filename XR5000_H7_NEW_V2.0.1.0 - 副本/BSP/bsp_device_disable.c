@@ -16,7 +16,9 @@
 #include "bsp_screen.h"         
 #include "hmi_driver.h"          
 #include "system.h"              
-#include "w25qxx.h"             
+#include "w25qxx.h"
+#include "bsp_storage_event.h"  /* ï¿½ï¿½Ï»ï¿½Ó´æ´¢ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?*/
+#include "bsp_fecbus_report.h" /* FECbus RS485 ï¿½Ï±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?(GB4717 ï¿½ï¿½Â¼C) */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -452,7 +454,19 @@ static DeviceDisableResult DeviceDisableValidateSet(const DeviceIdentity *identi
     return DEVICE_DISABLE_OK;
 }
 
-/* ÉèÖÃÆÁ±Î: Ð£Ñé¡úÐ´Î»Í¼¡ú±£´æFlash¡úÐ´ÀúÊ·(Ê§°ÜÔò»Ø¹ö²¢»Ö¸´±¸·Ý) */
+/* ï¿½è±¸×¢ï¿½ï¿½ï¿½ï¿½ï¿½Í¡ï¿½ï¿½ï¿½Ï»ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½Í´ï¿½ï¿½ï¿½Ó³ï¿½ï¿½(ï¿½ï¿½LogShieldï¿½ï¿½ï¿½ï¿½) */
+static uint16_t DeviceDisableMapStorageType(DeviceRegistryType type)
+{
+    switch(type)
+    {
+        case DEVICE_TYPE_SMOKE:        return DEV_TYPE_SMOKE;       /* ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ */
+        case DEVICE_TYPE_TEMPERATURE:  return DEV_TYPE_TEMPERATURE; /* ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ */
+        case DEVICE_TYPE_MULTI_SENSOR: return DEV_TYPE_FIRE_ALARM;  /* ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+        default:                       return DEV_TYPE_CONTROL_DEV; /* Î´Öªï¿½ï¿½ï¿½Í°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ */
+    }
+}
+
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: Ð£ï¿½ï¿½ï¿½Ð´Î»Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Flashï¿½ï¿½Ð´ï¿½ï¿½Ê·(Ê§ï¿½ï¿½ï¿½ï¿½Ø¹ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿? */
 DeviceDisableResult DeviceDisableSet(const DeviceIdentity *identity)
 {
     DeviceInformation info;
@@ -483,6 +497,10 @@ DeviceDisableResult DeviceDisableSet(const DeviceIdentity *identity)
         return DEVICE_DISABLE_STORAGE_ERROR;
     }
     shielding_state = 1U;
+    StorageEvent_LogShield((uint8_t)identity->address,
+                           DeviceDisableMapStorageType(info.type), 0U); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ */
+    FecbusReport_Shield((uint8_t)identity->address,
+                        DeviceDisableMapStorageType(info.type), 0U); /* FECbus:ï¿½Ï±ï¿½ï¿½ï¿½ï¿½ï¿½ */
     return DEVICE_DISABLE_OK;
 }
 
@@ -528,6 +546,10 @@ DeviceDisableResult DeviceDisableClear(const DeviceIdentity *identity)
         return DEVICE_DISABLE_STORAGE_ERROR;
     }
     shielding_state = g_disable_state.disabled_count != 0U;
+    StorageEvent_LogShield((uint8_t)identity->address,
+                           DeviceDisableMapStorageType(info.type), 1U); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?*/
+    FecbusReport_Shield((uint8_t)identity->address,
+                        DeviceDisableMapStorageType(info.type), 1U); /* FECbus:ï¿½Ï±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?*/
     return DEVICE_DISABLE_OK;
 }
 

@@ -8,6 +8,7 @@
 #include "bsp_adc.h"
 
 #include "bsp_logic_set.h"
+#include "bsp_logic_screen.h" /* ??????????????/?????洦?? */
 
 #include "bsp_debug.h"
 
@@ -40,6 +41,9 @@
 
 #include "bsp_password.h"
 
+#include "bsp_storage_event.h"  /* ?????洢???????? */
+#include "bsp_fecbus_report.h" /* FECbus RS485 ???????? (GB4717 ???C) */
+
 #include <time.h>
 
 #define CANG_USER_NUM 24
@@ -71,10 +75,10 @@ void SystemCheckRequestRecord(void)
 #define Out_Fire_Show_Zone 7
 
 uint8_t secs,years,months,weeks,days,hours,minutes;
-uint8  cmd_buffer[CMD_MAX_SIZE];                                    //指令缓存
-uint16 current_screen_id = 0;                                       //当前画面ID
-uint32_t yonghumima=0,yonghumm1=0,yonghumm2=0,yonghumm3=0,mmsdSTA=0;//用户密码
-uint32_t chaojimima=68686668;//超级密码
+uint8  cmd_buffer[CMD_MAX_SIZE];                                    //?????
+uint16 current_screen_id = 0;                                       //???????ID
+uint32_t yonghumima=0,yonghumm1=0,yonghumm2=0,yonghumm3=0,mmsdSTA=0;//???????
+uint32_t chaojimima=68686668;//????????
 
 uint8_t mimajiyi=0;
 uint8_t miehuoqidong=0;
@@ -82,15 +86,15 @@ uint8_t miehuoqidong=0;
 // new
 typedef struct
 {
-	uint16_t years;    // 报警年
+	uint16_t years;    // ??????
 	
-	uint8_t  months;   // 报警月
-	uint8_t  days;     // 报警秒
+	uint8_t  months;   // ??????
+	uint8_t  days;     // ??????
 	
-	uint8_t  hours;    // 报警时
-	uint8_t  minute;   // 报警分
+	uint8_t  hours;    // ?????
+	uint8_t  minute;   // ??????
 	
-	uint8_t  second;   // 报警秒
+	uint8_t  second;   // ??????
 }AlarmTimeRecord;
 
 typedef enum
@@ -98,15 +102,15 @@ typedef enum
 	PackClassID  = 1,
 	CabinClassID = 2, 
 	LinkageClassID = 3,
-}PackCabinClassID; // 类别标识号
+}PackCabinClassID; // ???????
 
 typedef enum
 {
-	Temperature = 1,  // 温度
-	Smoke       = 2,  // 烟雾
-	HandAlarm   = 3,  // 手报
-	Hydrogen    = 4,  // 氢气
-	Carbon      = 5,  // 一氧化碳
+	Temperature = 1,  // ???
+	Smoke       = 2,  // ????
+	HandAlarm   = 3,  // ???
+	Hydrogen    = 4,  // ????
+	Carbon      = 5,  // ??????
 	
 	// XR5000_LOOP3_CHANGE_20260727: VOC and CH4 use separate forewarn record types.
 	Voc         = 9,
@@ -116,51 +120,51 @@ typedef enum
 	Loop3HydrogenFire = 13,
 	Loop1TempWarning = 14,
 	Loop1SmokeWarning = 15,
-	AlarmCtrlKey = 6, // 报警器
+	AlarmCtrlKey = 6, // ??????
 	
 	FeedBack1Press = 7,
 	
 	SysFlashFault = 8,
 
-}DetectorAlarmType; //探测器报警类型
+}DetectorAlarmType; //?????????????
 
 typedef enum
 {
-	OUT_FIRE_NO_START  = 1,  // 灭火装置未启动
-	OUT_FIRE_SUSPEND   = 2,  // 灭火装置停止启动
+	OUT_FIRE_NO_START  = 1,  // ??????δ???
+	OUT_FIRE_SUSPEND   = 2,  // ???????????
 
-	SPRAY_START_DELAY  = 3,  // 喷放倒计时
-	SPRAY_INTERVAL_T1  = 4,  // 间隔 等待第2次喷放
-	SPRAY_SECOND_DELAY = 5,  // 第2次喷放倒计时状态
-	SPRAY_INTERVAL_T2  = 6,  // 间隔 等待第3次喷放
-	SPRAY_THIRD_DELAY  = 7,  // 第3次喷放倒计时状态
-}OutFireDeviceState; // 灭火装置状态
+	SPRAY_START_DELAY  = 3,  // ???????
+	SPRAY_INTERVAL_T1  = 4,  // ??? ?????2?????
+	SPRAY_SECOND_DELAY = 5,  // ??2???????????
+	SPRAY_INTERVAL_T2  = 6,  // ??? ?????3?????
+	SPRAY_THIRD_DELAY  = 7,  // ??3???????????
+}OutFireDeviceState; // ????????
 
 
 typedef struct
 {
-	uint8_t cluster_id; // 簇id
-	uint8_t pack_id;    // 挂在对应簇下的pack id
+	uint8_t cluster_id; // ??id
+	uint8_t pack_id;    // ?????????μ?pack id
 	
-	uint8_t cabin_id;   // 舱id
+	uint8_t cabin_id;   // ??id
 
-	int8_t lunch_state; // 改为有符号型 用来记录终止情况 -1:终止 -2:重启后终止 0:未启动 99:启动倒计时期间终止
+	int8_t lunch_state; // ????з????? ????????????? -1:??? -2:???????? 0:δ??? 99:??????????????
 
 	AlarmTimeRecord atr;
 
-}PackAlarmStorage;    // 现在该结构体用来做多个报警循环显示
+}PackAlarmStorage;    // ????y??????????????????????
 
 PackAlarmStorage pas[224] = { 0 };
 
 uint8_t pas_pointer = 0;
 uint8_t last_pas_len = 0;
-uint8_t pas_fresh_point = 0;// 屏幕显示刷新指针
+uint8_t pas_fresh_point = 0;// ????????????
 
 uint8_t multiple_alarm_fresh_flag = 0;
 uint8_t pas_traverse_pointer = 1;
 
-uint8_t alarm_number = 0; // 报警总数
-uint8_t last_alarm_num = 255; // 默认执行一次
+uint8_t alarm_number = 0; // ????????
+uint8_t last_alarm_num = 255; // ?????????
 
 uint8_t last_online_detector_num = 255;
 uint8_t last_disconnect_detector_num = 255;
@@ -168,53 +172,53 @@ uint8_t home_statistics_force_refresh = 1;
 
 typedef struct
 {
-	uint8_t cabin_id;       // 仓ID
+	uint8_t cabin_id;       // ??ID
 	
-	uint8_t cluster_id;     // 簇ID
-	uint8_t pack_id;        // 包ID
-}DetectorAddrAttribute;   // 原始数据类型，区分仓，包，簇
+	uint8_t cluster_id;     // ??ID
+	uint8_t pack_id;        // ??ID
+}DetectorAddrAttribute;   // ???????????????????????
 
 typedef struct
 {
-	uint8_t temperature_type; // 温度
-	uint8_t carbon_type;      // 一氧化碳
-	uint8_t smoke_type;       // 烟雾
-}CabinAlarmType;     //仓探测器的保健那个类型
+	uint8_t temperature_type; // ???
+	uint8_t carbon_type;      // ??????
+	uint8_t smoke_type;       // ????
+}CabinAlarmType;     //???????????????????
 
 typedef struct
 {
-	uint8_t temperature_type; // 温度
-	uint8_t carbon_type;      // 一氧化碳
-	uint8_t smoke_type;       // 烟雾
-}PackAlarmType;       ///包报警器的保健那个类型
+	uint8_t temperature_type; // ???
+	uint8_t carbon_type;      // ??????
+	uint8_t smoke_type;       // ????
+}PackAlarmType;       ///????????????????????
 
 uint8_t fore_alarm_start_index = 0;
-uint8_t fire_alarm_start_index = 0; // 报警信息滚动数据的起始索引
+uint8_t fire_alarm_start_index = 0; // ???????????????????????
 uint8_t fire_alarm_check_new_flag = 0;
 uint8_t force_alarm_check_new_flag = 0;
 #define getFireAlarmCheckNewKey() fire_alarm_check_new_flag
 #define getForceAlarmCheckNewKey() force_alarm_check_new_flag
 
-/* 预警 火警分开存储
- * 2025/07/08日更新
- * 检测中心要求火警预警分开存储
+/* ??? ??????洢
+ * 2025/07/08?????
+ * ??????????????????洢
  */
-// 预警存储 此预警指 所有可燃气体
+// ????洢 ?????? ???п??????
 typedef struct {
-	uint8_t self_bottom_point;       // 所有数组的底指针
+	uint8_t self_bottom_point;       // ?????????????
 	
-	uint8_t point_history_len;       // 记录历史指针长度
+	uint8_t point_history_len;       // ???????????
 
-	uint8_t detector_class[224];     // 探测器类型
+	uint8_t detector_class[224];     // ?????????
 	
-	uint8_t alarm_type[224];				 // 包报警类型
+	uint8_t alarm_type[224];				 // ??????????
 	
-	DetectorAddrAttribute da[224];   // 探测器属性
+	DetectorAddrAttribute da[224];   // ?????????
 
-	AlarmTimeRecord atr[224];        // 报警时间记录
+	AlarmTimeRecord atr[224];        // ?????????
 	
-	uint16_t fresh_time_count;        // 用来轮询显示
-}PackCabinForeWarnStorage;  // 仓包报警器的预警存储
+	uint16_t fresh_time_count;        // ??????????
+}PackCabinForeWarnStorage;  // ???????????????洢
 
 PackCabinForeWarnStorage pcfws = {
 	.self_bottom_point = 0,
@@ -225,21 +229,21 @@ PackCabinForeWarnStorage pcfws = {
 	.atr        = {0}
 };
 
-// 火警存储 此火警指 烟雾 温度
+// ???洢 ???? ???? ???
 typedef struct {
-	uint8_t self_bottom_point;       // 所有数组的底指针
+	uint8_t self_bottom_point;       // ?????????????
 	
-	uint8_t point_history_len;       // 记录历史指针长度
+	uint8_t point_history_len;       // ???????????
 	
-	uint8_t detector_class[224];     // 探测器类型
+	uint8_t detector_class[224];     // ?????????
 	
-	uint8_t alarm_type[224];				 // 包报警类型
+	uint8_t alarm_type[224];				 // ??????????
 	
-	DetectorAddrAttribute da[224];   // 探测器属性
+	DetectorAddrAttribute da[224];   // ?????????
 	
-	AlarmTimeRecord atr[224];        // 报警时间记录
+	AlarmTimeRecord atr[224];        // ?????????
 	
-	uint16_t fresh_time_count;       // 轮询显示计时
+	uint16_t fresh_time_count;       // ?????????
 }PackCabinFireAlarmStorage;
 
 PackCabinFireAlarmStorage pcfas = {
@@ -254,17 +258,17 @@ PackCabinFireAlarmStorage pcfas = {
 
 typedef struct
 {
-	uint8_t detector_class; // 探测器类型
+	uint8_t detector_class; // ?????????
 	
-	DetectorAddrAttribute da;   // 探测器属性
+	DetectorAddrAttribute da;   // ?????????
 	
-	AlarmTimeRecord atr;        // 报警时间记录
+	AlarmTimeRecord atr;        // ?????????
 	uint8_t fault_type;
 	
-}PackCabinFaultStorage;   // 用来存储掉线 故障信息	
-uint8_t pcfs_fresh_ctrl = 255;    // 刷新控制指针 初始赋值为最大值
-uint8_t pcfs_buttom_point = 0;  // 尾指针 记录数据长度
-PackCabinFaultStorage pcfs[224] = {0}; // 储存所有故障信息
+}PackCabinFaultStorage;   // ?????洢???? ???????	
+uint8_t pcfs_fresh_ctrl = 255;    // ????????? ???????????
+uint8_t pcfs_buttom_point = 0;  // β??? ??????????
+PackCabinFaultStorage pcfs[224] = {0}; // ???????й??????
 
 uint8_t fault_check_new_flag = 0;
 uint8_t fault_current_page = 0;
@@ -272,93 +276,93 @@ uint8_t fault_current_page = 0;
 // end
 
 // new
-// 用来筛选出报火警的编号
+// ????????????????
 typedef struct
 {
 	uint8_t cabin_alarm_state  ; 
 	uint8_t cluster_alarm_state;
 
 }FireAlarmStorage;
-FireAlarmStorage fire_alarm_flag = {0}; // 全部初始化为0
+FireAlarmStorage fire_alarm_flag = {0}; // ?????????0
 
 typedef struct
 {
-	uint8_t fire_alarm_id_buff[300]; // 存储报警编号
-	uint8_t faib_buttom_point;      // fire_alarm_id_buff长度指针
-	uint8_t storage_pas_len;        // 存储火警记录长度 长度不一致时更新数据
-}FireAlarmNumRecord; // 把火警报警的编号筛选出来
+	uint8_t fire_alarm_id_buff[300]; // ?洢???????
+	uint8_t faib_buttom_point;      // fire_alarm_id_buff???????
+	uint8_t storage_pas_len;        // ?洢????????? ?????????????????
+}FireAlarmNumRecord; // ?????????????????
 FireAlarmNumRecord fanr = {0};
 
 /*********
-* 灭火装置启动流程/状态
-*  1 启动延时 延时xx秒
-*  2 启动延时结束
-*  3 第一次喷放开始 持续xx秒
-*  4 第一次喷放持续时间结束
-*  5 第二次喷放启动延时 延时xx秒
-*  6 第二次喷放启动延时结束
-*  7 第二次喷放开始 持续xx秒
-*  8 第二次喷放持续时间结束
-*  9 第三次喷放启动延时 延时xx秒
-* 10 第三次喷放启动延时结束
-* 11 第三次喷放开始 持续xx秒
-* 12 喷放完成
-* 13 若在启动延时期间强制结束 状态为-1
-* 14 若再次触发状态为-2 并从启动延时重新开始
+* ?????????????/??
+*  1 ?????? ???xx??
+*  2 ??????????
+*  3 ?????????? ????xx??
+*  4 ?????????????????
+*  5 ?????????????? ???xx??
+*  6 ??????????????????
+*  7 ?????????? ????xx??
+*  8 ?????????????????
+*  9 ??????????????? ???xx??
+* 10 ???????????????????
+* 11 ??????????? ????xx??
+* 12 ??????
+* 13 ??????????????????? ???-1
+* 14 ????δ??????-2 ????????????????
 */
 typedef enum
 {
-	FIRE_EXTINGUISH_FORCE_START    = -4,    // 手动强制启动
-	FIRE_EXTINGUISH_RESTART_FINISH = -3,    // 重新启动后赋值为该状态 避免下次启动
-	FIRE_EXTINGUISH_CAN_RESTART    = -2,    // 可以重新启动的状态
-	FIRE_EXTINGUISH_FORCE_STOP     = -1,    // 强制结束
+	FIRE_EXTINGUISH_FORCE_START    = -4,    // ?????????
+	FIRE_EXTINGUISH_RESTART_FINISH = -3,    // ??????????????? ?????′????
+	FIRE_EXTINGUISH_CAN_RESTART    = -2,    // ???????????????
+	FIRE_EXTINGUISH_FORCE_STOP     = -1,    // ??????
 	
-	FIRE_EXTINGUISH_MODE_JUDGEMENT       = 0,      // 判断当前状态
-	FIRE_EXTINGUISH_START_SPRAY_DELAY    = 1,      // 启动延时
-	FED_START_SPRAY_DELAY_FINISH_FLAG    = 2,      // 灭火装置启动倒计时 结束标志
-	FIRE_EXTINGUISH_FIRST_SPRAY_START    = 3,      // 第一次喷放开始
-	FIRE_EXTINGUISH_FIRST_SPRAY_FINISH   = 4,      // 第一次喷放完成
-	FIRE_EXTINGUISH_SECOND_SPRAY_DELAY   = 5,      // 第二次喷放启动延时
-	FED_SECOND_SPRAY_DELAY_FINISH_FLAG   = 6,      // 灭火装置第二次启动倒计时 结束标志
-	FIRE_EXTINGUISH_SECOND_SPRAY_START   = 7,      // 第二次喷放开始
-	FIRE_EXTINGUISH_SECOND_SPRAY_FINISH  = 8,      // 第二次喷放完成
-	FIRE_EXTINGUISH_THIRD_SPRAY_DELAY    = 9,      // 第三次喷放启动延时
-	FED_THIRD_SPRAY_DELAY_FINISH_FLAG    = 10,     // 第三次喷放倒计时结束标志
-	FIRE_EXTINGUISH_THIRD_SPRAY_START    = 11,     // 第三次喷放开始
-	FIRE_EXTINGUISH_THIRD_SPRAY_FINISH   = 12,     // 第三次喷放完成
-	FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE   = 13,     // 全部喷放完成
+	FIRE_EXTINGUISH_MODE_JUDGEMENT       = 0,      // ?ж?????
+	FIRE_EXTINGUISH_START_SPRAY_DELAY    = 1,      // ??????
+	FED_START_SPRAY_DELAY_FINISH_FLAG    = 2,      // ?????????????? ???????
+	FIRE_EXTINGUISH_FIRST_SPRAY_START    = 3,      // ??????????
+	FIRE_EXTINGUISH_FIRST_SPRAY_FINISH   = 4,      // ???????????
+	FIRE_EXTINGUISH_SECOND_SPRAY_DELAY   = 5,      // ??????????????
+	FED_SECOND_SPRAY_DELAY_FINISH_FLAG   = 6,      // ?????????????????? ???????
+	FIRE_EXTINGUISH_SECOND_SPRAY_START   = 7,      // ??????????
+	FIRE_EXTINGUISH_SECOND_SPRAY_FINISH  = 8,      // ???????????
+	FIRE_EXTINGUISH_THIRD_SPRAY_DELAY    = 9,      // ???????????????
+	FED_THIRD_SPRAY_DELAY_FINISH_FLAG    = 10,     // ????????????????????
+	FIRE_EXTINGUISH_THIRD_SPRAY_START    = 11,     // ???????????
+	FIRE_EXTINGUISH_THIRD_SPRAY_FINISH   = 12,     // ????????????
+	FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE   = 13,     // ?????????
 
-	FIRE_EXTINGUISH_CLUSTER_VALVE_OPEN   = 14, // 簇电磁阀打开
-	FIRE_EXTINGUISH_CABIN_VALVE_OPEN     = 15, // 仓电磁阀打开
-	FIRE_EXTINGUISH_CYLINDEF_1_OPENED    = 16, // 钢瓶1电磁阀打开
-	FIRE_EXTINGUISH_CYLINDEF_2_OPENED    = 17, // 钢瓶2电磁阀打开
+	FIRE_EXTINGUISH_CLUSTER_VALVE_OPEN   = 14, // ???????
+	FIRE_EXTINGUISH_CABIN_VALVE_OPEN     = 15, // ???????
+	FIRE_EXTINGUISH_CYLINDEF_1_OPENED    = 16, // ???1??????
+	FIRE_EXTINGUISH_CYLINDEF_2_OPENED    = 17, // ???2??????
 	
-	FIRE_EXTINGUISH_STARYUP_FINISH_FLAG  = 18, // 灭火装置启动进入倒计时
+	FIRE_EXTINGUISH_STARYUP_FINISH_FLAG  = 18, // ????????????????
 	
 	FEEDBACK_1_PRESS = 19,
 	FEEDBACK_2_PRESS = 20,
 	
-}FireExtinguishDeviceActionType; // 灭火装置动作类型
+}FireExtinguishDeviceActionType; // ?????????????
 
-// 气灭装置记录
+// ??????ü??
 typedef struct
 {
-	uint8_t cluster_id[224];   // 簇id
-	uint8_t pack_id[224];      // 挂在对应簇下的pack id
+	uint8_t cluster_id[224];   // ??id
+	uint8_t pack_id[224];      // ?????????μ?pack id
 	
-	uint8_t cabin_id[224];     // 舱id
+	uint8_t cabin_id[224];     // ??id
 	
-	AlarmTimeRecord atr[224];  // 动作时间记录
+	AlarmTimeRecord atr[224];  // ?????????
 	
-	int8_t fed_action[224];   // 灭火装置动作记录
+	int8_t fed_action[224];   // ????????????
 	
 	uint8_t self_point_len;    // 
-	uint8_t last_point_len;    // 遍历指针
+	uint8_t last_point_len;    // ???????
 	
-	uint16_t countdown_val[224];    // 倒计时的值 
-	uint16_t start_cntd_time[224];  // 开始倒计时的时间戳
-	uint16_t curr_cntd_time[224];   // 当前系统时钟 用来显示倒计时
-}FireExtinguishDeviceActionSave; // 灭火装置动作记录
+	uint16_t countdown_val[224];    // ???????? 
+	uint16_t start_cntd_time[224];  // ??????????????
+	uint16_t curr_cntd_time[224];   // ???????? ????????????
+}FireExtinguishDeviceActionSave; // ????????????
 
 FireExtinguishDeviceActionSave fedas = {
 	.cluster_id = {0},
@@ -376,24 +380,24 @@ uint8_t fed_fresh_flag = 0;
 uint8_t fedas_fresh_point = 0;
 // end
 
-// new 包数据显示 控制变量
+// new ????????? ???????
 typedef struct
 {
-	uint8_t  curr_detector_page; // 当前显示页
-	uint8_t  last_detector_page; // 上一次显示页
+	uint8_t  curr_detector_page; // ???????
+	uint8_t  last_detector_page; // ?????????
 	
 	uint8_t  detector_offline_fresh_flag[11];
 	
-	uint8_t  detect_online_state[21][11];   // 在线状态
-	uint8_t  detect_shield_state[21][11];   // 屏蔽状态
+	uint8_t  detect_online_state[21][11];   // ??????
+	uint8_t  detect_shield_state[21][11];   // ??????
 	
-	uint8_t  last_temperat_state[21][11]; // 上一次温度状态
-	uint8_t  last_temperature[21][11];   // 上一次的温度
+	uint8_t  last_temperat_state[21][11]; // ??????????
+	uint8_t  last_temperature[21][11];   // ????ε????
 	
-	uint8_t  last_smoke_state[21][11];   // 上一次烟雾状态
+	uint8_t  last_smoke_state[21][11];   // ???????????
 	
 	uint8_t  last_co_state[21][11];      // 
-	uint16_t last_co_concentrat[21][11]; // 上一次可燃气体的浓度
+	uint16_t last_co_concentrat[21][11]; // ????ο??????????
 
 }DetectorDataShowCtrl;
 
@@ -401,25 +405,25 @@ DetectorDataShowCtrl ddsc;
 
 typedef struct
 {
-	uint8_t force_fresh_flag;    // 强制刷新标志位
+	uint8_t force_fresh_flag;    // ?????±??λ
 	
-	uint8_t curr_detector_page;  // 当前页
-	uint8_t last_detector_page;  // 之前页
+	uint8_t curr_detector_page;  // ????
+	uint8_t last_detector_page;  // ???
 	
 	uint8_t curr_pack_id;
 	
-	uint8_t last_temperat_state; // 上一次温度状态
-	uint8_t last_temperature;    // 上一次的温度
+	uint8_t last_temperat_state; // ??????????
+	uint8_t last_temperature;    // ????ε????
 	
-	uint8_t last_smoke_state;   // 上一次烟雾状态
+	uint8_t last_smoke_state;   // ???????????
 	
 	uint8_t last_co_state;      // 
 	
-	uint8_t lat_detector_online_num[4]; // 历史上线数量 
+	uint8_t lat_detector_online_num[4]; // ??????????? 
 	
 	uint8_t last_derector_state[3][32];
 	
-	uint16_t last_co_concentrat; // 上一次可燃气体的浓度
+	uint16_t last_co_concentrat; // ????ο??????????
 }DetectorDataShowCtrl_32Pack;
 
 DetectorDataShowCtrl_32Pack ddsc_32p;
@@ -430,10 +434,10 @@ typedef struct
 	
 	uint8_t curr_cabin_id;
 	
-	uint8_t last_temperat_state; // 上一次温度状态
-	uint8_t last_temperat_value; // 上一次的温度
+	uint8_t last_temperat_state; // ??????????
+	uint8_t last_temperat_value; // ????ε????
 	
-	uint8_t last_smoke_state;   // 上一次烟雾状态
+	uint8_t last_smoke_state;   // ???????????
 	
 	uint8_t last_co_state;      // 
 	uint8_t last_hh_state;
@@ -459,26 +463,26 @@ typedef enum{
 
 typedef enum
 {
-	OutMenu = 0, // 菜单外 在该状态下切换分区
-	InMenu = 1,  // 菜单内 在该状态下才可翻页
+	OutMenu = 0, // ????? ????????л?????
+	InMenu = 1,  // ????? ??????2????
 	
 	InitMenu = 0xFF,
 }BspMenuState;
 
 #define POINT_SITE_MAX 3U
 
-// 按键控制 屏幕硬件查新按键
+// ???????? ?????????°???
 typedef struct
 {
-	uint8_t curr_partition; // 当前是哪个分区
-	uint8_t last_partition; // 更新抑制
-	uint8_t curr_point_site[4]; // 当前箭头在哪一栏
-	uint8_t last_point_site[4]; // 更新抑制
+	uint8_t curr_partition; // ????????????
+	uint8_t last_partition; // ????????
+	uint8_t curr_point_site[4]; // ?????????????
+	uint8_t last_point_site[4]; // ????????
 	
-	uint8_t last_show_len[4]; // 存储上一次刷新的位置 用来在可恢复的地方刷新箭头位置
+	uint8_t last_show_len[4]; // ?洢???????μ?λ?? ??????????????????λ??
 	
-	uint8_t curr_menu_state; // 当前菜单状态
-	uint8_t last_menu_state; // 上一次菜单状态
+	uint8_t curr_menu_state; // ????????
+	uint8_t last_menu_state; // ????β????
 }BspKeyCheckNewCtrl_t;
 
 BspKeyCheckNewCtrl_t bkcnc = {
@@ -489,10 +493,10 @@ BspKeyCheckNewCtrl_t bkcnc = {
 	.curr_menu_state = InitMenu, 
 };
 
-// 有故障 预警 火警 回主界面控制结构体
+// ?й??? ??? ?? ??????????????
 typedef struct 
 {
-	// 指针用来绑定地址 变量用来储存值 抑制更新
+	// ???????????? ????????????? ???????
 	uint8_t *curr_pack_alarm_len;
 	uint8_t *curr_pc_fire_alarm_len;
 	uint8_t *curr_pc_fore_alarm_len;
@@ -508,15 +512,15 @@ typedef struct
 	uint8_t last_pc_fault_len;
 	uint8_t last_pc_outfire_len;
 }SwitchInterfaceCtrl;
-// 用指针绑定地址 只初始化一次即可不用重复绑定
+// ????????? ????????μ???????????
 SwitchInterfaceCtrl switch_ui_ctrl;
 
-// 新增加的变量
+// ??????????
 extern uint8_t screen_show_siren_information;
 extern uint8_t shielding_state;
 extern uint8_t self_check_state;
 
-// 分区1 状态控制变量
+// ????1 ?????????
 extern uint8_t part_1_start_state;
 extern uint8_t part_1_start_delay;
 extern uint8_t part_1_spray_state;
@@ -568,11 +572,11 @@ typedef enum
 	General_Output_Beep_7 = 16,
 	General_Output_Beep_8 = 17,
 
-}eGeneralIoBeepBit; // 通用IO蜂鸣器位枚举
+}eGeneralIoBeepBit; // ???IO??????λ???
 
 
 
-// [7:4] 火警标志 [3:0] 预警标志
+// [7:4] ????? [3:0] ??????
 uint8_t beep_fire_ctrl = 0;
 uint8_t beep_fault_ctrl = 0;
 
@@ -584,7 +588,7 @@ uint32_t beep_general_io_ctrl = 0;
 uint8_t zhu_state=1,bei_state=1;
 
 
-// 报警查询 故障查询控制界面
+// ??????? ?????????????
 #define RECORD_SHOW_ZONE 10
 
 typedef enum
@@ -599,13 +603,13 @@ typedef enum
 
 typedef struct
 {
-	uint8_t curr_page[4]; // 当前页 
+	uint8_t curr_page[4]; // ???? 
 	
-	uint16_t record_sum[4]; // 记录的数量
+	uint16_t record_sum[4]; // ?????????
 	
-	uint8_t force_fresh_flag; // 强制刷新标志
+	uint8_t force_fresh_flag; // ?????±??
 	
-	uint8_t curr_show_type; // 当前显示类型
+	uint8_t curr_show_type; // ??????????
 }BspScreenReadRecord_t;
 
 BspScreenReadRecord_t bsrr = {
@@ -613,7 +617,7 @@ BspScreenReadRecord_t bsrr = {
 	.force_fresh_flag = 0,
 	.curr_show_type = RECORD_INIT,
 };
-// 读取缓冲区
+// ?????????
 FlashReadCache_t read_data[5];
 //
 
@@ -648,27 +652,27 @@ uint8_t BMS_Temp[12]={0,0,0,0,0,0,0,0,0,0,0,0};
 
 // end
 
-uint8_t PCAC_zxwz_buf[12]={0,4,16,28,40,52,64,76,88,100,112,0};//在线状态控件ID
-uint8_t PCAC_wdwz_buf[12]={0,9,21,33,45,57,69,81,93,105,117,0};//温度控件ID
-uint8_t PCAC_ywtb_buf[12]={0,12,24,36,48,60,72,84,96,108,120,0};//烟雾状态控件ID
-uint8_t PCAC_cotb_buf[12]={0,11,23,35,47,59,71,83,95,107,119,0};//CO状态控件ID
-uint8_t PCAC_ch4yb_buf[12]={0,13,25,37,49,61,73,85,97,109,121,0};//CH4状态控件ID
+uint8_t PCAC_zxwz_buf[12]={0,4,16,28,40,52,64,76,88,100,112,0};//?????????ID
+uint8_t PCAC_wdwz_buf[12]={0,9,21,33,45,57,69,81,93,105,117,0};//?????ID
+uint8_t PCAC_ywtb_buf[12]={0,12,24,36,48,60,72,84,96,108,120,0};//?????????ID
+uint8_t PCAC_cotb_buf[12]={0,11,23,35,47,59,71,83,95,107,119,0};//CO?????ID
+uint8_t PCAC_ch4yb_buf[12]={0,13,25,37,49,61,73,85,97,109,121,0};//CH4?????ID
 
-uint8_t cang_zxwz_buf[8]={0,16,20,36,52,72,88,0};//在线状态控件ID
+uint8_t cang_zxwz_buf[8]={0,16,20,36,52,72,88,0};//?????????ID
 
-uint8_t cang_wdwz_buf[8]={0,10,17,41,49,77,111,0};//温度控件ID
-//uint8_t cang_ywtb_buf[8]={0,12,19,35,51,71,87,0};//烟雾状态控件ID
-//uint8_t cang_cotb_buf[8]={0,13,25,41,61,77,93,0};//CO状态控件ID
-//uint8_t cang_ch4yb_buf[8]={0,14,26,42,62,78,94,0};//CH4状态控件ID
-//uint8_t cang_vocyb_buf[8]={0,15,27,43,63,79,95,0};//VOC状态控件ID
+uint8_t cang_wdwz_buf[8]={0,10,17,41,49,77,111,0};//?????ID
+//uint8_t cang_ywtb_buf[8]={0,12,19,35,51,71,87,0};//?????????ID
+//uint8_t cang_cotb_buf[8]={0,13,25,41,61,77,93,0};//CO?????ID
+//uint8_t cang_ch4yb_buf[8]={0,14,26,42,62,78,94,0};//CH4?????ID
+//uint8_t cang_vocyb_buf[8]={0,15,27,43,63,79,95,0};//VOC?????ID
 
-uint8_t cang_cowb_buf[8]={0,117,25,122,61,89,138,0};//CO状态控件ID
-uint8_t cang_h2wb_buf[8]={0,118,26,124,62,90,139,0};//H2状态控件ID
-uint8_t cang_ch4wb_buf[8]={0,12,33,127,69,93,142,0};//CH4状态控件ID
-uint8_t cang_ywwb_buf[8]={0,120,35,129,71,95,144,0};//YW状态控件ID
-uint8_t cang_vocwb_buf[8]={0,15,34,128,70,94,143,0};//VOC状态控件ID
+uint8_t cang_cowb_buf[8]={0,117,25,122,61,89,138,0};//CO?????ID
+uint8_t cang_h2wb_buf[8]={0,118,26,124,62,90,139,0};//H2?????ID
+uint8_t cang_ch4wb_buf[8]={0,12,33,127,69,93,142,0};//CH4?????ID
+uint8_t cang_ywwb_buf[8]={0,120,35,129,71,95,144,0};//YW?????ID
+uint8_t cang_vocwb_buf[8]={0,15,34,128,70,94,143,0};//VOC?????ID
 
-uint8_t cang_XH_buf[8]={0,149,150,151,152,153,154,0};//型号控件ID
+uint8_t cang_XH_buf[8]={0,149,150,151,152,153,154,0};//?????ID
 
 
 uint8_t kaijiyanshi=0;
@@ -683,9 +687,9 @@ uint8_t BJ_cangjiyibuf_voc[30];
 uint8_t BJ_cangjiyibuf_h2[30];
 
 uint8_t BJ_packjiyibuf_wd[30][PACK_NUM_BACKUP];
-uint8_t BJ_packjiyibuf_yw[30][PACK_NUM_BACKUP];//2024-03-09增加，防止温度烟雾预警并行时候重复记录
-uint8_t BJ_packjiyibuf_co[30][PACK_NUM_BACKUP];//2024-03-09增加，防止温度烟雾预警并行时候重复记录
-uint8_t BJ_packjiyibuf_ch4[30][PACK_NUM_BACKUP];//2024-03-09增加，防止温度烟雾预警并行时候重复记录
+uint8_t BJ_packjiyibuf_yw[30][PACK_NUM_BACKUP];//2024-03-09???????????????????????????????
+uint8_t BJ_packjiyibuf_co[30][PACK_NUM_BACKUP];//2024-03-09???????????????????????????????
+uint8_t BJ_packjiyibuf_ch4[30][PACK_NUM_BACKUP];//2024-03-09???????????????????????????????
 // XR5000_LOOP3_CHANGE_20260726: HMI-layer memories for loop 3 one-shot records.
 static uint8_t rs485_detect_disconnect_memory[RS485_DETECT_MAX_DEVICES] = {0};
 static uint8_t rs485_detect_alarm_memory[RS485_DETECT_MAX_DEVICES][RS485_SENSOR_COUNT] = {0};
@@ -715,7 +719,7 @@ uint8_t BMS_BJ[12]={0,0,0,0,0,0,0,0,0,0,0,0};
 
 uint8_t zhu_min;
 
-// 簇阀开启状态
+// ?????????
 uint8_t cluster_solenoid_valve_start_state = 0;
 
 static uint8_t screen_fresh_num = 0;
@@ -772,59 +776,59 @@ typedef struct
 
 uint8_t creatNewFaultRecordToCache(uint8_t cluster_id, uint8_t pack_id, uint8_t cabin_id);
 
-// 2025/11/17 18:10 新增 循环显示每一仓探测器的状态 可主动查询 可上下翻页 后续不叫仓 统一改为 xx回路xxID探测器
+// 2025/11/17 18:10 ???? ??????????????????? ????????? ?????·?? ???????в? ????? xx??·xxID?????
 
 typedef struct
 {
-	uint8_t poll_circuits_id; // 回路ID
-	uint8_t poll_detector_id; // 探测器ID
+	uint8_t poll_circuits_id; // ??·ID
+	uint8_t poll_detector_id; // ?????ID
 	
-	// 此处不是为了抑制更新 而是为了只显示上线的探测器 用来筛选ID
-	uint8_t last_circuits_id; // 上次回路ID
-	uint8_t last_detector_id; // 上次探测器ID
+	// ????????????????? ????????????????????? ??????ID
+	uint8_t last_circuits_id; // ??λ?·ID
+	uint8_t last_detector_id; // ????????ID
 	
-	uint8_t poll_temper_value; // 轮询温度值
-	uint8_t poll_smokes_state; // 轮询烟雾状态
+	uint8_t poll_temper_value; // ???????
+	uint8_t poll_smokes_state; // ?????????
 	
-	uint16_t poll_carbon_value; // 轮询一氧化碳值
+	uint16_t poll_carbon_value; // ??????????
 	
-	uint16_t poll_hydrog_value; // 轮询氢气值 省略en
+	uint16_t poll_hydrog_value; // ???????? ???en
 	
-	uint8_t poll_detect_name;  // 轮询 探测器名称
+	uint8_t poll_detect_name;  // ??? ?????????
 	
-	uint8_t poll_sensor_state; // 探测器启用状态
+	uint8_t poll_sensor_state; // ???????????
 	
-	uint8_t key_perss_fresh; // 'n'下一个 'p'上一个
-}PollingShowBase_t; // 轮询显示基结构体
+	uint8_t key_perss_fresh; // 'n'????? 'p'?????
+}PollingShowBase_t; // ????????????
 
 typedef struct
 {
-	// 基础ID控制
-	uint8_t verb_circuits_id; // 回路ID
-	uint8_t verb_detector_id; // 探测器ID
-	uint8_t last_detector_id; // 上一次查询的探测器ID 用来抑制更新
+	// ????ID????
+	uint8_t verb_circuits_id; // ??·ID
+	uint8_t verb_detector_id; // ?????ID
+	uint8_t last_detector_id; // ????β?????????ID ???????????
 	
-	uint8_t force_fresh_ctrl; // 输入ID后强制刷新一次
+	uint8_t force_fresh_ctrl; // ????ID???????????
 	
-	uint8_t verb_temper_value; // 温度值
-	uint8_t last_temper_value; // 温度值
+	uint8_t verb_temper_value; // ????
+	uint8_t last_temper_value; // ????
 	
-	uint8_t verb_smokes_state; // 烟雾状态
-	uint8_t last_smokes_state; // 烟雾状态
+	uint8_t verb_smokes_state; // ??????
+	uint8_t last_smokes_state; // ??????
 	
-	uint16_t verb_carbon_value; // 一氧化碳值
-	uint16_t last_carbon_value; // 一氧化碳值
+	uint16_t verb_carbon_value; // ???????
+	uint16_t last_carbon_value; // ???????
 	
-	uint16_t verb_hydrog_value; // 轮询氢气值 省略en
-	uint16_t lsat_hydrog_value; // 轮询氢气值 省略en
+	uint16_t verb_hydrog_value; // ???????? ???en
+	uint16_t lsat_hydrog_value; // ???????? ???en
 	
-	uint8_t verb_detect_name;  // 轮询 探测器名称
-	uint8_t lsat_detect_name;  // 轮询 探测器名称
+	uint8_t verb_detect_name;  // ??? ?????????
+	uint8_t lsat_detect_name;  // ??? ?????????
 	
-	uint8_t verb_sensor_state; // 探测器启用状态
-	uint8_t last_sensor_state; // 探测器启用状态
+	uint8_t verb_sensor_state; // ???????????
+	uint8_t last_sensor_state; // ???????????
 	
-}InqueryShowBase_t; // 主动查询基结构体
+}InqueryShowBase_t; // ?????????????
 
 typedef struct
 {
@@ -851,7 +855,7 @@ typedef struct
 
 PointTypeShowCtrl_t ptsc = {0};
 
-// 点型显示
+// ???????
 static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry);
 static void PointTypeDetectorButtonCtrlApp(PointTypeShowCtrl_t *ptsc_entry, uint16 control_id, uint8  state);
 static void PointTypeDetectorTextInputCtrlApp(PointTypeShowCtrl_t *ptsc_entry, uint16 control_id, uint8 *str);
@@ -859,31 +863,31 @@ static void PointTypeDetectorScreenSwitchShowApp(PointTypeShowCtrl_t *ptsc_entry
 
 
 CompositeShowCtrl_t cpsc = {0};
-// 复合显示
+// ???????
 static void CompositeDetectorShowApp(CompositeShowCtrl_t *cpsc_entry);
 static void CompositeDetectorButtonCtrlApp(CompositeShowCtrl_t *cpsc_entry, uint16 control_id, uint8  state);
 static void CompositeDetectorTextInputCtrlApp(CompositeShowCtrl_t *cpsc_entry, uint16 control_id, uint8 *str);
 static void CompositeDetectorScreenSwitchShowApp(CompositeShowCtrl_t *cpsc_entry);
 
-// 新增记录IO板的所有故障信息 2025/11/21 13:49
+// ???????IO??????й?????? 2025/11/21 13:49
 
-// 新增模拟串口助手界面控制
+// ???????????????????
 typedef struct
 {
-	uint8_t serial_port_state; // 串口打开状态
+	uint8_t serial_port_state; // ???????
 	
-	uint8_t serial_port_comid; // 用来选择端口ID 选择挂起哪个任务来空闲串口
+	uint8_t serial_port_comid; // ?????????ID ??????????????????д???
 	
-	uint8_t serial_port_send_mode; // 0:字符串 1:16进制
+	uint8_t serial_port_send_mode; // 0:????? 1:16????
 	uint8_t serial_port_show_offset;
 	
-	uint8_t serial_port_show_mode; // 0:字符串 1:16进制    
+	uint8_t serial_port_show_mode; // 0:????? 1:16????    
 	
-	uint8_t serial_port_send_len; // 从发送缓冲区中获取的字符长度
+	uint8_t serial_port_send_len; // ???????????л???????????
 	
-	uint8_t serial_port_send_new_row; // 0:不发送新行 1:发送新行
+	uint8_t serial_port_send_new_row; // 0:?????????? 1:????????
 	
-	uint8_t serial_port_send_buff[256]; // 发送缓冲区
+	uint8_t serial_port_send_buff[256]; // ?????????
 
 }SimulationSerialPortAssistant_t;
 
@@ -906,29 +910,29 @@ static void SimulationSerialPortTextCtrl(SimulationSerialPortAssistant_t *sspa_e
 
 static void SimulationSerialPortScreenShowApp(SimulationSerialPortAssistant_t *sspa_entry);
 
-// 清空整个故障存储数组
+// ???????????洢????
 void FaultDataInit(PackCabinFaultStorage *pcfs_entry)
 {
 	memset(pcfs_entry, 0, sizeof(PackCabinFaultStorage) * 224);
-	pcfs_fresh_ctrl = 255;    // 刷新控制指针 初始赋值为最大值
-	pcfs_buttom_point = 0;  // 尾指针 记录数据长度
+	pcfs_fresh_ctrl = 255;    // ????????? ???????????
+	pcfs_buttom_point = 0;  // β??? ??????????
 }
 
-// 清空整个预警数组
+// ??????????????
 void ForeAlarmDataInit(PackCabinForeWarnStorage *pcfws_entry)
 {
 	memset(pcfws_entry, 0, sizeof(PackCabinForeWarnStorage));
 	pcfws_entry->point_history_len = 255;
 }
 
-// 清空整个火警数组
+// ?????????????
 void FireAlarmDataInit(PackCabinFireAlarmStorage *pcfas_entry)
 {
 	memset(pcfas_entry, 0, sizeof(PackCabinFireAlarmStorage));
 	pcfas_entry->point_history_len = 255;
 }
 
-// 清空整个气灭存储数组
+// ???????????洢????
 void FireExtinguishDataInit(FireExtinguishDeviceActionSave *fedas_entry)
 {
 	memset(fedas_entry, 0, sizeof(FireExtinguishDeviceActionSave));
@@ -940,7 +944,7 @@ void PackAndCabinHistoryAlarmInit(PackAlarmStorage *pas_entry)
 	memset(pas_entry, 0, sizeof(PackAlarmStorage));
 	pas_pointer = 0;
 	last_pas_len = 0;
-	pas_fresh_point = 0;// 屏幕显示刷新指针
+	pas_fresh_point = 0;// ????????????
 }
 
 static void PointTypeDetectorAllStateInit(void);
@@ -952,7 +956,7 @@ static uint8_t getPointDetectorAlarmCount(void);
 
 void ClearDetectorHistoryData(void)
 {
-	// 清除包的历史数据
+	// ??????????????
 	memset(BJ_packjiyibuf_wd,  0, 30*PACK_NUM_BACKUP);
 	memset(BJ_packjiyibuf_yw,  0, 30*PACK_NUM_BACKUP);
 	memset(BJ_packjiyibuf_co,  0, 30*PACK_NUM_BACKUP);
@@ -971,7 +975,7 @@ void ClearDetectorHistoryData(void)
 	memset(PACK_COZT_buf, 0, 30*PACK_NUM_BACKUP);
 	memset(PACK_CH4ZT_buf, 0, 30*PACK_NUM_BACKUP);
 	
-	// 清除仓的历史数据
+	// ?????????????
 	memset(Cang_WDZT_buf, 0, 30);
 	memset(Cang_YWZT_buf, 0, 30);
 	memset(Cang_COZT_buf, 0, 30);
@@ -987,7 +991,7 @@ void ClearDetectorHistoryData(void)
 	memset(Cang_H2zhi_buf, 0, 30);
 	memset(Cang_COzhi_buf, 0, 30);
 	
-	// 清除历史记录
+	// ?????????
 	memset(BJ_cangjiyibuf_wd, 0, 30);
 	memset(BJ_cangjiyibuf_yw, 0, 30);
 	memset(BJ_cangjiyibuf_co, 0, 30);
@@ -995,10 +999,10 @@ void ClearDetectorHistoryData(void)
 	memset(BJ_cangjiyibuf_voc, 0, 30);
 	memset(BJ_cangjiyibuf_h2, 0, 30);
 	
-	// 清空簇阀开启状态
+	// ???????????
 	cluster_solenoid_valve_start_state = 0;
 	
-	// 恢复点型探测器状态
+	// ??????????????
 	PointTypeDetectorAllStateInit();
 }
 	
@@ -1018,14 +1022,14 @@ typedef struct
 DetectorSum ds = {
 	.curr_num = 0,
 	.last_num = 255
-}; // 初始化设备总数为0
+}; // ??????豸?????0
 
 void ScreenFreshInhibitionInit(void)
 {
-	alarm_number = 0; // 初始化报警总数
-	last_alarm_num = 255; // 初始化报警总数更新抑制
-	last_online_detector_num = 255; // 初始化在线探测器数量更新抑制
-	last_disconnect_detector_num = 255;	 // 初始化掉线探测器数量更新抑制
+	alarm_number = 0; // ?????????????
+	last_alarm_num = 255; // ?????????????????????
+	last_online_detector_num = 255; // ??????????????????????????
+	last_disconnect_detector_num = 255;	 // ??????????????????????????
 	ds.last_num = 255;
 	ds.curr_num = 0;
 }
@@ -1040,7 +1044,7 @@ void BspBeepStateClear(void)
 	beep_spray_feedback_ctrl = 0;
 	beep_general_io_ctrl = 0; // 
 }
-// 复位后初始化箭头位置
+// ??λ?????????λ??
 void BspScreenArrowSite(BspKeyCheckNewCtrl_t *bkcnc_entry)
 {
 	bkcnc_entry->curr_menu_state = InitMenu;
@@ -1053,21 +1057,18 @@ void BspScreenArrowSite(BspKeyCheckNewCtrl_t *bkcnc_entry)
 // 
 void BspCmdProcessInit(void)
 {
-	FaultDataInit(pcfs); // 清除故障记录
-	ForeAlarmDataInit(&pcfws); // 清除预警记录
-	FireAlarmDataInit(&pcfas); // 清除火警记录
-	FireExtinguishDataInit(&fedas); // 清除气灭分区记录
+	FaultDataInit(pcfs); // ?????????
+	ForeAlarmDataInit(&pcfws); // ?????????
+	FireAlarmDataInit(&pcfas); // ????????
+	FireExtinguishDataInit(&fedas); // ?????????????
 	PackAndCabinHistoryAlarmInit(pas);
-	ClearDetectorHistoryData(); // 清除探测器历史记录
-	ScreenFreshInhibitionInit(); // 清除上线总数
+	ClearDetectorHistoryData(); // ??????????????
+	ScreenFreshInhibitionInit(); // ???????????
 	
-	// 清除手报 反馈一反馈2的历史值 确保复位后下一次可以正常启动
+	// ?????? ?????????2?????? ?????λ??????ο??????????
 	clearHandPaperState();
 	cleareedBack1State();
 	cleareedBack2State();
-	PowerStateInit(); // 电池状态初始化
-	BspBeepStateClear(); // 蜂鸣器状态初始化
-	BspScreenArrowSite(&bkcnc); // 屏幕箭头初始化
 }
 
 uint8_t getCurrentSystemRunState(void)
@@ -1075,7 +1076,7 @@ uint8_t getCurrentSystemRunState(void)
 	uint8_t temp_state = 0;
 	if(pas_pointer != 0)
 	{
-		temp_state = 2; // 火警
+		temp_state = 2; // ??
 	}
 	else if(pcfws.self_bottom_point != 0 || pcfas.self_bottom_point != 0)
 	{
@@ -1141,7 +1142,7 @@ void StorageCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cabin_i
 
 void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cluster_id, uint8_t pack_id, uint8_t alarm_type);
 
-// 预警可以清除
+// ??????????
 void DeletPackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cluster_id, uint8_t pack_id, uint8_t alarm_type);
 
 void StorageCabinFireAlarm(PackCabinFireAlarmStorage *pcfas_entry, 
@@ -1189,28 +1190,28 @@ void StartupLinkageDevice(void)
 	linkage_start_key_press_flag = 1;
 }
 
-// 获取仓 簇所有探测器上线状态
+// ????? ?????????????????
 static void getDetectorSetUpLiveSum(DetectorSum *ds_entry, uint8_t cabin_setup[], uint8_t cluster_setup[]);
 
 
 //new
-//获取点型探测器的上线总数量，2026.7.19 新增
+//??????????????????????????2026.7.19 ????
 static uint8_t getPointDetectorSetUpLive(void);
-// 获取点型探测器的报警总数量
+// ???????????????????????
 static uint8_t getPointDetectorAlarmCount(void);
-// 获取点型探测器的故障总数量
+// ???????????????????????
 static uint8_t getPointDetectorFaultCount(void);
 //end
 
 
-// 返回值 包掉线数量
+// ????? ??????????
 static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
-// 2025/12/10 15:51 新增
+// 2025/12/10 15:51 ????
 static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
 
-// 返回坐标索引
+// ????????????
 uint8_t findRecoveryDevice(uint8_t cluster_id, uint8_t pack_id, uint8_t cabin_id);
-// 删除索引值的数据
+// ??????????????
 void deletRecoveryRecord(uint8_t recovery_index); 
 
 static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
@@ -1220,72 +1221,72 @@ static void FaultRelayCtrlAppFun(uint8_t disconnect_num);
 static void ForeWarmRelayCtrlAppFun(PackCabinForeWarnStorage *pcfws_entry);
 
 static void FireAlarmRelayCtrlAppFun(uint8_t pas_alarm_num);
-// 显示所有故障信息
+// ??????й??????
 static void InternalScreenShowAllFault(uint8_t fresh_page_flag);
-// 显示所有预警信息 可自恢复
+// ????????????? ??????
 static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry, uint8_t fresh_page_flag);
 
 static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_entry, uint8_t fresh_page_flag);
-// 显示所有火警信息 不可自恢复
+// ??????л???? ????????
 static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entry, uint8_t fresh_page_flag);
 
 static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas_entry, uint8_t fresh_page_flag);
-// 创建新的气灭动作记录
+// ?????μ??????????
 static void CreatNewFireExtinguishRecord(
-	FireExtinguishDeviceActionSave *fedas_entry, // 默认赋值的结构体
-	FireExtinguishDeviceActionSave *copy_fedas,  // 默认赋值的结构体
+	FireExtinguishDeviceActionSave *fedas_entry, // ??????????
+	FireExtinguishDeviceActionSave *copy_fedas,  // ??????????
 	uint8_t copy_dedas_offset,
 	FireExtinguishDeviceActionType state, 
-	uint16_t state_switch_delay             // 状态切换延时 
+	uint16_t state_switch_delay             // ???л???? 
 );
 
 
 static void FireExtinguishDevice1HandStart(FireExtinguishDeviceActionSave *fedas_entry);
 static void FireExtinguishDevice2HandStart(FireExtinguishDeviceActionSave *fedas_entry);
 
-// 气灭动作状态更新
+// ????????????
 static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *fedas_entry, PackAlarmStorage *pas_entry);
-// 灭火装置分区显示控制
+// ?????÷??????????
 static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *fedas_entry, uint8_t fresh_page_flag);
 
 static void InternalScreenShowClusterData(DetectorDataShowCtrl *ddsc_entry);
-// 1簇32pack版本 PACK状态刷新
+// 1??32pack?汾 PACK?????
 static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, DetectorDataShowCtrl_32Pack *ddsc_32p_entry);
-// 2025/12/10 17:22 添加
+// 2025/12/10 17:22 ???
 static void InternalScreenShowClusterData_32Pack_Plus(uint16_t screen_id_entry, DetectorDataShowCtrl_32Pack *ddsc_32p_entry);
 
-// 显示仓数据 2025/10/27 11:27添加
+// ????????? 2025/10/27 11:27???
 static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry);
 
 static void DetectorDataFreshMenuCtrl(DetectorDataShowCtrl *ddsc_entry, uint16_t ctrl_id, uint8_t item, uint8_t state);
-// 1簇32pack版本 弹出菜单控制
+// 1??32pack?汾 ???????????
 static void DetectorDataFreshMenuCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry, uint16_t ctrl_id, uint8_t item, uint8_t state);
 // 
 static void DetectorFreshPageButtonCtrl(DetectorDataShowCtrl *ddsc_entry, uint16_t ctrl_id, uint8_t state);
-// 1簇32pack版本 PACK查询翻页按键
+// 1??32pack?汾 PACK??????????
 static void DetectorFreshPageButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry, uint16_t ctrl_id, uint8_t state);
-// 1簇32pack版本 查询PACK按钮
+// 1??32pack?汾 ???PACK???
 static void DetectorMonitorButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry, uint16_t ctrl_id, uint8_t state);
-// 查询仓数据 2025/10/27 11:27添加
+// ????????? 2025/10/27 11:27???
 static void CabinFreshPageButtonCtrl(CabinDataShowCtrl_t *cabin_dsc_entry, uint16_t ctrl_id, uint8_t state);
 
-// 显示可燃气体最高浓度
+// ????????????????
 static void RefreshGasConcentrationSummary(void);
 
-// 检查按键 并处理屏幕上查新
+// ??鰴?? ??????????????
 static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry);
-// 切换到主界面 并点亮屏幕
+// ?л????????? ?????????
 static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry);
 static void SyncMonitorSwitchSnapshot(void);
-// 报警内容显示界面按钮控制
+// ??????????????水?????
 static void InternalScreenRecordShiftButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t ctrl_id, uint8_t state);
-// 显示报警内容到屏幕上
+// ?????????????????
 static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry);
-// 查询报警切换界面
+// ????????л?????
 static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t ctrl_id, uint8_t state);
-// 主备电故障判断 存储
+// ??????????ж? ?洢
 static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state);
-// 手动强制启动选择簇
+// ?????????????
 static void HandForceStartAnyCluster(FireExtinguishDeviceActionSave *fedas_entry, uint16_t ctrl_id, uint8_t state);
 // 
 static void BspAlarmDataSaveApp(FlashReadCtrlId addr_type, FlashSaveType save_type, uint8_t cluster_id, uint8_t pack_or_cabin, uint16_t val);
@@ -1294,7 +1295,7 @@ static void BspFanOnlineJudgeFaultRecord(PackCabinFaultStorage *pcfs_entry, uint
 //
 static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t fire_alarm_num);
 
-// 2025/11/15 11:07 添加二总线点型感温感烟探测器轮询控制函数
+// 2025/11/15 11:07 ????????????????????????????????
 static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
 // XR5000_LOOP3_CHANGE_20260726: Loop 3 uses RS485Detect data with original alarm logic.
 static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
@@ -1303,8 +1304,8 @@ static void Loop1ClearCurrentState(uint8_t addr);
 static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
 static void PointTypeDetectorOnlineButtonCtrl(uint16_t ctrl_id, uint8_t state);
 
-//uint8_t license_allow_use_state = 0; // 默认禁用
-uint8_t license_allow_use_state = 1; // 始终开启，解除锁定
+//uint8_t license_allow_use_state = 0; // ??????
+uint8_t license_allow_use_state = 1; // ??????????????
 static uint32_t remain_use_time = 0;
 static void LicenseVerificationCtrl(void);
 
@@ -1321,7 +1322,7 @@ static void PointTypeDetectorOnlineStateShowInit(void);
 
 typedef struct 
 {
-	uint8_t last_screen_id; // 用来抑制屏幕更新
+	uint8_t last_screen_id; // ???????????????
 	
 	uint8_t warn_fresh_flag;
 	
@@ -1337,19 +1338,19 @@ static void FirstAlarmInformationShowCtrl(
 	PackCabinFireAlarmStorage *pcfas_entry
 );
 
-// 2025/11/26 08:50 新增任务挂起恢复
+// 2025/11/26 08:50 ?????????????
 extern void SuspendTask(uint8_t task_id);
 extern void ResumeTask(uint8_t task_id);
 // end
 
 
 
-//2026/7/22新增任务
+//2026/7/22????????
 static uint8_t g_screen69_page = 0;
 static uint8_t g_screen69_force_redraw = 0;
 static uint8_t g_screen69_transition_pending = 0;
 static uint8_t screen69_circuit = 1; /* XR5000_SCREEN69_NAVIGATION_FIX_20260729: fixed circuit snapshot for one detail session. */
-/* 获取指定回路的在线设备地址列表，返回在线数量 */
+/* ????????·???????豸????б?????????????? */
 static uint8_t GetCircuitOnlineList(uint8_t circuit, uint8_t *list, uint8_t max)
 {
     uint8_t count = 0;
@@ -1382,7 +1383,7 @@ static uint8_t GetCircuitOnlineList(uint8_t circuit, uint8_t *list, uint8_t max)
     return count;
 }
 
-/* 格式化单个探测器的显示文本到buf */
+/* ????????????????????????buf */
 static void FormatDetectorText(uint8_t circuit, uint8_t addr, uint8_t *buf)
 {
     switch (circuit)
@@ -1390,22 +1391,22 @@ static void FormatDetectorText(uint8_t circuit, uint8_t addr, uint8_t *buf)
 	case 1:
 	{
 		uint8_t sensor_bits = getPointTypeMixtureDetectType(addr);
-		if (sensor_bits & 0x20) /* 温度传感器启用 */
+		if (sensor_bits & 0x20) /* ???????????? */
 		{
 			uint8_t val = getPointTypeMixtureReceiveData(PointTypeData_Temper, addr);
 			uint8_t mem = getPointTypeMixtureDetectTempertureMemory(addr);
-			sprintf((char *)buf, "第%d回路  温度探测器%d号  温度值：%d℃  %s",
-					circuit, addr, val, mem ? "报警" : "正常");
+			sprintf((char *)buf, "??%d??·  ????????%d??  ??????%d??  %s",
+					circuit, addr, val, mem ? "????" : "????");
 		}
-		else if (sensor_bits & 0x01) /* 烟雾传感器启用 */
+		else if (sensor_bits & 0x01) /* ????????????? */
 		{
 			uint8_t mem = getPointTypeMixtureDetectSmokeMemory(addr);
-			sprintf((char *)buf, "第%d回路  烟雾探测器%d号  烟雾状态：%s",
-					circuit, addr, mem ? "报警" : "正常");
+			sprintf((char *)buf, "??%d??·  ?????????%d??  ????????%s",
+					circuit, addr, mem ? "????" : "????");
 		}
 		else
 		{
-			sprintf((char *)buf, "第%d回路  探测器%d号  传感器未启用", circuit, addr);
+			sprintf((char *)buf, "??%d??·  ?????%d??  ??????δ????", circuit, addr);
 		}
 		break;
 	}
@@ -1414,42 +1415,42 @@ static void FormatDetectorText(uint8_t circuit, uint8_t addr, uint8_t *buf)
 		uint16_t enable = RS485Detect_GetSensorEnable(addr);
 		char *p = (char *)buf;
 
-		p += sprintf(p, "第%d回路  复合探测器%d号  ", circuit, addr);
+		p += sprintf(p, "??%d??·  ?????????%d??  ", circuit, addr);
 
 		if (enable & (1 << 5))
 		{
 			int16_t temp = RS485Detect_GetTemperature(addr);
-			p += sprintf(p, "温度：%d℃  ", temp);
+			p += sprintf(p, "????%d??  ", temp);
 		}
 		if (enable & (1 << 0))
 		{
 			uint8_t smoke = RS485Detect_GetSensorState(addr, RS485_SENSOR_SMOKE);
-			p += sprintf(p, "烟雾：%s  ", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "故障" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "报警" : "正常"));
+			p += sprintf(p, "?????%s  ", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "????" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "????" : "????"));
 		}
 		if (enable & (1 << 4))
 		{
 			uint16_t co = RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO);
-			p += sprintf(p, "CO：%dppm  ", co);
+			p += sprintf(p, "CO??%dppm  ", co);
 		}
 		if (enable & (1 << 2))
 		{
 			uint16_t h2 = RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2);
-			p += sprintf(p, "H2：%dppm  ", h2);
+			p += sprintf(p, "H2??%dppm  ", h2);
 		}
 		if (enable & (1 << 3))
 		{
 			uint16_t voc = RS485Detect_GetSensorValue(addr, RS485_SENSOR_VOC);
-			p += sprintf(p, "VOC：%dppm  ", voc);
+			p += sprintf(p, "VOC??%dppm  ", voc);
 		}
 		if (enable & (1 << 1))
 		{
 			uint16_t ch4 = RS485Detect_GetSensorValue(addr, RS485_SENSOR_CH4);
-			p += sprintf(p, "CH4：%dppm  ", ch4);
+			p += sprintf(p, "CH4??%dppm  ", ch4);
 		}
 		if (enable & (1 << 6))
 		{
 			uint16_t pressure = RS485Detect_GetSensorValue(addr, RS485_SENSOR_PRESSURE);
-			p += sprintf(p, "压力：%dhPa  ", pressure);
+			p += sprintf(p, "?????%dhPa  ", pressure);
 		}
 
 		break;
@@ -1517,7 +1518,7 @@ static uint8_t FormatRS485DetectFlashDeviceName(uint8_t cluster_id, uint8_t addr
 	{
 		return 0;
 	}
-	sprintf((char *)buf, "第3回路 %d号", addr);
+	sprintf((char *)buf, "??3??· %d??", addr);
 	return 1;
 }
 
@@ -1548,7 +1549,7 @@ static const char *RS485DetectAlarmName(uint8_t alarm_type)
 }
 static void FormatRS485DetectForeWarnLine(uint8_t *buf, uint8_t sequence, PackCabinForeWarnStorage *pcfws_entry, uint8_t data_index)
 {
-	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 %s", sequence,
+	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? %s", sequence,
 		pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 		pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 		pcfws_entry->da[data_index].pack_id, RS485DetectAlarmName(pcfws_entry->alarm_type[data_index]));
@@ -1556,7 +1557,7 @@ static void FormatRS485DetectForeWarnLine(uint8_t *buf, uint8_t sequence, PackCa
 
 static void FormatRS485DetectFireAlarmLine(uint8_t *buf, uint8_t sequence, PackCabinFireAlarmStorage *pcfas_entry, uint8_t data_index)
 {
-	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 %s", sequence,
+	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? %s", sequence,
 		pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 		pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 		pcfas_entry->da[data_index].pack_id, RS485DetectAlarmName(pcfas_entry->alarm_type[data_index]));
@@ -1573,11 +1574,11 @@ static uint8_t FormatRS485DetectFaultLine(uint8_t *buf, uint8_t sequence, PackCa
 	{
 		case RS485_LOOP3_FAULT_TEMPERATURE: fault_name = "\xCE\xC2\xB6\xC8\xB9\xCA\xD5\xCF"; break;
 		case RS485_LOOP3_FAULT_SMOKE: fault_name = "\xD1\xCC\xCE\xED\xCE\xDB\xC8\xBE\xB9\xCA\xD5\xCF"; break;
-		case RS485_LOOP3_FAULT_CO: fault_name = "CO传感器故障"; break;
-		case RS485_LOOP3_FAULT_H2: fault_name = "H2传感器故障"; break;
-		case RS485_LOOP3_FAULT_VOC: fault_name = "VOC传感器故障"; break;
-        case RS485_LOOP3_FAULT_CH4: fault_name = "CH4传感器故障"; break;
-        case RS485_LOOP3_FAULT_SMOKE_SENSOR: fault_name = "烟雾传感器故障"; break;
+		case RS485_LOOP3_FAULT_CO: fault_name = "CO??????????"; break;
+		case RS485_LOOP3_FAULT_H2: fault_name = "H2??????????"; break;
+		case RS485_LOOP3_FAULT_VOC: fault_name = "VOC??????????"; break;
+        case RS485_LOOP3_FAULT_CH4: fault_name = "CH4??????????"; break;
+        case RS485_LOOP3_FAULT_SMOKE_SENSOR: fault_name = "?????????????"; break;
 		default: fault_name = "\xB5\xF4\xCF\xDF"; break;
 	}
 	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d \xB5\xDA\x33\xBB\xD8\xC2\xB7 %d\xBA\xC5 %s", sequence,
@@ -1591,10 +1592,10 @@ static const char* GetMBusDeviceChineseName(uint8_t addr)
 	uint8_t type = MBusCtrl_GetDeviceType(addr);
 	switch (type)
 	{
-		case MBUS_CONTROL_DEV_SGBJQ:  return "声光报警器";
-		case MBUS_CONTROL_DEV_XR2200: return "手动报警器";
-		case MBUS_CONTROL_DEV_FIRE_DISPLAY: return "火灾显示盘";
-		default: return "未知设备";
+		case MBUS_CONTROL_DEV_SGBJQ:  return "????????";
+		case MBUS_CONTROL_DEV_XR2200: return "?????????";
+		case MBUS_CONTROL_DEV_FIRE_DISPLAY: return "?????????";
+		default: return "δ??豸";
 	}
 }
 
@@ -1605,7 +1606,7 @@ static uint8_t FormatMBus2FaultLine(uint8_t *buf, uint8_t sequence, PackCabinFau
 		return 0;
 	}
 	const char *name = GetMBusDeviceChineseName(pcfs_entry[data_index].da.pack_id);
-	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第2回路 %s掉线", sequence,
+	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??2??· %s????", sequence,
 		pcfs_entry[data_index].atr.years, pcfs_entry[data_index].atr.months, pcfs_entry[data_index].atr.days,
 		pcfs_entry[data_index].atr.hours, pcfs_entry[data_index].atr.minute, pcfs_entry[data_index].atr.second,
 		name);
@@ -1624,7 +1625,7 @@ static uint8_t FormatRS485DetectFireExtinguisherLine(uint8_t *buf, uint8_t seque
 		case FIRE_EXTINGUISH_MODE_JUDGEMENT:
 			if(getPart1HandAutoState() == KEY_MANUAL)
 			{
-				sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 请手动启动灭火装置", sequence,
+				sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ??????????????", sequence,
 					fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 					fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 					fedas_entry->pack_id[data_index]);
@@ -1635,13 +1636,13 @@ static uint8_t FormatRS485DetectFireExtinguisherLine(uint8_t *buf, uint8_t seque
 			}
 			break;
 		case FIRE_EXTINGUISH_START_SPRAY_DELAY:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置启动倒计时%d", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ??????????????%d", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 			break;
 		case FED_START_SPRAY_DELAY_FINISH_FLAG:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置第1次喷放启动", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ???????1????????", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
@@ -1649,86 +1650,86 @@ static uint8_t FormatRS485DetectFireExtinguisherLine(uint8_t *buf, uint8_t seque
 		case FIRE_EXTINGUISH_FIRST_SPRAY_START:
 		case FIRE_EXTINGUISH_SECOND_SPRAY_START:
 		case FIRE_EXTINGUISH_THIRD_SPRAY_START:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置喷放剩余时间%d", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ???????????????%d", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 			break;
 		case FIRE_EXTINGUISH_FIRST_SPRAY_FINISH:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置第1次喷放完毕", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ???????1????????", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_SECOND_SPRAY_DELAY:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置第2次启动倒计时%d", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ???????2??????????%d", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 			break;
 		case FED_SECOND_SPRAY_DELAY_FINISH_FLAG:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置第2次喷放启动", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ???????2????????", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_SECOND_SPRAY_FINISH:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置第2次喷放完毕", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ???????2????????", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_THIRD_SPRAY_DELAY:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置第3次启动倒计时%d", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ???????3??????????%d", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 			break;
 		case FED_THIRD_SPRAY_DELAY_FINISH_FLAG:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置第3次喷放启动", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ???????3????????", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_THIRD_SPRAY_FINISH:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置第3次喷放完毕", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ???????3????????", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置喷放完毕", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ????????????", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_STARYUP_FINISH_FLAG:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置正在启动", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ?????????????", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_CYLINDEF_1_OPENED:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置1启动", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ??????1???", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_CYLINDEF_2_OPENED:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置2启动", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ??????2???", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_FORCE_STOP:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置启动倒计时--", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ??????????????--", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_CAN_RESTART:
 		case FIRE_EXTINGUISH_RESTART_FINISH:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 火警 灭火装置手动停止启动", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ??3??· %d?? ?? ??????????????", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
@@ -1779,21 +1780,21 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 		{
 			uint16_t enable = RS485Detect_GetSensorEnable(addr);
 
-			n = snprintf(p, remain, "%02d%03d 复合探测器", circuit, addr);
+			n = snprintf(p, remain, "%02d%03d ?????????", circuit, addr);
 			p += n;
 			remain -= n;
 
 			if ((enable & (1 << 5)) && remain > 0)
 			{
 				int16_t temp = RS485Detect_GetTemperature(addr);
-				n = snprintf(p, remain, " 温度:%d℃", temp);
+				n = snprintf(p, remain, " ???:%d??", temp);
 				p += n;
 				remain -= n;
 			}
 			if ((enable & (1 << 0)) && remain > 0)
 			{
 				uint8_t smoke = RS485Detect_GetSensorState(addr, RS485_SENSOR_SMOKE);
-				n = snprintf(p, remain, " 烟雾:%s", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "故障" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "报警" : "正常"));
+				n = snprintf(p, remain, " ????:%s", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "????" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "????" : "????"));
 				p += n;
 				remain -= n;
 			}
@@ -1828,7 +1829,7 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 			if ((enable & (1 << 6)) && remain > 0)
 			{
 				uint16_t pressure = RS485Detect_GetSensorValue(addr, RS485_SENSOR_PRESSURE);
-				snprintf(p, remain, " 压力:%dhPa", pressure);
+				snprintf(p, remain, " ???:%dhPa", pressure);
 			}
 			{
 				int cur = (int)(p - (char *)buf);
@@ -1841,7 +1842,7 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 		case 2:
 		{
 			const char *name = GetMBusDeviceChineseName(addr);
-			const char *status_str = MBusCtrl_IsAlarmState(addr) ? "报警" : "正常";
+			const char *status_str = MBusCtrl_IsAlarmState(addr) ? "????" : "????";
 			n = snprintf(p, remain, "%02d-%03d %s %s", circuit, addr, name, status_str);
 			p += n;
 			remain -= n;
@@ -1854,83 +1855,83 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 			break;
 		}
 		default:
-			snprintf((char *)buf, 128, "%02d%03d 探测器", circuit, addr);
+			snprintf((char *)buf, 128, "%02d%03d ?????", circuit, addr);
 			break;
 	}
 }
 
 
 /*! 
-*  \brief  消息处理流程
-*  \param msg 待处理消息
-*  \param size 消息长度
+*  \brief  ???????????
+*  \param msg ?????????
+*  \param size ???????
 */
 void ProcessMessage( PCTRL_MSG msg, uint16 size )
 {
-    uint8 cmd_type = msg->cmd_type;                                                  //指令类型
-    uint8 ctrl_msg = msg->ctrl_msg;                                                  //消息的类型
-    uint8 control_type = msg->control_type;                                          //控件类型
-    uint16 screen_id = PTR2U16(&msg->screen_id);                                     //画面ID
-    uint16 control_id = PTR2U16(&msg->control_id);                                   //控件ID
-    uint32 value = PTR2U32(msg->param);                                              //数值
+    uint8 cmd_type = msg->cmd_type;                                                  //???????
+    uint8 ctrl_msg = msg->ctrl_msg;                                                  //?????????
+    uint8 control_type = msg->control_type;                                          //???????
+    uint16 screen_id = PTR2U16(&msg->screen_id);                                     //????ID
+    uint16 control_id = PTR2U16(&msg->control_id);                                   //???ID
+    uint32 value = PTR2U32(msg->param);                                              //???
 
     switch(cmd_type)
     {  
-    case NOTIFY_TOUCH_PRESS:                                                        //触摸屏按下
-    case NOTIFY_TOUCH_RELEASE:                                                      //触摸屏松开
+    case NOTIFY_TOUCH_PRESS:                                                        //??????????
+    case NOTIFY_TOUCH_RELEASE:                                                      //?????????
         NotifyTouchXY(cmd_buffer[1],PTR2U16(cmd_buffer+2),PTR2U16(cmd_buffer+4)); 
         break;                                                                    
-    case NOTIFY_WRITE_FLASH_OK:                                                     //写FLASH成功
+    case NOTIFY_WRITE_FLASH_OK:                                                     //дFLASH???
         NotifyWriteFlash(1);                                                      
         break;                                                                    
-    case NOTIFY_WRITE_FLASH_FAILD:                                                  //写FLASH失败
+    case NOTIFY_WRITE_FLASH_FAILD:                                                  //дFLASH???
         NotifyWriteFlash(0);                                                      
         break;                                                                    
-    case NOTIFY_READ_FLASH_OK:                                                      //读取FLASH成功
-        NotifyReadFlash(1,cmd_buffer+2,size-6);                                     //去除帧头帧尾
+    case NOTIFY_READ_FLASH_OK:                                                      //???FLASH???
+        NotifyReadFlash(1,cmd_buffer+2,size-6);                                     //??????β
         break;                                                                    
-    case NOTIFY_READ_FLASH_FAILD:                                                   //读取FLASH失败
+    case NOTIFY_READ_FLASH_FAILD:                                                   //???FLASH???
         NotifyReadFlash(0,0,0);                                                   
         break;                                                                    
-    case NOTIFY_READ_RTC:                                                           //读取RTC时间
+    case NOTIFY_READ_RTC:                                                           //???RTC???
         NotifyReadRTC(cmd_buffer[2],cmd_buffer[3],cmd_buffer[4],cmd_buffer[5],cmd_buffer[6],cmd_buffer[7],cmd_buffer[8]);
         break;
     case NOTIFY_CONTROL:
         {
-            if(ctrl_msg==MSG_GET_CURRENT_SCREEN)                                    //画面ID变化通知
+            if(ctrl_msg==MSG_GET_CURRENT_SCREEN)                                    //????ID?仯??
             {
-                NotifyScreen(screen_id);                                            //画面切换调动的函数
+                NotifyScreen(screen_id);                                            //?????л??????????
             }else
-						if(ctrl_msg==TUBIAO_shangchuan)                                    //画面ID变化通知
+						if(ctrl_msg==TUBIAO_shangchuan)                                    //????ID?仯??
             {
-               TB_sahngchuan(screen_id,control_id,control_type,msg->param[0]);                      //图标控件上传调动的函数
+               TB_sahngchuan(screen_id,control_id,control_type,msg->param[0]);                      //?????????????????
             }else
             {
                 switch(control_type)
                 {
-                case kCtrlButton:                                                   //按钮控件
+                case kCtrlButton:                                                   //??????
                     NotifyButton(screen_id,control_id,msg->param[1]);  
-										zhu_min=0;//有触控操作清零倒计时，无操作5分钟后自动返回 主界面               
+										zhu_min=0;//?д????????????????????5???????????? ??????               
                     break;                                                             
-                case kCtrlText:                                                     //文本控件
+                case kCtrlText:                                                     //??????
                     NotifyText(screen_id,control_id,msg->param);                       
                     break;                                                             
-                case kCtrlProgress:                                                 //进度条控件
+                case kCtrlProgress:                                                 //?????????
                     NotifyProgress(screen_id,control_id,value);                        
                     break;                                                             
-                case kCtrlSlider:                                                   //滑动条控件
+                case kCtrlSlider:                                                   //?????????
                     NotifySlider(screen_id,control_id,value);                          
                     break;                                                             
-                case kCtrlMeter:                                                    //仪表控件
+                case kCtrlMeter:                                                    //?????
                     NotifyMeter(screen_id,control_id,value);                           
                     break;                                                             
-                case kCtrlMenu:                                                     //菜单控件
+                case kCtrlMenu:                                                     //??????
                     NotifyMenu(screen_id,control_id,msg->param[0],msg->param[1]);      
                     break;                                                              
-                case kCtrlSelector:                                                 //选择控件
+                case kCtrlSelector:                                                 //?????
                     NotifySelector(screen_id,control_id,msg->param[0]);                
                     break;                                                              
-                case kCtrlRTC:                                                      //倒计时控件
+                case kCtrlRTC:                                                      //????????
                     NotifyTimer(screen_id,control_id);
                     break;
                 default:
@@ -1939,7 +1940,7 @@ void ProcessMessage( PCTRL_MSG msg, uint16 size )
             } 
             break;  
         } 
-    case NOTIFY_HandShake:                                                          //握手通知                                                     
+    case NOTIFY_HandShake:                                                          //??????                                                     
 //        NOTIFYHandShake();
         break;
     default:
@@ -1947,7 +1948,7 @@ void ProcessMessage( PCTRL_MSG msg, uint16 size )
     }
 }
 /*! 
-*  \brief  握手通知
+*  \brief  ??????
 */
 //void NOTIFYHandShake()
 //{
@@ -2030,16 +2031,16 @@ const uint8_t point_type_detect_button_online_ctrl_val_map[] = {
 // static uint8_t g_screen69_page = 0;
 
 /*! 
-*  \brief  画面切换通知
-*  \details  当前画面改变时(或调用GetScreen)，执行此函数
-*  \param screen_id 当前画面ID
+*  \brief  ?????л???
+*  \details  ??????????(?????GetScreen)????д????
+*  \param screen_id ???????ID
 */
 void NotifyScreen(uint16 screen_id)
 {
 	uint16_t prev_screen_id = current_screen_id; /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
-    //TODO: 添加用户代码
+    //TODO: ??????????
     current_screen_id = screen_id;
-    DeviceThreshold_NotifyScreen(screen_id); //在工程配置中开启画面切换通知，记录当前画面ID
+    DeviceThreshold_NotifyScreen(screen_id); //??????????п???????л???????????????ID
 	if(screen_id == MONITOR_PAGE_SCREEN_ID)
 	{
 		if(monitor_page_return_target == 0U)
@@ -2057,7 +2058,7 @@ void NotifyScreen(uint16 screen_id)
 			if(bsp_screen_switch_ctrl.target_screen != current_screen_id)
 			{
 				SwitchCurrentScreenId(bsp_screen_switch_ctrl.target_screen);
-				return; // 快速结束
+				return; // ???????
 			}
 			else
 			{
@@ -2077,18 +2078,18 @@ void NotifyScreen(uint16 screen_id)
 			self_check_state = 0U;
 		}
 		
-    //进到画面1刷新主机名称
+    //????????1???????????
     if(screen_id == 1)
     {
-			SetTextValue(1, 11, (uint8_t *)"FGS-XR5000.火气报警控制器");//刷新主机名称
+			SetTextValue(1, 11, (uint8_t *)"FGS-XR5000.??????????????");//???????????
 			
-			SetTextInt32(1, 30, SystemSaveInfo.slave_addr485_Station,0,1); // 30是场站的
+			SetTextInt32(1, 30, SystemSaveInfo.slave_addr485_Station,0,1); // 30??????
 			
-			SetTextInt32(1, 22, SystemSaveInfo.slave_addr485_EMS,0,1); // 22是EMS的
+			SetTextInt32(1, 22, SystemSaveInfo.slave_addr485_EMS,0,1); // 22??EMS??
 			
-			SetTextInt32(1, 25, SystemSaveInfo.slave_addr485_EMS,0,1); // 25是CAN2的ID
+			SetTextInt32(1, 25, SystemSaveInfo.slave_addr485_EMS,0,1); // 25??CAN2??ID
 			
-			SetTextInt32(1, 8, alarm_number,0,1);  //报警总数显示
+			SetTextInt32(1, 8, alarm_number,0,1);  //???????????
 			home_statistics_force_refresh = 1;
     }
 		else if(screen_id == 3)
@@ -2104,14 +2105,14 @@ void NotifyScreen(uint16 screen_id)
 			
 			uint8_t temp_buff[8] = {0};
 			
-			sprintf((char *)temp_buff, "回路%d", pack_circuit);
-			SetTextValue(4, 57, temp_buff); // 刷新回路名称
+			sprintf((char *)temp_buff, "??·%d", pack_circuit);
+			SetTextValue(4, 57, temp_buff); // ????·????
 			
 			for(uint8_t i = 0; i < 32; i++)
 			{
 				temp_buff[0] = pack_online_buff[pack_circuit][i + 1] ? 1 : 0;
 				
-				// 显示启用状态
+				// ?????????
 				setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i], temp_buff[0]);
 			}
 		}
@@ -2122,44 +2123,44 @@ void NotifyScreen(uint16 screen_id)
 		else if(screen_id == 6) // 
 		{
 			uint8_t temp_buff[32] = {0};
-			//回路1
-			sprintf((char *)temp_buff, "设置上线:%d", getPointDetectorSetUpCount());
+			//??·1
+			sprintf((char *)temp_buff, "????????:%d", getPointDetectorSetUpCount());
 			SetTextValue(screen_id, 7, temp_buff); 
-			sprintf((char *)temp_buff, "设备在线:%d", getPointDetectorSetUpLive());
+			sprintf((char *)temp_buff, "?豸????:%d", getPointDetectorSetUpLive());
 			SetTextValue(screen_id, 8, temp_buff); 
-			sprintf((char *)temp_buff, "设备故障:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
+			sprintf((char *)temp_buff, "?豸????:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
 			SetTextValue(screen_id, 9, temp_buff); 
-			sprintf((char *)temp_buff, "报警设备:%d", getPointDetectorAlarmCount());
+			sprintf((char *)temp_buff, "?????豸:%d", getPointDetectorAlarmCount());
 			SetTextValue(screen_id, 10, temp_buff); 
-			sprintf((char *)temp_buff, "屏蔽设备:0");
+			sprintf((char *)temp_buff, "?????豸:0");
 			SetTextValue(screen_id, 11, temp_buff); 
-			//回路2
+			//??·2
 			{
 				uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
 				uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
-				sprintf((char *)temp_buff, "设备上线:%d", mbus2_online);
+				sprintf((char *)temp_buff, "?豸????:%d", mbus2_online);
 				SetTextValue(screen_id, 13, temp_buff);
-				sprintf((char *)temp_buff, "设备在线:%d", MBusCtrl_GetActiveCount());
+				sprintf((char *)temp_buff, "?豸????:%d", MBusCtrl_GetActiveCount());
 				SetTextValue(screen_id, 14, temp_buff);
-				sprintf((char *)temp_buff, "设备故障:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
+				sprintf((char *)temp_buff, "?豸????:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
 				SetTextValue(screen_id, 15, temp_buff);
-				sprintf((char *)temp_buff, "报警设备:%d", MBusCtrl_GetAlarmCount());
+				sprintf((char *)temp_buff, "?????豸:%d", MBusCtrl_GetAlarmCount());
 				SetTextValue(screen_id, 16, temp_buff);
-				sprintf((char *)temp_buff, "屏蔽设备:0");
+				sprintf((char *)temp_buff, "?????豸:0");
 				SetTextValue(screen_id, 17, temp_buff);
 			}
-			//回路3
+			//??·3
 			uint8_t online = RS485Detect_GetOnlineCount();
 			uint8_t disconnect = RS485Detect_GetDisconnectCount();
-			sprintf((char *)temp_buff, "设置上线:%d", online);
+			sprintf((char *)temp_buff, "????????:%d", online);
 			SetTextValue(screen_id, 19, temp_buff);
-			sprintf((char *)temp_buff, "设备在线:%d", RS485Detect_GetActiveCount());
+			sprintf((char *)temp_buff, "?豸????:%d", RS485Detect_GetActiveCount());
 			SetTextValue(screen_id, 20, temp_buff);
-			sprintf((char *)temp_buff, "设备故障:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
+			sprintf((char *)temp_buff, "?豸????:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
 			SetTextValue(screen_id, 21, temp_buff);
-			sprintf((char *)temp_buff, "报警设备:%d", RS485Detect_GetAlarmCount());
+			sprintf((char *)temp_buff, "?????豸:%d", RS485Detect_GetAlarmCount());
 			SetTextValue(screen_id, 22, temp_buff);
-			sprintf((char *)temp_buff, "屏蔽设备:0");
+			sprintf((char *)temp_buff, "?????豸:0");
 			SetTextValue(screen_id, 24, temp_buff); 
 		}
 		else if(screen_id == 7) // 
@@ -2169,8 +2170,8 @@ void NotifyScreen(uint16 screen_id)
 				pack_circuit = 1;
 			}
 			uint8_t temp_buff[8] = {0};
-			sprintf((char *)temp_buff, "回路%d", pack_circuit);
-			SetTextValue(7, 231, temp_buff); // 刷新回路名称
+			sprintf((char *)temp_buff, "??·%d", pack_circuit);
+			SetTextValue(7, 231, temp_buff); // ????·????
 			switch(pack_circuit)
 			{
 				case 1:
@@ -2178,15 +2179,15 @@ void NotifyScreen(uint16 screen_id)
 					{
 						if (getPointTypeMixtureDetectOnlineState(i) == 0)
 						{
-							temp_buff[0] = 0; // 红色：未上线
+							temp_buff[0] = 0; // ?????δ????
 						}
 						else if (getPointTypeMixtureDisconnectCount(i) >= MIXTURE_DEVICE_DISCONNECT_SUM)
 						{
-							temp_buff[0] = 2; // 黄色：上线但掉线
+							temp_buff[0] = 2; // ??????????????
 						}
 						else
 						{
-							temp_buff[0] = 1; // 绿色：在线正常
+							temp_buff[0] = 1; // ?????????????
 						}
 						AnimationPlayFrame(7, i, temp_buff[0]);
 					}
@@ -2197,7 +2198,7 @@ void NotifyScreen(uint16 screen_id)
 			// for(uint8_t i = 1; i < 33; i++)
 			// {
 			// 	temp_buff[0] = pack_online_buff[pack_circuit][i + 1] ? 1 : 0;
-			// 	AnimationPlayFrame(7, i, temp_buff[0]);//(画面ID,控件ID,帧ID) 0红，1绿
+			// 	AnimationPlayFrame(7, i, temp_buff[0]);//(????ID,???ID,?ID) 0??1??
 			// }
 		}
 		else if(current_screen_id == 10)
@@ -2206,7 +2207,7 @@ void NotifyScreen(uint16 screen_id)
 			uint8_t buff[48] = {0};
 			if(strlen((char *)SystemSaveInfo.pref_license_store) != 0)
 			{
-				len = sprintf((char *)buff, "当前预置许可证:");
+				len = sprintf((char *)buff, "??????????:");
 				for(uint8_t i = 0; i < 10; i++)
 				{
 					buff[len + i] = SystemSaveInfo.pref_license_store[i];
@@ -2215,14 +2216,14 @@ void NotifyScreen(uint16 screen_id)
 			}
 			else
 			{
-				SetTextValue(10, 9, "当前预置许可证:无");
+				SetTextValue(10, 9, "??????????:??");
 			}
 			clearTextValue(10, 7);
 			
-			SetTextValue(10, 17, "上次生效许可证:");
+			SetTextValue(10, 17, "?????Ч????:");
 			SetTextValue(10, 18, SystemSaveInfo.last_license_store);
 			
-			SetTextValue(10, 1, "当前输入许可证:");
+			SetTextValue(10, 1, "???????????:");
 			SetTextValue(10, 10, SystemSaveInfo.curr_license_store);
 			
 			char slicense_buff[10] = {0};
@@ -2232,11 +2233,11 @@ void NotifyScreen(uint16 screen_id)
 				SetTextValue(10, 11 + i, (uint8_t *)slicense_buff);
 			}
 			
-			sprintf((char *)buff, "生效时间:%d/%d/%d %d:%d:%d", SystemSaveInfo.license_year, SystemSaveInfo.license_month, SystemSaveInfo.license_days, 
+			sprintf((char *)buff, "??Ч???:%d/%d/%d %d:%d:%d", SystemSaveInfo.license_year, SystemSaveInfo.license_month, SystemSaveInfo.license_days, 
 				SystemSaveInfo.license_hour, SystemSaveInfo.license_minute, SystemSaveInfo.license_second);
 			SetTextValue(10, 20, buff);
 			
-			sprintf((char *)buff, "剩余时间:%d", remain_use_time);
+			sprintf((char *)buff, "??????:%d", remain_use_time);
 			SetTextValue(10, 21, buff);
 		}
 		else if(screen_id == 15)
@@ -2253,9 +2254,9 @@ void NotifyScreen(uint16 screen_id)
 			for(uint8_t i = 1; i < 21; i++)
 			{
 				value = cu_sxzt[i] ? 1 : 0;
-				// 显示启用状态
+				// ?????????
 				setkey_Value(17, pack_online_ctrl_button_id[i], value);
-				// 显示在线数量
+				// ???????????
 				SetTextInt32(17, pack_online_ctrl_button_id[i] + 1, cu_tcq_sxzt[i], 0, 1);
 			}
 		}
@@ -2270,8 +2271,8 @@ void NotifyScreen(uint16 screen_id)
 		}
 		else if(screen_id == 19)
     {
-			clearTextValue(19,2);//(画面ID,控件ID）	
-			SetTextValue(19,2,"复位系统！");
+			clearTextValue(19,2);//(????ID,???ID??	
+			SetTextValue(19,2,"??λ????");
 		}
 		else if(screen_id == 21)
     {
@@ -2283,26 +2284,26 @@ void NotifyScreen(uint16 screen_id)
 		}
 		else if(screen_id == 23)
 		{
-			clearTextValue(23,2);//(画面ID,控件ID）
+			clearTextValue(23,2);//(????ID,???ID??
 		}
 		else if(screen_id == 24)
 		{
-			clearTextValue(24,2);//(画面ID,控件ID）	
-			clearTextValue(24,5);//(画面ID,控件ID）
-			clearTextValue(24,6);//(画面ID,控件ID）
-			clearTextValue(24,7);//(画面ID,控件ID）
+			clearTextValue(24,2);//(????ID,???ID??	
+			clearTextValue(24,5);//(????ID,???ID??
+			clearTextValue(24,6);//(????ID,???ID??
+			clearTextValue(24,7);//(????ID,???ID??
 		}
 		else if(current_screen_id == 25)
     {
-			// 定义所有需要设置的控件ID数组
+			// ??????????????????ID????
 			const uint8_t setkey_controls[] = {5,8,11,14,17,20,25,28,31,34,37,40,50,53,56,59,62,65,68,71};
 			const uint8_t clearText_controls[] = {6,9,12,15,18,21,26,29,32,35,38,41,49,52,55,58,61,64,67,70};
-			// 循环设置setkey_Value
+			// ???????setkey_Value
 			for (int i = 0; i < sizeof(setkey_controls)/sizeof(setkey_controls[0]); i++) {
 					setkey_Value(current_screen_id, setkey_controls[i], 0);
 			}
 
-			// 循环清除文本值
+			// ??????????
 			for (int i = 0; i < sizeof(clearText_controls)/sizeof(clearText_controls[0]); i++) {
 					clearTextValue(current_screen_id, clearText_controls[i]);
 			}
@@ -2318,16 +2319,16 @@ void NotifyScreen(uint16 screen_id)
 		}
 		else if(current_screen_id == 27)
     {
-			SetTextInt32(current_screen_id,2,SystemSaveInfo.factory_release_year + 2000,0,1);//出厂年
-			SetTextInt32(current_screen_id,3,SystemSaveInfo.factory_release_month,0,1);//出厂月
-			SetTextInt32(current_screen_id,4,SystemSaveInfo.factory_release_days,0,1);//出厂日
+			SetTextInt32(current_screen_id,2,SystemSaveInfo.factory_release_year + 2000,0,1);//??????
+			SetTextInt32(current_screen_id,3,SystemSaveInfo.factory_release_month,0,1);//??????
+			SetTextInt32(current_screen_id,4,SystemSaveInfo.factory_release_days,0,1);//??????
 			SetTextValue(current_screen_id,5,(unsigned char*)banben);
 			
 			if(strlen((char *)SystemSaveInfo.curr_license_store) != 0)
 			{
 				uint8_t len = 0;
 				uint8_t buff[32] = {0};
-				len = sprintf((char *)buff, "许可证书:");
+				len = sprintf((char *)buff, "??????:");
 				for(uint8_t i = 0; i < 10; i++)
 				{
 					buff[len + i] = SystemSaveInfo.curr_license_store[i];
@@ -2336,58 +2337,58 @@ void NotifyScreen(uint16 screen_id)
 			}
 			else
 			{
-				SetTextValue(27, 6, "许可证书:无");
+				SetTextValue(27, 6, "??????:??");
 			}
 			
 			if(SystemSaveInfo.license_remain_day == 6666)
 			{
-				SetTextValue(27, 7, "许可状态:暂无许可");
+				SetTextValue(27, 7, "?????:???????");
 			}
 			else if(SystemSaveInfo.license_remain_day != 999)
 			{
 				uint8_t slicense_buff[32] = {0};
-				sprintf((char *)slicense_buff, "许可状态:剩余%d天", remain_use_time);
+				sprintf((char *)slicense_buff, "?????:???%d??", remain_use_time);
 				SetTextValue(27, 7, slicense_buff);
 			}
 			else
 			{
-				SetTextValue(27, 7, "许可状态:永久有效");
+				SetTextValue(27, 7, "?????:??????Ч");
 			}
 			
 		}
 		else if(screen_id == 41)
 		{
-			// 清空之前输入的内容
+			// ??????????????
 			clearTextValue(screen_id, 16);
 			clearTextValue(screen_id, 17);
 			clearTextValue(screen_id, 18);
 			clearTextValue(screen_id, 19);
 			clearTextValue(screen_id, 20);
 			clearTextValue(screen_id, 21);
-			// 获取一次时间
-			BM8563_Soft_I2C_GetTime(&SystemTime); // 读一次时间 存放到全局结构体中
+			// ?????????
+			BM8563_Soft_I2C_GetTime(&SystemTime); // ???????? ????????????
 			
-			SetTextInt32(screen_id,  9, SystemTime.year + 2000, 0, 4);//出厂年
-			SetTextInt32(screen_id, 10, SystemTime.month      , 0, 2);//出厂月
-			SetTextInt32(screen_id, 11, SystemTime.day        , 0, 2);//出厂日
+			SetTextInt32(screen_id,  9, SystemTime.year + 2000, 0, 4);//??????
+			SetTextInt32(screen_id, 10, SystemTime.month      , 0, 2);//??????
+			SetTextInt32(screen_id, 11, SystemTime.day        , 0, 2);//??????
 			
-			SetTextInt32(screen_id, 12, SystemTime.hours      , 0, 2);//出厂年
-			SetTextInt32(screen_id, 13, SystemTime.minutes    , 0, 2);//出厂月
-			SetTextInt32(screen_id, 14, SystemTime.seconds    , 0, 2);//出厂日
+			SetTextInt32(screen_id, 12, SystemTime.hours      , 0, 2);//??????
+			SetTextInt32(screen_id, 13, SystemTime.minutes    , 0, 2);//??????
+			SetTextInt32(screen_id, 14, SystemTime.seconds    , 0, 2);//??????
 		}
 		else if(screen_id == 50)
 		{
-			SetTextInt32(50, 10, SystemSaveInfo.factory_release_year + 2000, 0, 4);//出厂年
-			SetTextInt32(50, 11, SystemSaveInfo.factory_release_month      , 0, 2);//出厂月
-			SetTextInt32(50, 12, SystemSaveInfo.factory_release_days       , 0, 2);//出厂日
+			SetTextInt32(50, 10, SystemSaveInfo.factory_release_year + 2000, 0, 4);//??????
+			SetTextInt32(50, 11, SystemSaveInfo.factory_release_month      , 0, 2);//??????
+			SetTextInt32(50, 12, SystemSaveInfo.factory_release_days       , 0, 2);//??????
 		}
 		else if(screen_id == 59)
 		{
 			for(uint8_t i = 9 ;i<24;i++)
 			{
-				clearTextValue(59 , i);//(画面ID,控件ID)
+				clearTextValue(59 , i);//(????ID,???ID)
 			}
-			clearTextValue(59 , 2);//(画面ID,控件ID)
+			clearTextValue(59 , 2);//(????ID,???ID)
 		}
 		else if(screen_id == 66)
 		{
@@ -2395,7 +2396,7 @@ void NotifyScreen(uint16 screen_id)
 			for(uint8_t i = 1; i < 33; i++)
 			{
 				temp_value = getPointTypeMixtureDetectOnlineState(i) ? 1 : 0;
-				// 显示启用状态
+				// ?????????
 				setkey_Value(66, point_type_detect_button_online_ctrl_val_map[i - 1], temp_value);
 			}
 		}
@@ -2411,20 +2412,20 @@ void NotifyScreen(uint16 screen_id)
 			uint8_t online_count;
 			HmiTxBatchBegin();
 			SetScreenUpdateEnable(0);
-			sprintf((char *)temp_buff, "当前显示：第 %d 回路", screen69_circuit);
+			sprintf((char *)temp_buff, "?????????? %d ??·", screen69_circuit);
 			SetTextValue(current_screen_id, 200, temp_buff);
-			sprintf((char *)temp_buff, "注:此界面仅显示已上线并在线探测器");
+			sprintf((char *)temp_buff, "?:?????????????????????????");
 			SetTextValue(69, 400, temp_buff);
-			sprintf((char *)temp_buff, "上一页");
+			sprintf((char *)temp_buff, "????");
 			SetTextValue(69, 500, temp_buff);
-			sprintf((char *)temp_buff, "下一页");
+			sprintf((char *)temp_buff, "????");
 			SetTextValue(69, 501, temp_buff);
-			sprintf((char *)temp_buff, "返回");
+			sprintf((char *)temp_buff, "????");
 			SetTextValue(69, 502, temp_buff);
 			/* XR5000_SCREEN69_RESIDUAL_FIX_20260729: clear text controls reused by screen 6 summary. */
 			for(uint8_t i = 1;i<25;i++)
 			{
-				clearTextValue(69 , i);//(画面ID,控件ID)
+				clearTextValue(69 , i);//(????ID,???ID)
 			}
 			online_count = GetCircuitOnlineList(screen69_circuit, online_list, MIXTURE_DEVICE_MAX_ADDR);
 			for(uint8_t i = 0; i < online_count && i < 20; i++)
@@ -2441,22 +2442,22 @@ void NotifyScreen(uint16 screen_id)
 
 
 /*! 
-*  \brief  触摸坐标事件响应
-*  \param press 1按下触摸屏，3松开触摸屏
-*  \param x x坐标
-*  \param y y坐标
+*  \brief  ??????????????
+*  \param press 1???′???????3?????????
+*  \param x x????
+*  \param y y????
 */
 void NotifyTouchXY(uint8 press,uint16 x,uint16 y)
 { 
-    //TODO: 添加用户代码
+    //TODO: ??????????
 }
 
 uint8_t debug_flag = 0;
-uint32_t last_time_stamp = -3600000; // 上电后更新一次剩余时间时间
+uint32_t last_time_stamp = -3600000; // ???????????????????
 /*! 
-*  \brief  更新数据
+*  \brief  ????????
 */ 
-/* XR5000_SCREEN69_FLICKER_FIX_20260727: 画面69缓存结构体，用原始数据值比较替代strcmp字符串比较，避免频闪 */
+/* XR5000_SCREEN69_FLICKER_FIX_20260727: ????69??????壬???????????????strcmp???????????????? */
 typedef struct {
 	uint16_t temper_val;
 	uint16_t co_val;
@@ -2622,7 +2623,7 @@ void UpdateUI(void)
 	uint8_t point_type_disconnect_sum = 0;
 	uint8_t rs485_detect_disconnect_sum = 0;
 	uint8_t mbus2_disconnect_sum = 0;
-	uint8_t shield_sum = 0; // 屏蔽总数
+	uint8_t shield_sum = 0; // ????????
 	uint8_t combustible_gas_alarm_active = 0U;
 	uint32_t curr_time_stamp = osKernelGetTickCount(); /* system tick */
 
@@ -2643,7 +2644,7 @@ void UpdateUI(void)
 		}
 		CheckScreenRefresh();
 	}
-	// 新增加内容
+	// ??????????
 	tim_get++;
 	if(tim_get == 10)
 	{
@@ -2655,8 +2656,8 @@ void UpdateUI(void)
 		{
 			mimajiyi++;
 		}
-		multiple_alarm_fresh_flag = 1; // 刷新标志位置一
-		fed_fresh_flag = 1; // 每秒一刷
+		multiple_alarm_fresh_flag = 1; // ??±??λ???
+		fed_fresh_flag = 1; // ?????
 		
 		max_combustible_gas_fresh_flag = 1;
 		gas_concentration_summary_fresh_flag = 1; /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
@@ -2680,7 +2681,7 @@ void UpdateUI(void)
 			
 			uint32_t total_use_time = 0;
 			
-			getBM8563TimeToSystemTime(); // 获取一下RTC时间
+			getBM8563TimeToSystemTime(); // ??????RTC???
 			
 			register_data.tm_year = SystemSaveInfo.license_year + 100;
 			register_data.tm_mon  = SystemSaveInfo.license_month - 1;
@@ -2710,14 +2711,14 @@ void UpdateUI(void)
 			}
 			else
 			{
-//				license_allow_use_state = 0; //当默认值为1的时候将这里注释掉
+//				license_allow_use_state = 0; //???????1?????????????
 				remain_use_time = 0;
 			}
 				
 			if(remain_use_time < 4) // 
 			{
 				uint8_t slicense_buff[64] = {0};
-				sprintf((char *)slicense_buff, "敬告:您的剩余使用天数只剩余%d天,请点击左上角图标获取更多信息", remain_use_time);
+				sprintf((char *)slicense_buff, "????:??????????????????%d??,?????????????????????", remain_use_time);
 				SetTextValue(1, 3, slicense_buff);
 			}
 			else
@@ -2727,36 +2728,36 @@ void UpdateUI(void)
 		}
 	}
 	
-	// 获取设备设置为上线的数量，给结构体赋值
+	// ????豸?????????????????????帳?
 	getDetectorSetUpLiveSum(&ds, cang_sxzt, cu_tcq_sxzt);
 		
-	screen_fresh_num++;				// 屏幕刷新控制
+	screen_fresh_num++;				// ?????????
 	if(screen_fresh_num > 60)
 	{
 		screen_fresh_num = 0;
 	}
 
-	if(kaijiyanshi >= ONLINE_TIMEOUT)//开机延时ONLINE_TIMEOUT秒后才计算掉线数量
+	if(kaijiyanshi >= ONLINE_TIMEOUT)//???????ONLINE_TIMEOUT??????????????
 	{
-		// 获取包掉线数 并处理包报警数据 给结构体赋值
+		// ??????????? ??????????????? ?????帳?
 		pack_disconnect_sum = ClusterPackDataDeal_Plus(pcfs, &pcfs_buttom_point); 
-		// 获取仓掉线数 并处理仓报警数据 存储到报警信息中 目前仓没有送检 没有添加报警信息 2025/07/09
+		// ?????????? ?????????????? ?洢??????????? ?????????? ???????????? 2025/07/09
 		cabin_disconnect_sum = CabinDataDeal(pcfs, &pcfs_buttom_point); 
 		//
-		point_type_disconnect_sum = PointTypeDetectorDataDeal(pcfs, &pcfs_buttom_point); // 2025/11/17 10:27 添加点型二总线探测器
+		point_type_disconnect_sum = PointTypeDetectorDataDeal(pcfs, &pcfs_buttom_point); // 2025/11/17 10:27 ????????????????
 		// XR5000_LOOP3_CHANGE_20260726: Loop 3 realtime fault/alarm bridge.
 		rs485_detect_disconnect_sum = RS485DetectDataDeal(pcfs, &pcfs_buttom_point);
 		mbus2_disconnect_sum = MBus2DataDeal(pcfs, &pcfs_buttom_point);
 		combustible_gas_alarm_active = RefreshCombustibleGasAlarmLed();
-		/* 功能调整：废弃IG3306及4路独立24V输出监测；时间：2026-08-06 */
-		// 判断是否有掉线 吸合故障继电器，新增加对回路三，485探测回路的故障判断
+		/* ?????????????IG3306??4·????24V?????????2026-08-06 */
+		// ?ж?????е??? ?????????????????????·????485????·??????ж?
 		FaultRelayCtrlAppFun(pack_disconnect_sum + cabin_disconnect_sum + point_type_disconnect_sum + rs485_detect_disconnect_sum + mbus2_disconnect_sum);
-		// 判断是否有预警 吸合预警继电器
+		// ?ж????????? ????????????
 		ForeWarmRelayCtrlAppFun(&pcfws);
-		// 判断是否有火警 吸合火警继电器
+		// ?ж?????л? ??????????
 		FireAlarmRelayCtrlAppFun(pas_pointer);
 		
-		// 计算簇掉线数量	本质是01模块掉线了
+		// ????????????	??????01????????
 		for(uint8_t sum = 1; sum < PACK_USER_NUM + 1; sum++)
 		{
 			if(CU_zx_buf[sum] == PackDisconnectCount)
@@ -2765,32 +2766,32 @@ void UpdateUI(void)
 			}
 		}
 
-		// 新增内容
+		// ????????
 //		uint8_t fire_alarm_state;
 //		fire_alarm_state = FireAlarmCompoundLogicJudgement(fire_alarm_logic_ctrl, fire_alarm_judge,cabin_detector_state_buff);
 //		if(fire_alarm_state == fire_alarm)
 //		{
-//			SetTextValue(40, 62, "舱内起火");//刷新报警内容
+//			SetTextValue(40, 62, "???????");//??±???????
 //		}
 //		else if(fire_alarm_state == normal)
 //		{
-//			SetTextValue(40, 62, "舱内正常");//刷新报警内容
+//			SetTextValue(40, 62, "????????");//??±???????
 //		}
 
 		// end
 			
-		alarm_number = pcfas.self_bottom_point + pcfws.self_bottom_point; // 将火警数量赋值
+		alarm_number = pcfas.self_bottom_point + pcfws.self_bottom_point; // ???????????
 
 		/*
-		// 目前不显示预警 火警 统一显示报警 此处只用来做火警标记 执行外联设备动作
-		if(pas_pointer != 0) { // 如果火警记录不为零
-			fire_alarm_state = 1; // 点亮火警指示灯
+		// ?????????? ?? ????????? ??????????????? ????????豸????
+		if(pas_pointer != 0) { // ?????????????
+			fire_alarm_state = 1; // ??????????
 			fire_alarm_flag.cluster_alarm_state = 1;
 			
 			if (fanr.storage_pas_len != pas_pointer) {
 				fanr.storage_pas_len = pas_pointer;
 				
-				// 用位图优化去重（假设 ID 范围是 0~255）
+				// ??λ???????????? ID ??Χ?? 0~255??
 				uint8_t seen[32] = {0};
 				
 				for (uint8_t i = 0; i < pas_pointer && fanr.faib_buttom_point < 300; i++) {
@@ -2798,8 +2799,8 @@ void UpdateUI(void)
 					uint8_t idx = id / 8;
 					uint8_t bit = id % 8;
 						
-					if (!(seen[idx] & (1 << bit))) { // 如果未出现过
-						seen[idx] |= (1 << bit);     // 标记为已出现
+					if (!(seen[idx] & (1 << bit))) { // ???δ?????
+						seen[idx] |= (1 << bit);     // ?????????
 						fanr.fire_alarm_id_buff[fanr.faib_buttom_point++] = id;
 					}
 				}
@@ -2812,13 +2813,13 @@ void UpdateUI(void)
 		{
 			if(BMS_Temp[i]>=3 && BMS_BJ[i]==0)
 			{
-				BMS_BJ[i]=1; // 将符合要求的报警启动
-				beiguangkai();//背光开
+				BMS_BJ[i]=1; // ????????????????
+				beiguangkai();//????
 				SetControlForeColor(1,4,0xf800);
-				SetTextValue(1,4,"BMS高温状态：第1簇电池高温！");//刷新报警内容
-				SaveSensor(0,32,0,0,0,0,0,0,0); // 储存下来 BMS报警记录
+				SetTextValue(1,4,"BMS??????????1??????￡?");//??±???????
+				SaveSensor(0,32,0,0,0,0,0,0,0); // ???????? BMS???????
 				
-				// 其他内容待补充
+				// ?????????????
 			}
 			else if(BMS_Temp[i] < 3 && BMS_BJ[i] == 1)
 			{
@@ -2826,61 +2827,57 @@ void UpdateUI(void)
 			}
 		}
 		*/
-//		// 风机在线/掉线记录
+//		// ???????/??????
 //		BspFanOnlineJudgeFaultRecord(NULL, NULL);
-//		// 风机启动控制 暂时没有记录风机启动停止时间
+//		// ?????????? ?????м?????????????
 
 		BspFanStartCrtlApp(fan_state1, combustible_gas_alarm_active, fedas.self_point_len);
-		// 主备电管理控制
+		// ????????????
 		PowerManageCtrl(zhu_state, bei_state);
 
 		
-		// 主面板上报警器控制按键 认为是预警
+		// ??????????????????? ????????
 		if((screen_show_siren_information&0x0F) == 0x0F && (screen_show_siren_information&0xF0) != 0xF0)
 		{
-			screen_show_siren_information |= 0xF0; // 标记执行过 
-			// 记录到火警分区中 按键按下 存入FLASH在前可以少一次获取RTC操作
+			screen_show_siren_information |= 0xF0; // ?????й? 
+			// ????????????? ???????? ????FLASH???????????λ??RTC????
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, 0xFFFF);
-//			// 存入cache缓冲区
+//			// ????cache??????
 //			StoragePackCabinForeWarn(&pcfws, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey);
-			// 存入火灾报警区域 
-			StoragePackFireAlarm(&pcfas, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey); // 记录手报按下
+			// ?????????????? 
+			StoragePackFireAlarm(&pcfas, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey); // ??????????
 			
-			// 点亮声光
+			// ????????
 			SoundLightRelayCtrl(JDQ_ON);
 			
 			SysSirenStartLedCtrl(LED_ON);
 			
-			silencers_state  = 0;  // 有新的报警 关闭消音指示灯
+			silencers_state  = 0;  // ???μ???? ???????????
 		}
 		
-		if(getHandPaperState() == 0x0F) // 手报认为是火警
+		if(getHandPaperState() == 0x0F) // ?????????
 		{
-			// 确保只执行一次
+			// ??????????
 			setDealHandPaperState();
-			// 存入FLASH
+			// ????FLASH
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, HANDPOT_Package_ID, 0xFFFF);
 			//
-			StoragePackFireAlarm(&pcfas, LINKAGE_CLUSTER_ID, HANDPOT_Package_ID, HandAlarm); // 记录手报按下
-			
-			fire_alarm_state = 1; // 点亮火警指示灯
-			silencers_state = 0;  // 有新的报警 关闭消音指示灯
 		}
 		
-		// 有报警后切换主界面 点亮屏幕 
+		// ?б??????л??????? ??????? 
 		InternalScreenMainInterfaceCtrl(&switch_ui_ctrl);
 	}
-	//新增加报警总数的判断RS485Detect_GetAlarmCount();
+	//????????????????ж?RS485Detect_GetAlarmCount();
 	uint8_t total_alarm = alarm_number;
 	if(last_alarm_num != total_alarm)
 	{
 		last_alarm_num = total_alarm;
-		SetTextInt32(1, 8, total_alarm,0,1);  //报警总数显示
+		SetTextInt32(1, 8, total_alarm,0,1);  //???????????
 		if(total_alarm != 0)
 		{
-			beep_fire_ctrl |= 0xF0;  // 真 火警 长鸣
-			silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
-			// 点亮声光
+			beep_fire_ctrl |= 0xF0;  // ?? ?? ????
+			silencers_state = 0; // ???μ???? ???????? ?????????λ
+			// ????????
 			SoundLightRelayCtrl(JDQ_ON);
 			
 			ForeWarmRelayCtrl(JDQ_ON);
@@ -2891,21 +2888,21 @@ void UpdateUI(void)
 
 	FireExtinguishDeviceStateUpdate(&fedas, pas); 
 	
-	//各页面刷新
+	//????????
 	if(current_screen_id==1)                                              
 	{
-		if(getControllorSelfCheckState() == 1) // 如果自检按键按下 //显示自检内容
+		if(getControllorSelfCheckState() == 1) // ???????????? //??????????
 		{
-			// 打开自检灯
+			// ??????
 			SpecialSelfCheckLedCtrl(LED_ON);
 			switch(screen_fresh_num)
 			{
-				case 1:SetTextValue(1,4,"系统自检中.     ");break;   //刷新报警内容
-				case 2:SetTextValue(1,4,"系统自检中..    ");break;   //刷新报警内容
-				case 3:SetTextValue(1,4,"系统自检中...   ");break;   //刷新报警内容
-				case 4:SetTextValue(1,4,"系统自检中....  ");break;   //刷新报警内容
-				case 5:SetTextValue(1,4,"系统自检中..... ");break;   //刷新报警内容
-				case 6:SetTextValue(1,4,"系统自检中......");break;   //刷新报警内容
+				case 1:SetTextValue(1,4,"???????.     ");break;   //??±???????
+				case 2:SetTextValue(1,4,"???????..    ");break;   //??±???????
+				case 3:SetTextValue(1,4,"???????...   ");break;   //??±???????
+				case 4:SetTextValue(1,4,"???????....  ");break;   //??±???????
+				case 5:SetTextValue(1,4,"???????..... ");break;   //??±???????
+				case 6:SetTextValue(1,4,"???????......");break;   //??±???????
 			}
 			screen_fresh_num++;
 			if(screen_fresh_num >= 7)
@@ -2925,41 +2922,41 @@ void UpdateUI(void)
 				}else if(self_check_show_content == 4) {
 					self_check_show_content = 5;
 				}
-				show_content_delay = 0; // 目前只用来延时做状态跳转 
+				show_content_delay = 0; // ????????????????? 
 			}
 			
 			switch(self_check_show_content)
 			{
 				case 0: {
 					uint16_t temp_flash_read_id = W25QXX_ReadID();
-					if(temp_flash_read_id != W25Q512) // 表明FLASH 出现问题
+					if(temp_flash_read_id != W25Q512) // ????FLASH ????????
 					{
-						// 待创建一条故障记录
+						// ???????????????
 						creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_FLASH_FAULT_ID, DISCONNECT);
 					}						
-					SetTextValue(1, 12, "片上存储系统自检中");//
+					SetTextValue(1, 12, "???洢???????");//
 					break;
 				}
 				case 1:
-					SetTextValue(1, 12, "指示灯自检中");//
+					SetTextValue(1, 12, "?????????");//
 					break;
 				case 2:
-					SetTextValue(1, 12, "蜂鸣器自检中");//
+					SetTextValue(1, 12, "???????????");//
 					break;
 				case 3:
-					SetTextValue(1, 12, "声光自检中");//
+					SetTextValue(1, 12, "?????????");//
 					SoundLightRelayCtrl(JDQ_ON);
 					DefauleRelayCtrl(JDQ_ON);
 					break;
 				case 4:
-					SetTextValue(1, 12, "系统自检完成");//
+					SetTextValue(1, 12, "????????");//
 					SoundLightRelayCtrl(JDQ_OFF);
 					DefauleRelayCtrl(JDQ_OFF);
-					clearTextValue(1 , 12);//(画面ID,控件ID)
+					clearTextValue(1 , 12);//(????ID,???ID)
 					break;
 				default:
-					self_check_show_content = 0; // 显示内容复位
-					show_content_delay = 0; // 清空延时 为下一次做准备
+					self_check_show_content = 0; // ????????λ
+					show_content_delay = 0; // ?????? ???????????
 					SpecialSelfCheckLedCtrl(LED_OFF);
 					break;
 			}
@@ -2970,27 +2967,27 @@ void UpdateUI(void)
 			{
 				switch(screen_fresh_num)
 				{
-					case 10:SetTextValue(1, 4, "系统初始化中.     ");break;   //刷新报警内容
-					case 20:SetTextValue(1, 4, "系统初始化中..    ");break;   //刷新报警内容
-					case 30:SetTextValue(1, 4, "系统初始化中...   ");break;   //刷新报警内容
-					case 40:SetTextValue(1, 4, "系统初始化中....  ");break;   //刷新报警内容
-					case 50:SetTextValue(1, 4, "系统初始化中..... ");break;   //刷新报警内容
-					case 60:SetTextValue(1, 4, "系统初始化中......");break;   //刷新报警内容
+					case 10:SetTextValue(1, 4, "?????????.     ");break;   //??±???????
+					case 20:SetTextValue(1, 4, "?????????..    ");break;   //??±???????
+					case 30:SetTextValue(1, 4, "?????????...   ");break;   //??±???????
+					case 40:SetTextValue(1, 4, "?????????....  ");break;   //??±???????
+					case 50:SetTextValue(1, 4, "?????????..... ");break;   //??±???????
+					case 60:SetTextValue(1, 4, "?????????......");break;   //??±???????
 				}
 			}
 			else
 			{
 				switch(screen_fresh_num)
 				{
-					case 10:SetTextValue(1, 4, "报警系统运行中.     ");break;   //刷新报警内容
-					case 20:SetTextValue(1, 4, "报警系统运行中..    ");break;   //刷新报警内容
-					case 30:SetTextValue(1, 4, "报警系统运行中...   ");break;   //刷新报警内容
-					case 40:SetTextValue(1, 4, "报警系统运行中....  ");break;   //刷新报警内容
-					case 50:SetTextValue(1, 4, "报警系统运行中..... ");break;   //刷新报警内容
-					case 60:SetTextValue(1, 4, "报警系统运行中......");break;   //刷新报警内容
+					case 10:SetTextValue(1, 4, "????????????.     ");break;   //??±???????
+					case 20:SetTextValue(1, 4, "????????????..    ");break;   //??±???????
+					case 30:SetTextValue(1, 4, "????????????...   ");break;   //??±???????
+					case 40:SetTextValue(1, 4, "????????????....  ");break;   //??±???????
+					case 50:SetTextValue(1, 4, "????????????..... ");break;   //??±???????
+					case 60:SetTextValue(1, 4, "????????????......");break;   //??±???????
 				}
 			}
-			//  新增设备总数/在线/故障的显示
+			//  ?????豸????/????/????????
 			uint8_t rs485_online = RS485Detect_GetOnlineCount();
 			uint8_t rs485_disconnect = RS485Detect_GetDisconnectCount();
 			uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
@@ -3014,7 +3011,7 @@ void UpdateUI(void)
 				last_disconnect_detector_num = total_fault;
 				SetTextInt32(current_screen_id, 7, total_fault, 0, 1);
 			}
-			//新增AHT20温度湿度显示
+			//????AHT20?????????
 			// XR5000_AHT20_CHANGE_20260727: display cached AHT20 temperature/humidity on home screen.
 			{
 				static int16_t last_aht20_temp = 32767;
@@ -3030,30 +3027,30 @@ void UpdateUI(void)
 					if(temp != last_aht20_temp || aht20_valid != last_aht20_valid || home_statistics_force_refresh)
 					{
 						last_aht20_temp = temp;
-						sprintf((char *)aht20_buff, "温度：%d℃", temp);
+						sprintf((char *)aht20_buff, "????%d??", temp);
 						SetTextValue(current_screen_id, 39, aht20_buff);
 					}
 					if(humi != last_aht20_humi || aht20_valid != last_aht20_valid || home_statistics_force_refresh)
 					{
 						last_aht20_humi = humi;
-						sprintf((char *)aht20_buff, "湿度：%d%%", humi);
+						sprintf((char *)aht20_buff, "????%d%%", humi);
 						SetTextValue(current_screen_id, 40, aht20_buff);
 					}
 				}
 				else if(aht20_valid != last_aht20_valid || home_statistics_force_refresh)
 				{
-					SetTextValue(current_screen_id, 39, "温度：--℃");
-					SetTextValue(current_screen_id, 40, "湿度：--%");
+					SetTextValue(current_screen_id, 39, "????--??");
+					SetTextValue(current_screen_id, 40, "????--%");
 				}
 				last_aht20_valid = aht20_valid;
 			}
 			home_statistics_force_refresh = 0;
 		}
 		
-		//处理其他页面事件
-		zhu_min=0;//返回主界面时间清零，如果不在主界面，5分钟后自动返回
+		//??????????????
+		zhu_min=0;//?????????????????????????????棬5????????????
 	
-		// 新增内容
+		// ????????
 		FansStateUpdataUI(current_screen_id, fan_disconnect_count, fan_state1, fan_state2, fan_mode);
 		
 		OutfirePressureUpdataUI(current_screen_id, outfire1_pressure, outfire2_pressure, fire_alarm_threshold);
@@ -3069,49 +3066,49 @@ void UpdateUI(void)
 	else if (current_screen_id == 6 && !g_screen69_transition_pending)
 	/* XR5000_SCREEN59_RESIDUAL_FIX_20260729: page-6 statistics must not follow asynchronous page changes. */
 	{
-		//回路1
+		//??·1
 		uint8_t temp_buff[32] = {0};
-		sprintf((char *)temp_buff, "第 1 回路信息汇总");
+		sprintf((char *)temp_buff, "?? 1 ??·???????");
 		SetTextValue(6, 6, temp_buff);
-		sprintf((char *)temp_buff, "设置上线:%d", getPointDetectorSetUpCount());
+		sprintf((char *)temp_buff, "????????:%d", getPointDetectorSetUpCount());
 		SetTextValue(6, 7, temp_buff);
-		sprintf((char *)temp_buff, "设备在线:%d", getPointDetectorSetUpLive());
+		sprintf((char *)temp_buff, "?豸????:%d", getPointDetectorSetUpLive());
 		SetTextValue(6, 8, temp_buff);
-		sprintf((char *)temp_buff, "设备故障:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
+		sprintf((char *)temp_buff, "?豸????:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
 		SetTextValue(6, 9, temp_buff);
-		sprintf((char *)temp_buff, "报警设备:%d", getPointDetectorAlarmCount());
+		sprintf((char *)temp_buff, "?????豸:%d", getPointDetectorAlarmCount());
 		SetTextValue(6, 10, temp_buff);
-		sprintf((char *)temp_buff, "屏蔽设备:0"); 
+		sprintf((char *)temp_buff, "?????豸:0"); 
 		SetTextValue(6, 11, temp_buff);
 
-		//回路2
+		//??·2
 		{
 			uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
 			uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
-			sprintf((char *)temp_buff, "设备上线:%d", mbus2_online);
+			sprintf((char *)temp_buff, "?豸????:%d", mbus2_online);
 			SetTextValue(6, 13, temp_buff);
-			sprintf((char *)temp_buff, "设备在线:%d", MBusCtrl_GetActiveCount());
+			sprintf((char *)temp_buff, "?豸????:%d", MBusCtrl_GetActiveCount());
 			SetTextValue(6, 14, temp_buff);
-			sprintf((char *)temp_buff, "设备故障:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
+			sprintf((char *)temp_buff, "?豸????:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
 			SetTextValue(6, 15, temp_buff);
-			sprintf((char *)temp_buff, "报警设备:%d", MBusCtrl_GetAlarmCount());
+			sprintf((char *)temp_buff, "?????豸:%d", MBusCtrl_GetAlarmCount());
 			SetTextValue(6, 16, temp_buff);
-			sprintf((char *)temp_buff, "屏蔽设备:0");
+			sprintf((char *)temp_buff, "?????豸:0");
 			SetTextValue(6, 17, temp_buff);
 		}
 
-		//回路3
+		//??·3
 		uint8_t online = RS485Detect_GetOnlineCount();
         uint8_t disconnect = RS485Detect_GetDisconnectCount();
-        sprintf((char *)temp_buff, "设置上线:%d", online);
+        sprintf((char *)temp_buff, "????????:%d", online);
         SetTextValue(6, 19, temp_buff);
-        sprintf((char *)temp_buff, "设备在线:%d", RS485Detect_GetActiveCount());
+        sprintf((char *)temp_buff, "?豸????:%d", RS485Detect_GetActiveCount());
         SetTextValue(6, 20, temp_buff);
-        sprintf((char *)temp_buff, "设备故障:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
+        sprintf((char *)temp_buff, "?豸????:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
         SetTextValue(6, 21, temp_buff); 
-        sprintf((char *)temp_buff, "报警设备:%d", RS485Detect_GetAlarmCount());
+        sprintf((char *)temp_buff, "?????豸:%d", RS485Detect_GetAlarmCount());
         SetTextValue(6, 22, temp_buff); 
-		sprintf((char *)temp_buff, "屏蔽设备:0"); 
+		sprintf((char *)temp_buff, "?????豸:0"); 
 		SetTextValue(6, 24, temp_buff);
 	}
 	else if(current_screen_id == 7)
@@ -3124,15 +3121,15 @@ void UpdateUI(void)
 			{
 				if (getPointTypeMixtureDetectOnlineState(i) == 0)
 				{
-					temp_buff[0] = 0; // 红色：未上线
+					temp_buff[0] = 0; // ?????δ????
 				}
 				else if (getPointTypeMixtureDisconnectCount(i) >= MIXTURE_DEVICE_DISCONNECT_SUM)
 				{
-					temp_buff[0] = 2; // 黄色：上线但掉线
+					temp_buff[0] = 2; // ??????????????
 				}
 				else
 				{
-					temp_buff[0] = 1; // 绿色：在线正常
+					temp_buff[0] = 1; // ?????????????
 				}
 				AnimationPlayFrame(7, i, temp_buff[0]);
 			}
@@ -3143,36 +3140,36 @@ void UpdateUI(void)
 	}
 	else if(current_screen_id==20)                                              
 	{
-//			char* str = "复合型探测器";
+//			char* str = "???????????";
 //			uint8_t baojingneirong[50];
-////			sprintf((char*)baojingneirong,"设备总数 设备类别:%s 地址总数:%d",str,shebeizongshu);
-//			SetTextValue(52,2,baojingneirong);//刷新报警内容
+////			sprintf((char*)baojingneirong,"?豸???? ?豸???:%s ???????:%d",str,shebeizongshu);
+//			SetTextValue(52,2,baojingneirong);//??±???????
 //			
-//			sprintf((char*)baojingneirong,"在线总数 设备类别:%s 地址总数:%d",str,zaixianzongshu);
-//			SetTextValue(52, 5, baojingneirong);//刷新报警内容
+//			sprintf((char*)baojingneirong,"???????? ?豸???:%s ???????:%d",str,zaixianzongshu);
+//			SetTextValue(52, 5, baojingneirong);//??±???????
 //			
-//			sprintf((char*)baojingneirong,"故障总数 设备类别:%s 地址总数:%d",str,diaoxianzongshu);
-//			SetTextValue(52, 6, baojingneirong);//刷新报警内容
+//			sprintf((char*)baojingneirong,"???????? ?豸???:%s ???????:%d",str,diaoxianzongshu);
+//			SetTextValue(52, 6, baojingneirong);//??±???????
 //			
-//			sprintf((char*)baojingneirong,"屏蔽总数 设备类别:%s 地址总数:%d",str,shield_sum);
-//			SetTextValue(52, 7, baojingneirong);//刷新报警内容
+//			sprintf((char*)baojingneirong,"???????? ?豸???:%s ???????:%d",str,shield_sum);
+//			SetTextValue(52, 7, baojingneirong);//??±???????
 	}
 	if(current_screen_id==52)                                              
 	{
 		uint8_t baojingneirong[50];
-		char* str = "复合型探测器";
-		sprintf((char*)baojingneirong,"设备总数 设备类别:%s 地址总数:%d",str, ds.curr_num);
-		SetTextValue(52,2,baojingneirong);//刷新报警内容
+		char* str = "???????????";
+		sprintf((char*)baojingneirong,"?豸???? ?豸???:%s ???????:%d",str, ds.curr_num);
+		SetTextValue(52,2,baojingneirong);//??±???????
 		
-		sprintf((char*)baojingneirong,"在线总数 设备类别:%s 地址总数:%d",str, ds.curr_num - ( pack_disconnect_sum + cabin_disconnect_sum ));
-		SetTextValue(52, 5, baojingneirong);//刷新报警内容
+		sprintf((char*)baojingneirong,"???????? ?豸???:%s ???????:%d",str, ds.curr_num - ( pack_disconnect_sum + cabin_disconnect_sum ));
+		SetTextValue(52, 5, baojingneirong);//??±???????
 		
-		sprintf((char*)baojingneirong,"故障总数 设备类别:%s 地址总数:%d",str, ( pack_disconnect_sum + cabin_disconnect_sum ));
-		SetTextValue(52, 6, baojingneirong);//刷新报警内容
+		sprintf((char*)baojingneirong,"???????? ?豸???:%s ???????:%d",str, ( pack_disconnect_sum + cabin_disconnect_sum ));
+		SetTextValue(52, 6, baojingneirong);//??±???????
 		
 		shield_sum = getShieldDetectorSum(pack_pbzt, cang_pbzt);
-		sprintf((char*)baojingneirong,"屏蔽总数 设备类别:%s 地址总数:%d",str, shield_sum);
-		SetTextValue(52, 7, baojingneirong);//刷新报警内容
+		sprintf((char*)baojingneirong,"???????? ?豸???:%s ???????:%d",str, shield_sum);
+		SetTextValue(52, 7, baojingneirong);//??±???????
 		
 	}
 	else if(current_screen_id==24)    //                                          
@@ -3193,9 +3190,9 @@ void UpdateUI(void)
 
 		if(qingchujilu==1)
 		{
-			SetTextValue(current_screen_id, 7, "正在清除记录... 请等待！");
+			SetTextValue(current_screen_id, 7, "??????????... ??????");
 			BspClearFlashData();
-			SetTextValue(current_screen_id, 7, "清除完成！");
+			SetTextValue(current_screen_id, 7, "???????");
 			qingchujilu=0;
 		}
 	}
@@ -3205,12 +3202,12 @@ void UpdateUI(void)
 	}
 	else if(current_screen_id == 56 || current_screen_id == 57)
 	{
-		// 更新显示
+		// ???????
 		InternalScreenShowRecord(&bsrr);
 	}
 	else if(current_screen_id == 59)
 	{
-		// new 故障界面刷新
+		// new ??????????
 		InternalScreenShowAllFault(getFaultCheckNewKey());
 		if(getFaultCheckNewKey() == 1)
 		{
@@ -3219,13 +3216,13 @@ void UpdateUI(void)
 		// end
 		
 		// NEW 
-		// 2025/12/09 10:22 新增循序显示
-		if(pcfws.self_bottom_point > Alarm_Show_Zone) // 如果报警数量超过了显示区域 
+		// 2025/12/09 10:22 ??????????
+		if(pcfws.self_bottom_point > Alarm_Show_Zone) // ???????????????????????? 
 		{
 			if(baojingjishi - pcfws.fresh_time_count >= 5)
 			{
 				pcfws.fresh_time_count = baojingjishi;
-				// 翻页逻辑 // 当前页+显示区域长度 小于总数 则可以往后滚动
+				// ?????? // ????+????????? С?????? ????????????
 				if (fore_alarm_start_index + Alarm_Show_Zone < pcfws.self_bottom_point) 
 				{
 					fore_alarm_start_index++;
@@ -3238,15 +3235,15 @@ void UpdateUI(void)
 				}
 			}
 		}
-		// 预警界面刷新
+		// ??????????
 		InternalScreenShowAllForceWorn_Plus(&pcfws, getForceAlarmCheckNewKey());
 		if(getForceAlarmCheckNewKey() == 1)
 			force_alarm_check_new_flag = 0;
 		//END
 		
 		// NEW 
-		// 报警界面刷新
-		// 2025/12/09 10:41 新增循序显示
+		// ???????????
+		// 2025/12/09 10:41 ??????????
 		if(pcfas.self_bottom_point > Alarm_Show_Zone)
 		{
 			if(baojingjishi - pcfas.fresh_time_count >= 5)
@@ -3265,7 +3262,7 @@ void UpdateUI(void)
 			}
 			
 		}
-		// 报警刷新显示
+		// ??????????
 		InternalScreenShowAllFireAlarm_Plus(&pcfas, getFireAlarmCheckNewKey());
 		if(getFireAlarmCheckNewKey() == 1)
 			fire_alarm_check_new_flag = 0;
@@ -3277,16 +3274,16 @@ void UpdateUI(void)
 			fed_fresh_flag = 0;
 		}
 		
-		// 箭头控制
+		// ???????
 		BspCheckNewKeyPressDeal(&bkcnc);
 		
 		RefreshGasConcentrationSummary(); /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
 	}		
-	else if(current_screen_id == 61 || current_screen_id == 62) // 刷新不一样
+	else if(current_screen_id == 61 || current_screen_id == 62) // ??2????
 	{
-		// 更新PACK显示
+		// ????PACK???
 //		InternalScreenShowClusterData_32Pack(current_screen_id, &ddsc_32p);
-		// 更新PACK显示
+		// ????PACK???
 		InternalScreenShowClusterData_32Pack_Plus(current_screen_id, &ddsc_32p);
 	}		
 	else if(current_screen_id == 64)
@@ -3304,7 +3301,7 @@ void UpdateUI(void)
 	// {
 	// 	static uint8_t last_screen = 0;
 
-	// 	/* 刚进入画面69时，页码归零 */
+	// 	/* ???????69????????? */
 	// 	if (last_screen != 69)
 	// 	{
 	// 		g_screen69_page = 0;
@@ -3318,21 +3315,21 @@ void UpdateUI(void)
 	// 	uint8_t start, end;
 	// 	uint8_t ctrl_idx, list_idx;
 
-	// 	/* 控件200：回路标题 */
-	// 	sprintf((char *)temp_buff, "当前显示回路：%d 回路", pack_circuit);
+	// 	/* ???200????·???? */
+	// 	sprintf((char *)temp_buff, "????????·??%d ??·", pack_circuit);
 	// 	SetTextValue(current_screen_id, 200, temp_buff);
 
-	// 	/* 收集在线设备 */
+	// 	/* ????????豸 */
 	// 	online_count = GetCircuitOnlineList(pack_circuit, online_list, 64);
 
-	// 	/* 计算总页数，修正页码 */
+	// 	/* ?????????????????? */
 	// 	total_pages = (online_count + 19) / 20;
 	// 	if (total_pages == 0)
 	// 		total_pages = 1;
 	// 	if (g_screen69_page >= total_pages)
 	// 		g_screen69_page = total_pages - 1;
 
-	// 	/* 当前页范围 */
+	// 	/* ??????Χ */
 	// 	start = g_screen69_page * 20;
 	// 	end = start + 20;
 	// 	if (end > online_count)
@@ -3350,7 +3347,7 @@ void UpdateUI(void)
 	// 		}
 	// 	}
 
-	// 	/* 清空剩余控件时也要清缓存 */
+	// 	/* ????????????建?? */
 	// 	for (; ctrl_idx < 20; ctrl_idx++)
 	// 	{
 	// 		if (g_screen69_prev[ctrl_idx][0] != '\0')
@@ -3360,14 +3357,14 @@ void UpdateUI(void)
 	// 		}
 	// 	}
 
-	// 	// /* 逐个显示 */因未会造成频闪所以删除
+	// 	// /* ?????? */??δ???????????????
 	// 	// for (ctrl_idx = 0, list_idx = start; list_idx < end; ctrl_idx++, list_idx++)
 	// 	// {
 	// 	// 	FormatScreen69DetectorText(pack_circuit, online_list[list_idx], temp_buff);
 	// 	// 	SetTextValue(current_screen_id, ctrl_idx + 1, temp_buff);
 	// 	// }
 
-	// 	/* 清空剩余控件 */
+	// 	/* ???????? */
 	// 	for (; ctrl_idx < 20; ctrl_idx++)
 	// 	{
 	// 		SetTextValue(current_screen_id, ctrl_idx + 1, (uint8_t *)"");
@@ -3417,7 +3414,7 @@ void UpdateUI(void)
 				cache->active = 0U;
 			}
 
-			/* XR5000_SCREEN69_FLICKER_FIX_20260727: 改用原始数据值比较，替代strcmp字符串比较，避免频闪 */
+			/* XR5000_SCREEN69_FLICKER_FIX_20260727: ??????????????????strcmp???????????????? */
 			if (screen69_circuit == 1)
 			{
                 uint8_t type = getPointTypeMixtureDetectName(addr);
@@ -3503,25 +3500,26 @@ void UpdateUI(void)
 			}
 		}
 	}
-	// 新增加内容
+	// ??????????
 	InternalScreenLinkageMonitorUpdataUI(current_screen_id);
 	
 	OutFireDeviceInternalScreenUpdataUI(current_screen_id, out_fire_start_ctrl);
 	
-	FireAlarmTriggerLogicUpdataUI(current_screen_id, fire_alarm_logic_ctrl, fire_alarm_judge);
+	//FireAlarmTriggerLogicUpdataUI(current_screen_id, fire_alarm_logic_ctrl, fire_alarm_judge); /* ??????UI????bsp_logic_screen?????? */
+	LogicScreen_UpdateUI(current_screen_id); /* ???????????????/?б????????? */
 	
 	FireAlarmThresholdUpdataUI(current_screen_id, fire_alarm_threshold);
-	/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
+	/* ???????FCP-1011??·????壻???2026-08-06 */
 	CanMonitorRefreshDisplay(current_screen_id);
 	DeviceThreshold_UpdateUI(current_screen_id, getCurrentSystemRunState() == 2U);
 }
 /*! 
-*  \brief  图标按钮控件通知
-*  \details  当按钮状态改变(或调用GetControlValue)时，执行此函数
-*  \param screen_id 画面ID
-*  \param control_id 控件ID
-*  \param state 按钮状态：0弹起，1按下
-*  \param tubiaobh 图标帧编号：0第0帧，1第1帧，2第2帧...
+*  \brief  ?????????
+*  \details  ??????????(?????GetControlValue)?????д????
+*  \param screen_id ????ID
+*  \param control_id ???ID
+*  \param state ???????0????1????
+*  \param tubiaobh ????????0??0???1??1???2??2?...
 */
 void TB_sahngchuan(uint16 screen_id, uint16 control_id, uint8  state, uint8  tubiaobh)
 { 
@@ -3536,11 +3534,11 @@ void TB_sahngchuan(uint16 screen_id, uint16 control_id, uint8  state, uint8  tub
 	}
 }
 /*! 
-*  \brief  按钮控件通知
-*  \details  当按钮状态改变(或调用GetControlValue)时，执行此函数
-*  \param screen_id 画面ID
-*  \param control_id 控件ID
-*  \param state 按钮状态：0弹起，1按下
+*  \brief  ????????
+*  \details  ??????????(?????GetControlValue)?????д????
+*  \param screen_id ????ID
+*  \param control_id ???ID
+*  \param state ???????0????1????
 */
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 {
@@ -3558,7 +3556,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					beep_general_io_ctrl     != 0
 			) 
 			{
-				silencers_state = 1; // 消音标志
+				silencers_state = 1; // ??????
 			}
 			// end
 			beep_fire_ctrl = 0;
@@ -3569,7 +3567,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			beep_spray_feedback_ctrl = 0;
 			beep_general_io_ctrl = 0; // 
 		}
-		else if(control_id==3 && state == 1)  // 如果按的是设置
+		else if(control_id==3 && state == 1)  // ?????????????
 		{
 			if(mimajiyi == 0)
 			{
@@ -3584,7 +3582,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				bsp_screen_switch_ctrl.switch_flag = 1;
 			}
 		}
-		else if(control_id == 32 && state == 1)  // 如果按的是调整时间
+		else if(control_id == 32 && state == 1)  // ???????????????
 		{
 			EnterTimeDateSettingWithPassword(); /* XR5000_TIME_DATE_ENTRY_REUSE_20260802 */
 		}
@@ -3592,7 +3590,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		{
 			if(license_allow_use_state == 1)
 			{
-				setKeyValue(DEVICE_CTRL_KEY); // 给按键赋值 表明是修改屏幕的按键按下
+				setKeyValue(DEVICE_CTRL_KEY); // ????????? ?????????????????????
 				SwitchCurrentScreenId(53);
 				bsp_screen_switch_ctrl.target_screen = 53;
 				bsp_screen_switch_ctrl.switch_flag = 1;
@@ -3605,16 +3603,16 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				SwitchToMonitorPageFrom(current_screen_id); /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
 			}
 		}
-		else if(control_id == 1 && state == 1) // 如果菜单按下
+		else if(control_id == 1 && state == 1) // ??????????
 		{
 			if(license_allow_use_state == 1)
 			{
-				//原始界面，切到了屏幕ID8
+				//?????棬?е??????ID8
 				// SwitchCurrentScreenId(8);
 				// bsp_screen_switch_ctrl.target_screen = 8;
 				// bsp_screen_switch_ctrl.switch_flag = 1;
 
-				//新界面
+				//?????
 				SwitchCurrentScreenId(68);
 				bsp_screen_switch_ctrl.target_screen = 68;
 				bsp_screen_switch_ctrl.switch_flag = 1;
@@ -3625,9 +3623,9 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		SimulationSerialPortButtonCtrl(&sspa, control_id, state);
 	}
-	else if(screen_id == 4) // 如果是新的设备上下线界面
+	else if(screen_id == 4) // ??????μ??豸?????????
 	{
-		if(control_id == 45 && state == 1) // 一键上线按下
+		if(control_id == 45 && state == 1) // ??????????
 		{
 			uint8_t modify_flag = 0;
 			for(uint8_t i = 0; i < 32; i++)
@@ -3637,7 +3635,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					pack_online_buff[pack_circuit][i + 1] = 1;
 					modify_flag = 1;
 				}
-				// 将状态变更为开启
+				// ????????????
 				setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i], 1);
 			}
 			if(modify_flag == 1)
@@ -3645,7 +3643,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				Save_Pack_Set_Online_State();
 			}
 		}
-		else if(control_id == 55 && state == 1) // 一键下线按下
+		else if(control_id == 55 && state == 1) // ??????????
 		{
 			uint8_t modify_flag = 0;
 			for(uint8_t i = 0; i < 32; i++)
@@ -3656,7 +3654,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					modify_flag = 1;
 				}
 				
-				// 将状态变更为开启
+				// ????????????
 				setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i], 0);
 			}
 			if(modify_flag == 1)
@@ -3793,7 +3791,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		{
 			if(control_id == 5)
 			{
-				setKeyValue(DEVICE_CTRL_KEY); // 给按键赋值 表明是修改屏幕的按键按下
+				setKeyValue(DEVICE_CTRL_KEY); // ????????? ?????????????????????
 			
 				SwitchCurrentScreenId(53);
 				bsp_screen_switch_ctrl.target_screen = 53;
@@ -3805,7 +3803,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			}
 			else if(control_id == 23)
 			{
-				setKeyValue(SIMU_SERIAL_PORT); // 给按键赋值 表明是修改屏幕的按键按下
+				setKeyValue(SIMU_SERIAL_PORT); // ????????? ?????????????????????
 			
 				SwitchCurrentScreenId(53);
 				bsp_screen_switch_ctrl.target_screen = 53;
@@ -3813,7 +3811,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			}
 			else if(control_id == 24)
 			{
-				setKeyValue(LINKAGE_PROGREM); // 给按键赋值 表明是修改屏幕的按键按下
+				setKeyValue(LINKAGE_PROGREM); // ????????? ?????????????????????
 			
 				SwitchCurrentScreenId(53);
 				bsp_screen_switch_ctrl.target_screen = 53;
@@ -3822,13 +3820,13 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		}
 		RecordSwitchButtonCtrl(&bsrr, control_id, state);
 	}
-	else if(screen_id ==17)//设备上下线簇级页面
+	else if(screen_id ==17)//?豸???????????
   {
-			if(state==0)//弹起
+			if(state==0)//????
 			{
 				switch(control_id)
 				{
-					case 5: cu_sxzt[1]=0;cu_tcq_sxzt[1]=0;CU_zx_buf[1]=0;break;//20240202增加了CU_zx_buf[1]=0;防止整簇掉线后，设置下线，别的簇再报掉线显示编号不对
+					case 5: cu_sxzt[1]=0;cu_tcq_sxzt[1]=0;CU_zx_buf[1]=0;break;//20240202??????CU_zx_buf[1]=0;????????????????????????????????????????
 					case 8: cu_sxzt[2]=0;cu_tcq_sxzt[2]=0;CU_zx_buf[2]=0;break;
 					case 11: cu_sxzt[3]=0;cu_tcq_sxzt[3]=0;CU_zx_buf[3]=0;break;
 					case 14: cu_sxzt[4]=0;cu_tcq_sxzt[4]=0;CU_zx_buf[4]=0;break;
@@ -3850,10 +3848,10 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					case 68: cu_sxzt[19]=0;cu_tcq_sxzt[19]=0;CU_zx_buf[19]=0;break;
 					case 71: cu_sxzt[20]=0;cu_tcq_sxzt[20]=0;CU_zx_buf[20]=0;break;
 				}
-				Save_cu_sxzt();//存储簇上线状态
+				Save_cu_sxzt();//?洢????????
 				Save_cutcq_sxzt();
 				
-				SetTextInt32(17,6,cu_tcq_sxzt[1],0,1);//设置文本为整数，（页面，控件，数值，0-无符号、1-有符号，数字位数，不足时左侧补零）
+				SetTextInt32(17,6,cu_tcq_sxzt[1],0,1);//??????????????????棬??????????0-??????1-?з????????λ??????????????
 				SetTextInt32(17,9,cu_tcq_sxzt[2],0,1);
 				SetTextInt32(17,12,cu_tcq_sxzt[3],0,1);
 				SetTextInt32(17,15,cu_tcq_sxzt[4],0,1);
@@ -3875,7 +3873,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				SetTextInt32(17,67,cu_tcq_sxzt[19],0,1);
 				SetTextInt32(17,70,cu_tcq_sxzt[20],0,1);
 			}
-			else if(state==1)//按下
+			else if(state==1)//????
 			{
 				switch(control_id)
 				{
@@ -3901,12 +3899,12 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					case 68: cu_sxzt[19]=1;break;
 					case 71: cu_sxzt[20]=1;break;
 				}
-				Save_cu_sxzt();//存储簇上线状态
+				Save_cu_sxzt();//?洢????????
 			}
 	}
-	else if(screen_id ==18)//设备上下线仓级页面
+	else if(screen_id ==18)//?豸???????????
   {
-		if(state==0)//弹起
+		if(state==0)//????
 		{
 			switch(control_id)
 			{
@@ -3931,15 +3929,15 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				case 40: cang_sxzt[18]=0;Cang_zx_buf[18]=0;break;
 				case 43: cang_sxzt[19]=0;Cang_zx_buf[19]=0;break;
 				case 46: cang_sxzt[20]=0;Cang_zx_buf[20]=0;break;
-				// 新增加内容
+				// ??????????
 				case 51: cang_sxzt[21]=0;Cang_zx_buf[21]=0;break;
 				case 52: cang_sxzt[22]=0;Cang_zx_buf[22]=0;break;
 				case 53: cang_sxzt[23]=0;Cang_zx_buf[23]=0;break;
 				case 54: cang_sxzt[24]=0;Cang_zx_buf[24]=0;break;
 			}
-			Save_cang_sxzt();//存储仓上线状态
+			Save_cang_sxzt();//?洢????????
 		}
-		else if(state==1)//按下
+		else if(state==1)//????
 		{
 			switch(control_id)
 			{
@@ -3964,20 +3962,20 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				case 40: cang_sxzt[18]=1;break;
 				case 43: cang_sxzt[19]=1;break;
 				case 46: cang_sxzt[20]=1;break;
-				// 新增加内容
+				// ??????????
 				case 51: cang_sxzt[21]=1;break;
 				case 52: cang_sxzt[22]=1;break;
 				case 53: cang_sxzt[23]=1;break;
 				case 54: cang_sxzt[24]=1;break;
 			}
-			Save_cang_sxzt();//存仓簇上线状态
+			Save_cang_sxzt();//??????????
 		}
 	}
 	else if(screen_id == 19)
   {
 		if(control_id==4 && state == 1)                                            
 		{
-			SetTextValue(1, 4, "控制器复位中...请稍候...");
+			SetTextValue(1, 4, "????????λ??...?????...");
 			if(ONLINE_TIMEOUT > 6)
 			{
 				kaijiyanshi = ONLINE_TIMEOUT - 6;
@@ -4000,7 +3998,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	}
 	else if(screen_id == 23)
 	{
-		if(mimajiyi == 0) // 用户未输入密码 或者 4.25分钟已过 需要重新输入密码
+		if(mimajiyi == 0) // ???δ???????? ???? 4.25??????? ???????????????
 		{
 			if(control_id==4 && state == 1)                                            
 			{
@@ -4008,20 +4006,20 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				{ 
 					yonghumima=0;
 					mimajiyi++;
-					clearTextValue(23,2);//(画面ID,控件ID）
-					SetScreen(2);	//（画面ID）切换画面到设置界面
+					clearTextValue(23,2);//(????ID,???ID??
+					SetScreen(2);	//??????ID???л????浽???y???
 					osDelay(10);
 					GetScreen();
 					current_screen_id=2;
 				}else
 				{
-					clearTextValue(23,2);//(画面ID,控件ID）
-					SetTextValue(23, 2, "密码错误！");
+					clearTextValue(23,2);//(????ID,???ID??
+					SetTextValue(23, 2, "???????");
 				}
 			}
 		}
 	}
-	//设置用户密码
+	//???????????
 	else if(screen_id == 24)
 	{
 		if(control_id==4 && state == 1)                                                            //
@@ -4033,23 +4031,23 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					SystemSaveInfo.user_password = yonghumm3;
 					SystemInfoSave();
 					SystemInfoLoad();
-					SetTextValue(24,7,"设置成功！");
+					SetTextValue(24,7,"???ó????");
 					mmsdSTA=4;
 				}
 				else if(yonghumm2 != yonghumm3)
 				{
-					SetTextValue(24,7,"设置失败，新密码两次不一样！");
+					SetTextValue(24,7,"?????????????????β??????");
 				}
 			}
 			else if(yonghumm1!=SystemSaveInfo.user_password)
 			{
-				SetTextValue(24,7,"设置失败，原密码错误！");
+				SetTextValue(24,7,"????????????????");
 			}				
 		}
 	}
 	else if(screen_id ==26)//
 	{
-		if(state==0)//弹起
+		if(state==0)//????
 		{
 			switch(control_id)
 			{
@@ -4074,15 +4072,15 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				case 40: cang_pbzt[18]=0;break;
 				case 43: cang_pbzt[19]=0;break;
 				case 46: cang_pbzt[20]=0;break;
-				// 新增加内容
+				// ??????????
 				case 51: cang_pbzt[21]=0;break;
 				case 52: cang_pbzt[22]=0;break;
 				case 53: cang_pbzt[23]=0;break;
 				case 54: cang_pbzt[24]=0;break;
 			}
-			Save_cang_pbzt();//存储仓屏蔽状态
+			Save_cang_pbzt();//?洢????????
 		}else
-		if(state==1)//按下
+		if(state==1)//????
 		{
 			switch(control_id)
 			{
@@ -4107,13 +4105,13 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				case 40: cang_pbzt[18]=1;break;
 				case 43: cang_pbzt[19]=1;break;
 				case 46: cang_pbzt[20]=1;break;
-				// 新增加内容
+				// ??????????
 				case 51: cang_pbzt[21]=1;break;
 				case 52: cang_pbzt[22]=1;break;
 				case 53: cang_pbzt[23]=1;break;
 				case 54: cang_pbzt[24]=1;break;
 			}
-			Save_cang_pbzt();//存仓簇屏蔽状态 pack_bianhaobuf
+			Save_cang_pbzt();//?????????? pack_bianhaobuf
 		}
 	}
 	else if(screen_id == 46) 
@@ -4127,14 +4125,14 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		if(control_id == 1 && state == 1)                                            
 		{
-			SystemInfoSave(); // 从设置出厂日期界面退出再保存进EEPROM
+			SystemInfoSave(); // ?????ó???????????????????EEPROM
 		}
 	}
 	else if(screen_id == 71U)
 	{
 		if(control_id == 300U && state == 1U)
 		{
-			/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
+			/* ???????FCP-1011??·????壻???2026-08-06 */
 			bsp_screen_switch_ctrl.target_screen = 68U;
 			bsp_screen_switch_ctrl.switch_flag = 1U;
 			SwitchCurrentScreenId(68U);
@@ -4158,24 +4156,24 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			{
 				switch(getKeyPressValue())
 				{
-					case SELFCHECK_KEY: { // 自检
-						SetScreen(1);	// 密码正确 回主界面
+					case SELFCHECK_KEY: { // ???
+						SetScreen(1);	// ??????? ????????
 						osDelay(5);
 						GetScreen(); 
-						// 创建一条其它记录 记录自检按键按下的时间 
+						// ?????????????? ???????????μ???? 
 						BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_SELF_CHECK, LINKAGE_CLUSTER_ID, SYS_SELFCHECK_Package_ID);
 						SpecialSelfCheckLedCtrl(LED_ON);
 						
 						break;
 					}
-					case SILENSE_KEY: // 消音
+					case SILENSE_KEY: // ????
 						break;
-					case RESET_KEY: {  // 复位 
-						// 记录复位按键按下
-						SetScreen(1);	// 密码正确 回主界面
+					case RESET_KEY: {  // ??λ 
+						// ?????λ????????
+						SetScreen(1);	// ??????? ????????
 						osDelay(5);
 						GetScreen();
-						SetTextValue(1, 4, "控制器复位中...请稍候...");
+						SetTextValue(1, 4, "????????λ??...?????...");
 						BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_RESET, LINKAGE_CLUSTER_ID, SYS_RESET_Package_ID);
 						if(ONLINE_TIMEOUT > 6)
 						{
@@ -4192,8 +4190,8 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						/* XR5000_CHECK_CHANGE_20260804: legacy password entry is intentionally retired. */
 						setKeyValue(NONE_KEY);
 						break;
-					case MODIFY_TIME_KEY:  // 修改时间按键
-						SetScreen(41);	// 进入二级密码页
+					case MODIFY_TIME_KEY:  // ????????
+						SetScreen(41);	// ????????????
 						osDelay(5);
 						GetScreen();
 						break;
@@ -4203,7 +4201,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						GetScreen();
 						break;
 					}
-					case DEVICE_SHIELD_KEY: { // XR5000_DEVICE_SHIELD_ENTRY_20260802: 设备屏蔽
+					case DEVICE_SHIELD_KEY: { // XR5000_DEVICE_SHIELD_ENTRY_20260802: ?豸????
 						SetScreen(70);
 						osDelay(5);
 						GetScreen();
@@ -4223,10 +4221,10 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						
 						break;
 					}
-					case SIREN_KEY:    // 报警器启动
-						screen_show_siren_information ^= 0x0F; // 翻转低四位状态
+					case SIREN_KEY:    // ?????????
+						screen_show_siren_information ^= 0x0F; // ???????λ??
 						break;
-					case LINKAGE_START_KEY: // 外联设备启动
+					case LINKAGE_START_KEY: // ?????豸???
 						linkage_start_key_press_flag = 1;
 						break;
 					case PART1_SPRY_START:
@@ -4236,7 +4234,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						FireExtinguishDevice2HandStart(&fedas);
 						break;
 					default:
-						SetScreen(1);	// 进入二级密码页
+						SetScreen(1);	// ????????????
 						osDelay(5);
 						GetScreen();
 						break;
@@ -4245,7 +4243,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			}
 			else if(yonghumima == 114514)
 			{
-				SetScreen(3);	// 进入二级密码页
+				SetScreen(3);	// ????????????
 				osDelay(5);
 				GetScreen();
 			}
@@ -4264,7 +4262,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		InternalScreenRecordShiftButtonCtrl(&bsrr, control_id, state);
 	}
-	else if(screen_id == 58) // 手动强启某一簇
+	else if(screen_id == 58) // ??????????
 	{
 		HandForceStartAnyCluster(&fedas, control_id, state);
 	}
@@ -4295,7 +4293,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		CompositeDetectorButtonCtrlApp(&cpsc, control_id, state);
 	}
 
-	//2026/7/22新增内容
+	//2026/7/22????????
 	else if (screen_id == 69)
 	{
 		if (state == 1)
@@ -4322,7 +4320,8 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		}
 	}
 	InternalLinkageMonitorButtonDeal(screen_id, control_id, state);
-	FireAlarmTriggerLogicButtonSet(screen_id, control_id, state, &fire_alarm_logic_ctrl);
+	//FireAlarmTriggerLogicButtonSet(screen_id, control_id, state, &fire_alarm_logic_ctrl); /* ??????????????bsp_logic_screen?????? */
+	LogicScreen_OnButton(screen_id, control_id, state); /* ?????????????趨???水?????? */
 	SuperAdminButtonCtrl(screen_id, control_id, state, &button_ctrl);
 	SuperAdminPasswordButtonCtrl(screen_id, control_id, state, &super_admin_password);
 	
@@ -4330,36 +4329,30 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 
 
 /*! 
-*  \brief  文本控件通知
-*  \details  当文本通过键盘更新(或调用GetControlValue)时，执行此函数
-*  \details  文本控件的内容以字符串形式下发到MCU，如果文本控件内容是浮点值，
-*  \details  则需要在此函数中将下发字符串重新转回浮点值。
-*  \param screen_id 画面ID
-*  \param control_id 控件ID
-*  \param str 文本控件内容
+*  \brief  ????????
+*  \details  ???????????????(?????GetControlValue)?????д????
+*  \details  ???????????????????????·???MCU???????????????????????
+*  \details  ????????????н??·???????????????????
+*  \param screen_id ????ID
+*  \param control_id ???ID
+*  \param str ??????????
 */
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
-	DeviceThreshold_NotifyText(screen_id, control_id, str);
-	 if(screen_id == 75U && control_id >= 1U && control_id <= 6U)
-	 {
-		CanMonitorSetChannelName((uint8_t)control_id, str);
-	 }
-	 if(screen_id==1)                                                                 //画面ID42：上线文本
    { 
-			if(control_id == 25) // 修改CAN2ID地址
+			if(control_id == 25) // ???CAN2ID???
       {
 				int32 value=0;  			
 				sscanf((const char*)(char*)str,"%ld",&value); 
-				SystemSaveInfo.can2_slave_addr = value;//MODBUS地址
+				SystemSaveInfo.can2_slave_addr = value;//MODBUS???
 				SystemInfoSave();
 				SystemInfoLoad();
 			}
-			else if(control_id == 30) // 修改场站485地址
+			else if(control_id == 30) // ?????485???
       {
 				int32 value=0;  			
 				sscanf((const char*)(char*)str,"%ld",&value); 
-				SystemSaveInfo.slave_addr485_Station = value;//MODBUS地址
+				SystemSaveInfo.slave_addr485_Station = value;//MODBUS???
 				SystemInfoSave();
 				SystemInfoLoad();
 			}
@@ -4367,12 +4360,12 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 			{
 				int32 value=0;  			
 				sscanf((const char*)(char*)str,"%ld",&value); 
-				SystemSaveInfo.slave_addr485_EMS = value;//MODBUS地址
+				SystemSaveInfo.slave_addr485_EMS = value;//MODBUS???
 				SystemInfoSave();
 				SystemInfoLoad();
 			}
 		}
-    if(screen_id==2)                                                                 //画面ID2：文本设置和显示
+    if(screen_id==2)                                                                 //????ID2????????ú????
     {                                                                            
 			
     }
@@ -4390,7 +4383,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 					int8_t success_len;
 					int32_t x,y;
 					success_len = sscanf((const char*)str, "%d.%d", &x, &y);  
-					if(success_len == 2 && x >0 && y > 0) // 解析成功 并且x y大于零
+					if(success_len == 2 && x >0 && y > 0) // ??????? ????x y??????
 					{
 						uint8_t modify_flag = 0;
 						if (x > y)
@@ -4406,16 +4399,16 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 								pack_online_buff[pack_circuit][i] = 1;
 								modify_flag = 1;	
 							}
-							// 显示启用状态
+							// ?????????
 							setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i - 1], 1);
 						}
 						if(modify_flag == 1)
 						{
-							Save_Pack_Set_Online_State(); // 避免多次擦写FLASH
+							Save_Pack_Set_Online_State(); // ?????β?дFLASH
 						}
 					}
 				}
-				SetTextValue(4, 2, "批量上线");
+				SetTextValue(4, 2, "????????");
 			}
 		}
 		else if(screen_id == 5)
@@ -4432,7 +4425,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 					int8_t success_len;
 					int32_t x,y;
 					success_len = sscanf((const char*)str, "%d.%d", &x, &y);  
-					if(success_len == 2 && x >0 && y > 0) // 解析成功 并且x y大于零
+					if(success_len == 2 && x >0 && y > 0) // ??????? ????x y??????
 					{
 						switch(pack_circuit)
 						{
@@ -4453,11 +4446,11 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 										PointTypeMixtureOnlieStateSingleSetting(i, 1);  
 										modify_flag = 1;
 									}
-									// 显示启用状态
+									// ?????????
 								}
 								if (modify_flag == 1)
 								{
-									SavePointTypeSetOnlieState();  // 避免多次擦写FLASH
+									SavePointTypeSetOnlieState();  // ?????β?дFLASH
 								}
 							}
 								break;
@@ -4518,7 +4511,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 					}
 				}
 			}
-			SetTextValue(6, 2, "批量上线");
+			SetTextValue(6, 2, "????????");
 		}
 		else if(screen_id == 10)
 		{
@@ -4526,7 +4519,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 			{
 				uint8_t len = strlen((char *)str);
 				
-				SetTextValue(10, 8, "请输入预置许可证ID");
+				SetTextValue(10, 8, "?????????????ID");
 				if(len != 10)
 				{
 					return;
@@ -4543,7 +4536,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				{
 					uint8_t len = 0;
 					uint8_t buff[32] = {0};
-					len = sprintf((char *)buff, "当前预置许可证:");
+					len = sprintf((char *)buff, "??????????:");
 					for(uint8_t i = 0; i < 10; i++)
 					{
 						buff[len + i] = SystemSaveInfo.pref_license_store[i];
@@ -4552,7 +4545,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				}
 				else
 				{
-					SetTextValue(10, 9, "当前预置许可证:无");
+					SetTextValue(10, 9, "??????????:??");
 				}
 
 			}
@@ -4560,33 +4553,33 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 		else if(screen_id==17)  
     {                                                                           
         int32 value=0;  
-        sscanf((const char*)str, "%ld", &value);    //把字符串转换为整数 
+        sscanf((const char*)str, "%ld", &value);    //??????????????? 
 				switch(control_id)
 				{
-					case 6:if(cu_sxzt[1]==1){cu_tcq_sxzt[1]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 9:if(cu_sxzt[2]==1){cu_tcq_sxzt[2]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 12:if(cu_sxzt[3]==1){cu_tcq_sxzt[3]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 15:if(cu_sxzt[4]==1){cu_tcq_sxzt[4]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 18:if(cu_sxzt[5]==1){cu_tcq_sxzt[5]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 21:if(cu_sxzt[6]==1){cu_tcq_sxzt[6]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 26:if(cu_sxzt[7]==1){cu_tcq_sxzt[7]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 29:if(cu_sxzt[8]==1){cu_tcq_sxzt[8]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 32:if(cu_sxzt[9]==1){cu_tcq_sxzt[9]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 35:if(cu_sxzt[10]==1){cu_tcq_sxzt[10]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 38:if(cu_sxzt[11]==1){cu_tcq_sxzt[11]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 41:if(cu_sxzt[12]==1){cu_tcq_sxzt[12]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
+					case 6:if(cu_sxzt[1]==1){cu_tcq_sxzt[1]=value;kaijiyanshi=0;}break;//?????????????????
+					case 9:if(cu_sxzt[2]==1){cu_tcq_sxzt[2]=value;kaijiyanshi=0;}break;//?????????????????
+					case 12:if(cu_sxzt[3]==1){cu_tcq_sxzt[3]=value;kaijiyanshi=0;}break;//?????????????????
+					case 15:if(cu_sxzt[4]==1){cu_tcq_sxzt[4]=value;kaijiyanshi=0;}break;//?????????????????
+					case 18:if(cu_sxzt[5]==1){cu_tcq_sxzt[5]=value;kaijiyanshi=0;}break;//?????????????????
+					case 21:if(cu_sxzt[6]==1){cu_tcq_sxzt[6]=value;kaijiyanshi=0;}break;//?????????????????
+					case 26:if(cu_sxzt[7]==1){cu_tcq_sxzt[7]=value;kaijiyanshi=0;}break;//?????????????????
+					case 29:if(cu_sxzt[8]==1){cu_tcq_sxzt[8]=value;kaijiyanshi=0;}break;//?????????????????
+					case 32:if(cu_sxzt[9]==1){cu_tcq_sxzt[9]=value;kaijiyanshi=0;}break;//?????????????????
+					case 35:if(cu_sxzt[10]==1){cu_tcq_sxzt[10]=value;kaijiyanshi=0;}break;//?????????????????
+					case 38:if(cu_sxzt[11]==1){cu_tcq_sxzt[11]=value;kaijiyanshi=0;}break;//?????????????????
+					case 41:if(cu_sxzt[12]==1){cu_tcq_sxzt[12]=value;kaijiyanshi=0;}break;//?????????????????
 					
-					case 49:if(cu_sxzt[13]==1){cu_tcq_sxzt[13]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 52:if(cu_sxzt[14]==1){cu_tcq_sxzt[14]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 55:if(cu_sxzt[15]==1){cu_tcq_sxzt[15]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 58:if(cu_sxzt[16]==1){cu_tcq_sxzt[16]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 61:if(cu_sxzt[17]==1){cu_tcq_sxzt[17]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 64:if(cu_sxzt[18]==1){cu_tcq_sxzt[18]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 67:if(cu_sxzt[19]==1){cu_tcq_sxzt[19]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
-					case 70:if(cu_sxzt[20]==1){cu_tcq_sxzt[20]=value;kaijiyanshi=0;}break;//获取单个设置文本数值
+					case 49:if(cu_sxzt[13]==1){cu_tcq_sxzt[13]=value;kaijiyanshi=0;}break;//?????????????????
+					case 52:if(cu_sxzt[14]==1){cu_tcq_sxzt[14]=value;kaijiyanshi=0;}break;//?????????????????
+					case 55:if(cu_sxzt[15]==1){cu_tcq_sxzt[15]=value;kaijiyanshi=0;}break;//?????????????????
+					case 58:if(cu_sxzt[16]==1){cu_tcq_sxzt[16]=value;kaijiyanshi=0;}break;//?????????????????
+					case 61:if(cu_sxzt[17]==1){cu_tcq_sxzt[17]=value;kaijiyanshi=0;}break;//?????????????????
+					case 64:if(cu_sxzt[18]==1){cu_tcq_sxzt[18]=value;kaijiyanshi=0;}break;//?????????????????
+					case 67:if(cu_sxzt[19]==1){cu_tcq_sxzt[19]=value;kaijiyanshi=0;}break;//?????????????????
+					case 70:if(cu_sxzt[20]==1){cu_tcq_sxzt[20]=value;kaijiyanshi=0;}break;//?????????????????
 				}
 				Save_cutcq_sxzt();
-				SetTextInt32(17,6,cu_tcq_sxzt[1],0,1);//设置文本为整数，（页面，控件，数值，0-无符号、1-有符号，数字位数，不足时左侧补零）
+				SetTextInt32(17,6,cu_tcq_sxzt[1],0,1);//??????????????????棬??????????0-??????1-?з????????λ??????????????
 				SetTextInt32(17,9,cu_tcq_sxzt[2],0,1);
 				SetTextInt32(17,12,cu_tcq_sxzt[3],0,1);
 				SetTextInt32(17,15,cu_tcq_sxzt[4],0,1);
@@ -4608,53 +4601,53 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				SetTextInt32(17,67,cu_tcq_sxzt[19],0,1);
 				SetTextInt32(17,70,cu_tcq_sxzt[20],0,1);
 	}
-		else if(screen_id==23)                                                                 //画面ID2：文本设置和显示
+		else if(screen_id==23)                                                                 //????ID2????????ú????
     {
-			if(mimajiyi == 0) // 用户未输入密码 或者 4.25分钟已过 需要重新输入密码
+			if(mimajiyi == 0) // ???δ???????? ???? 4.25??????? ???????????????
 			{
 				if(control_id==2)                                                            //
 				{
 					int32 value=0;  			
-					sscanf((const char*)(char*)str,"%ld",&value);                                                    //把字符串转换为整数 					
-					yonghumima=value;													//更新
+					sscanf((const char*)(char*)str,"%ld",&value);                                                    //??????????????? 					
+					yonghumima=value;													//????
 				}  
 			}                                                                     
     }
-		else if(screen_id == 24)                                                                 //画面ID2：文本设置和显示
+		else if(screen_id == 24)                                                                 //????ID2????????ú????
     {                                                                            
         int32 value=0;  			
-        sscanf((const char*)(char*)str,"%ld",&value);                                                    //把字符串转换为整数 
+        sscanf((const char*)(char*)str,"%ld",&value);                                                    //??????????????? 
 				if(control_id==2)                                                            //
         {                                                                         
 					if(value == SystemSaveInfo.user_password)                                                       
             { 
 							
-							SetTextValue(24,7,"密码正确！");
-							yonghumm1=value;//记录用户原密码
+							SetTextValue(24,7,"?????????");
+							yonghumm1=value;//???????????
 							value = 0; 
 						}else
 						{
-							SetTextValue(24,7,"密码错误！");
+							SetTextValue(24,7,"???????");
 						}						
         } 
 				if(control_id==5)                                                            //
         {                                                                         
-						yonghumm2=value;//记录新用户密码1
+						yonghumm2=value;//????????????1
 						value = 0; 
         }	
 				if(control_id==6)                                                            //
         {                                                                         
-						yonghumm3=value;//记录新用户密码2
+						yonghumm3=value;//????????????2
 						value = 0; 
         }				
     }
-		else if(screen_id==25)                                                                 //画面ID2：文本设置和显示
+		else if(screen_id==25)                                                                 //????ID2????????ú????
     {                                                                            
  
     }
 		else if(screen_id == 27)
 		{
-			if(control_id == 9) // 更新许可证输入
+			if(control_id == 9) // ????????????
 			{
 				uint8_t len = strlen((char *)str);
 				if(len != 10)
@@ -4670,7 +4663,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				{
 					uint8_t len = 0;
 					uint8_t buff[32] = {0};
-					len = sprintf((char *)buff, "许可证书:");
+					len = sprintf((char *)buff, "??????:");
 					for(uint8_t i = 0; i < 10; i++)
 					{
 						buff[len + i] = SystemSaveInfo.curr_license_store[i];
@@ -4679,19 +4672,19 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				}
 				else
 				{
-					SetTextValue(27, 6, "许可证书:无");
+					SetTextValue(27, 6, "??????:??");
 				}
 				
 				char slicense_buff[10] = {0};
 				
-				if(strncmp((char *)SystemSaveInfo.curr_license_store, (char *)SystemSaveInfo.pref_license_store, 10) == 0 && SystemSaveInfo.license_remain_day == 6666) // 比较预置ID 和 初始化天数
+				if(strncmp((char *)SystemSaveInfo.curr_license_store, (char *)SystemSaveInfo.pref_license_store, 10) == 0 && SystemSaveInfo.license_remain_day == 6666) // ??????ID ?? ?????????
 				{
 					for(uint8_t i = 0; i < 10; i++)
 					{
 						SystemSaveInfo.last_license_store[i] = SystemSaveInfo.curr_license_store[i];
 					}
 					
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间
+					getBM8563TimeToSystemTime(); // ??????RTC???
 							
 					SystemSaveInfo.license_year = years;
 					SystemSaveInfo.license_month = months;
@@ -4701,13 +4694,13 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 					SystemSaveInfo.license_minute = minutes;
 					SystemSaveInfo.license_second = secs;
 					
-					SystemSaveInfo.license_remain_day = 30; // 默认试用30天
+					SystemSaveInfo.license_remain_day = 30; // ???????30??
 					
 					uint8_t slicense_buff[32] = {0};
-					sprintf((char *)slicense_buff, "许可状态:剩余%d天", SystemSaveInfo.license_remain_day);
+					sprintf((char *)slicense_buff, "?????:???%d??", SystemSaveInfo.license_remain_day);
 					SetTextValue(27, 7, slicense_buff);
 				}
-				else // 新输入的和上一次的不一样
+				else // ????????????ε?????
 				{
 					uint8_t flag = 0;
 					
@@ -4716,8 +4709,8 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 						generate_new_license_code((char *)SystemSaveInfo.last_license_store, getGenerationDate(i), slicense_buff);
 						if(strncmp((char *)SystemSaveInfo.curr_license_store, slicense_buff, 10) == 0)
 						{
-							flag = 1; // 标记找到
-							getBM8563TimeToSystemTime(); // 获取一下RTC时间
+							flag = 1; // ??????
+							getBM8563TimeToSystemTime(); // ??????RTC???
 							
 							SystemSaveInfo.license_year = years;
 							SystemSaveInfo.license_month = months;
@@ -4727,7 +4720,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 							SystemSaveInfo.license_minute = minutes;
 							SystemSaveInfo.license_second = secs;
 
-							SystemSaveInfo.license_remain_day = getRemainUseDate(i); // 记录日期
+							SystemSaveInfo.license_remain_day = getRemainUseDate(i); // ???????
 							
 							for(uint8_t i = 0; i < 10; i++)
 							{
@@ -4736,54 +4729,54 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 							if(SystemSaveInfo.license_remain_day != 999)
 							{
 								uint8_t slicense_buff[32] = {0};
-								sprintf((char *)slicense_buff, "许可状态:剩余%d天", SystemSaveInfo.license_remain_day);
+								sprintf((char *)slicense_buff, "?????:???%d??", SystemSaveInfo.license_remain_day);
 								SetTextValue(27, 7, slicense_buff);
 							}
 							else
 							{
-								SetTextValue(27, 7, "许可状态:永久有效");
+								SetTextValue(27, 7, "?????:??????Ч");
 							}
 							
 							break;
 						}
 					}
-					if(flag == 0) // 如果没有找到匹配的
+					if(flag == 0) // ?????????????
 					{
-						SetTextValue(27, 7, "许可状态:无效");
-						SystemSaveInfo.license_remain_day = 0; // 剩余天数清零
+						SetTextValue(27, 7, "?????:??Ч");
+						SystemSaveInfo.license_remain_day = 0; // ???????????
 					}
 					
 				}
 				SystemInfoSave();
 				last_time_stamp -=3600000;
-				SetTextValue(27, 9, "更新使用许可证");
+				SetTextValue(27, 9, "???????????");
 			}
 		}
-		else if(screen_id == 41) // 时间修改界面
+		else if(screen_id == 41) // ?????????
 		{
-			// 新增内容
-			InternalScreenRTCSetting(screen_id, control_id, str); //RTC修改
+			// ????????
+			InternalScreenRTCSetting(screen_id, control_id, str); //RTC???
 		}
 		else if(screen_id == 50)
 		{
 			if(control_id == 17)
 			{
 				int32 value=0;  			
-				sscanf((char *)str,"%ld",&value); // 把字符串转换为整数 
+				sscanf((char *)str,"%ld",&value); // ??????????????? 
 				SystemSaveInfo.factory_release_year = value - 2000;
 				
 			}		
 			else if(control_id == 18)
 			{
 				int32 value=0;  			
-				sscanf((char *)str,"%ld",&value); // 把字符串转换为整数 
+				sscanf((char *)str,"%ld",&value); // ??????????????? 
 				SystemSaveInfo.factory_release_month = value;
 			}		
 			else if(control_id == 19)
 			{
 				int32 value=0;  			
-				sscanf((char *)str,"%ld",&value); // 把字符串转换为整数 
-				// 出场日期设置
+				sscanf((char *)str,"%ld",&value); // ??????????????? 
+				// ????????????
 				SystemSaveInfo.factory_release_days = value;
 			}		
 		}
@@ -4792,8 +4785,8 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 			if(control_id == 2)
 			{
 				int32 value=0;  			
-				sscanf((char *)str,"%ld",&value); // 把字符串转换为整数 
-				yonghumima=value;									// 给密码赋值
+				sscanf((char *)str,"%ld",&value); // ??????????????? 
+				yonghumima=value;									// ???????
 			}				
 		}
 		else if(screen_id == 67)
@@ -4803,8 +4796,8 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 			CompositeDetectorTextInputCtrlApp(&cpsc, control_id, str);
 		}
 		
-		// 新增内容
-		OutFireDeviceInternalScreenTexttSet(screen_id, control_id, str, &out_fire_start_ctrl); // 喷放逻辑修改
+		// ????????
+		OutFireDeviceInternalScreenTexttSet(screen_id, control_id, str, &out_fire_start_ctrl); // ?????????
 		
 		SuperAdminInternalScreenTextCtrl(screen_id, control_id, str, &super_admin_password);
 		
@@ -4812,27 +4805,27 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 }                                                                                
 
 /*!                                                                              
-*  \brief  进度条控件通知                                                       
-*  \details  调用GetControlValue时，执行此函数                                  
-*  \param screen_id 画面ID                                                      
-*  \param control_id 控件ID                                                     
-*  \param value 值                                                              
+*  \brief  ???????????                                                       
+*  \details  ????GetControlValue?????д????                                  
+*  \param screen_id ????ID                                                      
+*  \param control_id ???ID                                                     
+*  \param value ?                                                              
 */                                                                              
 void NotifyProgress(uint16 screen_id, uint16 control_id, uint32 value)           
 {  
 //    if(screen_id == 5)
 //    {
 //        Progress_Value = value;                                  
-//        SetTextInt32(5,2,Progress_Value,0,1);                                        //设置文本框的值     
+//        SetTextInt32(5,2,Progress_Value,0,1);                                        //???????????     
 //    }    
 }                                                                                
 
 /*!                                                                              
-*  \brief  滑动条控件通知                                                       
-*  \details  当滑动条改变(或调用GetControlValue)时，执行此函数                  
-*  \param screen_id 画面ID                                                      
-*  \param control_id 控件ID                                                     
-*  \param value 值                                                              
+*  \brief  ???????????                                                       
+*  \details  ???????????(?????GetControlValue)?????д????                  
+*  \param screen_id ????ID                                                      
+*  \param control_id ???ID                                                     
+*  \param value ?                                                              
 */                                                                              
 void NotifySlider(uint16 screen_id, uint16 control_id, uint32 value)             
 {                                                             
@@ -4841,30 +4834,30 @@ void NotifySlider(uint16 screen_id, uint16 control_id, uint32 value)
 
 
 /*! 
-*  \brief  仪表控件通知
-*  \details  调用GetControlValue时，执行此函数
-*  \param screen_id 画面ID
-*  \param control_id 控件ID
-*  \param value 值
+*  \brief  ???????
+*  \details  ????GetControlValue?????д????
+*  \param screen_id ????ID
+*  \param control_id ???ID
+*  \param value ?
 */
 void NotifyMeter(uint16 screen_id, uint16 control_id, uint32 value)
 {
-    //TODO: 添加用户代码
+    //TODO: ??????????
 }
 
 /*! 
-*  \brief  菜单控件通知
-*  \details  当菜单项按下或松开时，执行此函数
-*  \param screen_id 画面ID
-*  \param control_id 控件ID
-*  \param item 菜单项索引
-*  \param state 按钮状态：0松开，1按下
+*  \brief  ????????
+*  \details  ??????????????????д????
+*  \param screen_id ????ID
+*  \param control_id ???ID
+*  \param item ?????????
+*  \param state ???????0?????1????
 */
 void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 {
   DeviceThreshold_NotifyMenu(screen_id, control_id, item, state);
-  //TODO: 添加用户代码
-	// 菜单更新控件 灭火喷放逻辑设定 火警触发逻辑设定 在此处调用
+  //TODO: ??????????
+	// ????????? ??????????趨 ??????????趨 ????????
 	
 	OutFireDeviceInternalScreenButtonSet(screen_id, control_id, item, state, &out_fire_start_ctrl);
 	if(screen_id == 3)
@@ -4882,7 +4875,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 				for(uint8_t i = 0; i < 32; i++)
 				{
 					temp_key_value = pack_online_buff[temp_pack_id][i + 1] ? 1 : 0;
-					// 显示启用状态
+					// ?????????
 					setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i], temp_key_value);
 				}
 			}
@@ -4925,7 +4918,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					bsp_screen_switch_ctrl.switch_flag = 1;
 					break;
 				case 2:
-					setKeyValue(DEVICE_SHIELD_KEY); // XR5000_DEVICE_SHIELD_ENTRY_20260802: 设备屏蔽
+					setKeyValue(DEVICE_SHIELD_KEY); // XR5000_DEVICE_SHIELD_ENTRY_20260802: ?豸????
 					SwitchCurrentScreenId(53);
 					bsp_screen_switch_ctrl.target_screen = 53;
 					bsp_screen_switch_ctrl.switch_flag = 1;
@@ -4939,7 +4932,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 			switch(item)
 			{
 				case 0:
-					setKeyValue(LINKAGE_PROGREM); // 给按键赋值 表明是修改屏幕的按键按下
+					setKeyValue(LINKAGE_PROGREM); // ????????? ?????????????????????
 					SwitchCurrentScreenId(53);
 					bsp_screen_switch_ctrl.target_screen = 53;
 					bsp_screen_switch_ctrl.switch_flag = 1;
@@ -4971,7 +4964,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 		{
 			if(item == 0U)
 			{
-				/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
+				/* ???????FCP-1011??·????壻???2026-08-06 */
 				bsp_screen_switch_ctrl.target_screen = 71U;
 				bsp_screen_switch_ctrl.switch_flag = 1U;
 				SwitchCurrentScreenId(71U);
@@ -5000,11 +4993,11 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 }
 
 /*! 
-*  \brief  选择控件通知
-*  \details  当选择控件变化时，执行此函数
-*  \param screen_id 画面ID
-*  \param control_id 控件ID
-*  \param item 当前选项
+*  \brief  ???????
+*  \details  ????????仯?????д????
+*  \param screen_id ????ID
+*  \param control_id ???ID
+*  \param item ??????
 */
 void NotifySelector(uint16 screen_id, uint16 control_id, uint8  item)
 {
@@ -5013,9 +5006,9 @@ void NotifySelector(uint16 screen_id, uint16 control_id, uint8  item)
 
 
 /*! 
-*  \brief  定时器超时通知处理
-*  \param screen_id 画面ID
-*  \param control_id 控件ID
+*  \brief  ??????????????
+*  \param screen_id ????ID
+*  \param control_id ???ID
 */
 void NotifyTimer(uint16 screen_id, uint16 control_id)
 {
@@ -5027,49 +5020,49 @@ void NotifyTimer(uint16 screen_id, uint16 control_id)
 
 
 /*! 
-*  \brief  读取用户FLASH状态返回
-*  \param status 0失败，1成功
-*  \param _data 返回数据
-*  \param length 数据长度
+*  \brief  ??????FLASH??????
+*  \param status 0????1???
+*  \param _data ????????
+*  \param length ???????
 */
 void NotifyReadFlash(uint8 status,uint8 *_data,uint16 length)
 {
-    //TODO: 添加用户代码
+    //TODO: ??????????
 }
 
 
 /*! 
-*  \brief  写用户FLASH状态返回
-*  \param status 0失败，1成功
+*  \brief  д???FLASH??????
+*  \param status 0????1???
 */
 void NotifyWriteFlash(uint8 status)
 {
-    //TODO: 添加用户代码
+    //TODO: ??????????
 }
 
 
 /*! 
-*  \brief  读取RTC时间，注意返回的是BCD码
-*  \param year 年（BCD）
-*  \param month 月（BCD）
-*  \param week 星期（BCD）
-*  \param day 日（BCD）
-*  \param hour 时（BCD）
-*  \param minute 分（BCD）
-*  \param second 秒（BCD）
+*  \brief  ???RTC???????????BCD??
+*  \param year ??BCD??
+*  \param month ?￡?BCD??
+*  \param week ?????BCD??
+*  \param day ???BCD??
+*  \param hour ???BCD??
+*  \param minute ???BCD??
+*  \param second ??BCD??
 */
 void NotifyReadRTC(uint8 year,uint8 month,uint8 week,uint8 day,uint8 hour,uint8 minute,uint8 second)
 {
 
        
-    secs    =(0xff & (second>>4))*10 +(0xf & second);                                    //BCD码转十进制
+    secs    =(0xff & (second>>4))*10 +(0xf & second);                                    //BCD????????
     years   =(0xff & (year>>4))*10 +(0xf & year);                                      
     months  =(0xff & (month>>4))*10 +(0xf & month);                                     
     weeks   =(0xff & (week>>4))*10 +(0xf & week);                                      
     days    =(0xff & (day>>4))*10 +(0xf & day);                                      
     hours   =(0xff & (hour>>4))*10 +(0xf & hour);                                       
     minutes =(0xff & (minute>>4))*10 +(0xf & minute);  
-//   	uart1_printf("时间1： %d年%d月%d日%d时%d分%d秒\r\n",years,months,days,hours,minutes,secs);
+//   	uart1_printf("???1?? %d??%d??%d??%d?%d??%d??\r\n",years,months,days,hours,minutes,secs);
 //    SetTextInt32(8,1,years,1,1);
 //    SetTextInt32(8,2,months,1,1);
 //    SetTextInt32(8,3,days,1,1);
@@ -5079,17 +5072,17 @@ void NotifyReadRTC(uint8 year,uint8 month,uint8 week,uint8 day,uint8 hour,uint8 
 
 }
 
-// 获取仓 簇所有探测器上线状态
+// ????? ?????????????????
 static void getDetectorSetUpLiveSum(DetectorSum *ds_entry, uint8_t cabin_setup[], uint8_t cluster_setup[])
 {
 	uint8_t detector_sum = 0;
-	// 上电更新舱上线数量
+	// ?????2?????????
 	for(uint8_t sum = 1; sum < CANG_USER_NUM + 1; sum++)
 	{
 		detector_sum = detector_sum + cabin_setup[sum];
 	}
 			
-	// 包上线数量
+	// ??????????
 //	for(uint8_t sum = 1; sum <= 20; sum++)
 //	{
 //		detector_sum = detector_sum + cluster_setup[sum];
@@ -5109,7 +5102,7 @@ static void getDetectorSetUpLiveSum(DetectorSum *ds_entry, uint8_t cabin_setup[]
 		detector_sum += getPointTypeMixtureSettingOnlieState(sum);
 	}
 	
-	ds_entry->curr_num = detector_sum; // 给设备总数赋值
+	ds_entry->curr_num = detector_sum; // ???豸???????
 }
 static uint8_t getPointDetectorSetUpCount(void)
 {
@@ -5136,7 +5129,7 @@ static uint8_t getPointDetectorSetUpLive(void)
 	}
 	return detector_sum;
 }
-// 获取点型探测器的故障总数量
+// ???????????????????????
 static uint8_t getPointDetectorFaultCount(void)
 {
     uint8_t fault_sum = 0;
@@ -5149,7 +5142,7 @@ static uint8_t getPointDetectorFaultCount(void)
     }
     return fault_sum;
 }
-// 获取点型探测器的报警总数量
+// ???????????????????????
 static uint8_t getPointDetectorAlarmCount(void)
 {
     uint8_t alarm_sum = 0;
@@ -5169,9 +5162,9 @@ uint8_t creatNewFaultRecordToCache(uint8_t cluster_id, uint8_t pack_id, uint8_t 
 	
 	for(uint8_t k = 0; k < pcfs_buttom_point; k++)
 	{
-		if(cluster_id == LINKAGE_CLUSTER_ID) // 如果簇ID等于外联设备编号
+		if(cluster_id == LINKAGE_CLUSTER_ID) // ?????ID?????????豸???
 		{
-			// 如果是外联设备则簇ID一定相同 如果相同类型中存在相同ID 则退出
+			// ??????????豸???ID?????? ???????????д??????ID ?????
 			if(pcfs[k].da.pack_id == pack_id) 
 			{
 				flag = 1;
@@ -5186,7 +5179,7 @@ uint8_t creatNewFaultRecordToCache(uint8_t cluster_id, uint8_t pack_id, uint8_t 
 				break;
 			}
 		}
-		else // 如果都不是就是仓
+		else // ?????????????
 		{
 			if(pcfs[k].da.cabin_id == cabin_id)
 			{
@@ -5196,45 +5189,45 @@ uint8_t creatNewFaultRecordToCache(uint8_t cluster_id, uint8_t pack_id, uint8_t 
 		}
 	}
 	
-	if(flag != 1) // 如果没有相同的
+	if(flag != 1) // ???????????
 	{
-		getBM8563TimeToSystemTime(); // 获取一下RTC时间
+		getBM8563TimeToSystemTime(); // ??????RTC???
 		
-		// 记录报警ID 类型
-		if(cluster_id == LINKAGE_CLUSTER_ID) // 如果簇ID等于外联设备编号
+		// ???????ID ????
+		if(cluster_id == LINKAGE_CLUSTER_ID) // ?????ID?????????豸???
 		{
-			pcfs[pcfs_buttom_point].detector_class = LinkageClassID; // 明确探测器类型是外联设备
-			pcfs[pcfs_buttom_point].da.cabin_id    = cabin_id;       // 将仓号来传输报警类型 
+			pcfs[pcfs_buttom_point].detector_class = LinkageClassID; // ???????????????????豸
+			pcfs[pcfs_buttom_point].da.cabin_id    = cabin_id;       // ????????????????? 
 			pcfs[pcfs_buttom_point].da.cluster_id  = cluster_id;
 			pcfs[pcfs_buttom_point].da.pack_id     = pack_id;
 		}
 		else if(cluster_id != 0)
 		{
-			pcfs[pcfs_buttom_point].detector_class = PackClassID; // 明确探测器类型是包
-			pcfs[pcfs_buttom_point].da.cabin_id    = 0;           // 清空仓ID编号 如果是包则默认清空
+			pcfs[pcfs_buttom_point].detector_class = PackClassID; // ???????????????
+			pcfs[pcfs_buttom_point].da.cabin_id    = 0;           // ????ID??? ??????????????
 			pcfs[pcfs_buttom_point].da.cluster_id  = cluster_id;
 			pcfs[pcfs_buttom_point].da.pack_id     = pack_id;
 		}
 		else
 		{
-			pcfs[pcfs_buttom_point].detector_class = CabinClassID; // 明确探测器类型是仓
+			pcfs[pcfs_buttom_point].detector_class = CabinClassID; // ???????????????
 			pcfs[pcfs_buttom_point].da.cabin_id    = cabin_id; 
 			pcfs[pcfs_buttom_point].da.cluster_id  = 0;
 			pcfs[pcfs_buttom_point].da.pack_id     = 0;
 		}
 
-		// 记录报警时间
+		// ??????????
 		pcfs[pcfs_buttom_point].atr.years  = years + 2000;
 		pcfs[pcfs_buttom_point].atr.months = months;
 		pcfs[pcfs_buttom_point].atr.days   = days;
 		pcfs[pcfs_buttom_point].atr.hours  = hours;
 		pcfs[pcfs_buttom_point].atr.minute = minutes;
 		
-		// 2025/11/19 10:59 新增记录报警秒
+		// 2025/11/19 10:59 ?????????????
 		pcfs[pcfs_buttom_point].atr.second = secs;
 		pcfs[pcfs_buttom_point].fault_type = RS485_LOOP3_FAULT_OFFLINE;
 		
-		pcfs_buttom_point++; // 底指针自增
+		pcfs_buttom_point++; // ?????????
 	}
 	return flag;
 }
@@ -5290,7 +5283,7 @@ void deletRecoveryRecord(uint8_t recovery_index)
 		return;
 	for(k = recovery_index; k < pcfs_buttom_point - 1; k++)
 	{
-		pcfs[k].detector_class = pcfs[k + 1].detector_class; // 将后一个赋给前一个
+		pcfs[k].detector_class = pcfs[k + 1].detector_class; // ???????????????
 		pcfs[k].da             = pcfs[k + 1].da;
 		pcfs[k].atr            = pcfs[k + 1].atr;
 		pcfs[k].fault_type     = pcfs[k + 1].fault_type;
@@ -5299,7 +5292,7 @@ void deletRecoveryRecord(uint8_t recovery_index)
 
 }
 
-// 返回值 包掉线数量
+// ????? ??????????
 static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
 	uint8_t disconnect_detector_sum = 0;
@@ -5307,40 +5300,40 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 	MaxCombustibleGas_t temp_pack_mcg_co = {0};
 	temp_pack_mcg_co.co_max_val = -1;
 	
-	for(uint8_t jsz = 1;jsz <= 20;jsz++) // 遍历20簇
+	for(uint8_t jsz = 1;jsz <= 20;jsz++) // ????20??
 	{
-		if(cu_tcq_sxzt[jsz] == 0) // 如果没设置上线也就没有处理的必要了
+		if(cu_tcq_sxzt[jsz] == 0) // ?????????????????д????????
 		{
 			continue;
 		}
-		for(uint8_t i=1;i<=cu_tcq_sxzt[jsz];i++)//循环次数由设置上线数量决定 遍历每一簇下的包
+		for(uint8_t i=1;i<=cu_tcq_sxzt[jsz];i++)//????????????????????????? ?????????μ??
 		{
-			if(getClusterPackDisconnectCount(jsz, i) == PackDisconnectCount) { // 如果设置为上线 判断是否掉线
-				// 新增内容 对所有故障信息统一处理
+			if(getClusterPackDisconnectCount(jsz, i) == PackDisconnectCount) { // ???????????? ?ж???????
+				// ???????? ?????й????????????
 	
-				disconnect_detector_sum++; // 掉线设备+1
-				// 一定要写0否则会出错
-				if(creatNewFaultRecordToCache(jsz, i, 0) == 0) // 如果返回0表示成功写入 需要启动蜂鸣器 并存储FLASH
+				disconnect_detector_sum++; // ?????豸+1
+				// ????д0????????
+				if(creatNewFaultRecordToCache(jsz, i, 0) == 0) // ???????0??????д?? ???????????? ???洢FLASH
 				{
-					beep_fault_ctrl  = 2;   // 蜂鸣器开 故障蜂鸣器标志位
-					silencers_state  = 0;   // 消音灯灭
-					disconnect_state = 1;   // 点亮故障灯
-					// 修改为函数存储
+					beep_fault_ctrl  = 2;   // ???????? ????????????λ
+					silencers_state  = 0;   // ???????
+					disconnect_state = 1;   // ?????????
+					// ?????????洢
 					//DebugSendString((uint8_t *)&temp_data, sizeof(FlashSaveDetectFault_t));
 					BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, jsz, i);
 				}
-			}else if(PACK_zx_buf[jsz][i] == i) { //如果在线值是对应的ID编号 在线 在进行判断
+			}else if(PACK_zx_buf[jsz][i] == i) { //??????????????ID??? ???? ??????ж?
 				// new
 				if(pack_pbzt[jsz][i]==0 && PACK_WDZT_buf[jsz][i] != 0 && BJ_packjiyibuf_wd[jsz][i] == 0)
 				{
 					// new
-					// 记录探测器温度报警
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间 
-					// 存入临时缓冲区供屏幕显示使用
+					// ??????????????
+					getBM8563TimeToSystemTime(); // ??????RTC??? 
+					// ????????????????????????
 					StoragePackFireAlarm(&pcfas, jsz, i, Temperature);
 					
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, jsz, i, PACK_wendu_buf[jsz][i]);
-					// 更新存储记忆 只存一次
+					// ???′洢???? ??????
 					BJ_packjiyibuf_wd[jsz][i] = PACK_WDZT_buf[jsz][i];
 					// end
 				}
@@ -5352,7 +5345,7 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				if(pack_pbzt[jsz][i] == 0 && PACK_YWZT_buf[jsz][i] != 0 && BJ_packjiyibuf_yw[jsz][i] == 0) 
 				{
 					// new
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间
+					getBM8563TimeToSystemTime(); // ??????RTC???
 					StoragePackFireAlarm(&pcfas, jsz, i, Smoke);
 					// end
 					
@@ -5367,22 +5360,22 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				if(pack_pbzt[jsz][i] == 0 && PACK_COZT_buf[jsz][i] !=0 && BJ_packjiyibuf_co[jsz][i] == 0) {
 
 					// new
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间
+					getBM8563TimeToSystemTime(); // ??????RTC???
 					StoragePackCabinForeWarn(&pcfws, jsz, i, Carbon);
 					// end
-					// 确保只存储一次 防止出现一直存导致FLASH损坏
+					// ?????洢??? ??????????浼??FLASH??
 					BJ_packjiyibuf_co[jsz][i] = PACK_COZT_buf[jsz][i];
 					
-					// 保存可燃气体
+					// ??????????
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM, jsz, i, getPackCoConcenValue(jsz, i));
 				}
-				else if(BJ_packjiyibuf_co[jsz][i] != 0 && PACK_COZT_buf[jsz][i] == 0) { // 证明之前存储过
-					// 一氧化碳可以自恢复，需要从数组中删掉
+				else if(BJ_packjiyibuf_co[jsz][i] != 0 && PACK_COZT_buf[jsz][i] == 0) { // ??????洢??
+					// ??????????????????????????????
 					// NEW
-					// 2025/10/11 10:35 可燃气体自恢复指的是探测器不是主机 所以不需要自恢复
+					// 2025/10/11 10:35 ????????????????????????????? ????????????
 //					DeletPackCabinForeWarn(&pcfws, jsz, i, Carbon);
 //					// 2025/9/2 17:13
-//					getBM8563TimeToSystemTime(); // 获取一下RTC时间
+//					getBM8563TimeToSystemTime(); // ??????RTC???
 //					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, EAR_RECOVERY, jsz, i, getPackCoConcenValue(jsz, i));
 
 					// END
@@ -5391,7 +5384,7 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 					
 				if(PACK_CH4ZT_buf[jsz][i]!=0)
 				{
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间
+					getBM8563TimeToSystemTime(); // ??????RTC???
 				}
 				else
 				{
@@ -5414,40 +5407,40 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 						BJ_packjiyibuf_co[jsz][i] != 0  || 
 						BJ_packjiyibuf_yw[jsz][i] != 0) && 
 						BJ_packjiyibuf_wd[jsz][i] != 0) 
-				//		|| BJ_packjiyibuf_wd[jsz][i] == 2 // 暂时屏蔽掉二级温度报警启动喷放 以免产生误报
+				//		|| BJ_packjiyibuf_wd[jsz][i] == 2 // ??????ε???????????????? ?????????
 				)
 			{
-				// 复合火警判断
+				// ??????ж?
 				uint8_t flag = 0;
 				for(uint8_t j = 0;j < pas_pointer; j++)
 				{
-					if(pas[j].cabin_id == 0) // 如果舱ID等于0 表明该位置存储的不是舱
+					if(pas[j].cabin_id == 0) // ?????ID????0 ??????λ??洢??????
 					{
 						if(pas[j].cluster_id == jsz	 && pas[j].pack_id == i)
 						{
 							flag = 1;
-							break; // 如果该报警编号已经存储过了 跳出循环
+							break; // ???????????????洢???? ???????
 						}
 					}
 				}
-				if(flag != 1) // 表示没有存储过
+				if(flag != 1) // ?????д洢??
 				{
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间
-					// 标记为簇火警
+					getBM8563TimeToSystemTime(); // ??????RTC???
+					// ???????
 					fire_alarm_flag.cluster_alarm_state = 1;
 					
 					pas[pas_pointer].cluster_id  = jsz;
 					pas[pas_pointer].pack_id     = i;
 					pas[pas_pointer].cabin_id    = 0;
-					pas[pas_pointer].lunch_state = 0; // 启动状态 未启动	
-					// 时间赋值
+					pas[pas_pointer].lunch_state = 0; // ????? δ???	
+					// ??丳?
 					pas[pas_pointer].atr.years  = years + 2000;
 					pas[pas_pointer].atr.months = months;
 					pas[pas_pointer].atr.days   = days;
 					pas[pas_pointer].atr.hours  = hours;
 					pas[pas_pointer].atr.minute = minutes;
 					
-					// 2025/11/19 10:59 新增记录报警秒
+					// 2025/11/19 10:59 ?????????????
 					pas[pas_pointer].atr.second = secs;
 					
 					pas_pointer++;
@@ -5458,10 +5451,10 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 	
 	if(*pcfs_point > 0)
 	{
-		disconnect_state = 1; // 点亮故障灯
+		disconnect_state = 1; // ?????????
 	}
 	
-	if(disconnect_detector_sum < *pcfs_point) // 如果掉线设备数小于指针总数 证明有设备恢复了
+	if(disconnect_detector_sum < *pcfs_point) // ????????豸??С????????? ??????豸?????
 	{
 		uint8_t flag = 0; 
 		uint8_t k;
@@ -5473,10 +5466,10 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			   pcfs_entry[k].da.cluster_id == RS485_DETECT_FLASH_ID)
 			{
 				// XR5000_LOOP3_CHANGE_20260726: Loop 3 recovery is handled by RS485DetectDataDeal().
-				// 如果是外联设备编号 跳过本次
+				// ??????????豸??? ????????
 				continue;
 			}
-			// 如果不是掉线值
+			// ???????????
 			if(getClusterPackDisconnectCount(pcfs_entry[k].da.cluster_id, pcfs_entry[k].da.pack_id) != PackDisconnectCount) 
 			{
 				flag = 1;
@@ -5486,13 +5479,13 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 		if(flag == 1)
 		{
 			deletRecoveryRecord(k);
-			// 存储进FLASH
+			// ?洢??FLASH
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, pcfs_entry[k].da.cluster_id, pcfs_entry[k].da.pack_id);
-			if(*pcfs_point > 0) // 如果仍有报警存在，继续响
+			if(*pcfs_point > 0) // ??????б??????????????
 			{
-				beep_fault_ctrl  = 2; // 蜂鸣器开 故障蜂鸣器标志位
-				silencers_state  = 0; // 消音灯灭
-				disconnect_state = 1; // 点亮故障灯
+				beep_fault_ctrl  = 2; // ???????? ????????????λ
+				silencers_state  = 0; // ???????
+				disconnect_state = 1; // ?????????
 			}		
 		}
 	}
@@ -5502,7 +5495,7 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 	return disconnect_detector_sum;
 }
 
-// 返回值 包掉线数量
+// ????? ??????????
 static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
 	uint8_t disconnect_detector_sum = 0;
@@ -5510,43 +5503,43 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 	MaxCombustibleGas_t temp_pack_mcg_co = {0};
 	temp_pack_mcg_co.co_max_val = -1;
 	
-	for(uint8_t jsz = 1;jsz < 4; jsz++) // 遍历20簇
+	for(uint8_t jsz = 1;jsz < 4; jsz++) // ????20??
 	{
-		for(uint8_t i = 1; i < 33; i++)//循环次数由设置上线数量决定 遍历每一簇下的包
+		for(uint8_t i = 1; i < 33; i++)//????????????????????????? ?????????μ??
 		{
-			if(pack_online_buff[jsz][i] == 0) // 如果探测器未上线
+			if(pack_online_buff[jsz][i] == 0) // ????????δ????
 			{
 				continue;
 			}
-			if(getClusterPackDisconnectCount(jsz, i) == PackDisconnectCount) // 如果设置为上线 判断是否掉线
+			if(getClusterPackDisconnectCount(jsz, i) == PackDisconnectCount) // ???????????? ?ж???????
 			{ 
-				// 新增内容 对所有故障信息统一处理
+				// ???????? ?????й????????????
 	
-				disconnect_detector_sum++; // 掉线设备+1
-				// 一定要写0否则会出错
-				if(creatNewFaultRecordToCache(jsz, i, 0) == 0) // 如果返回0表示成功写入 需要启动蜂鸣器 并存储FLASH
+				disconnect_detector_sum++; // ?????豸+1
+				// ????д0????????
+				if(creatNewFaultRecordToCache(jsz, i, 0) == 0) // ???????0??????д?? ???????????? ???洢FLASH
 				{
-					beep_fault_ctrl  = 2;   // 蜂鸣器开 故障蜂鸣器标志位
-					silencers_state  = 0;   // 消音灯灭
-					disconnect_state = 1;   // 点亮故障灯
-					// 修改为函数存储
+					beep_fault_ctrl  = 2;   // ???????? ????????????λ
+					silencers_state  = 0;   // ???????
+					disconnect_state = 1;   // ?????????
+					// ?????????洢
 					//DebugSendString((uint8_t *)&temp_data, sizeof(FlashSaveDetectFault_t));
 					BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, jsz, i);
 				}
 			}
-			else if(PACK_zx_buf[jsz][i] == i)  //如果在线值是对应的ID编号 在线 在进行判断
+			else if(PACK_zx_buf[jsz][i] == i)  //??????????????ID??? ???? ??????ж?
 			{
 				// new
 				if(pack_pbzt[jsz][i]==0 && PACK_WDZT_buf[jsz][i] != 0 && BJ_packjiyibuf_wd[jsz][i] == 0)
 				{
 					// new
-					// 记录探测器温度报警
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间 
-					// 存入临时缓冲区供屏幕显示使用
+					// ??????????????
+					getBM8563TimeToSystemTime(); // ??????RTC??? 
+					// ????????????????????????
 					StoragePackFireAlarm(&pcfas, jsz, i, Temperature);
 					
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, jsz, i, PACK_wendu_buf[jsz][i]);
-					// 更新存储记忆 只存一次
+					// ???′洢???? ??????
 					BJ_packjiyibuf_wd[jsz][i] = PACK_WDZT_buf[jsz][i];
 					// end
 				}
@@ -5558,7 +5551,7 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 				if(pack_pbzt[jsz][i] == 0 && PACK_YWZT_buf[jsz][i] != 0 && BJ_packjiyibuf_yw[jsz][i] == 0) 
 				{
 					// new
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间
+					getBM8563TimeToSystemTime(); // ??????RTC???
 					StoragePackFireAlarm(&pcfas, jsz, i, Smoke);
 					// end
 					
@@ -5573,22 +5566,22 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 				if(pack_pbzt[jsz][i] == 0 && PACK_COZT_buf[jsz][i] !=0 && BJ_packjiyibuf_co[jsz][i] == 0) {
 
 					// new
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间
+					getBM8563TimeToSystemTime(); // ??????RTC???
 					StoragePackCabinForeWarn(&pcfws, jsz, i, Carbon);
 					// end
-					// 确保只存储一次 防止出现一直存导致FLASH损坏
+					// ?????洢??? ??????????浼??FLASH??
 					BJ_packjiyibuf_co[jsz][i] = PACK_COZT_buf[jsz][i];
 					
-					// 保存可燃气体
+					// ??????????
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM, jsz, i, getPackCoConcenValue(jsz, i));
 				}
-				else if(BJ_packjiyibuf_co[jsz][i] != 0 && PACK_COZT_buf[jsz][i] == 0) { // 证明之前存储过
-					// 一氧化碳可以自恢复，需要从数组中删掉
+				else if(BJ_packjiyibuf_co[jsz][i] != 0 && PACK_COZT_buf[jsz][i] == 0) { // ??????洢??
+					// ??????????????????????????????
 					// NEW
-					// 2025/10/11 10:35 可燃气体自恢复指的是探测器不是主机 所以不需要自恢复
+					// 2025/10/11 10:35 ????????????????????????????? ????????????
 //					DeletPackCabinForeWarn(&pcfws, jsz, i, Carbon);
 //					// 2025/9/2 17:13
-//					getBM8563TimeToSystemTime(); // 获取一下RTC时间
+//					getBM8563TimeToSystemTime(); // ??????RTC???
 //					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, EAR_RECOVERY, jsz, i, getPackCoConcenValue(jsz, i));
 
 					// END
@@ -5597,7 +5590,7 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 					
 				if(PACK_CH4ZT_buf[jsz][i]!=0)
 				{
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间
+					getBM8563TimeToSystemTime(); // ??????RTC???
 				}
 				else
 				{
@@ -5620,40 +5613,40 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 						BJ_packjiyibuf_co[jsz][i] != 0  || 
 						BJ_packjiyibuf_yw[jsz][i] != 0) && 
 						BJ_packjiyibuf_wd[jsz][i] != 0) 
-				//		|| BJ_packjiyibuf_wd[jsz][i] == 2 // 暂时屏蔽掉二级温度报警启动喷放 以免产生误报
+				//		|| BJ_packjiyibuf_wd[jsz][i] == 2 // ??????ε???????????????? ?????????
 				)
 			{
-				// 复合火警判断
+				// ??????ж?
 				uint8_t flag = 0;
 				for(uint8_t j = 0;j < pas_pointer; j++)
 				{
-					if(pas[j].cabin_id == 0) // 如果舱ID等于0 表明该位置存储的不是舱
+					if(pas[j].cabin_id == 0) // ?????ID????0 ??????λ??洢??????
 					{
 						if(pas[j].cluster_id == jsz	 && pas[j].pack_id == i)
 						{
 							flag = 1;
-							break; // 如果该报警编号已经存储过了 跳出循环
+							break; // ???????????????洢???? ???????
 						}
 					}
 				}
-				if(flag != 1) // 表示没有存储过
+				if(flag != 1) // ?????д洢??
 				{
-					getBM8563TimeToSystemTime(); // 获取一下RTC时间
-					// 标记为簇火警
+					getBM8563TimeToSystemTime(); // ??????RTC???
+					// ???????
 					fire_alarm_flag.cluster_alarm_state = 1;
 					
 					pas[pas_pointer].cluster_id  = jsz;
 					pas[pas_pointer].pack_id     = i;
 					pas[pas_pointer].cabin_id    = 0;
-					pas[pas_pointer].lunch_state = 0; // 启动状态 未启动	
-					// 时间赋值
+					pas[pas_pointer].lunch_state = 0; // ????? δ???	
+					// ??丳?
 					pas[pas_pointer].atr.years  = years + 2000;
 					pas[pas_pointer].atr.months = months;
 					pas[pas_pointer].atr.days   = days;
 					pas[pas_pointer].atr.hours  = hours;
 					pas[pas_pointer].atr.minute = minutes;
 					
-					// 2025/11/19 10:59 新增记录报警秒
+					// 2025/11/19 10:59 ?????????????
 					pas[pas_pointer].atr.second = secs;
 					
 					pas_pointer++;
@@ -5664,10 +5657,10 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 	
 	if(*pcfs_point > 0)
 	{
-		disconnect_state = 1; // 点亮故障灯
+		disconnect_state = 1; // ?????????
 	}
 	
-	if(disconnect_detector_sum < *pcfs_point) // 如果掉线设备数小于指针总数 证明有设备恢复了
+	if(disconnect_detector_sum < *pcfs_point) // ????????豸??С????????? ??????豸?????
 	{
 		uint8_t flag = 0; 
 		uint8_t k;
@@ -5683,7 +5676,7 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 				// Loop 2 recovery is handled by MBus2DataDeal().
 				continue;
 			}
-			// 如果不是掉线值
+			// ???????????
 			if(getClusterPackDisconnectCount(pcfs_entry[k].da.cluster_id, pcfs_entry[k].da.pack_id) != PackDisconnectCount) 
 			{
 				flag = 1;
@@ -5695,13 +5688,13 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 			uint8_t saved_cluster_id = pcfs_entry[k].da.cluster_id;
 			uint8_t saved_pack_id    = pcfs_entry[k].da.pack_id;
 			deletRecoveryRecord(k);
-			// 存储进FLASH
+			// ?洢??FLASH
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, saved_cluster_id, saved_pack_id);
-			if(*pcfs_point > 0) // 如果仍有报警存在，继续响
+			if(*pcfs_point > 0) // ??????б??????????????
 			{
-				beep_fault_ctrl  = 2; // 蜂鸣器开 故障蜂鸣器标志位
-				silencers_state  = 0; // 消音灯灭
-				disconnect_state = 1; // 点亮故障灯
+				beep_fault_ctrl  = 2; // ???????? ????????????λ
+				silencers_state  = 0; // ???????
+				disconnect_state = 1; // ?????????
 			}		
 		}
 	}
@@ -5721,28 +5714,28 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 	temp_mcg_co.co_max_val = -1;
 	temp_mcg_hh.co_max_val = -1;
 	
-	//循环判断 24 个仓 探测在线 报警状态
-	for(uint8_t jsz=1; jsz <= 24; jsz++) // 现在新增了四个仓探测器，循环次数也要改成24
+	//????ж? 24 ???? ??????? ??????
+	for(uint8_t jsz=1; jsz <= 24; jsz++) // ??????????????????????????????????24
 	{
-		if(cang_sxzt[jsz] != 1) // 如果没有设置上线 直接判断下一个
+		if(cang_sxzt[jsz] != 1) // ?????????????? ????ж??????
 		{
 			continue;
 		}
-		else if(Cang_zx_buf[jsz] == CabinDisconnectCount) // 如果掉线计数溢出 掉线数+1 判断下一个
+		else if(Cang_zx_buf[jsz] == CabinDisconnectCount) // ????????????? ??????+1 ?ж??????
 		{
-			temp_cabin_disconnect_sum++; // 计算仓掉线数量	
+			temp_cabin_disconnect_sum++; // ????????????	
 
 			if(DX_cangjiyibuf[jsz] == 0)
 			{
 				DX_cangjiyibuf[jsz] = 1;	
-				if( creatNewFaultRecordToCache(0, 0, jsz) == 0 ) // 如果写入成功
+				if( creatNewFaultRecordToCache(0, 0, jsz) == 0 ) // ???д????
 				{
-					beep_fault_ctrl  = 2;   // 蜂鸣器开 故障蜂鸣器标志位
-					silencers_state  = 0;   // 消音灯灭
-					disconnect_state = 1;   // 点亮故障灯
-					// 修改为函数存储
+					beep_fault_ctrl  = 2;   // ???????? ????????????λ
+					silencers_state  = 0;   // ???????
+					disconnect_state = 1;   // ?????????
+					// ?????????洢
 					//DebugSendString((uint8_t *)&temp_data, sizeof(FlashSaveDetectFault_t));
-					BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, 0, jsz); // 存储仓掉线
+					BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, 0, jsz); // ?洢?????
 				}
 			}
 			continue;
@@ -5755,88 +5748,88 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			if(index != 0xFF)
 			{
 				deletRecoveryRecord(index);
-				// 存储进FLASH
+				// ?洢??FLASH
 				BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, 0, jsz);
-				if(*pcfs_point > 0) // 如果仍有报警存在，继续响
+				if(*pcfs_point > 0) // ??????б??????????????
 				{
-					beep_fault_ctrl  = 2; // 蜂鸣器开 故障蜂鸣器标志位
-					silencers_state  = 0; // 消音灯灭
-					disconnect_state = 1; // 点亮故障灯
+					beep_fault_ctrl  = 2; // ???????? ????????????λ
+					silencers_state  = 0; // ???????
+					disconnect_state = 1; // ?????????
 				}		
 			}
 		}
 		
 		DX_cangjiyibuf[jsz] = 0;
 
-		//仓温度判断
+		//??????ж?
 		if(Cang_WDZT_buf[jsz] != 0 && BJ_cangjiyibuf_wd[jsz] == 0) 
 		{
 			// new
-			// 记录探测器温度报警
-			getBM8563TimeToSystemTime(); // 获取一下RTC时间 
-			// 存入临时缓冲区供屏幕显示使用
+			// ??????????????
+			getBM8563TimeToSystemTime(); // ??????RTC??? 
+			// ????????????????????????
 			StoragePackFireAlarm(&pcfas, 0, jsz, Temperature);
 			
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, 0, jsz, Cang_wendu_buf[jsz]);
-			// 更新存储记忆 只存一次
+			// ???′洢???? ??????
 			BJ_cangjiyibuf_wd[jsz] = Cang_WDZT_buf[jsz];
 			// end
 
-			// 新增内容
-			cabin_detector_state_buff[jsz].temperature_state = 1; // 温度预警
+			// ????????
+			cabin_detector_state_buff[jsz].temperature_state = 1; // ??????
 			// end
 		}
 
-		//仓烟雾判断
+		//???????ж?
 		if(Cang_YWZT_buf[jsz] != 0 && BJ_cangjiyibuf_yw[jsz] == 0) { 
-			getBM8563TimeToSystemTime(); // 获取一下RTC时间
+			getBM8563TimeToSystemTime(); // ??????RTC???
 
 			// new
-			getBM8563TimeToSystemTime(); // 获取一下RTC时间
+			getBM8563TimeToSystemTime(); // ??????RTC???
 			StoragePackFireAlarm(&pcfas, 0, jsz, Smoke);
 			// end
 			
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, 0, jsz, 0xFFFF);
 			
 			BJ_cangjiyibuf_yw[jsz] = Cang_YWZT_buf[jsz];
-			// 新增内容
-			cabin_detector_state_buff[jsz].smoke_state = 1; // 烟雾一级预警
+			// ????????
+			cabin_detector_state_buff[jsz].smoke_state = 1; // ??????????
 			// end
 		}
 
-		//仓一氧化碳判断
+		//?????????ж?
 		if(Cang_COZT_buf[jsz] != 0 && BJ_cangjiyibuf_co[jsz] == 0) 
 		{ 
 			// new
-			getBM8563TimeToSystemTime(); // 获取一下RTC时间
+			getBM8563TimeToSystemTime(); // ??????RTC???
 			StoragePackCabinForeWarn(&pcfws, 0, jsz, Carbon);
 			// end
 
-			// 保存可燃气体
+			// ??????????
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_CO, 0, jsz, Cang_COzhi_buf[jsz]);
 			
 			BJ_cangjiyibuf_co[jsz] = Cang_COZT_buf[jsz];
 			
-			// 新增内容
-			cabin_detector_state_buff[jsz].carbon_state = Cang_COZT_buf[jsz]; // 一氧化碳一级预警
+			// ????????
+			cabin_detector_state_buff[jsz].carbon_state = Cang_COZT_buf[jsz]; // ????????????
 			
 			// end
 		}
 		else if(Cang_COZT_buf[jsz] == 0 && BJ_cangjiyibuf_co[jsz] != 0)
 		{
 			BJ_cangjiyibuf_co[jsz] = 0;
-			// 新增内容
-			cabin_detector_state_buff[jsz].carbon_state = 0;      // 清除报警状态
+			// ????????
+			cabin_detector_state_buff[jsz].carbon_state = 0;      // ?????????
 		}
 			
-//			if(Cang_CH4ZT_buf[jsz]==1 && cang_pbzt[jsz]==0)//仓甲烷一级预警
+//			if(Cang_CH4ZT_buf[jsz]==1 && cang_pbzt[jsz]==0)//???????????
 //			{
 //				if(BJ_cangjiyibuf_ch4[jsz]!=1)
 //				{
 //					BJ_cangjiyibuf_ch4[jsz]=1;
 //					SaveSensor(jsz,1,Cang_wendu_buf[jsz]+40,Cang_YWZT_buf[jsz],Cang_COZT_buf[jsz],Cang_CH4ZT_buf[jsz],0,0,0);
 //				}
-//			}else if(Cang_CH4ZT_buf[jsz]==2 && cang_pbzt[jsz]==0) { //仓甲烷二级预警
+//			}else if(Cang_CH4ZT_buf[jsz]==2 && cang_pbzt[jsz]==0) { //???????????
 //				if(BJ_cangjiyibuf_ch4[jsz]!=2) {
 //					BJ_cangjiyibuf_ch4[jsz]=2;
 //					SaveSensor(jsz,1,Cang_wendu_buf[jsz]+40,Cang_YWZT_buf[jsz],Cang_COZT_buf[jsz],Cang_CH4ZT_buf[jsz],0,0,0);
@@ -5844,7 +5837,7 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 //			}
 			
 			
-		//仓VOC判断
+		//??VOC?ж?
 		if(Cang_VOCZT_buf[jsz] != 0 && BJ_cangjiyibuf_voc[jsz] == 0)
 		{ 
 
@@ -5854,24 +5847,24 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 		{
 			
 			BJ_cangjiyibuf_voc[jsz]=0;
-			// 新增内容
+			// ????????
 		}
 		
-		//仓H2判断
+		//??H2?ж?
 		if(Cang_H2ZT_buf[jsz] != 0 && BJ_cangjiyibuf_h2[jsz] == 0) 
 		{ 
 			// new
-			getBM8563TimeToSystemTime(); // 获取一下RTC时间
+			getBM8563TimeToSystemTime(); // ??????RTC???
 			StoragePackCabinForeWarn(&pcfws, 0, jsz, Hydrogen);
 			// end
 
-			// 保存可燃气体
+			// ??????????
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_HH, 0, jsz, Cang_H2zhi_buf[jsz]);
 			
 			BJ_cangjiyibuf_h2[jsz] = Cang_H2ZT_buf[jsz];
 			
-			// 新增内容
-			cabin_detector_state_buff[jsz].hydrogen_state = 1; // 氢气一级预警
+			// ????????
+			cabin_detector_state_buff[jsz].hydrogen_state = 1; // ??????????
 			
 			// end
 			
@@ -5879,14 +5872,14 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 		else if(Cang_H2ZT_buf[jsz] == 0 && BJ_cangjiyibuf_h2[jsz] != 0) 
 		{
 			
-			// 新增内容
-			cabin_detector_state_buff[jsz].hydrogen_state = 0;    // 清除报警状态
+			// ????????
+			cabin_detector_state_buff[jsz].hydrogen_state = 0;    // ?????????
 			BJ_cangjiyibuf_h2[jsz] = 0;
 		}
 
 		// end
 
-		// 2025/10/27 16:42 新增可燃气体浓度判断
+		// 2025/10/27 16:42 ???????????????ж?
 		
 		if(Cang_H2zhi_buf[jsz] > temp_mcg_hh.co_max_val)
 		{
@@ -5895,7 +5888,7 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			temp_mcg_hh.gas_type = Hydrogen_Type;
 			
 			temp_mcg_hh.curr_da.cabin_id   = jsz;
-			// 如果是仓 务必将簇和pack清0
+			// ?????? ???????pack??0
 			temp_mcg_hh.curr_da.cluster_id = 0;
 			temp_mcg_hh.curr_da.pack_id    = 0;
 		}
@@ -5907,61 +5900,54 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			temp_mcg_co.gas_type = Carbon_Type;
 			
 			temp_mcg_co.curr_da.cabin_id   = jsz;
-			// 如果是仓 务必将簇和pack清0
+			// ?????? ???????pack??0
 			temp_mcg_co.curr_da.cluster_id = 0;
 			temp_mcg_co.curr_da.pack_id    = 0;
 		}
 		
 		
-		// 舱多火警报警记录
-		//仓复合火警判断
+		// ???????????
+		//???????ж?
 		if( // Cang_WDZT_buf[jsz]==2 || 
 			(((BJ_cangjiyibuf_h2[jsz] != 0) || BJ_cangjiyibuf_voc[jsz] != 0 || BJ_cangjiyibuf_co[jsz] != 0 || BJ_cangjiyibuf_yw[jsz] != 0) 
 			&& BJ_cangjiyibuf_wd[jsz] != 0 ) )
 		{
 			
 			// new
-			fire_alarm_state = 1;  // 标记火警(此处为舱内火警)
+			fire_alarm_state = 1;  // ????(?????????)
 			// end
 			
-			// 记录所有的火警信息并储存
+			// ??????е???????????
 			uint8_t flag = 0;
 			for(uint8_t k = 0;k < pas_pointer; k++)
 			{
-				if(pas[k].cluster_id == 0 && pas[k].pack_id == 0) // 如果簇ID和包ID等于0 表明该位置储存的是舱ID
+				if(pas[k].cluster_id == 0 && pas[k].pack_id == 0) // ?????ID???ID????0 ??????λ?????????ID
 				{
-					if(pas[k].cabin_id == jsz) // 如果舱ID已经存储过
+					if(pas[k].cabin_id == jsz) // ?????ID????洢??
 					{
 						flag = 1;
-						break; // 如果该报警编号已经存储过了 跳出循环
+						break; // ???????????????洢???? ???????
 					}
 				}
 				
 			}
-			if(flag != 1) // 表示没有存储过
+			if(flag != 1) // ?????д洢??
 			{
-				getBM8563TimeToSystemTime(); // 获取一下RTC时间
-				// 标记为仓火警
+				getBM8563TimeToSystemTime(); // ??????RTC???
+				// ???????
 				fire_alarm_flag.cabin_alarm_state = 1;
 				
 				pas[pas_pointer].cabin_id    = jsz;
 				pas[pas_pointer].cluster_id  = 0;
 				pas[pas_pointer].pack_id     = 0;
 				pas[pas_pointer].lunch_state = 0;
-				// 时间赋值
+				// ??丳?
 				pas[pas_pointer].atr.years  = years + 2000;
 				pas[pas_pointer].atr.months = months;
 				pas[pas_pointer].atr.days   = days;
 				pas[pas_pointer].atr.hours  = hours;
 				pas[pas_pointer].atr.minute = minutes;
 				
-				// 2025/11/19 10:59 新增记录报警秒
-				pas[pas_pointer].atr.second = secs;
-				
-				pas_pointer++;
-				
-				beep_fire_ctrl = 1;  // 火警/预警 长鸣
-				silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
 			}
 			// end
 		}
@@ -5971,12 +5957,12 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 	mcg[CABIN_CO_ID] = temp_mcg_co;
 	mcg[CABIN_HH_ID] = temp_mcg_hh;
 	
-	return temp_cabin_disconnect_sum; // 返回仓掉线数量
+	return temp_cabin_disconnect_sum; // ????????????
 }
 
 static void FaultRelayCtrlAppFun(uint8_t disconnect_num)
 {
-	if(disconnect_num != 0) // 如果故障数量不为0 吸合故障干接点
+	if(disconnect_num != 0) // ??????????????0 ??????????
 	{
 		if(rcsr[FaultRelayId].curr_relay_state == JDQ_OFF)
 		{
@@ -6041,30 +6027,30 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 	static uint16_t last_product_unknown_count = 0U;
 	uint16_t product_unknown_count = DeviceRegistry_GetProductUnknownCount();
 	uint16_t total_fault_count = (uint16_t)pcfs_buttom_point + product_unknown_count;
-	// 故障监控显示
+	// ?????????
 	if(total_fault_count == 0U)
 	{
 		if(pcfs_fresh_ctrl != 0 || last_product_unknown_count != 0U)
 		{
-			disconnect_state = 0;  // 掉线状态解除 
-			beep_fault_ctrl  = 0;  // 关闭掉线蜂鸣器
+			disconnect_state = 0;  // ????????? 
+			beep_fault_ctrl  = 0;  // ???????????
 			pcfs_fresh_ctrl = 0;
 			last_product_unknown_count = 0U;
-			clearTextValue(monitor_inform_screen_id , 43);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 44);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 45);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 46);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 47);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 48);//(画面ID,控件ID)
+			clearTextValue(monitor_inform_screen_id , 43);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 44);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 45);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 46);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 47);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 48);//(????ID,???ID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 42,"故障监测运行中.     ");break;   //刷新报警内容
-			case 20:SetTextValue(monitor_inform_screen_id, 42,"故障监测运行中..    ");break;   //刷新报警内容
-			case 30:SetTextValue(monitor_inform_screen_id, 42,"故障监测运行中...   ");break;   //刷新报警内容
-			case 40:SetTextValue(monitor_inform_screen_id, 42,"故障监测运行中....  ");break;   //刷新报警内容
-			case 50:SetTextValue(monitor_inform_screen_id, 42,"故障监测运行中..... ");break;   //刷新报警内容
-			case 60:SetTextValue(monitor_inform_screen_id, 42,"故障监测运行中......");break;   //刷新报警内容
+			case 10:SetTextValue(monitor_inform_screen_id, 42,"????????????.     ");break;   //??±???????
+			case 20:SetTextValue(monitor_inform_screen_id, 42,"????????????..    ");break;   //??±???????
+			case 30:SetTextValue(monitor_inform_screen_id, 42,"????????????...   ");break;   //??±???????
+			case 40:SetTextValue(monitor_inform_screen_id, 42,"????????????....  ");break;   //??±???????
+			case 50:SetTextValue(monitor_inform_screen_id, 42,"????????????..... ");break;   //??±???????
+			case 60:SetTextValue(monitor_inform_screen_id, 42,"????????????......");break;   //??±???????
 		}
 	}
 	else if(pcfs_fresh_ctrl != pcfs_buttom_point || last_product_unknown_count != product_unknown_count || fresh_page_flag == 1)
@@ -6094,29 +6080,29 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 				}
 				else if(FormatRS485DetectFaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
 				{
-					// XR5000_LOOP3_CHANGE_20260726: Loop 3 fault display uses "第3回路 X号".
+					// XR5000_LOOP3_CHANGE_20260726: Loop 3 fault display uses "??3??· X??".
 				}
 				else if(FormatMBus2FaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
 				{
-					// Loop 2 fault display uses "回路二 XX设备掉线".
+					// Loop 2 fault display uses "??·?? XX?豸????".
 				}
-				else if(pcfs[data_index].detector_class == PackClassID) // 如果类型是包
+				else if(pcfs[data_index].detector_class == PackClassID) // ??????????
 				{
-					// 2025/11/19 10:59 新增记录报警秒
+					// 2025/11/19 10:59 ?????????????
                     static const uint8_t pack_format[] = {'%','0','3','d',' ','%','d','/','%','0','2','d','/','%','0','2','d',' ','%','0','2','d',':','%','0','2','d',':','%','0','2','d',' ',0xB5U,0xDAU,'%','d',0xB4U,0xD8U,' ','P','A','C','K','%','d',' ',0xB5U,0xF4U,0xCFU,0xDFU,0U};
                     sprintf((char*)baojingneirong, (const char*)pack_format, temp_sequence_count,
 						pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 						pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second,
 						pcfs[data_index].da.cluster_id, pcfs[data_index].da.pack_id);
 				}
-				else if(pcfs[data_index].detector_class == CabinClassID) // 如果类型是仓
+				else if(pcfs[data_index].detector_class == CabinClassID) // ??????????
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 掉线", temp_sequence_count, // 新增显示序号
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ????", temp_sequence_count, // ??????????
 						pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 						pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second,
 						pcfs[data_index].da.cabin_id );
 				}
-				else if(pcfs[data_index].detector_class == LinkageClassID) // 如果是外联设备
+				else if(pcfs[data_index].detector_class == LinkageClassID) // ??????????豸
 				{
 					switch(pcfs[data_index].da.pack_id)
 					{
@@ -6124,13 +6110,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case Deflate_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 放气勿入掉线", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ???????????", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days, 
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 放气勿入短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ?????????·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days, 
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6138,13 +6124,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case SoundLt_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 声光报警器掉线", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ????????????", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 声光报警器短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????????·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6153,13 +6139,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case SirenBk_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 警笛掉线", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ???????", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 警笛短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ?????·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6167,13 +6153,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case OutFir1_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 灭火装置1掉线", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????1????", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 灭火装置1短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????1??·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6182,13 +6168,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case OutFir2_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 灭火装置2掉线", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????2????", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 灭火装置2短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????2??·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6197,13 +6183,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case CabinBK_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 喷放装置掉线", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ?????????", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 喷放装置短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ???????·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6212,13 +6198,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case FEEDBK1_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 反馈1掉线", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ????1????", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 反馈1短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ????1??·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6226,13 +6212,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case FEEDBK2_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 反馈2掉线", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ????2????", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 反馈2短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ????2??·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6241,26 +6227,26 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case HANDPOT_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 手报掉线", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ???????", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 手报短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ?????·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							break;
-						case SYS_FLASH_FAULT_ID: { // 如果是存储故障
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 系统存储故障", temp_sequence_count,
+						case SYS_FLASH_FAULT_ID: { // ?????洢????
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ???洢????", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 
 							break;
 						}							
 						case SYS_MAIN_POWER_KEY_ID : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 主电故障", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ???????", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
@@ -6268,38 +6254,38 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case SYS_BACK_POWER_KEY_ID : {
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 备电故障", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ???????", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 备电短路", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ?????·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							break;
 						}
 						case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_1 : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 回路1短路", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??·1??·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
 						}
 						case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_2 : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 回路2短路", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??·2??·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
 						}
 						case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_3 : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 回路3短路", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??·3??·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
 						}
 						case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_4 : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 回路4短路", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??·4??·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
@@ -6309,9 +6295,9 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 			} 
 			else {
 				baojingneirong[0] = 0;
-				//clearTextValue(1 , 41 + i);//(画面ID,控件ID）
+				//clearTextValue(1 , 41 + i);//(????ID,???ID??
 			}
-			SetTextValue(monitor_inform_screen_id, i + 42, baojingneirong);//刷新报警内容
+			SetTextValue(monitor_inform_screen_id, i + 42, baojingneirong);//??±???????
 		}
 	}
 	
@@ -6329,27 +6315,27 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 
 static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry, uint8_t fresh_page_flag)
 {
-	// 预警显示
-	if(pcfws_entry->self_bottom_point == 0) // 如果报警数量为0 
+	// ??????
+	if(pcfws_entry->self_bottom_point == 0) // ????????????0 
 	{
 		if(pcfws_entry->point_history_len != 0)
 		{
 			pcfws_entry->point_history_len = 0;
-			clearTextValue(monitor_inform_screen_id , 36);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 37);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 38);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 39);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 40);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 41);//(画面ID,控件ID)
+			clearTextValue(monitor_inform_screen_id , 36);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 37);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 38);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 39);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 40);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 41);//(????ID,???ID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中.     ");break;   //刷新报警内容
-			case 20:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中..    ");break;   //刷新报警内容
-			case 30:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中...   ");break;   //刷新报警内容
-			case 40:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中....  ");break;   //刷新报警内容
-			case 50:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中..... ");break;   //刷新报警内容
-			case 60:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中......");break;   //刷新报警内容
+			case 10:SetTextValue(monitor_inform_screen_id, 35,"???????????.     ");break;   //??±???????
+			case 20:SetTextValue(monitor_inform_screen_id, 35,"???????????..    ");break;   //??±???????
+			case 30:SetTextValue(monitor_inform_screen_id, 35,"???????????...   ");break;   //??±???????
+			case 40:SetTextValue(monitor_inform_screen_id, 35,"???????????....  ");break;   //??±???????
+			case 50:SetTextValue(monitor_inform_screen_id, 35,"???????????..... ");break;   //??±???????
+			case 60:SetTextValue(monitor_inform_screen_id, 35,"???????????......");break;   //??±???????
 		}
 	}
 	else if(pcfws_entry->self_bottom_point != pcfws_entry->point_history_len || fresh_page_flag == 1)
@@ -6359,41 +6345,41 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 		
 
 		
-		// 第一条报警信息置顶显示
+		// ??????????????????
 		if(pcfws_entry->detector_class[0] == PackClassID && pcfws_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first warning display uses "第3回路 X号".
+			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first warning display uses "??3??· X??".
 			FormatRS485DetectForeWarnLine(baojingneirong, 1, pcfws_entry, 0);
 		}
 		else if(pcfws_entry->detector_class[0] == PackClassID)
 		{
 			if(pcfws_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK????????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws.da[0].cluster_id, pcfws.da[0].pack_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
 			}
 		}
-		else if(pcfws_entry->detector_class[0] == LinkageClassID) // 如果是外联设备
+		else if(pcfws_entry->detector_class[0] == LinkageClassID) // ??????????豸
 		{
 			if(pcfws_entry->alarm_type[0] == AlarmCtrlKey)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 报警器按下", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????????", 1,
 					pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 					pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second);
 			}
@@ -6402,41 +6388,41 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 		{
 			if(pcfws_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ???????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws.da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Hydrogen)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 		}
 		
-		SetTextValue(monitor_inform_screen_id, 35, baojingneirong); // 刷新第一条报警内容
+		SetTextValue(monitor_inform_screen_id, 35, baojingneirong); // ??μ????????????
 			
 		uint8_t temp_sequence_count = 0;
 		
-		// 剩下的区域滚动显示
+		// ??μ???????????
 		for (uint8_t i = 1; i < Alarm_Show_Zone; i++) {
-			uint8_t data_index = fore_alarm_start_index + i; // 预警更新
+			uint8_t data_index = fore_alarm_start_index + i; // ???????
 			
 			temp_sequence_count = data_index + 1;
 			
@@ -6444,28 +6430,28 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 				pcfws_entry->detector_class[data_index] == PackClassID &&
 				pcfws_entry->da[data_index].cluster_id == RS485_DETECT_FLASH_ID)
 			{
-				// XR5000_LOOP3_CHANGE_20260726: Loop 3 warning display uses "第3回路 X号".
+				// XR5000_LOOP3_CHANGE_20260726: Loop 3 warning display uses "??3??· X??".
 				FormatRS485DetectForeWarnLine(baojingneirong, temp_sequence_count, pcfws_entry, data_index);
 			}
 			else if(data_index < pcfws_entry->self_bottom_point && pcfws_entry->detector_class[data_index] == PackClassID)
 			{
 				if(pcfws_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK????????????", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????????", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
@@ -6476,13 +6462,13 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 			{
 				if(pcfws_entry->alarm_type[0] == AlarmCtrlKey)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 报警器按下", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????????", temp_sequence_count,
 						pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 						pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[data_index].second);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == HandAlarm)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 手报按下报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????±???", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[0].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second);
 				}
@@ -6491,28 +6477,28 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 			{
 				if(pcfws_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ???????", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????????", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Hydrogen)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ????????", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
@@ -6521,36 +6507,36 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 			else
 			{
 				baojingneirong[0] = 0;
-//				clearTextValue(1 , 35 + i); //(画面ID,控件ID）
+//				clearTextValue(1 , 35 + i); //(????ID,???ID??
 			}
-			SetTextValue(monitor_inform_screen_id, 35 + i, baojingneirong); // 刷新报警内容
+			SetTextValue(monitor_inform_screen_id, 35 + i, baojingneirong); // ??±???????
 		}
 	}
 }
 
 static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_entry, uint8_t fresh_page_flag)
 {
-	// 预警显示
-	if(pcfws_entry->self_bottom_point == 0) // 如果报警数量为0 
+	// ??????
+	if(pcfws_entry->self_bottom_point == 0) // ????????????0 
 	{
 		if(pcfws_entry->point_history_len != 0)
 		{
 			pcfws_entry->point_history_len = 0;
-			clearTextValue(monitor_inform_screen_id , 36);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 37);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 38);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 39);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 40);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 41);//(画面ID,控件ID)
+			clearTextValue(monitor_inform_screen_id , 36);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 37);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 38);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 39);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 40);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 41);//(????ID,???ID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中.     ");break;   //刷新报警内容
-			case 20:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中..    ");break;   //刷新报警内容
-			case 30:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中...   ");break;   //刷新报警内容
-			case 40:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中....  ");break;   //刷新报警内容
-			case 50:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中..... ");break;   //刷新报警内容
-			case 60:SetTextValue(monitor_inform_screen_id, 35,"预警系统运行中......");break;   //刷新报警内容
+			case 10:SetTextValue(monitor_inform_screen_id, 35,"???????????.     ");break;   //??±???????
+			case 20:SetTextValue(monitor_inform_screen_id, 35,"???????????..    ");break;   //??±???????
+			case 30:SetTextValue(monitor_inform_screen_id, 35,"???????????...   ");break;   //??±???????
+			case 40:SetTextValue(monitor_inform_screen_id, 35,"???????????....  ");break;   //??±???????
+			case 50:SetTextValue(monitor_inform_screen_id, 35,"???????????..... ");break;   //??±???????
+			case 60:SetTextValue(monitor_inform_screen_id, 35,"???????????......");break;   //??±???????
 		}
 	}
 	else if(pcfws_entry->self_bottom_point != pcfws_entry->point_history_len || fresh_page_flag == 1)
@@ -6562,9 +6548,9 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 
 		uint8_t temp_sequence_count = 0;
 		
-		// 剩下的区域滚动显示
+		// ??μ???????????
 		for (uint8_t i = 0; i < Alarm_Show_Zone; i++) {
-			uint8_t data_index = fore_alarm_start_index + i; // 预警更新
+			uint8_t data_index = fore_alarm_start_index + i; // ???????
 			
 			temp_sequence_count = data_index + 1;
 			
@@ -6572,28 +6558,28 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 				pcfws_entry->detector_class[data_index] == PackClassID &&
 				pcfws_entry->da[data_index].cluster_id == RS485_DETECT_FLASH_ID)
 			{
-				// XR5000_LOOP3_CHANGE_20260726: Loop 3 warning display uses "第3回路 X号".
+				// XR5000_LOOP3_CHANGE_20260726: Loop 3 warning display uses "??3??· X??".
 				FormatRS485DetectForeWarnLine(baojingneirong, temp_sequence_count, pcfws_entry, data_index);
 			}
 			else if(data_index < pcfws_entry->self_bottom_point && pcfws_entry->detector_class[data_index] == PackClassID)
 			{
 				if(pcfws_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK????????????", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????????", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
@@ -6604,13 +6590,13 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 			{
 				if(pcfws_entry->alarm_type[0] == AlarmCtrlKey)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 报警器按下", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????????", temp_sequence_count,
 						pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 						pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[data_index].second);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == HandAlarm)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 手报按下报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????±???", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[0].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second);
 				}
@@ -6624,28 +6610,28 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 			{
 				if(pcfws_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ???????", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????????", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Hydrogen)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ????????", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
@@ -6654,36 +6640,36 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 			else
 			{
 				baojingneirong[0] = 0;
-//				clearTextValue(1 , 35 + i); //(画面ID,控件ID）
+//				clearTextValue(1 , 35 + i); //(????ID,???ID??
 			}
-			SetTextValue(monitor_inform_screen_id, 35 + i, baojingneirong); // 刷新报警内容
+			SetTextValue(monitor_inform_screen_id, 35 + i, baojingneirong); // ??±???????
 		}
 	}
 }
 
 static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entry, uint8_t fresh_page_flag)
 {
-	// 火警监控
+	// ?????
 	if(pcfas_entry->self_bottom_point == 0) // 
 	{
 		if(pcfas_entry->point_history_len != 0)
 		{
 			pcfas_entry->point_history_len = 0;
-			clearTextValue(monitor_inform_screen_id , 50);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 51);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 52);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 53);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 54);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 55);//(画面ID,控件ID)
+			clearTextValue(monitor_inform_screen_id , 50);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 51);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 52);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 53);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 54);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 55);//(????ID,???ID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中.     ");break;   //刷新报警内容
-			case 20:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中..    ");break;   //刷新报警内容
-			case 30:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中...   ");break;   //刷新报警内容
-			case 40:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中....  ");break;   //刷新报警内容
-			case 50:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中..... ");break;   //刷新报警内容
-			case 60:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中......");break;   //刷新报警内容
+			case 10:SetTextValue(monitor_inform_screen_id, 49,"??????????.     ");break;   //??±???????
+			case 20:SetTextValue(monitor_inform_screen_id, 49,"??????????..    ");break;   //??±???????
+			case 30:SetTextValue(monitor_inform_screen_id, 49,"??????????...   ");break;   //??±???????
+			case 40:SetTextValue(monitor_inform_screen_id, 49,"??????????....  ");break;   //??±???????
+			case 50:SetTextValue(monitor_inform_screen_id, 49,"??????????..... ");break;   //??±???????
+			case 60:SetTextValue(monitor_inform_screen_id, 49,"??????????......");break;   //??±???????
 		}
 	}
 	else if(pcfas_entry->self_bottom_point != pcfas_entry->point_history_len || fresh_page_flag == 1)
@@ -6692,33 +6678,33 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 		
 		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
 
-		fire_alarm_state = 1; // 点亮火警指示灯
+		fire_alarm_state = 1; // ??????????
 		
-		// 第一条报警信息置顶显示
+		// ??????????????????
 		if(pcfas_entry->detector_class[0] == PackClassID && pcfas_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first fire display uses "第3回路 X号".
+			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first fire display uses "??3??· X??".
 			FormatRS485DetectFireAlarmLine(baojingneirong, 1, pcfas_entry, 0);
 		}
 		else if(pcfas_entry->detector_class[0] == PackClassID)
 		{
 			if(pcfas_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK????????????", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????????", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
@@ -6728,13 +6714,13 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 		{
 			if(pcfas_entry->alarm_type[0] == AlarmCtrlKey)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 报警器按下", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
 			}
 			else
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 手报按下报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????±???", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
 			}
@@ -6744,39 +6730,39 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 		{
 			if(pcfas_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ???????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfws.atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Hydrogen)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ????????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 		}
 		
-		SetTextValue(monitor_inform_screen_id, 49, baojingneirong); // 刷新第一条报警内容
+		SetTextValue(monitor_inform_screen_id, 49, baojingneirong); // ??μ????????????
 			
 		uint8_t temp_sequence_count = 0;
 		
-		// 剩下五个区域滚动显示
+		// ????????????????
 		for (uint8_t i = 1; i < Alarm_Show_Zone; i++) {
 			uint8_t data_index = fire_alarm_start_index + i;
 			
@@ -6786,7 +6772,7 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 				pcfas_entry->detector_class[data_index] == PackClassID &&
 				pcfas_entry->da[data_index].cluster_id == RS485_DETECT_FLASH_ID)
 			{
-				// XR5000_LOOP3_CHANGE_20260726: Loop 3 fire display uses "第3回路 X号".
+				// XR5000_LOOP3_CHANGE_20260726: Loop 3 fire display uses "??3??· X??".
 				FormatRS485DetectFireAlarmLine(baojingneirong, temp_sequence_count, pcfas_entry, data_index);
 			}
 			else if(data_index < pcfas_entry->self_bottom_point && pcfas_entry->detector_class[data_index] == PackClassID)
@@ -6794,21 +6780,21 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 				
 				if(pcfas_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
 				}
 				else if(pcfas.alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK????????????", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
 				}
 				else if(pcfas.alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????????", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
@@ -6816,7 +6802,7 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 			}
 			else if(data_index < pcfas_entry->self_bottom_point && pcfas_entry->detector_class[data_index] == LinkageClassID)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 手报按下报警", temp_sequence_count,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????±???", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second);
 			}
@@ -6824,28 +6810,28 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 			{
 				if(pcfas_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ???????", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????????", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Hydrogen)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ????????", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
@@ -6854,36 +6840,36 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 			else
 			{
 				baojingneirong[0] = 0;
-//				clearTextValue(1 , 38 + i); //(画面ID,控件ID）
+//				clearTextValue(1 , 38 + i); //(????ID,???ID??
 			}
-			SetTextValue(monitor_inform_screen_id, 49 + i, baojingneirong); // 刷新报警内容
+			SetTextValue(monitor_inform_screen_id, 49 + i, baojingneirong); // ??±???????
 		}
 	}
 }
 
 static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas_entry, uint8_t fresh_page_flag)
 {
-	// 火警监控
+	// ?????
 	if(pcfas_entry->self_bottom_point == 0) // 
 	{
 		if(pcfas_entry->point_history_len != 0)
 		{
 			pcfas_entry->point_history_len = 0;
-			clearTextValue(monitor_inform_screen_id , 50);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 51);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 52);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 53);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 54);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 55);//(画面ID,控件ID)
+			clearTextValue(monitor_inform_screen_id , 50);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 51);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 52);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 53);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 54);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 55);//(????ID,???ID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中.     ");break;   //刷新报警内容
-			case 20:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中..    ");break;   //刷新报警内容
-			case 30:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中...   ");break;   //刷新报警内容
-			case 40:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中....  ");break;   //刷新报警内容
-			case 50:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中..... ");break;   //刷新报警内容
-			case 60:SetTextValue(monitor_inform_screen_id, 49,"火警系统运行中......");break;   //刷新报警内容
+			case 10:SetTextValue(monitor_inform_screen_id, 49,"??????????.     ");break;   //??±???????
+			case 20:SetTextValue(monitor_inform_screen_id, 49,"??????????..    ");break;   //??±???????
+			case 30:SetTextValue(monitor_inform_screen_id, 49,"??????????...   ");break;   //??±???????
+			case 40:SetTextValue(monitor_inform_screen_id, 49,"??????????....  ");break;   //??±???????
+			case 50:SetTextValue(monitor_inform_screen_id, 49,"??????????..... ");break;   //??±???????
+			case 60:SetTextValue(monitor_inform_screen_id, 49,"??????????......");break;   //??±???????
 		}
 	}
 	else if(pcfas_entry->self_bottom_point != pcfas_entry->point_history_len || fresh_page_flag == 1)
@@ -6892,11 +6878,11 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 		
 		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
 
-		fire_alarm_state = 1; // 点亮火警指示灯
+		fire_alarm_state = 1; // ??????????
 		
 		uint8_t temp_sequence_count = 0;
 		
-		// 剩下五个区域滚动显示
+		// ????????????????
 		for (uint8_t i = 0; i < Alarm_Show_Zone; i++) {
 			uint8_t data_index = fire_alarm_start_index + i;
 			
@@ -6906,7 +6892,7 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 				pcfas_entry->detector_class[data_index] == PackClassID &&
 				pcfas_entry->da[data_index].cluster_id == RS485_DETECT_FLASH_ID)
 			{
-				// XR5000_LOOP3_CHANGE_20260726: Loop 3 fire display uses "第3回路 X号".
+				// XR5000_LOOP3_CHANGE_20260726: Loop 3 fire display uses "??3??· X??".
 				FormatRS485DetectFireAlarmLine(baojingneirong, temp_sequence_count, pcfas_entry, data_index);
 			}
 			else if(data_index < pcfas_entry->self_bottom_point && pcfas_entry->detector_class[data_index] == PackClassID)
@@ -6914,21 +6900,21 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 				
 				if(pcfas_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
 				}
 				else if(pcfas.alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK????????????", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
 				}
 				else if(pcfas.alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????????", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
@@ -6936,7 +6922,7 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 			}
 			else if(data_index < pcfas_entry->self_bottom_point && pcfas_entry->detector_class[data_index] == LinkageClassID)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 手报按下报警", temp_sequence_count,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??????±???", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second);
 			}
@@ -6949,28 +6935,28 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 			{
 				if(pcfas_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ???????", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????????", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Hydrogen)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ????????", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
@@ -6979,24 +6965,24 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 			else
 			{
 				baojingneirong[0] = 0;
-//				clearTextValue(1 , 38 + i); //(画面ID,控件ID）
+//				clearTextValue(1 , 38 + i); //(????ID,???ID??
 			}
-			SetTextValue(monitor_inform_screen_id, 49 + i, baojingneirong); // 刷新报警内容
+			SetTextValue(monitor_inform_screen_id, 49 + i, baojingneirong); // ??±???????
 		}
 	}
 }
 
 static void CreatNewFireExtinguishRecord(
-	FireExtinguishDeviceActionSave *fedas_entry, // 默认赋值的结构体
-	FireExtinguishDeviceActionSave *copy_fedas,  // 默认赋值的结构体
+	FireExtinguishDeviceActionSave *fedas_entry, // ??????????
+	FireExtinguishDeviceActionSave *copy_fedas,  // ??????????
 	uint8_t copy_dedas_offset,
 	FireExtinguishDeviceActionType state, 
-	uint16_t state_switch_delay             // 状态切换延时 
+	uint16_t state_switch_delay             // ???л???? 
 )
 {
-	// 获取一下RTC时间
+	// ??????RTC???
 	getBM8563TimeToSystemTime();
-	// 记录创建时间
+	// ??????????
 	fedas_entry->atr[fedas_entry->self_point_len].years  = years + 2000;
 	fedas_entry->atr[fedas_entry->self_point_len].months = months;
 	fedas_entry->atr[fedas_entry->self_point_len].days   = days;
@@ -7005,27 +6991,27 @@ static void CreatNewFireExtinguishRecord(
 	
 	fedas_entry->atr[fedas_entry->self_point_len].second = secs;
 	
-	// 复制簇PACK/仓ID
+	// ?????PACK/??ID
 	fedas_entry->cabin_id[fedas_entry->self_point_len]   = copy_fedas->cabin_id[copy_dedas_offset];
 	fedas_entry->cluster_id[fedas_entry->self_point_len] = copy_fedas->cluster_id[copy_dedas_offset];
 	fedas_entry->pack_id[fedas_entry->self_point_len]    = copy_fedas->pack_id[copy_dedas_offset];
-	// 状态赋值
+	// ?????
 	fedas_entry->fed_action[fedas_entry->self_point_len] = state;
-	fedas_entry->countdown_val[fedas_entry->self_point_len] = state_switch_delay; // 持续时长state_switch_delay秒
-	// 记录启动时间
+	fedas_entry->countdown_val[fedas_entry->self_point_len] = state_switch_delay; // ???????state_switch_delay??
+	// ?????????
 	fedas_entry->start_cntd_time[fedas_entry->self_point_len] = baojingjishi; 
-	// 记录一下当前时间	
+	// ?????μ?????	
 	fedas_entry->curr_cntd_time[fedas_entry->self_point_len]  = fedas_entry->start_cntd_time[fedas_entry->self_point_len]; 
-	// 指向下一个位置
+	// ????????λ??
 	fedas_entry->self_point_len++; 
 }
 
 static void FireExtinguishDevice1HandStart(FireExtinguishDeviceActionSave *fedas_entry)
 {
 	uint8_t out_fire_start_flag = 0;
-	start_stop_key_state = 1; // 手动启动
+	start_stop_key_state = 1; // ??????
 
-	// 记录气灭启动按键按下 
+	// ?????????????????? 
 	BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_ST_PRESS, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 	for(uint8_t j = 0; j < fedas_entry->self_point_len; j++)
 	{
@@ -7033,37 +7019,37 @@ static void FireExtinguishDevice1HandStart(FireExtinguishDeviceActionSave *fedas
 		{
 			if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_CAN_RESTART)
 			{
-				// 该状态 显示内容不变 还是显示灭火装置启动停止
-				fedas_entry->fed_action[j] = FIRE_EXTINGUISH_RESTART_FINISH; // 标记为已经重新启动
-				// 创建新记录 重新启动
+				// ???? ?????????? ??????????????????
+				fedas_entry->fed_action[j] = FIRE_EXTINGUISH_RESTART_FINISH; // ??????????????
+				// ???????? ???????
 				CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, j, FIRE_EXTINGUISH_START_SPRAY_DELAY, 30);
-				// 记录到FLASH中 灭火装置再次启动
+				// ?????FLASH?? ????????????
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRESTART_AGAIN, OUTFIRE_CLUSTER_ID, OUTFIRE_PACKAGE_ID);
-				// 记录到FLASH中 灭火装置1第一次启动倒计时
+				// ?????FLASH?? ??????1?????????????
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 				out_fire_start_flag = 1;
 			}
 			else if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_MODE_JUDGEMENT)
 			{
-				fedas_entry->start_cntd_time[j] = baojingjishi; // 记录启动时间
-				fedas_entry->curr_cntd_time[j]  = baojingjishi; // 记录一下当前时间
+				fedas_entry->start_cntd_time[j] = baojingjishi; // ?????????
+				fedas_entry->curr_cntd_time[j]  = baojingjishi; // ?????μ?????
 				fedas_entry->fed_action[j]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; 
 
-				// 记录到FLASH中 灭火装置1第一次启动倒计时
+				// ?????FLASH?? ??????1?????????????
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 				out_fire_start_flag = 1;
 			}
 		}
 		
 	}
-	if(out_fire_start_flag == 0) // 如果本次按下没有启动任何簇
+	if(out_fire_start_flag == 0) // ?????????????????κδ?
 	{
 		uint8_t index = fedas_entry->self_point_len;
 
-		// 获取一下RTC时间
+		// ??????RTC???
 		getBM8563TimeToSystemTime();
 		
-		// 记录创建时间
+		// ??????????
 		fedas_entry->atr[index].years  = years + 2000;
 		fedas_entry->atr[index].months = months;
 		fedas_entry->atr[index].days   = days;
@@ -7072,32 +7058,32 @@ static void FireExtinguishDevice1HandStart(FireExtinguishDeviceActionSave *fedas
 		
 		fedas_entry->atr[index].second = secs;
 		
-		// 记录仓ID
+		// ?????ID
 		fedas_entry->cabin_id[index]   = 0;
 		fedas_entry->cluster_id[index] = 1;
 		fedas_entry->pack_id[index]    = 1;
 		
-		// 创建一条启动记录
-		fedas_entry->start_cntd_time[index] = baojingjishi; // 记录启动时间
-		fedas_entry->curr_cntd_time[index]  = baojingjishi; // 记录一下当前时间
+		// ?????????????
+		fedas_entry->start_cntd_time[index] = baojingjishi; // ?????????
+		fedas_entry->curr_cntd_time[index]  = baojingjishi; // ?????μ?????
 		fedas_entry->fed_action[index]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; 
 		
-		fedas_entry->countdown_val[index] = 30; // 持续时长state_switch_delay秒
+		fedas_entry->countdown_val[index] = 30; // ???????state_switch_delay??
 		
 		fedas_entry->self_point_len++;
 		
 		FireAlarmRelayCtrl(JDQ_ON);
 		ForeWarmRelayCtrl(JDQ_ON);
-		beep_fire_ctrl |= 0xF0;  // 真 火警 长鸣
+		beep_fire_ctrl |= 0xF0;  // ?? ?? ????
 	}
 }
 
 static void FireExtinguishDevice2HandStart(FireExtinguishDeviceActionSave *fedas_entry)
 {
 	uint8_t out_fire_start_flag = 0;
-	start_stop_key_state = 1; // 手动启动
+	start_stop_key_state = 1; // ??????
 	
-	// 记录气灭启动按键按下 
+	// ?????????????????? 
 	BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_ST_PRESS, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 	for(uint8_t j = 0; j < fedas_entry->self_point_len; j++)
 	{
@@ -7105,36 +7091,36 @@ static void FireExtinguishDevice2HandStart(FireExtinguishDeviceActionSave *fedas
 		{
 			if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_CAN_RESTART)
 			{
-				// 该状态 显示内容不变 还是显示灭火装置启动停止
-				fedas_entry->fed_action[j] = FIRE_EXTINGUISH_RESTART_FINISH; // 标记为已经重新启动
-				// 创建新记录 重新启动
+				// ???? ?????????? ??????????????????
+				fedas_entry->fed_action[j] = FIRE_EXTINGUISH_RESTART_FINISH; // ??????????????
+				// ???????? ???????
 				CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, j, FIRE_EXTINGUISH_START_SPRAY_DELAY, 30);
-				// 记录到FLASH中 灭火装置再次启动
+				// ?????FLASH?? ????????????
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRESTART_AGAIN, OUTFIRE_CLUSTER_ID, OUTFIRE_PACKAGE_ID);
-				// 记录到FLASH中 灭火装置1第一次启动倒计时
+				// ?????FLASH?? ??????1?????????????
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 				out_fire_start_flag = 1;
 			}
 			else if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_MODE_JUDGEMENT)
 			{
-				fedas_entry->start_cntd_time[j] = baojingjishi; // 记录启动时间
-				fedas_entry->curr_cntd_time[j]  = baojingjishi; // 记录一下当前时间
+				fedas_entry->start_cntd_time[j] = baojingjishi; // ?????????
+				fedas_entry->curr_cntd_time[j]  = baojingjishi; // ?????μ?????
 				fedas_entry->fed_action[j]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; 
 
-				// 记录到FLASH中 灭火装置1第一次启动倒计时
+				// ?????FLASH?? ??????1?????????????
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 				out_fire_start_flag = 1;
 			}
 		}
 	}
-	if(out_fire_start_flag == 0) // 如果本次按下没有任何仓启动 即手动强启仓喷
+	if(out_fire_start_flag == 0) // ??????????????κβ???? ???????????
 	{
 		uint8_t index = fedas_entry->self_point_len;
 
-		// 获取一下RTC时间
+		// ??????RTC???
 		getBM8563TimeToSystemTime();
 		
-		// 记录创建时间
+		// ??????????
 		fedas_entry->atr[index].years  = years + 2000;
 		fedas_entry->atr[index].months = months;
 		fedas_entry->atr[index].days   = days;
@@ -7143,36 +7129,36 @@ static void FireExtinguishDevice2HandStart(FireExtinguishDeviceActionSave *fedas
 		
 		fedas_entry->atr[index].second = secs;
 		
-		// 记录仓ID
+		// ?????ID
 		fedas_entry->cabin_id[index]   = 1;
 		fedas_entry->cluster_id[index] = 0;
 		fedas_entry->pack_id[index]    = 0;
 		
-		// 创建一条启动记录
-		fedas_entry->start_cntd_time[index] = baojingjishi; // 记录启动时间
-		fedas_entry->curr_cntd_time[index]  = baojingjishi; // 记录一下当前时间
+		// ?????????????
+		fedas_entry->start_cntd_time[index] = baojingjishi; // ?????????
+		fedas_entry->curr_cntd_time[index]  = baojingjishi; // ?????μ?????
 		fedas_entry->fed_action[index]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; 
 		
-		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // 持续时长state_switch_delay秒
+		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // ???????state_switch_delay??
 		
 		fedas_entry->self_point_len++;
 		
 		
 		FireAlarmRelayCtrl(JDQ_ON);
 		ForeWarmRelayCtrl(JDQ_ON);
-		beep_fire_ctrl |= 0xF0;  // 真 火警 长鸣
+		beep_fire_ctrl |= 0xF0;  // ?? ?? ????
 	}
 
 }
 
 static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *fedas_entry, PackAlarmStorage *pas_entry)
 {
-	// 如果有探测器火警
-	if(pas_pointer != last_pas_len && pas_pointer > 0) // 如果有新的报警增加
+	// ????????????
+	if(pas_pointer != last_pas_len && pas_pointer > 0) // ??????μ????????
 	{
-		for(uint8_t i = last_pas_len; i < pas_pointer; i++) // 从上一次记录的位置开始给结构体进行赋值
+		for(uint8_t i = last_pas_len; i < pas_pointer; i++) // ??????μ????λ????????????и??
 		{
-			if(pas_entry[i].cluster_id == LINKAGE_CLUSTER_ID) // 如果是外联设备不计入判断
+			if(pas_entry[i].cluster_id == LINKAGE_CLUSTER_ID) // ??????????豸???????ж?
 			{
 				continue;
 			}
@@ -7180,40 +7166,42 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 			fedas_entry->cabin_id[fedas_entry->self_point_len]   = pas_entry[i].cabin_id;
 			fedas_entry->cluster_id[fedas_entry->self_point_len] = pas_entry[i].cluster_id;
 			fedas_entry->pack_id[fedas_entry->self_point_len]    = pas_entry[i].pack_id;
-			fedas_entry->fed_action[fedas_entry->self_point_len] = pas_entry[i].lunch_state; // 获取当前启动状态
-			fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // 启动延时倒计时30秒
+			fedas_entry->fed_action[fedas_entry->self_point_len] = pas_entry[i].lunch_state; // ???????????
+			fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // ???????????30??
 
 			fedas_entry->self_point_len++;
 		}
 		last_pas_len = pas_pointer; 
 	}
-	// 如果反馈1触发
+	// ???????1????
 	if(getFeedBack1State() == 0x0F)
 	{
-		// 喷洒声信号
+		// ?????????
 		beep_spray_feedback_ctrl = 1;
-		// 修改状态 确保只运行一次
+		// ????? ???????????
 		setDealFeedBack1State();
-		// 点亮分区1反馈灯
+		// ????????1??????
 		Part1FeedbackLedCtrl(LED_ON);
-		// 记录到FLASH中 反馈一动作
+		// ?????FLASH?? ?????????
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_FEEDBACK1, LINKAGE_CLUSTER_ID, FEEDBK1_Package_ID);
+		StorageEvent_LogFeedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0); /* ?????:????1??? */
+		FecbusReport_Feedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0);    /* FECbus:????1??? */
 
-		// 创建一条新纪录
-		// 记录创建时间
+		// ???????????
+		// ??????????
 		fedas_entry->atr[fedas_entry->self_point_len].years  = years + 2000;
 		fedas_entry->atr[fedas_entry->self_point_len].months = months;
 		fedas_entry->atr[fedas_entry->self_point_len].days   = days;
 		fedas_entry->atr[fedas_entry->self_point_len].hours  = hours;
 		fedas_entry->atr[fedas_entry->self_point_len].minute = minutes;
 
-		// 新增记录秒
+		// ?????????
 		fedas_entry->atr[fedas_entry->self_point_len].second = secs;
 		
 		fedas_entry->cabin_id[fedas_entry->self_point_len]   = 0;
 		fedas_entry->cluster_id[fedas_entry->self_point_len] = LINKAGE_CLUSTER_ID;
 		fedas_entry->pack_id[fedas_entry->self_point_len]    = FEEDBK1_Package_ID;
-		fedas_entry->fed_action[fedas_entry->self_point_len] = FEEDBACK_1_PRESS; // 获取当前启动状态
+		fedas_entry->fed_action[fedas_entry->self_point_len] = FEEDBACK_1_PRESS; // ???????????
 		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // 
 			
 		fedas_entry->self_point_len++;
@@ -7221,26 +7209,26 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 	
 	if(getOutFireKeyalue() == KEY12_PART1_STOP)
 	{
-		// 清空键值
+		// ?????
 		clearOutFireKeyValue();
-		start_stop_key_state = 2; // 手动停止
-		// 获取一下RTC时间
+		start_stop_key_state = 2; // ?????
+		// ??????RTC???
 		getBM8563TimeToSystemTime();
-		// 记录气灭停止按键按下
+		// ?????????????????
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_SP_PRESS, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
-		// 遍历所有数组
+		// ????????????
 		for(uint8_t j = 0; j < fedas_entry->self_point_len; j++)
 		{
 			if(fedas_entry->cabin_id[j] == 0  && fedas_entry->cluster_id[j] != OUTFIRE_CLUSTER_ID && fedas_entry->cluster_id[j] != 0)
 			{
-				// 将所有正在启动倒计时的灭火装置全部停掉
+				// ????????????????????????????????
 				if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_START_SPRAY_DELAY)
 				{
-					// 这个状态显示为 时间 启动倒计时多少秒
-					fedas_entry->fed_action[j] = FIRE_EXTINGUISH_FORCE_STOP; // 标记为强制结束
-					// 将本状态赋值为可重新启动 显示在屏幕上是 停止启动
+					// ????????? ??? ??????????????
+					fedas_entry->fed_action[j] = FIRE_EXTINGUISH_FORCE_STOP; // ??????????
+					// ??????????????????? ???????????? ?????
 					CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, j, FIRE_EXTINGUISH_CAN_RESTART, 0);  //  
-					// 存入FLASH 新建一条记录 记录灭火装置启动停止
+					// ????FLASH ????????? ??????????????
 					BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_STOP, OUTFIRE_CLUSTER_ID, OUTFIRE_PACKAGE_ID);
 				}
 			}
@@ -7249,39 +7237,39 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 	}
 	else if(getOutFireKeyalue() == KEY11_PART1_SOUNDLT)
 	{
-		// 清空键值
+		// ?????
 		clearOutFireKeyValue();
-		// 点亮声光LED 
+		// ????????LED 
 		Part1SoundLightLedCtrl(LED_ON);
-		// 记录声光按键按下
+		// ?????????????
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_SL_PRESS, OUTFIRE_CLUSTER_ID, SoundLt_Package_ID);
-		// 启动声光
+		// ???????
 		SoundLightRelayCtrl(JDQ_ON);
 	}
 	
 	if(getOutFireKeyalue() == KEY14_PART2_STOP)
 	{
-		start_stop_key_state = 2; // 手动停止
+		start_stop_key_state = 2; // ?????
 		
-		// 清空键值
+		// ?????
 		clearOutFireKeyValue();
-		// 获取一下RTC时间
+		// ??????RTC???
 		getBM8563TimeToSystemTime();
-		// 记录气灭停止按键按下
+		// ?????????????????
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_SP_PRESS, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
-		// 遍历所有数组
+		// ????????????
 		for(uint8_t j = 0; j < fedas_entry->self_point_len; j++)
 		{
 			if(fedas_entry->cabin_id[j] != 0  && fedas_entry->cluster_id[j] == 0)
 			{
-				// 将所有正在启动倒计时的灭火装置全部停掉
+				// ????????????????????????????????
 				if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_START_SPRAY_DELAY)
 				{
-					// 这个状态显示为 时间 启动倒计时多少秒
-					fedas_entry->fed_action[j] = FIRE_EXTINGUISH_FORCE_STOP; // 标记为强制结束
-					// 将本状态赋值为可重新启动 显示在屏幕上是 停止启动
+					// ????????? ??? ??????????????
+					fedas_entry->fed_action[j] = FIRE_EXTINGUISH_FORCE_STOP; // ??????????
+					// ??????????????????? ???????????? ?????
 					CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, j, FIRE_EXTINGUISH_CAN_RESTART, 0);  //  
-					// 存入FLASH 新建一条记录 记录灭火装置启动停止
+					// ????FLASH ????????? ??????????????
 					BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_STOP, OUTFIRE_CLUSTER_ID, OUTFIRE_PACKAGE_ID);
 				}
 			}
@@ -7291,39 +7279,39 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 	}
 	else if(getOutFireKeyalue() == KEY13_PART2_SOUNDLT)
 	{
-		// 点亮声光LED 
+		// ????????LED 
 		Part2SoundLightLedCtrl(LED_ON);
-		// 记录声光按键按下
+		// ?????????????
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_SL_PRESS, OUTFIRE_CLUSTER_ID, SoundLt_Package_ID);
-		// 启动声光
+		// ???????
 		SoundLightRelayCtrl(JDQ_ON);
 		clearOutFireKeyValue();
 	}
 
-	for(uint8_t i = 0; i < fedas_entry->self_point_len; i++) // 更新所有报警的倒计时 
+	for(uint8_t i = 0; i < fedas_entry->self_point_len; i++) // ???????б????????? 
 	{
-		if(fedas_entry->cluster_id[i] == LINKAGE_CLUSTER_ID) // 如果簇ID等于联动设备动作跳过本次循环
+		if(fedas_entry->cluster_id[i] == LINKAGE_CLUSTER_ID) // ?????ID?????????豸???????????????
 		{
 			continue;
 		}
-		fedas_entry->curr_cntd_time[i] = baojingjishi; // 获取一下当前时间
+		fedas_entry->curr_cntd_time[i] = baojingjishi; // ?????μ?????
 		switch(fedas_entry->fed_action[i])
 		{
-			case FIRE_EXTINGUISH_MODE_JUDGEMENT: { // 判断是手动还是自动
+			case FIRE_EXTINGUISH_MODE_JUDGEMENT: { // ?ж?????????????
 				if(fedas_entry->cluster_id[i] == 0)
 				{
 					if(getPart2HandAutoState() == KEY_AUTO)
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 记录启动时间
-						fedas_entry->curr_cntd_time[i]  = baojingjishi; // 记录一下当前时间
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; // 自动启动倒计时
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ?????????
+						fedas_entry->curr_cntd_time[i]  = baojingjishi; // ?????μ?????
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; // ???????????
 						
-						// 启动声光 后续要修改此处启动分区二的独立声光
+						// ??????? ????????????????????????????
 						SoundLightRelayCtrl(JDQ_ON);
-						// 分区2声光启动LED
+						// ????2???????LED
 						Part2SoundLightLedCtrl(LED_ON);
 						
-						// 记录 灭火装置启动倒计时 存入FLASH 参数: 气灭存储分区 灭火装置第一次启动 簇ID 灭火装置2ID
+						// ??? ?????????????? ????FLASH ????: ????洢???? ????????????? ??ID ??????2ID
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIRE_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 					}
 				}
@@ -7331,102 +7319,102 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				{
 					if(getPart1HandAutoState() == KEY_AUTO) // 
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 记录启动时间
-						fedas_entry->curr_cntd_time[i]  = baojingjishi; // 记录一下当前时间
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; // 自动启动倒计时
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ?????????
+						fedas_entry->curr_cntd_time[i]  = baojingjishi; // ?????μ?????
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; // ???????????
 						
-						// 启动声光 后续须修改为分区一独立声光
+						// ??????? ???????????????????????
 						SoundLightRelayCtrl(JDQ_ON);
 						
-						// 点亮声光LED 
+						// ????????LED 
 						Part1SoundLightLedCtrl(LED_ON);
 						
-						// 记录 灭火装置启动倒计时 存入FLASH
+						// ??? ?????????????? ????FLASH
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIRE_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_START_SPRAY_DELAY: { // 灭火装置第1次启动倒计时
-				// 给BMS上传的状态
+			case FIRE_EXTINGUISH_START_SPRAY_DELAY: { // ???????1??????????
+				// ??BMS???????
 				outfire_spray_state = 1;
 			
 				if(fedas_entry->cluster_id[i] == 0)
 				{
-					// 该状态位置1后不在判断外联设备掉线
+					// ????λ??1?????ж??????豸????
 					mhqdbiaozhi = 1;
-					// 点亮 分区2喷洒延时 
+					// ???? ????2??????? 
 					Part2StartDelayLedCtrl(LED_ON);
-					// 点亮 分区2启动LED
+					// ???? ????2???LED
 					Part2StartLedCtrl(LED_ON);
-					// 启动 分区2声光
+					// ??? ????2????
 					SoundLightRelayCtrl(JDQ_ON);
-					// 分区2声光启动LED
+					// ????2???????LED
 					Part2SoundLightLedCtrl(LED_ON);
 					
-					// 如果30秒倒计时结束了
+					// ???30???????????
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FED_START_SPRAY_DELAY_FINISH_FLAG; // 标记为第一状态完成
-						// 关闭启动延时LED
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FED_START_SPRAY_DELAY_FINISH_FLAG; // ????????????
+						// ?????????LED
 						Part2StartDelayLedCtrl(LED_OFF);
-						// 点亮喷洒LED
+						// ????????LED
 						Part2SprayLedCtrl(LED_ON);
 						
-						// 灭火装置2 第一次启动
+						// ??????2 ????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_1, OUTFIR1_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
-						// 启动倒计时结束后 打开钢瓶阀2
+						// ?????????????? ???????2
 						OutFire2RelayCtrl(JDQ_ON);
-						// 打开放气勿入
+						// ??????????
 						DefauleRelayCtrl(JDQ_ON);
-						// 创建钢瓶启动记录
-						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_CYLINDEF_2_OPENED, 0);  // 钢瓶1电磁阀打开 
-						// 创建开始喷放记录
-						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_FIRST_SPRAY_START, 15); // 持续喷放15秒
-						// 已经启动喷放
+						// ?????????????
+						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_CYLINDEF_2_OPENED, 0);  // ???1?????? 
+						// ????????????
+						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_FIRST_SPRAY_START, 15); // ???????15??
+						// ?????????
 						outfire_spray_state = 2; 
 					}
 				}
 				else
 				{
-					// 该状态位置1后不在判断外联设备掉线
+					// ????λ??1?????ж??????豸????
 					mhqdbiaozhi = 1;
-					// 点亮喷洒延时 
+					// ??????????? 
 					Part1StartDelayLedCtrl(LED_ON);
-					// 点亮 启动LED
+					// ???? ???LED
 					Part1StartLedCtrl(LED_ON);
-					// 启动声光
+					// ???????
 					SoundLightRelayCtrl(JDQ_ON);
-					// 点亮声光LED 
+					// ????????LED 
 					Part1SoundLightLedCtrl(LED_ON);
 					
-					// 如果30秒倒计时结束了
+					// ???30???????????
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FED_START_SPRAY_DELAY_FINISH_FLAG; // 标记为第一状态完成
-						// 关闭启动延时LED
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FED_START_SPRAY_DELAY_FINISH_FLAG; // ????????????
+						// ?????????LED
 						Part1StartDelayLedCtrl(LED_OFF);
-						// 点亮喷洒LED
+						// ????????LED
 						Part1SprayLedCtrl(LED_ON);
-						// 灭火装置1第一次启动
+						// ??????1????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_1, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
-						// 启动倒计时结束后 打开钢瓶阀
+						// ?????????????? ???????
 						OutFire1RelayCtrl(JDQ_ON);
-						// 打开放气勿入
+						// ??????????
 						DefauleRelayCtrl(JDQ_ON);
-						// 创建钢瓶启动记录
-						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_CYLINDEF_1_OPENED, 0);  // 钢瓶1电磁阀打开 
-						// 创建开始喷放记录
-						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_FIRST_SPRAY_START, 15); // 持续喷放15秒
-						// 已经启动喷放
+						// ?????????????
+						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_CYLINDEF_1_OPENED, 0);  // ???1?????? 
+						// ????????????
+						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_FIRST_SPRAY_START, 15); // ???????15??
+						// ?????????
 						outfire_spray_state = 2; 
 					}
-					// 在启动倒计时一半的时候发送指令打开簇/仓阀
+					// ?????????????????????????/???
 					else if(cluster_solenoid_valve_start_state == 0 && fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= (fedas_entry->countdown_val[i] - 2) )
 					{
-						// 记录簇阀门开启
+						// ???????????
 						cluster_solenoid_valve_start_state = 1; 
 						if(fedas_entry->cabin_id[i] == 0)
 						{
@@ -7436,26 +7424,26 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_FIRST_SPRAY_START: { // 灭火装置喷放持续时间
+			case FIRE_EXTINGUISH_FIRST_SPRAY_START: { // ???????????????
 				if(fedas_entry->cluster_id[i] == 0)
 				{
 					Part2StartDelayLedCtrl(LED_ON);
-					// 如果喷放持续时间够了 更新状态保存记录
+					// ???????????乻?? ????????????
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_FIRST_SPRAY_FINISH; // 第一次持续喷放结束
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_FIRST_SPRAY_FINISH; // ????γ?????????
 						
-						// 喷放倒计时结束后 关闭钢瓶电磁阀
+						// ????????????? ?????????
 						OutFire1RelayCtrl(JDQ_OFF);
 						
-						// 2025/10/28 10:50 暂时在停止喷放时不关闭放弃勿入灯牌
-//						// 关闭放气勿入灯牌
+						// 2025/10/28 10:50 ??????????????????????????
+//						// ?????????????
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_SECOND_SPRAY_DELAY, 300);
-						// 灭火装置1第一次启动 完成 第二次启动倒计时
+						// ??????1???????? ??? ?????????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_2_START_DELAY, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 						
 						Part2StartDelayLedCtrl(LED_OFF);
@@ -7464,22 +7452,22 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				else
 				{
 					Part1StartDelayLedCtrl(LED_ON);
-					// 如果喷放持续时间够了 更新状态保存记录
+					// ???????????乻?? ????????????
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_FIRST_SPRAY_FINISH; // 第一次持续喷放结束
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_FIRST_SPRAY_FINISH; // ????γ?????????
 						
-						// 喷放倒计时结束后 关闭钢瓶电磁阀
+						// ????????????? ?????????
 						OutFire1RelayCtrl(JDQ_OFF);
 						
-						// 2025/10/28 10:50 暂时在停止喷放时不关闭放弃勿入灯牌
-//						// 关闭放气勿入灯牌
+						// 2025/10/28 10:50 ??????????????????????????
+//						// ?????????????
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_SECOND_SPRAY_DELAY, 300);
-						// 灭火装置1第一次启动 完成 第二次启动倒计时
+						// ??????1???????? ??? ?????????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_2_START_DELAY, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 						
 						Part1StartDelayLedCtrl(LED_OFF);
@@ -7487,24 +7475,24 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				}
 				break; 
 			}
-			case FIRE_EXTINGUISH_SECOND_SPRAY_DELAY: {   // 灭火装置第2次启动倒计时
+			case FIRE_EXTINGUISH_SECOND_SPRAY_DELAY: {   // ???????2??????????
 				
 				if(fedas_entry->cluster_id[i] == 0)
 				{
 					Part2StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FED_SECOND_SPRAY_DELAY_FINISH_FLAG; // 第二次喷放倒计时结束
-						// 启动倒计时结束后 打开钢瓶阀
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FED_SECOND_SPRAY_DELAY_FINISH_FLAG; // ????????????????
+						// ?????????????? ???????
 						OutFire2RelayCtrl(JDQ_ON);
-						// 打开放气勿入
+						// ??????????
 						DefauleRelayCtrl(JDQ_ON);
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_SECOND_SPRAY_START, 15);
-						// 灭火装置第二次喷放启动
+						// ????????????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_2, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
-						// 点亮启动延时
+						// ??????????
 						Part1StartDelayLedCtrl(LED_OFF);
 					}
 				}
@@ -7513,131 +7501,131 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 					Part1StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FED_SECOND_SPRAY_DELAY_FINISH_FLAG; // 第二次喷放倒计时结束
-						// 启动倒计时结束后 打开钢瓶阀
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FED_SECOND_SPRAY_DELAY_FINISH_FLAG; // ????????????????
+						// ?????????????? ???????
 						OutFire1RelayCtrl(JDQ_ON);
-						// 打开放气勿入
+						// ??????????
 						DefauleRelayCtrl(JDQ_ON);
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_SECOND_SPRAY_START, 15);
-						// 灭火装置第二次喷放启动
+						// ????????????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_2, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
-						// 点亮启动延时
+						// ??????????
 						Part1StartDelayLedCtrl(LED_OFF);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_SECOND_SPRAY_START: { // 灭火装置第二次持续喷放 
+			case FIRE_EXTINGUISH_SECOND_SPRAY_START: { // ?????????γ?????? 
 				if(fedas_entry->cluster_id[i] == 0)
 				{
-					// 延时期间点亮延时
+					// ????????????
 					Part2StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_SECOND_SPRAY_FINISH; // 第二次喷放结束
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_SECOND_SPRAY_FINISH; // ???????????
 						// 
 						Part2StartDelayLedCtrl(LED_OFF);
-						// 喷放倒计时结束后 关闭钢瓶电磁阀
+						// ????????????? ?????????
 						OutFire2RelayCtrl(JDQ_OFF);
 						
-//						// 关闭放气勿入灯牌
+//						// ?????????????
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_THIRD_SPRAY_DELAY, 300);
-						// 灭火装置第三次喷放倒计时
+						// ??????????????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_3_START_DELAY, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 					}
 				}
 				else
 				{
-					// 延时期间点亮延时
+					// ????????????
 					Part1StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_SECOND_SPRAY_FINISH; // 第二次喷放结束
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_SECOND_SPRAY_FINISH; // ???????????
 						// 
 						Part1StartDelayLedCtrl(LED_OFF);
-						// 喷放倒计时结束后 关闭钢瓶电磁阀
+						// ????????????? ?????????
 						OutFire1RelayCtrl(JDQ_OFF);
 						
-//						// 关闭放气勿入灯牌
+//						// ?????????????
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_THIRD_SPRAY_DELAY, 300);
-						// 灭火装置第三次喷放倒计时
+						// ??????????????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_3_START_DELAY, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_THIRD_SPRAY_DELAY: {   // 灭火装置第3次启动倒计时
+			case FIRE_EXTINGUISH_THIRD_SPRAY_DELAY: {   // ???????3??????????
 				if(fedas_entry->cluster_id[i] == 0)
 				{
-					// 延时期间点亮延时
+					// ????????????
 					Part2StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FED_THIRD_SPRAY_DELAY_FINISH_FLAG; // 第二次喷放结束
-						// 启动后关闭延时LED
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FED_THIRD_SPRAY_DELAY_FINISH_FLAG; // ???????????
+						// ??????????LED
 						Part2StartDelayLedCtrl(LED_OFF);
-						// 启动倒计时结束后 打开钢瓶阀
+						// ?????????????? ???????
 						OutFire2RelayCtrl(JDQ_ON);
-						// 打开放气勿入
+						// ??????????
 						DefauleRelayCtrl(JDQ_ON);
 						
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_THIRD_SPRAY_START, 999);
-						// 灭火装置1 第三次喷放
+						// ??????1 ?????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_3, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 					}
 				}
 				else
 				{
-					// 延时期间点亮延时
+					// ????????????
 					Part1StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FED_THIRD_SPRAY_DELAY_FINISH_FLAG; // 第二次喷放结束
-						// 启动后关闭延时LED
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FED_THIRD_SPRAY_DELAY_FINISH_FLAG; // ???????????
+						// ??????????LED
 						Part1StartDelayLedCtrl(LED_OFF);
-						// 启动倒计时结束后 打开钢瓶阀
+						// ?????????????? ???????
 						OutFire1RelayCtrl(JDQ_ON);
-						// 打开放气勿入
+						// ??????????
 						DefauleRelayCtrl(JDQ_ON);
 						
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_THIRD_SPRAY_START, 999);
-						// 灭火装置1 第三次喷放
+						// ??????1 ?????????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_3, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_THIRD_SPRAY_START: {  // 第三次喷放开始
+			case FIRE_EXTINGUISH_THIRD_SPRAY_START: {  // ???????????
 				if(fedas_entry->cluster_id[i] == 0)
 				{
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_THIRD_SPRAY_FINISH; // 第三次喷放结束
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_THIRD_SPRAY_FINISH; // ????????????
 						
-						// 喷放倒计时结束后 关闭钢瓶电磁阀
+						// ????????????? ?????????
 						OutFire2RelayCtrl(JDQ_OFF);
 						
-//						// 关闭放气勿入灯牌
+//						// ?????????????
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE, 999);
-						// 灭火装置1 喷放完成
+						// ??????1 ??????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_OVER, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 					}
 				}
@@ -7645,28 +7633,28 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				{
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // 更新启动时间
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_THIRD_SPRAY_FINISH; // 第三次喷放结束
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ??????????
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_THIRD_SPRAY_FINISH; // ????????????
 						
-						// 喷放倒计时结束后 关闭钢瓶电磁阀
+						// ????????????? ?????????
 						OutFire1RelayCtrl(JDQ_OFF);
-						// 关闭放气勿入灯牌
+						// ?????????????
 						DefauleRelayCtrl(JDQ_OFF);
 						
-						// 创建新记录
+						// ????????
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE, 999);
-						// 灭火装置1 喷放完成
+						// ??????1 ??????
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_OVER, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_FORCE_STOP : { // 如果是强制停止状态 不做处理
+			case FIRE_EXTINGUISH_FORCE_STOP : { // ???????????? ????????
 				
 				
 				break;
 			}
-			case FIRE_EXTINGUISH_CAN_RESTART: { // 如果是可以重启状态 判断按键按下后重新启动
+			case FIRE_EXTINGUISH_CAN_RESTART: { // ?????????????? ?ж???????o????????
 				break;
 			}
 			default:
@@ -7687,15 +7675,15 @@ static void printf_fadas_data(FireExtinguishDeviceActionSave *fedas_entry)
 	uint8_t send_len = 0;
 	for(uint8_t i = 0; i < fedas_entry->self_point_len; i++)
 	{
-		// 打印时间
+		// ??????
 		send_len = sprintf((char *)debug_buff, "sq:%d time:%d/%d/%d/%d/%d\r\n", i, fedas_entry->atr[i].years, 
 									fedas_entry->atr[i].months, fedas_entry->atr[i].days,
 									fedas_entry->atr[i].hours, fedas_entry->atr[i].minute);
 		DebugSendString(debug_buff, send_len);
-		// 打印簇编号
+		// ???????
 		send_len = sprintf((char *)debug_buff, "sq:%d cb_id:%d pk_id:%d cl_id:%d\r\n", i, fedas_entry->cabin_id[i], fedas_entry->pack_id[i], fedas_entry->cluster_id[i]);
 		DebugSendString(debug_buff, send_len);
-		// 打印动作
+		// ???????
 		send_len = sprintf((char *)debug_buff, "sq:%d action_id:%d \r\n", i, fedas_entry->fed_action[i]);
 		DebugSendString(debug_buff, send_len);
 	}
@@ -7705,32 +7693,32 @@ static void printf_fadas_data(FireExtinguishDeviceActionSave *fedas_entry)
 
 
 
-// 灭火装置分区显示控制
+// ?????÷??????????
 static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *fedas_entry, uint8_t fresh_page_flag)
 {
-	if(fedas_entry->self_point_len == 0) // 没有火警
+	if(fedas_entry->self_point_len == 0) // ??л?
 	{
 		if(fedas_entry->last_point_len == 255)
 		{
-			clearTextValue(monitor_inform_screen_id , 2);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 3);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 4);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 5);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 6);//(画面ID,控件ID)
-			clearTextValue(monitor_inform_screen_id , 7);//(画面ID,控件ID)
+			clearTextValue(monitor_inform_screen_id , 2);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 3);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 4);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 5);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 6);//(????ID,???ID)
+			clearTextValue(monitor_inform_screen_id , 7);//(????ID,???ID)
 			fedas_entry->last_point_len = 0;
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 1,"气灭监测运行中.     ");break;   //刷新报警内容
-			case 20:SetTextValue(monitor_inform_screen_id, 1,"气灭监测运行中..    ");break;   //刷新报警内容
-			case 30:SetTextValue(monitor_inform_screen_id, 1,"气灭监测运行中...   ");break;   //刷新报警内容
-			case 40:SetTextValue(monitor_inform_screen_id, 1,"气灭监测运行中....  ");break;   //刷新报警内容
-			case 50:SetTextValue(monitor_inform_screen_id, 1,"气灭监测运行中..... ");break;   //刷新报警内容
-			case 60:SetTextValue(monitor_inform_screen_id, 1,"气灭监测运行中......");break;   //刷新报警内容
+			case 10:SetTextValue(monitor_inform_screen_id, 1,"????????????.     ");break;   //??±???????
+			case 20:SetTextValue(monitor_inform_screen_id, 1,"????????????..    ");break;   //??±???????
+			case 30:SetTextValue(monitor_inform_screen_id, 1,"????????????...   ");break;   //??±???????
+			case 40:SetTextValue(monitor_inform_screen_id, 1,"????????????....  ");break;   //??±???????
+			case 50:SetTextValue(monitor_inform_screen_id, 1,"????????????..... ");break;   //??±???????
+			case 60:SetTextValue(monitor_inform_screen_id, 1,"????????????......");break;   //??±???????
 		}
 	}
-	else if( fresh_page_flag == 1 ) // 如果有火警（任意气体加温度或温度超过二级预警）存在了
+	else if( fresh_page_flag == 1 ) // ????л?????????????????????????????????????
 	{
 		uint8_t baojingneirong[96] = {0}; // XR5000_LOOP3_CHANGE_20260726: Loop 3 gas extinguish text needs more room.
 		
@@ -7739,35 +7727,35 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 		#ifdef FADAS_DEBUG
 		printf_fadas_data(fedas_entry);
 		#endif
-		// 3个区域滚动显示
+		// 3????????????
 		for (uint8_t i = 0; i < Out_Fire_Show_Zone; i++) {
 			uint8_t data_index = fedas_fresh_point + i;
 			
 			temp_sequence_count = data_index + 1;
 			
-			if(data_index < fedas_entry->self_point_len) // 状态机内部判断是包还是仓 不在外部判断做区分了
+			if(data_index < fedas_entry->self_point_len) // ????????ж????????? ???????ж?????????
 			{
-				if(fedas_entry->cluster_id[data_index] == LINKAGE_CLUSTER_ID) // 如果是联动ID
+				if(fedas_entry->cluster_id[data_index] == LINKAGE_CLUSTER_ID) // ?????????ID
 				{
 					if(fedas_entry->fed_action[data_index] == FEEDBACK_1_PRESS)
 					{
-						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 反馈1触发", temp_sequence_count,
+						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ????1????", temp_sequence_count,
 							fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 							fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second);
 					}
 					else if(fedas_entry->fed_action[data_index] == FEEDBACK_2_PRESS)
 					{
-						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 反馈2触发", temp_sequence_count,
+						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ????2????", temp_sequence_count,
 							fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 							fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second);
 					}
 					SetTextValue(59, 1 + i, baojingneirong);
-					continue; // 进入下一次循环
+					continue; // ????????????
 				}
 				uint16_t temp_time = fedas_entry->curr_cntd_time[data_index] - fedas_entry->start_cntd_time[data_index];
 				if(FormatRS485DetectFireExtinguisherLine(baojingneirong, temp_sequence_count, fedas_entry, data_index, temp_time) == 1)
 				{
-					// XR5000_LOOP3_CHANGE_20260726: Loop 3 gas extinguish display uses "第3回路 X号".
+					// XR5000_LOOP3_CHANGE_20260726: Loop 3 gas extinguish display uses "??3??· X??".
 					SetTextValue(monitor_inform_screen_id, 1 + i, baojingneirong);
 					continue;
 				}
@@ -7776,9 +7764,9 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_MODE_JUDGEMENT:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							if(getPart2HandAutoState() == KEY_MANUAL) // 手动
+							if(getPart2HandAutoState() == KEY_MANUAL) // ???
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 请手动启动灭火装置", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ??????????????", temp_sequence_count,
 									fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 									fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second, 
 									fedas_entry->cabin_id[data_index]);
@@ -7786,9 +7774,9 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 						}
 						else
 						{
-							if(getPart1HandAutoState() == KEY_MANUAL) // 手动
+							if(getPart1HandAutoState() == KEY_MANUAL) // ???
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 请手动启动灭火装置", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ??????????????", temp_sequence_count,
 									fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 									fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 									fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -7798,14 +7786,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_START_SPRAY_DELAY:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置启动倒计时%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ??????????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置启动倒计时%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ??????????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7813,17 +7801,17 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 						
 
 						break;
-					case FED_START_SPRAY_DELAY_FINISH_FLAG: // 灭火装置第一次启动倒计时结束
+					case FED_START_SPRAY_DELAY_FINISH_FLAG: // ??????????????????????
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置第1次喷放启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????1????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second, 
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置第1次喷放启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????1????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -7832,14 +7820,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_FIRST_SPRAY_START:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置喷放剩余时间%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second, 
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置喷放剩余时间%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7850,14 +7838,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_FIRST_SPRAY_FINISH:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置第1次喷放完毕", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????1????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置第1次喷放完毕", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????1????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  );
@@ -7866,14 +7854,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_SECOND_SPRAY_DELAY:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置第2次启动倒计时%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????2??????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置第2次启动倒计时%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????2??????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7882,14 +7870,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FED_SECOND_SPRAY_DELAY_FINISH_FLAG:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置第2次喷放启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????2????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置第2次喷放启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????2????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -7898,14 +7886,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_SECOND_SPRAY_START:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置喷放剩余时间%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置喷放剩余时间%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7916,14 +7904,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_SECOND_SPRAY_FINISH:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置第2次喷放完毕", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????2????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置第2次喷放完毕", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????2????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  );
@@ -7934,30 +7922,30 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_THIRD_SPRAY_DELAY:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置第3次启动倒计时%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????3??????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置第3次启动倒计时%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????3??????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						break;
-					case FED_THIRD_SPRAY_DELAY_FINISH_FLAG: // 第三次喷放倒计时结束
+					case FED_THIRD_SPRAY_DELAY_FINISH_FLAG: // ?????????????????
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置第3次喷放启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????3????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置第3次喷放启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????3????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -7968,14 +7956,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_THIRD_SPRAY_START:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置喷放剩余时间%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置喷放剩余时间%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????????????%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7986,14 +7974,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_THIRD_SPRAY_FINISH:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置第3次喷放完毕", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ???????3????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置第3次喷放完毕", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ???????3????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  );
@@ -8004,14 +7992,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置喷放完毕", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ????????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置喷放完毕", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ????????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  );
@@ -8022,14 +8010,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_STARYUP_FINISH_FLAG:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置正在启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ?????????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置正在启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ?????????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8040,14 +8028,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_CYLINDEF_1_OPENED:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置1启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ??????1???", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置1启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ??????1???", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8058,14 +8046,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_FORCE_STOP: {
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置启动倒计时--", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ??????????????--", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置启动倒计时--", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ??????????????--", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8077,14 +8065,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_RESTART_FINISH:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置手动停止启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ??????????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置手动停止启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ??????????????", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second, 
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8092,7 +8080,7 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 						
 						break;
 					case FEEDBACK_1_PRESS : {
-						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 反馈1触发", temp_sequence_count,
+						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ????1????", temp_sequence_count,
 							fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 							fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second);
 						break;
@@ -8100,14 +8088,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_CYLINDEF_2_OPENED: {
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 火警 灭火装置2启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ?? ??????2???", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇pack%d火警 灭火装置1启动", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??pack%d?? ??????1???", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8122,55 +8110,55 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 				baojingneirong[0] = 0;
 			}
 			SetTextValue(monitor_inform_screen_id, 1 + i,baojingneirong);
-		} // 循环括号
-	} // 有报警后每秒刷新的括号
+		} // ???????
+	} // ?б??????????μ?????
 }
 
 void InternalScreenShowDetectorDataCtrlInit(DetectorDataShowCtrl *ddsc_entry)
 {
-	ddsc_entry->curr_detector_page = 1; // 默认是第一页
-	ddsc_entry->last_detector_page = 0; // 默认不显示
+	ddsc_entry->curr_detector_page = 1; // ????????
+	ddsc_entry->last_detector_page = 0; // ???????
 
 	memset(ddsc_entry->detector_offline_fresh_flag, 0xFF, sizeof(ddsc_entry->detector_offline_fresh_flag));
 	
-	// 探测器在线数组
+	// ?????????????
 	memset(ddsc_entry->detect_online_state, 0xFF, sizeof(ddsc_entry->detect_online_state));
-	// 屏蔽数组
+	// ????????
 	memset(ddsc_entry->detect_shield_state, 0xFF, sizeof(ddsc_entry->detect_shield_state));
 	
-	// 温度值记录
+	// ???????
 	memset(ddsc_entry->last_temperature,    0xFF, sizeof(ddsc_entry->last_temperature));
-	// 温度状态记录
+	// ????????
 	memset(ddsc_entry->last_temperat_state, 0xFF, sizeof(ddsc_entry->last_temperat_state));
 	
-	// 烟雾记录
+	// ??????
 	memset(ddsc_entry->last_smoke_state,    0xFF, sizeof(ddsc_entry->last_smoke_state));
 	
-	// 一氧化碳浓度记录
+	// ???????????
 	memset(ddsc_entry->last_co_concentrat,  0xFF, sizeof(ddsc_entry->last_co_concentrat));
-	// 一氧化碳报警状态
+	// ????????????
 	memset(ddsc_entry->last_co_state,       0xFF, sizeof(ddsc_entry->last_co_state));
 	
 }
 
 void InternalScreenShowDetectorDataCtrlInit_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry)
 {
-	ddsc_32p_entry->curr_detector_page = 1; // 默认是第一页
+	ddsc_32p_entry->curr_detector_page = 1; // ????????
 
-	ddsc_32p_entry->last_detector_page = 0xFF; // 初始化的值
+	ddsc_32p_entry->last_detector_page = 0xFF; // ????????
 	
-	// 默认PACK是0 不初始化也没问题
+	// ???PACK??0 ?????????????
 	ddsc_32p_entry->curr_pack_id = 0; // 
-	// 强制刷新标志位
+	// ?????±??λ
 	ddsc_32p_entry->force_fresh_flag = 1;
 	
-	ddsc_32p_entry->last_temperature = 0xFF; // 历史温度
-	ddsc_32p_entry->last_temperat_state = 0xFF; // 历史温度状态
-	ddsc_32p_entry->last_smoke_state = 0xFF; // 历史烟雾状态
-	ddsc_32p_entry->last_co_concentrat = 0xFF; // 历史一氧化碳浓度
-	ddsc_32p_entry->last_co_state = 0xFF; // 历史一氧化碳状态
+	ddsc_32p_entry->last_temperature = 0xFF; // ??????
+	ddsc_32p_entry->last_temperat_state = 0xFF; // ????????
+	ddsc_32p_entry->last_smoke_state = 0xFF; // ?????????
+	ddsc_32p_entry->last_co_concentrat = 0xFF; // ????????????
+	ddsc_32p_entry->last_co_state = 0xFF; // ???????????
 	
-	// 将历史上线数量初始化为255
+	// ???????????????????255
 	memset(ddsc_32p_entry->lat_detector_online_num, 0xFF, sizeof(ddsc_32p_entry->lat_detector_online_num));
 }
 
@@ -8178,9 +8166,9 @@ void Bsp_Screen_Buff_Init(void)
 {
 	DetectorDataShowCtrl *p = &ddsc;
 	DetectorDataShowCtrl_32Pack *ddsc_32p_entry = &ddsc_32p;
-	// 经典版本
+	// ????汾
 	InternalScreenShowDetectorDataCtrlInit(p);
-	// 1簇32包版本
+	// 1??32???汾
 	InternalScreenShowDetectorDataCtrlInit_32Pack(ddsc_32p_entry);
 }
 
@@ -8192,116 +8180,116 @@ uint8_t smoke_show_ctrl_id[11] = {0, 11, 22, 32, 42, 52, 62, 72, 82, 92, 102};
 static void InternalScreenShowClusterData(DetectorDataShowCtrl *ddsc_entry)
 {
 	uint8_t temp_screen_id = 54;
-	uint8_t curr_page = ddsc_entry->curr_detector_page; // 先备份一次指针
+	uint8_t curr_page = ddsc_entry->curr_detector_page; // ???????????
 	uint8_t fresh_flag = 0;
 	
-	if(curr_page !=	ddsc_entry->last_detector_page) // 刷新当前页显示
+	if(curr_page !=	ddsc_entry->last_detector_page) // ??μ??????
 	{
 		uint8_t buff[32] = {0};
 
-		fresh_flag |= 1; // 刷新标志
-		sprintf((char *)buff, "第%d簇 PACK灭火控制", curr_page);
+		fresh_flag |= 1; // ??±??
+		sprintf((char *)buff, "??%d?? PACK??????", curr_page);
 		SetTextValue(temp_screen_id, 1, buff);
-		sprintf((char *)buff, "第%d簇 簇级灭火控制", curr_page);
+		sprintf((char *)buff, "??%d?? ?????????", curr_page);
 		SetTextValue(temp_screen_id, 2, buff);
 		
 		sprintf((char *)buff, "%d/20", curr_page);
 		SetTextValue(temp_screen_id, 105, buff);
 	}
 	
-	if(cu_sxzt[curr_page] == 0 || cu_tcq_sxzt[curr_page] == 0) // 如果没设置上线
+	if(cu_sxzt[curr_page] == 0 || cu_tcq_sxzt[curr_page] == 0) // ????????????
 	{
 		fresh_flag |= 1; // 
-		if(ddsc_entry->detector_offline_fresh_flag[curr_page] != cu_tcq_sxzt[curr_page] || fresh_flag) // 如果是第一次启动或页面刷新
+		if(ddsc_entry->detector_offline_fresh_flag[curr_page] != cu_tcq_sxzt[curr_page] || fresh_flag) // ????????????????????
 		{
-			ddsc_entry->detector_offline_fresh_flag[curr_page] = cu_tcq_sxzt[curr_page]; // 表明已经刷新过了
+			ddsc_entry->detector_offline_fresh_flag[curr_page] = cu_tcq_sxzt[curr_page]; // ?????????1???
 			for(uint8_t i = cu_tcq_sxzt[curr_page] + 1; i < 11; i++)
 			{
 				SetControlForeColor(temp_screen_id, detector_online_ctrl_id[i], 0x8410);
-				SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "未启用");
-				// 温度栏颜色设置
+				SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "δ????");
+				// ????????????
 				SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, temperature_ctrl_id[i], "--");
-				// 一氧化碳浓度
+				// ?????????
 				SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, co_concentrate_ctrl_id[i], "--");
-				// 烟雾状态
+				// ??????
 				SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "--");
 			}
 		}
 	}
-	if(cu_sxzt[curr_page] != 0) // 如果设置上线
+	if(cu_sxzt[curr_page] != 0) // ???????????
 	{
 //		if(ddsc_entry->detector_offline_fresh_flag[curr_page] == 0)
 //			fresh_flag = 1;
-		//ddsc_entry->detector_offline_fresh_flag[curr_page] = 0xFF; // 表明下线后需要重新刷新
+		//ddsc_entry->detector_offline_fresh_flag[curr_page] = 0xFF; // ???????????????????
 		for(uint8_t i = 1; i < cu_tcq_sxzt[curr_page] + 1; i++)
 		{
-			if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // 判断是否掉线
+			if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // ?ж???????
 			{ 
-				// 在线状态刷新
+				// ?????????
 				if(ddsc_entry->detect_online_state[curr_page][i] != 1 || fresh_flag)
 				{
-					fresh_flag |= 2; // 从掉线恢复了 重新刷新一次状态
-					ddsc_entry->detect_online_state[curr_page][i] = 1; // 把第curr_page簇 第i包赋值为1
+					fresh_flag |= 2; // ????????? ????????????
+					ddsc_entry->detect_online_state[curr_page][i] = 1; // ???curr_page?? ??i??????1
 					SetControlForeColor(temp_screen_id, detector_online_ctrl_id[i], 0x0400);
-					SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "在线");
-				} // 在线刷新
+					SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "????");
+				} // ???????
 				
-				// 温度值刷新
+				// ???????
 				if(ddsc_entry->last_temperature[curr_page][i] != PACK_wendu_buf[curr_page][i] || fresh_flag)
 				{
 					ddsc_entry->last_temperature[curr_page][i] = PACK_wendu_buf[curr_page][i];
-					SetTextInt32(temp_screen_id, temperature_ctrl_id[i], PACK_wendu_buf[curr_page][i], 1, 2);//温度显示
+					SetTextInt32(temp_screen_id, temperature_ctrl_id[i], PACK_wendu_buf[curr_page][i], 1, 2);//??????
 				}
 				
-				// 温度颜色改变
+				// ?????????
 				if(ddsc_entry->last_temperat_state[curr_page][i] != PACK_WDZT_buf[curr_page][i] || fresh_flag)
 				{
 					ddsc_entry->last_temperat_state[curr_page][i] = PACK_WDZT_buf[curr_page][i];
 					
 					if(ddsc_entry->last_temperat_state[curr_page][i] == 0)
 					{
-						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x0400); // 正常
+						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x0400); // ????
 					}
 					else if(ddsc_entry->last_temperat_state[curr_page][i] == 1)
 					{
-						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0xFB20); // 预警
+						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0xFB20); // ???
 					}
 					else
 					{
-						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0xF800); // 火警
+						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0xF800); // ??
 					}
 				}
 				
-				// 第curr_page簇 第i包 CO值显示
+				// ??curr_page?? ??i?? CO????
 				uint16_t temp_co_concen = getPackCoConcenValue(curr_page, i);
 				if(ddsc_entry->last_smoke_state[curr_page][i] != temp_co_concen || fresh_flag)
 				{
-					ddsc_entry->last_smoke_state[curr_page][i] = temp_co_concen; // 存储一氧化碳的值
-//					SetTextInt32(temp_screen_id, co_concentrate_ctrl_id[i], temp_co_concen, 1, 1); // CO显示
+					ddsc_entry->last_smoke_state[curr_page][i] = temp_co_concen; // ?洢?????????
+//					SetTextInt32(temp_screen_id, co_concentrate_ctrl_id[i], temp_co_concen, 1, 1); // CO???
 					uint8_t buff[16];
 					sprintf((char *)buff, "%dPPM", temp_co_concen);
 					SetTextValue(temp_screen_id, co_concentrate_ctrl_id[i], buff);
 				}
 				
-				// CO颜色改变
+				// CO??????
 				if(ddsc_entry->last_co_state[curr_page][i] != PACK_COZT_buf[curr_page][i] || fresh_flag)
 				{
 					ddsc_entry->last_temperat_state[curr_page][i] = PACK_COZT_buf[curr_page][i];
 					
 					if(ddsc_entry->last_temperat_state[curr_page][i] == 0)
 					{
-						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0x0400); // 正常
+						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0x0400); // ????
 					}
 					else if(ddsc_entry->last_temperat_state[curr_page][i] == 1)
 					{
-						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0xFB20); // 预警
+						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0xFB20); // ???
 					}
 					else if(ddsc_entry->last_temperat_state[curr_page][i] == 2)
 					{
-						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0xF800); // 二级预警
+						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0xF800); // ???????
 					}
 				}
 				
@@ -8310,32 +8298,32 @@ static void InternalScreenShowClusterData(DetectorDataShowCtrl *ddsc_entry)
 					ddsc_entry->last_smoke_state[curr_page][i] = PACK_YWZT_buf[curr_page][i];
 					if(PACK_YWZT_buf[curr_page][i] == 0)
 					{
-						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x0400); // 正常
-						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "正常");
+						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x0400); // ????
+						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "????");
 					}
 					else if(PACK_YWZT_buf[curr_page][i] == 1)
 					{
-						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0xFB20); // 预警
-						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "报警");
+						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0xFB20); // ???
+						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "????");
 					}
 					else if(PACK_YWZT_buf[curr_page][i] == 2)
 					{
-						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0xF800); // 二级预警
-						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "报警");
+						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0xF800); // ???????
+						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "????");
 					}
 					
 				}
 				
-			} // 在线处理 括号
-			else // 如果掉线了
+			} // ??????? ????
+			else // ?????????
 			{ 
 				if(ddsc_entry->detect_online_state[i] != 0 || fresh_flag)
 				{
 					ddsc_entry->detect_online_state[curr_page][i] = 0;
 					SetControlForeColor(temp_screen_id, detector_online_ctrl_id[i], 0xFB20);
-					SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "掉线");
+					SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "????");
 					
-					// 温度栏颜色设置
+					// ????????????
 					SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x8410);
 					SetTextValue(temp_screen_id, temperature_ctrl_id[i], "--");
 
@@ -8344,30 +8332,30 @@ static void InternalScreenShowClusterData(DetectorDataShowCtrl *ddsc_entry)
 					
 					SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x8410);
 					SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "--");
-				} // 在线刷新
-			} // 掉线判断
-		} // for循环括号 遍历当前页上线数量个探测器
+				} // ???????
+			} // ?????ж?
+		} // for??????? ???????????????????????
 		
 		if(ddsc_entry->detector_offline_fresh_flag[curr_page] != cu_tcq_sxzt[curr_page])
 		{
 			for(uint8_t i = cu_tcq_sxzt[curr_page] + 1; i < 11; i++)
 			{
 				SetControlForeColor(temp_screen_id, detector_online_ctrl_id[i], 0x8410);
-				SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "未启用");
-				// 温度栏颜色设置
+				SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "δ????");
+				// ????????????
 				SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, temperature_ctrl_id[i], "--");
-				// 一氧化碳浓度
+				// ?????????
 				SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, co_concentrate_ctrl_id[i], "--");
-				// 烟雾状态
+				// ??????
 				SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "--");
 			}
-		}// 如果上线数量改变 刷新显示
+		}// ?????????????? ??????
 
 		
-	} // 设置为上线括号
+	} // ?????????????
 	if(fresh_flag == 1)
 	{
 		ddsc_entry->last_detector_page = curr_page; // 
@@ -8382,7 +8370,7 @@ const uint8_t pack_state_show_ctrl_id[] = {
 
 static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, DetectorDataShowCtrl_32Pack *ddsc_32p_entry)
 {
-	uint8_t curr_page = ddsc_32p_entry->curr_detector_page; // 先备份一次指针
+	uint8_t curr_page = ddsc_32p_entry->curr_detector_page; // ???????????
 	
 	uint8_t temp_force_fresh = 0;
 //	DebugPrintf("page:%d\r\n", ddsc_32p_entry->curr_detector_page);
@@ -8391,33 +8379,33 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 
 	uint8_t page_change_flage = 0;
 
-	// 强制刷新标志位
-	if(ddsc_32p_entry->last_detector_page != curr_page) // 刷新当前页显示
+	// ?????±??λ
+	if(ddsc_32p_entry->last_detector_page != curr_page) // ??μ??????
 	{
 		uint8_t buff[32] = {0};
-		sprintf((char *)buff, "第%d簇 PACK灭火控制", curr_page);
-		SetTextValue(screen_id_entry, 1, buff); // 刷新簇灭火控制
+		sprintf((char *)buff, "??%d?? PACK??????", curr_page);
+		SetTextValue(screen_id_entry, 1, buff); // ??′???????
 		sprintf((char *)buff, "%d/3", curr_page);
-		SetTextValue(screen_id_entry, 105, buff); // 刷新当前页面显示
+		SetTextValue(screen_id_entry, 105, buff); // ??μ????????
 		
 		page_change_flage = 1;
 		ddsc_32p_entry->last_detector_page = curr_page;
 	}
 
-	if(screen_id_entry == 61) // 如果不是探测器具体数值查看界面
+	if(screen_id_entry == 61) // ?????????????????????????
 	{
-		// 如果上线状态为0 或者上线数量为0
-		if(cu_sxzt[curr_page] == 0 || cu_tcq_sxzt[curr_page] == 0) // 如果没设置上线
+		// ??????????0 ?????????????0
+		if(cu_sxzt[curr_page] == 0 || cu_tcq_sxzt[curr_page] == 0) // ????????????
 		{
-			if(ddsc_32p_entry->lat_detector_online_num[curr_page] != cu_tcq_sxzt[curr_page] || page_change_flage == 1) // 如果是第一次启动或页面刷新
+			if(ddsc_32p_entry->lat_detector_online_num[curr_page] != cu_tcq_sxzt[curr_page] || page_change_flage == 1) // ????????????????????
 			{
-				ddsc_32p_entry->lat_detector_online_num[curr_page] = cu_tcq_sxzt[curr_page]; // 表明已经刷新过了
+				ddsc_32p_entry->lat_detector_online_num[curr_page] = cu_tcq_sxzt[curr_page]; // ?????????1???
 				for(uint8_t i = cu_tcq_sxzt[curr_page] + 1; i < 33; i++)
 				{
 //					SetControlForeColor(screen_id_entry, detector_online_ctrl_id[i], 0x8410);
-					SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "未启用");
+					SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "δ????");
 					
-					ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 2; // 标记为未启用
+					ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 2; // ????δ????
 				}
 				
 				page_change_flage = 0;
@@ -8427,22 +8415,22 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 		{
 			if(page_change_flage == 1 || ddsc_32p_entry->lat_detector_online_num[curr_page] != cu_tcq_sxzt[curr_page])
 			{
-				ddsc_32p_entry->lat_detector_online_num[curr_page] = cu_tcq_sxzt[curr_page]; // 表明已经刷新过了
+				ddsc_32p_entry->lat_detector_online_num[curr_page] = cu_tcq_sxzt[curr_page]; // ?????????1???
 				for(uint8_t i = 1; i < cu_tcq_sxzt[curr_page] + 1; i++)
 				{
-					if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // 判断是否掉线
+					if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // ?ж???????
 					{
 //						SetControlForeColor(screen_id_entry, detector_online_ctrl_id[i], 0xFB20);
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "在线");
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "????");
 						
-						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 0; // 标记为恢复
+						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 0; // ???????
 					}
 					else
 					{
 //						SetControlForeColor(screen_id_entry, pack_state_show_ctrl_id[i], 0xFB20);
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "掉线");
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "????");
 						
-						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 1; // 标记为掉线
+						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 1; // ????????
 					}
 				}
 				
@@ -8456,18 +8444,18 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 				{
 					if(ddsc_32p_entry->last_derector_state[temp_index][i] == 0 && getClusterPackDisconnectCount(curr_page, i + 1) == PackDisconnectCount)
 					{
-						ddsc_32p_entry->last_derector_state[temp_index][i] = 1; // 标记为掉线
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "掉线");
+						ddsc_32p_entry->last_derector_state[temp_index][i] = 1; // ????????
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "????");
 					}
 					else if(ddsc_32p_entry->last_derector_state[temp_index][i] == 1 && getClusterPackDisconnectCount(curr_page, i + 1) != PackDisconnectCount)
 					{
-						ddsc_32p_entry->last_derector_state[temp_index][i] = 0; // 标记为恢复
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "在线");
+						ddsc_32p_entry->last_derector_state[temp_index][i] = 0; // ???????
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "????");
 					}
 					else if(ddsc_32p_entry->last_derector_state[temp_index][i] == 2 && getClusterPackDisconnectCount(curr_page, i + 1) != PackDisconnectCount)
 					{
-						ddsc_32p_entry->last_derector_state[temp_index][i] = 0; // 标记为恢复
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "在线");
+						ddsc_32p_entry->last_derector_state[temp_index][i] = 0; // ???????
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "????");
 					}
 				}
 				
@@ -8477,83 +8465,83 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 					{
 						ddsc_32p_entry->last_derector_state[temp_index][j] = 2;
 						
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[j + 1], "未启用");
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[j + 1], "δ????");
 					}
 				}
 				
 			}
 		}
 	}
-	else if(screen_id_entry == 62) // 查看具体探测器数值界面
+	else if(screen_id_entry == 62) // ??????????????????
 	{
 		if(ddsc_32p_entry->force_fresh_flag == 1)
 		{
-			// 标记为刷新过了
+			// ??????1???
 			ddsc_32p_entry->force_fresh_flag = 0;
 			temp_force_fresh = 1;
 		}
 
-		if(cu_sxzt[curr_page] != 0 && cu_tcq_sxzt[curr_page] >= ddsc_32p_entry->curr_pack_id) // 如果设置上线 且当前查看id小于上线数量
+		if(cu_sxzt[curr_page] != 0 && cu_tcq_sxzt[curr_page] >= ddsc_32p_entry->curr_pack_id) // ??????????? ??????idС??????????
 		{
-			if(getClusterPackDisconnectCount(curr_page, ddsc_32p_entry->curr_pack_id) != PackDisconnectCount) // 判断是否掉线
+			if(getClusterPackDisconnectCount(curr_page, ddsc_32p_entry->curr_pack_id) != PackDisconnectCount) // ?ж???????
 			{
 				uint8_t buff[32];
-				sprintf((char *)buff, "pack%d 状态:在线", ddsc_32p_entry->curr_pack_id);
+				sprintf((char *)buff, "pack%d ??:????", ddsc_32p_entry->curr_pack_id);
 				SetTextValue(screen_id_entry, 5, buff);
 				
-				// 温度值刷新
+				// ???????
 				if(ddsc_32p_entry->last_temperature != PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id] || temp_force_fresh == 1)
 				{
 					ddsc_32p_entry->last_temperature = PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id];
-					sprintf((char *)buff, "温        度:%d度", ddsc_32p_entry->last_temperature);
-					//SetTextInt32(screen_id_entry, 9, PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id], 1, 2);//温度显示
+					sprintf((char *)buff, "??        ??:%d??", ddsc_32p_entry->last_temperature);
+					//SetTextInt32(screen_id_entry, 9, PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id], 1, 2);//??????
 					SetTextValue(screen_id_entry, 9, buff);
 				}
 				
-//				// 温度颜色改变
+//				// ?????????
 //				if(ddsc_32p_entry->last_temperat_state != PACK_WDZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] || ddsc_32p_entry->force_fresh_flag == 1)
 //				{
 //					ddsc_32p_entry->last_temperat_state = PACK_WDZT_buf[curr_page][ddsc_32p_entry->curr_pack_id];
 //					
 //					if(ddsc_32p_entry->last_temperat_state == 0)
 //					{
-//						SetControlForeColor(screen_id_entry, 9, 0x0400); // 正常
+//						SetControlForeColor(screen_id_entry, 9, 0x0400); // ????
 //					}
 //					else if(ddsc_32p_entry->last_temperat_state == 1)
 //					{
-//						SetControlForeColor(screen_id_entry, 9, 0xFB20); // 预警
+//						SetControlForeColor(screen_id_entry, 9, 0xFB20); // ???
 //					}
 //					else
 //					{
-//						SetControlForeColor(screen_id_entry, 9, 0xF800); // 火警
+//						SetControlForeColor(screen_id_entry, 9, 0xF800); // ??
 //					}
 //				}
 						
-				// 第curr_page簇 第i包 CO值显示
+				// ??curr_page?? ??i?? CO????
 				uint16_t temp_co_concen = getPackCoConcenValue(curr_page, ddsc_32p_entry->curr_pack_id);
 				if(ddsc_32p_entry->last_smoke_state != temp_co_concen || temp_force_fresh == 1)
 				{
-					ddsc_32p_entry->last_smoke_state = temp_co_concen; // 存储一氧化碳的值
-					sprintf((char *)buff, "一氧化碳:%dPPM", temp_co_concen);
+					ddsc_32p_entry->last_smoke_state = temp_co_concen; // ?洢?????????
+					sprintf((char *)buff, "??????:%dPPM", temp_co_concen);
 					SetTextValue(screen_id_entry, 17, buff);
 				}
 				
-//				// CO颜色改变
+//				// CO??????
 //				if(ddsc_32p_entry->last_co_state != PACK_COZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] || ddsc_32p_entry->force_fresh_flag == 1)
 //				{
 //					ddsc_32p_entry->last_co_state = PACK_COZT_buf[curr_page][ddsc_32p_entry->curr_pack_id];
 //					
 //					if(ddsc_32p_entry->last_co_state == 0)
 //					{
-//						SetControlForeColor(screen_id_entry, 17, 0x0400); // 正常
+//						SetControlForeColor(screen_id_entry, 17, 0x0400); // ????
 //					}
 //					else if(ddsc_32p_entry->last_co_state == 1)
 //					{
-//						SetControlForeColor(screen_id_entry, 17, 0xFB20); // 预警
+//						SetControlForeColor(screen_id_entry, 17, 0xFB20); // ???
 //					}
 //					else if(ddsc_32p_entry->last_temperat_state == 2)
 //					{
-//						SetControlForeColor(screen_id_entry, 17, 0xF800); // 二级预警
+//						SetControlForeColor(screen_id_entry, 17, 0xF800); // ???????
 //					}
 //				}
 						
@@ -8562,18 +8550,18 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 					ddsc_32p_entry->last_smoke_state = PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id];
 					if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 0)
 					{
-//						SetControlForeColor(screen_id_entry, 13, 0x0400); // 正常
-						SetTextValue(screen_id_entry, 13, "烟        雾:正常");
+//						SetControlForeColor(screen_id_entry, 13, 0x0400); // ????
+						SetTextValue(screen_id_entry, 13, "??        ??:????");
 					}
 					else if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 1)
 					{
-//						SetControlForeColor(screen_id_entry, 13, 0xFB20); // 预警
-						SetTextValue(screen_id_entry, 13, "烟        雾:报警");
+//						SetControlForeColor(screen_id_entry, 13, 0xFB20); // ???
+						SetTextValue(screen_id_entry, 13, "??        ??:????");
 					} 
 					else if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 2)
 					{
-//						SetControlForeColor(screen_id_entry, 13, 0xF800); // 二级预警
-						SetTextValue(screen_id_entry, 13, "烟        雾:报警");
+//						SetControlForeColor(screen_id_entry, 13, 0xF800); // ???????
+						SetTextValue(screen_id_entry, 13, "??        ??:????");
 					}
 					
 				}
@@ -8583,28 +8571,28 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 				if(temp_force_fresh == 1)
 				{
 					uint8_t buff[32];
-					sprintf((char *)buff, "pack%d 掉线", ddsc_32p_entry->curr_pack_id);
+					sprintf((char *)buff, "pack%d ????", ddsc_32p_entry->curr_pack_id);
 					
 //					SetControlForeColor(screen_id_entry, 5, 0xFB20);
 					SetTextValue(screen_id_entry, 5, buff);
 					
 //					SetControlForeColor(screen_id_entry, 13, 0x8410);
-					SetTextValue(screen_id_entry, 13, "烟        雾:--");
+					SetTextValue(screen_id_entry, 13, "??        ??:--");
 					
 //					SetControlForeColor(screen_id_entry, 17, 0x8410);
-					SetTextValue(screen_id_entry, 17, "一氧化碳:--");
+					SetTextValue(screen_id_entry, 17, "??????:--");
 					
 //					SetControlForeColor(screen_id_entry, 17, 0x8410);
-					SetTextValue(screen_id_entry, 9, "温        度:--");
+					SetTextValue(screen_id_entry, 9, "??        ??:--");
 					
 				}
 //				
 //				uint8_t buff[32];
-//				sprintf((char *)buff, "pack%d 掉线", ddsc_32p_entry->curr_pack_id);
+//				sprintf((char *)buff, "pack%d ????", ddsc_32p_entry->curr_pack_id);
 //				SetTextValue(screen_id_entry, 5, buff);
-//				SetTextValue(screen_id_entry, 13, "烟        雾:--");
-//				SetTextValue(screen_id_entry, 17, "一氧化碳:--");
-//				SetTextValue(screen_id_entry, 9, "温        度:--");
+//				SetTextValue(screen_id_entry, 13, "??        ??:--");
+//				SetTextValue(screen_id_entry, 17, "??????:--");
+//				SetTextValue(screen_id_entry, 9, "??        ??:--");
 				
 			}
 		}
@@ -8613,28 +8601,28 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 			if(temp_force_fresh == 1)
 			{
 				uint8_t buff[32];
-				sprintf((char *)buff, "pack%d 状态:未启用", ddsc_32p_entry->curr_pack_id);
+				sprintf((char *)buff, "pack%d ??:δ????", ddsc_32p_entry->curr_pack_id);
 //				DebugSendString(buff, sizeof(buff));
 				//					SetControlForeColor(screen_id_entry, 5, 0xFB20);
 				SetTextValue(screen_id_entry, 5, buff);
 
 				//					SetControlForeColor(screen_id_entry, 13, 0x8410);
-				SetTextValue(screen_id_entry, 13, "烟        雾:--");
+				SetTextValue(screen_id_entry, 13, "??        ??:--");
 
 				//					SetControlForeColor(screen_id_entry, 17, 0x8410);
-				SetTextValue(screen_id_entry, 17, "一氧化碳:--");
+				SetTextValue(screen_id_entry, 17, "??????:--");
 
 				//					SetControlForeColor(screen_id_entry, 17, 0x8410);
-				SetTextValue(screen_id_entry, 9, "温        度:--");
+				SetTextValue(screen_id_entry, 9, "??        ??:--");
 
 			}
 			
 //			uint8_t buff[32];
-//			sprintf((char *)buff, "pack%d 未启用", ddsc_32p_entry->curr_pack_id);
+//			sprintf((char *)buff, "pack%d δ????", ddsc_32p_entry->curr_pack_id);
 //			SetTextValue(screen_id_entry, 5, buff);
-//			SetTextValue(screen_id_entry, 13, "烟        雾:--");
-//			SetTextValue(screen_id_entry, 17, "一氧化碳:--");
-//			SetTextValue(screen_id_entry, 9, "温        度:--");
+//			SetTextValue(screen_id_entry, 13, "??        ??:--");
+//			SetTextValue(screen_id_entry, 17, "??????:--");
+//			SetTextValue(screen_id_entry, 9, "??        ??:--");
 		}
 		
 	}
@@ -8645,108 +8633,108 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 //	DebugSendString(buff, sizeof(buff));
 }
 
-// 在声明时直接初始化为全0xFF
+// ????????????????0xFF
 uint8_t last_pack_online_buff_state[33] = {
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-    0xFF  // 总共33个0xFF
+    0xFF  // ???33??0xFF
 };
 
 static void InternalScreenShowClusterData_32Pack_Plus(uint16_t screen_id_entry, DetectorDataShowCtrl_32Pack *ddsc_32p_entry)
 {
-	uint8_t curr_page = ddsc_32p_entry->curr_detector_page; // 先备份一次指针
+	uint8_t curr_page = ddsc_32p_entry->curr_detector_page; // ???????????
 	
 	uint8_t temp_force_fresh = 0;
 
 	uint8_t page_change_flage = 0;
 
-	// 强制刷新标志位
-	if(ddsc_32p_entry->last_detector_page != curr_page) // 刷新当前页显示
+	// ?????±??λ
+	if(ddsc_32p_entry->last_detector_page != curr_page) // ??μ??????
 	{
 		uint8_t buff[32] = {0};
-		sprintf((char *)buff, "第%d簇 PACK灭火控制", curr_page);
-		SetTextValue(screen_id_entry, 1, buff); // 刷新簇灭火控制
+		sprintf((char *)buff, "??%d?? PACK??????", curr_page);
+		SetTextValue(screen_id_entry, 1, buff); // ??′???????
 		sprintf((char *)buff, "%d/3", curr_page);
-		SetTextValue(screen_id_entry, 105, buff); // 刷新当前页面显示
+		SetTextValue(screen_id_entry, 105, buff); // ??μ????????
 		
 		page_change_flage = 1;
 		ddsc_32p_entry->last_detector_page = curr_page;
 	}
 
-	if(screen_id_entry == 61) // 如果不是探测器具体数值查看界面
+	if(screen_id_entry == 61) // ?????????????????????????
 	{
 		for(uint8_t i = 1; i < 33; i++)
 		{
 			if((pack_online_buff[curr_page][i] != last_pack_online_buff_state[i] && pack_online_buff[curr_page][i] == 0) || 
-					page_change_flage == 1) // 刷新一次
+					page_change_flage == 1) // ??????
 			{
-				last_pack_online_buff_state[i] = pack_online_buff[curr_page][i]; // 更新抑制
+				last_pack_online_buff_state[i] = pack_online_buff[curr_page][i]; // ????????
 				
-				SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "未启用");
-				ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 2; // 标记为未启用
+				SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "δ????");
+				ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 2; // ????δ????
 			}
-			else if(pack_online_buff[curr_page][i] == 1) // 如果设置为上线了
+			else if(pack_online_buff[curr_page][i] == 1) // ??????????????
 			{
-				if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // 判断是否掉线
+				if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // ?ж???????
 				{
 					if(page_change_flage == 1 || ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] != 0)
 					{
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "在线");
-						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 0; // 标记为恢复
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "????");
+						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 0; // ???????
 					}
 				}
 				else
 				{
 					if(page_change_flage == 1 || ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] != 1)
 					{
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "掉线");
-						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 1; // 标记为掉线
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "????");
+						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 1; // ????????
 					}
 					
 				}
 			}
-		} // 循环刷新状态
+		} // ????????
 	} // screen id 61 
-	else if(screen_id_entry == 62) // 查看具体探测器数值界面
+	else if(screen_id_entry == 62) // ??????????????????
 	{
 		if(ddsc_32p_entry->force_fresh_flag == 1)
 		{
-			// 标记为刷新过了
+			// ??????1???
 			ddsc_32p_entry->force_fresh_flag = 0;
 			temp_force_fresh = 1;
 		}
 		
 		uint8_t check_pack_id = ddsc_32p_entry->curr_pack_id;
 		
-		if(pack_online_buff[curr_page][check_pack_id] == 1) // 如果设置上线
+		if(pack_online_buff[curr_page][check_pack_id] == 1) // ???????????
 		{
 			if(getClusterPackDisconnectCount(curr_page, check_pack_id) != PackDisconnectCount)
 			{
 				uint8_t buff[32];
 				if(ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] != 0 || temp_force_fresh == 1)
 				{
-					sprintf((char *)buff, "pack%d 状态:在线", check_pack_id);
+					sprintf((char *)buff, "pack%d ??:????", check_pack_id);
 					SetTextValue(screen_id_entry, 5, buff);
-					ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] = 0; // 赋值为0
+					ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] = 0; // ????0
 				}
 
-				// 温度值刷新
+				// ???????
 				if(ddsc_32p_entry->last_temperature != PACK_wendu_buf[curr_page][check_pack_id] || temp_force_fresh == 1)
 				{
 					ddsc_32p_entry->last_temperature = PACK_wendu_buf[curr_page][check_pack_id];
-					sprintf((char *)buff, "温        度:%d度", ddsc_32p_entry->last_temperature);
-					//SetTextInt32(screen_id_entry, 9, PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id], 1, 2);//温度显示
+					sprintf((char *)buff, "??        ??:%d??", ddsc_32p_entry->last_temperature);
+					//SetTextInt32(screen_id_entry, 9, PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id], 1, 2);//??????
 					SetTextValue(screen_id_entry, 9, buff);
 				}
 						
-				// 第curr_page簇 第i包 CO值显示
+				// ??curr_page?? ??i?? CO????
 				uint16_t temp_co_concen = getPackCoConcenValue(curr_page, check_pack_id);
 				if(ddsc_32p_entry->last_smoke_state != temp_co_concen || temp_force_fresh == 1)
 				{
-					ddsc_32p_entry->last_smoke_state = temp_co_concen; // 存储一氧化碳的值
-					sprintf((char *)buff, "一氧化碳:%dPPM", temp_co_concen);
+					ddsc_32p_entry->last_smoke_state = temp_co_concen; // ?洢?????????
+					sprintf((char *)buff, "??????:%dPPM", temp_co_concen);
 					SetTextValue(screen_id_entry, 17, buff);
 				}
 
@@ -8755,51 +8743,51 @@ static void InternalScreenShowClusterData_32Pack_Plus(uint16_t screen_id_entry, 
 					ddsc_32p_entry->last_smoke_state = PACK_YWZT_buf[curr_page][check_pack_id];
 					if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 0)
 					{
-						SetTextValue(screen_id_entry, 13, "烟        雾:正常");
+						SetTextValue(screen_id_entry, 13, "??        ??:????");
 					}
 					else if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 1)
 					{
-						SetTextValue(screen_id_entry, 13, "烟        雾:报警");
+						SetTextValue(screen_id_entry, 13, "??        ??:????");
 					} 
 					else if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 2)
 					{
-						SetTextValue(screen_id_entry, 13, "烟        雾:报警");
+						SetTextValue(screen_id_entry, 13, "??        ??:????");
 					}
 				}
 			}
-			else // 掉线了
+			else // ??????
 			{
 				if(temp_force_fresh == 1 || ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] != 1)
 				{
 					uint8_t buff[32];
-					sprintf((char *)buff, "pack%d 状态:掉线", ddsc_32p_entry->curr_pack_id);
+					sprintf((char *)buff, "pack%d ??:????", ddsc_32p_entry->curr_pack_id);
 
 					SetTextValue(screen_id_entry, 5, buff);
 
-					SetTextValue(screen_id_entry, 13, "烟        雾:--");
+					SetTextValue(screen_id_entry, 13, "??        ??:--");
 
-					SetTextValue(screen_id_entry, 17, "一氧化碳:--");
+					SetTextValue(screen_id_entry, 17, "??????:--");
 
-					SetTextValue(screen_id_entry, 9, "温        度:--");
+					SetTextValue(screen_id_entry, 9, "??        ??:--");
 					
 					ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] = 1;
 				}
 			}
 		}
-		else // 没设置上线
+		else // ?????????
 		{
 			if(temp_force_fresh == 1 || ddsc_32p_entry->last_derector_state[curr_page - 1][ddsc_32p_entry->curr_pack_id - 1] != 2)
 			{
 				uint8_t buff[32];
-				sprintf((char *)buff, "pack%d 状态:未启用", ddsc_32p_entry->curr_pack_id);
+				sprintf((char *)buff, "pack%d ??:δ????", ddsc_32p_entry->curr_pack_id);
 
 				SetTextValue(screen_id_entry, 5, buff);
 
-				SetTextValue(screen_id_entry, 13, "烟        雾:--");
+				SetTextValue(screen_id_entry, 13, "??        ??:--");
 
-				SetTextValue(screen_id_entry, 17, "一氧化碳:--");
+				SetTextValue(screen_id_entry, 17, "??????:--");
 
-				SetTextValue(screen_id_entry, 9, "温        度:--");
+				SetTextValue(screen_id_entry, 9, "??        ??:--");
 				
 				ddsc_32p_entry->last_derector_state[curr_page - 1][ddsc_32p_entry->curr_pack_id - 1] = 2;
 			}
@@ -8808,72 +8796,72 @@ static void InternalScreenShowClusterData_32Pack_Plus(uint16_t screen_id_entry, 
 	} // screen id 62
 }
 
-const char sensor_str1[] = "光学烟雾";
-const char sensor_str2[] = "甲烷";
-const char sensor_str3[] = "氢气";
+const char sensor_str1[] = "???????";
+const char sensor_str2[] = "????";
+const char sensor_str3[] = "????";
 const char sensor_str4[] = "VOC";
-//const char sensor_str5[] = "一氧化碳";
+//const char sensor_str5[] = "??????";
 const char sensor_str5[] = "CO";
-const char sensor_str6[] = "温度";
-const char sensor_str7[] = "传感器启用状态:";
+const char sensor_str6[] = "???";
+const char sensor_str7[] = "????????????:";
 
 const char *sensor_str[] = {
-	sensor_str1, // 光学烟雾
-	sensor_str2, // 甲烷  
-	sensor_str3, // 氢气
+	sensor_str1, // ???????
+	sensor_str2, // ????  
+	sensor_str3, // ????
 	sensor_str4, // VOC
-	sensor_str5, // 一氧化碳
-	sensor_str6, // 温度
-	sensor_str7  // 传感器启用状态
+	sensor_str5, // ??????
+	sensor_str6, // ???
+	sensor_str7  // ????????????
 };
 
 static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 {
 	uint8_t temp_screen_id = 64;
-	// 用一个变量存储值，修改的时候方便
+	// ??????????洢????????????
 	uint8_t temp_cabin_id = cabin_dsc_entry->curr_cabin_id;
 
 	if(cang_sxzt[temp_cabin_id] != 0)
 	{
-		if(cang_sxzt[temp_cabin_id] == 1 || cabin_dsc_entry->force_fresh_flag == 1) // 如果启用
+		if(cang_sxzt[temp_cabin_id] == 1 || cabin_dsc_entry->force_fresh_flag == 1) // ???????
 		{
 			if(Cang_zx_buf[temp_cabin_id] == CabinDisconnectCount)
 			{
 				uint8_t temp_buff[32] = {0};
-				sprintf((char *)temp_buff,"探测器%d状态:掉线", temp_cabin_id);
+				sprintf((char *)temp_buff,"?????%d??:????", temp_cabin_id);
 				SetTextValue(temp_screen_id, 2, temp_buff);
-				SetTextValue(temp_screen_id, 3, "探测器型号:--");
-				SetTextValue(temp_screen_id, 4, "传感器启用状态:--");
-				SetTextValue(temp_screen_id, 5, "温度:--");
-				SetTextValue(temp_screen_id, 6, "烟雾状态:--");
-				SetTextValue(temp_screen_id, 7, "一氧化碳浓度:--");
-				SetTextValue(temp_screen_id, 8, "氢气浓度:--");
+				SetTextValue(temp_screen_id, 3, "????????:--");
+				SetTextValue(temp_screen_id, 4, "????????????:--");
+				SetTextValue(temp_screen_id, 5, "???:--");
+				SetTextValue(temp_screen_id, 6, "??????:--");
+				SetTextValue(temp_screen_id, 7, "?????????:--");
+				SetTextValue(temp_screen_id, 8, "???????:--");
 			}
 			else
 			{
 				uint8_t temp_buff[32] = {0};
-				sprintf((char *)temp_buff,"探测器%d状态:在线", temp_cabin_id);
+				sprintf((char *)temp_buff,"?????%d??:????", temp_cabin_id);
 				SetTextValue(temp_screen_id, 2, temp_buff);
 				
-				// 显示探测器型号
+				// ???????????
 				if(cabin_dsc_entry->last_detector_model != Cang_TCQXH_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					switch(Cang_TCQXH_buf[temp_cabin_id])
 					{
 						case 1: {
-							SetTextValue(temp_screen_id, 3, "探测器型号:XR805-V2.0");
+							SetTextValue(temp_screen_id, 3, "????????:XR805-V2.0");
 							break;
 						}
 						case 2: {
-							SetTextValue(temp_screen_id, 3, "探测器型号:XR805-EXD");
+							SetTextValue(temp_screen_id, 3, "????????:XR805-EXD");
 							break;
 						}
 						case 3: {
-							SetTextValue(temp_screen_id, 3, "探测器型号:XR805-EXi");
+							SetTextValue(temp_screen_id, 3, "????????:XR805-EXi");
 							break;
 						}
 						default:
-							SetTextValue(temp_screen_id, 3, "探测器型号:--");
+							SetTextValue(temp_screen_id, 3, "????????:--");
 							break;
 					}
 					
@@ -8884,14 +8872,14 @@ static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 				{
 					if(Cang_CGQQY_buf[temp_cabin_id] == 0)
 					{
-						SetTextValue(temp_screen_id, 4, "传感器启用状态:无传感器启动");
+						SetTextValue(temp_screen_id, 4, "????????????:??????????");
 					}
 					else
 					{
 						uint8_t temp = Cang_CGQQY_buf[temp_cabin_id];
 						uint8_t temp_buff[128] = {0};
 						
-						uint8_t first_sensor = 1;  // 标记是否是第一个传感器
+						uint8_t first_sensor = 1;  // ??????????????????
 						
 						uint8_t pos = 0;
 						
@@ -8901,7 +8889,7 @@ static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 						{
 							if( (temp >> i) & 0x01 )
 							{
-								// 如果不是第一个，添加分隔符
+								// ???????????????????
 								if(!first_sensor)
 								{
 										pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -8916,47 +8904,47 @@ static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 						SetTextValue(temp_screen_id, 4, temp_buff);
 					}
 					cabin_dsc_entry->last_sensor_mode = Cang_CGQQY_buf[temp_cabin_id];
-				} // 传感器启用状态判断
+				} // ?????????????ж?
 				
 				if(cabin_dsc_entry->last_temperat_value != Cang_wendu_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					uint8_t temp_buff[16];
 					cabin_dsc_entry->last_temperat_value = Cang_wendu_buf[temp_cabin_id];
-					sprintf((char *)temp_buff, "温度:%d度", Cang_wendu_buf[temp_cabin_id]);
+					sprintf((char *)temp_buff, "???:%d??", Cang_wendu_buf[temp_cabin_id]);
 					SetTextValue(temp_screen_id, 5, temp_buff);
-				} // 温度值刷新
+				} // ???????
 				
 				if(cabin_dsc_entry->last_smoke_state != Cang_YWZT_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					if(Cang_YWZT_buf[temp_cabin_id] == 0)
 					{
-						SetTextValue(temp_screen_id, 6, "烟雾状态:正常");
+						SetTextValue(temp_screen_id, 6, "??????:????");
 					}
 					else
 					{
-						SetTextValue(temp_screen_id, 6, "烟雾状态:报警");
+						SetTextValue(temp_screen_id, 6, "??????:????");
 					}
 					cabin_dsc_entry->last_smoke_state = Cang_YWZT_buf[temp_cabin_id];
-				} // 烟雾状态刷新
+				} // ?????????
 				
 				if(cabin_dsc_entry->last_co_value != Cang_COzhi_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					uint8_t temp_buff[16];
 					cabin_dsc_entry->last_temperat_value = Cang_COzhi_buf[temp_cabin_id];
-					sprintf((char *)temp_buff, "一氧化碳浓度:%dPPM", Cang_COzhi_buf[temp_cabin_id]);
+					sprintf((char *)temp_buff, "?????????:%dPPM", Cang_COzhi_buf[temp_cabin_id]);
 					SetTextValue(temp_screen_id, 7, temp_buff);
 					
 					cabin_dsc_entry->last_co_value = Cang_COzhi_buf[temp_cabin_id];
-				} // 一氧化碳浓度刷新
+				} // ????????????
 				
 				if(cabin_dsc_entry->last_hh_value != Cang_H2zhi_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					uint8_t temp_buff[16];
 					cabin_dsc_entry->last_temperat_value = Cang_H2zhi_buf[temp_cabin_id];
-					sprintf((char *)temp_buff, "氢气浓度:%dPPM", Cang_H2zhi_buf[temp_cabin_id]);
+					sprintf((char *)temp_buff, "???????:%dPPM", Cang_H2zhi_buf[temp_cabin_id]);
 					SetTextValue(temp_screen_id, 8, temp_buff);
 					cabin_dsc_entry->last_hh_value = Cang_H2zhi_buf[temp_cabin_id];
-				} // 氢气浓度刷新
+				} // ??????????
 			}
 		}
 
@@ -8967,14 +8955,14 @@ static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 		if(cabin_dsc_entry->force_fresh_flag == 1)
 		{
 			uint8_t temp_buff[32] = {0};
-			sprintf((char *)temp_buff,"探测器%d状态:未启用", temp_cabin_id);
+			sprintf((char *)temp_buff,"?????%d??:δ????", temp_cabin_id);
 			SetTextValue(temp_screen_id, 2, temp_buff);
-			SetTextValue(temp_screen_id, 3, "探测器型号:--");
-			SetTextValue(temp_screen_id, 4, "传感器启用状态:--");
-			SetTextValue(temp_screen_id, 5, "温度:--");
-			SetTextValue(temp_screen_id, 6, "烟雾状态:--");
-			SetTextValue(temp_screen_id, 7, "一氧化碳浓度:--");
-			SetTextValue(temp_screen_id, 8, "氢气浓度:--");
+			SetTextValue(temp_screen_id, 3, "????????:--");
+			SetTextValue(temp_screen_id, 4, "????????????:--");
+			SetTextValue(temp_screen_id, 5, "???:--");
+			SetTextValue(temp_screen_id, 6, "??????:--");
+			SetTextValue(temp_screen_id, 7, "?????????:--");
+			SetTextValue(temp_screen_id, 8, "???????:--");
 		}
 		
 	}
@@ -9122,10 +9110,10 @@ static void DetectorShowMaxCombusteGasValue(MaxCombustibleGas_t *mcg_entry)
 			}
 		}
 
-		// 如果数据异常
-		if(temp_mcg.co_max_val == -1) // 表示没有探测器上线 或全部探测器掉线
+		// ?????????
+		if(temp_mcg.co_max_val == -1) // ??????????????? ??????????????
 		{
-			SetTextValue(temp_screen_id, 26, "探测器未上线/全掉线/无正确数据");
+			SetTextValue(temp_screen_id, 26, "?????δ????/?????/?????????");
 		}
 		else
 		{
@@ -9135,24 +9123,24 @@ static void DetectorShowMaxCombusteGasValue(MaxCombustibleGas_t *mcg_entry)
 			{
 				if(Hydrogen_Type == temp_mcg.gas_type)
 				{
-					sprintf((char *)temp_buff, "第1回路 %d号 氢气浓度%dPPM", temp_mcg.curr_da.cabin_id, temp_mcg.co_max_val);
+					sprintf((char *)temp_buff, "??1??· %d?? ???????%dPPM", temp_mcg.curr_da.cabin_id, temp_mcg.co_max_val);
 					SetTextValue(temp_screen_id, 26, temp_buff);
 				}
 				else
 				{
-					sprintf((char *)temp_buff, "第1回路 %d号 一氧化碳浓度%dPPM", temp_mcg.curr_da.cabin_id, temp_mcg.co_max_val);
+					sprintf((char *)temp_buff, "??1??· %d?? ?????????%dPPM", temp_mcg.curr_da.cabin_id, temp_mcg.co_max_val);
 					SetTextValue(temp_screen_id, 26, temp_buff);
 				}
 				
 			}
 			else if(temp_mcg.curr_da.cluster_id != 0 && temp_mcg.curr_da.pack_id != 0 && temp_mcg.curr_da.cabin_id == 0)
 			{
-				sprintf((char *)temp_buff, "第%d簇pack%d一氧化碳浓度%dPPM", temp_mcg.curr_da.cluster_id, temp_mcg.curr_da.pack_id, temp_mcg.co_max_val);
+				sprintf((char *)temp_buff, "??%d??pack%d?????????%dPPM", temp_mcg.curr_da.cluster_id, temp_mcg.curr_da.pack_id, temp_mcg.co_max_val);
 				SetTextValue(temp_screen_id, 26, temp_buff);
 			}
 			else
 			{
-				SetTextValue(temp_screen_id, 26, "探测器无正确数据");
+				SetTextValue(temp_screen_id, 26, "??????????????");
 			}
 		}
 		
@@ -9166,7 +9154,7 @@ static void DetectorDataFreshMenuCtrl(DetectorDataShowCtrl *ddsc_entry, uint16_t
 {
 	if(ctrl_id == 103)
 	{
-		if(state == 1) // 按键按下
+		if(state == 1) // ????????
 		{
 			ddsc_entry->curr_detector_page = item + 1;
 		}
@@ -9177,10 +9165,10 @@ static void DetectorDataFreshMenuCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_3
 {
 	if(ctrl_id == 103)
 	{
-		if(state == 1) // 按键按下
+		if(state == 1) // ????????
 		{
 			ddsc_32p_entry->curr_detector_page = item + 1;
-			ddsc_32p_entry->force_fresh_flag = 1; // 强制刷新标志位
+			ddsc_32p_entry->force_fresh_flag = 1; // ?????±??λ
 		}
 	}
 }
@@ -9214,7 +9202,7 @@ static void DetectorFreshPageButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc
 			if(ddsc_32p_entry->curr_detector_page > 1)
 			{
 				ddsc_32p_entry->curr_detector_page--;
-				ddsc_32p_entry->force_fresh_flag = 1; // 强制刷新标志位
+				ddsc_32p_entry->force_fresh_flag = 1; // ?????±??λ
 			}
 				
 		}
@@ -9226,7 +9214,7 @@ static void DetectorFreshPageButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc
 			if(ddsc_32p_entry->curr_detector_page < 3)
 			{
 				ddsc_32p_entry->curr_detector_page++;
-				ddsc_32p_entry->force_fresh_flag = 1; // 强制刷新标志位
+				ddsc_32p_entry->force_fresh_flag = 1; // ?????±??λ
 			}
 				
 		}
@@ -9238,7 +9226,7 @@ const uint8_t button_value_map[] = {
 	 37,  41,  45,  49,  53,  57,  61,  65, 
 	 69,  73,  77,  81,  85,  89,  93,  97, 
 	101, 111, 115, 119, 123, 127, 131, 136,};
-// 1簇32pack版本 查询PACK按钮
+// 1??32pack?汾 ???PACK???
 static void DetectorMonitorButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry, uint16_t ctrl_id, uint8_t state)
 {
 	if(state == 1)
@@ -9248,7 +9236,7 @@ static void DetectorMonitorButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_3
 			if(button_value_map[i] == ctrl_id)
 			{
 				ddsc_32p_entry->curr_pack_id = i + 1;
-				ddsc_32p_entry->force_fresh_flag = 1; // 强制刷新标志位
+				ddsc_32p_entry->force_fresh_flag = 1; // ?????±??λ
 				SetScreen(62);	// 
 				osDelay(5);
 				GetScreen();
@@ -9314,7 +9302,7 @@ static void PointTypeDetectorOnlineIconCtrl(uint16_t ctrl_id, uint8_t state, uin
 	{
 		uint8_t set_online_state = !getPointTypeMixtureDetectOnlineState(ctrl_id);
 		PointTypeMixtureOnlieStateSingleSetting(ctrl_id, set_online_state);
-		AnimationPlayFrame(5, ctrl_id, set_online_state);//(画面ID,控件ID,帧ID) 0红，1绿
+		AnimationPlayFrame(5, ctrl_id, set_online_state);//(????ID,???ID,?ID) 0??1??
 		
 		SavePointTypeSetOnlieState();
 		ReadPointTypeSetOnlieState();
@@ -9334,7 +9322,7 @@ static void PointTypeDetectorOnlineButtonCtrlPlus(uint16_t ctrl_id, uint8_t stat
 			for(uint8_t i = 1; i < 33; i++)
 			{
 				PointTypeMixtureOnlieStateSingleSetting(i, 1);
-				AnimationPlayFrame(5, i, 1);//(画面ID,控件ID,帧ID) 0红，1绿
+				AnimationPlayFrame(5, i, 1);//(????ID,???ID,?ID) 0??1??
 			}
 			SavePointTypeSetOnlieState();
 			ReadPointTypeSetOnlieState();
@@ -9344,7 +9332,7 @@ static void PointTypeDetectorOnlineButtonCtrlPlus(uint16_t ctrl_id, uint8_t stat
 			for(uint8_t i = 1; i < 33; i++)
 			{
 				PointTypeMixtureOnlieStateSingleSetting(i, 0);
-				AnimationPlayFrame(5, i, 0);//(画面ID,控件ID,帧ID) 0红，1绿
+				AnimationPlayFrame(5, i, 0);//(????ID,???ID,?ID) 0??1??
 			}
 			SavePointTypeSetOnlieState();
 			ReadPointTypeSetOnlieState();
@@ -9365,7 +9353,7 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 				int8_t success_len;
 				int32_t x,y;
 				success_len = sscanf((const char*)entry_str, "%d.%d", &x, &y);  
-				if(success_len == 2 && x >0 && y > 0) // 解析成功 并且x y大于零
+				if(success_len == 2 && x >0 && y > 0) // ??????? ????x y??????
 				{
 					uint8_t modify_flag = 0;
 					if (x > y)
@@ -9379,7 +9367,7 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 						if(getPointTypeMixtureDetectOnlineState(i) == 0)
 						{
 							PointTypeMixtureOnlieStateSingleSetting(i, 1);
-							AnimationPlayFrame(5, i, 1);//(画面ID,控件ID,帧ID) 0红，1绿
+							AnimationPlayFrame(5, i, 1);//(????ID,???ID,?ID) 0??1??
 							modify_flag = 1;	
 						}
 					}
@@ -9389,7 +9377,7 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 					}
 				}
 			}
-			SetTextValue(5, 235, "批量上线");
+			SetTextValue(5, 235, "????????");
 			break;
 		}
 		case 236:{
@@ -9399,14 +9387,14 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 				int8_t success_len;
 				int32_t x;
 				success_len = sscanf((const char*)entry_str, "%d", &x);  
-				if(success_len == 2 && x >0) // 解析成功 并且x大于零
+				if(success_len == 2 && x >0) // ??????? ????x??????
 				{
 					uint8_t modify_flag = 0;
 
 					if(getPointTypeMixtureDetectOnlineState(x) == 0)
 					{
 						PointTypeMixtureOnlieStateSingleSetting(x, 1);
-						AnimationPlayFrame(5, x, 1);//(画面ID,控件ID,帧ID) 0红，1绿
+						AnimationPlayFrame(5, x, 1);//(????ID,???ID,?ID) 0??1??
 						modify_flag = 1;	
 					}
 					if(modify_flag == 1)
@@ -9415,7 +9403,7 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 					}
 				}
 			}
-			SetTextValue(5, 236, "单点上线");
+			SetTextValue(5, 236, "????????");
 			break;
 		}
 		default:
@@ -9428,7 +9416,7 @@ static void PointTypeDetectorOnlineStateShowInit(void)
 {
 	for(uint8_t i = 1; i < 33; i++)
 	{
-		AnimationPlayFrame(5, i, getPointTypeMixtureDetectOnlineState(i));//(画面ID,控件ID,帧ID) 0红，1绿
+		AnimationPlayFrame(5, i, getPointTypeMixtureDetectOnlineState(i));//(????ID,???ID,?ID) 0??1??
 	}
 }
 
@@ -9437,11 +9425,11 @@ void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clu
 	uint8_t flag = 0;
 	for(uint8_t l = 0;l < pcfws_entry->self_bottom_point; l++)
 	{
-		// 如果簇ID是外联设备ID 
+		// ?????ID???????豸ID 
 		if(pcfws_entry->da[l].cluster_id == LINKAGE_CLUSTER_ID)
 		{
-			// 如果传进来的参数有和结构体内相同的 结束循环
-			if(pcfws_entry->da[l].pack_id == pack_id) // 不需要判断报警类型是否一致 因为只有这一个
+			// ???????????????к??????????? ???????
+			if(pcfws_entry->da[l].pack_id == pack_id) // ??????ж?????????????? ???????????
 			{
 				flag = 1;
 				break;
@@ -9449,7 +9437,7 @@ void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clu
 		}
 		else if(pcfws_entry->da[l].cluster_id != 0)
 		{
-			// 如果传进来的参数有和结构体内相同的 结束循环
+			// ???????????????к??????????? ???????
 			if(pcfws_entry->da[l].cluster_id == cluster_id && pcfws_entry->da[l].pack_id == pack_id && pcfws_entry->alarm_type[l] == alarm_type)
 			{
 				flag = 1;
@@ -9459,14 +9447,14 @@ void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clu
 		else if(pcfws_entry->da[l].pack_id != 0)
 		{
 			if( pcfws_entry->da[l].cabin_id == pack_id &&
-					pcfws_entry->alarm_type[l]  == alarm_type) // 既能当仓也能当pack id
+					pcfws_entry->alarm_type[l]  == alarm_type) // ???????????pack id
 			{
 				flag = 1;
 				break;
 			}
 		}
 	}
-	// 表示没有找到相同的 即第一次出现
+	// ?????????????? ??????γ???
 	if(flag != 1)
 	{
 		if(cluster_id == LINKAGE_CLUSTER_ID)
@@ -9499,17 +9487,17 @@ void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clu
 		pcfws_entry->atr[pcfws_entry->self_bottom_point].hours  = hours;
 		pcfws_entry->atr[pcfws_entry->self_bottom_point].minute = minutes;
 		
-		// 2025/11/19 13:53 新增记录秒
+		// 2025/11/19 13:53 ?????????
 		pcfws_entry->atr[pcfws_entry->self_bottom_point].second = secs;
 		
 		pcfws_entry->self_bottom_point++;
 		
-		beep_fire_ctrl |= 0x0F;  // 任意报警 长鸣
-		silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
+		beep_fire_ctrl |= 0x0F;  // ?????? ????
+		silencers_state = 0; // ???μ???? ???????? ?????????λ
 	}
 }
 
-// 预警可以清除
+// ??????????
 void DeletPackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cluster_id, uint8_t pack_id, uint8_t alarm_type)
 {
 	uint8_t l;
@@ -9525,7 +9513,7 @@ void DeletPackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clust
 			}
 		}
 	}
-	if(flag == 1 && pcfws_entry->self_bottom_point > 0) // 表示恢复正常的探测器在报警数组中
+	if(flag == 1 && pcfws_entry->self_bottom_point > 0) // ????????????????????????????
 	{
 		for(;l < pcfws_entry->self_bottom_point - 1; l++)
 		{
@@ -9536,10 +9524,10 @@ void DeletPackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clust
 		}
 		pcfws_entry->self_bottom_point--;
 		
-		if(pcfws_entry->self_bottom_point > 0) // 恢复后还有其他报警的话
+		if(pcfws_entry->self_bottom_point > 0) // ??????????????????
 		{
-			beep_fire_ctrl |= 0x0F; // 打开预警蜂鸣器
-			silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
+			beep_fire_ctrl |= 0x0F; // ???????????
+			silencers_state = 0; // ???μ???? ???????? ?????????λ
 		}
 	}
 }
@@ -9551,7 +9539,7 @@ void StorageCabinFireAlarm(PackCabinFireAlarmStorage *pcfas_entry,
 		uint8_t flag = 0;
 	for(uint8_t l = 0;l < pcfas_entry->self_bottom_point; l++)
 	{
-		if(pcfas_entry->detector_class[l] == CabinClassID) // 如果是仓才进行判断
+		if(pcfas_entry->detector_class[l] == CabinClassID) // ???????????ж?
 		{
 			if(pcfas_entry->da[l].cabin_id == cabin_id && pcfas_entry->alarm_type[l] == alarm_type)
 			{
@@ -9584,10 +9572,10 @@ void StorageCabinFireAlarm(PackCabinFireAlarmStorage *pcfas_entry,
 }
 
 void StoragePackFireAlarm(
-	PackCabinFireAlarmStorage *pcfas_entry, // 要存入的缓冲区地址
-	uint8_t cluster_id,                     // 簇
-	uint8_t pack_id,                        // 包/仓
-	uint8_t alarm_type                      // 报警类型
+	PackCabinFireAlarmStorage *pcfas_entry, // ??????????????
+	uint8_t cluster_id,                     // ??
+	uint8_t pack_id,                        // ??/??
+	uint8_t alarm_type                      // ????????
 )
 {
 	uint8_t flag = 0;
@@ -9611,10 +9599,10 @@ void StoragePackFireAlarm(
 				break;
 			}
 		}
-		else // 仓
+		else // ??
 		{
 			if( pcfas_entry->da[l].cabin_id == pack_id &&
-					pcfas_entry->alarm_type[l]  == alarm_type) // 既能当仓也能当pack id
+					pcfas_entry->alarm_type[l]  == alarm_type) // ???????????pack id
 			{
 				flag = 1;
 				break;
@@ -9624,7 +9612,7 @@ void StoragePackFireAlarm(
 	
 	if(flag != 1)
 	{
-		if(cluster_id == LINKAGE_CLUSTER_ID) // 如果是外联设备ID
+		if(cluster_id == LINKAGE_CLUSTER_ID) // ??????????豸ID
 		{
 			pcfas_entry->detector_class[pcfas_entry->self_bottom_point] = LinkageClassID;
 			pcfas_entry->da[pcfas_entry->self_bottom_point].cabin_id    = 0;
@@ -9662,7 +9650,7 @@ void StoragePackFireAlarm(
 static uint8_t getShieldDetectorSum(uint8_t pack_shield[][33], uint8_t cabin_shield[])
 {
 	uint8_t shield_sum = 0;
-	// 计算屏蔽总数
+	// ????????????
 	for(uint8_t i = 1;i < 21;i++)
 	{
 		for(uint8_t j = 1;j < 11;j++)
@@ -9691,25 +9679,25 @@ uint8_t point_site_ctrl_id[4][7] = {
 static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 {
 	uint8_t temp_screen_id = 59;
-	uint8_t temp_partition = bkcnc_entry->curr_partition; // 复制一份
+	uint8_t temp_partition = bkcnc_entry->curr_partition; // ???????
 	uint8_t prev_partition = bkcnc_entry->last_partition; // XR5000_CURSOR_FIX_20260726: capture the pre-mutation partition for correct stale-cursor clearing below.
 	
 	uint8_t key_val_temp;
 	
-	// 需要初始化
-	if(bkcnc_entry->curr_menu_state == InitMenu) // 先初始化菜单状态
+	// ????????
+	if(bkcnc_entry->curr_menu_state == InitMenu) // ???????????
 	{
 		for(uint8_t i = 0; i < 3; i+=2)
 		{
-			clearTextValue(temp_screen_id, partition_ctrl_id[i]); // 默认清空箭头
+			clearTextValue(temp_screen_id, partition_ctrl_id[i]); // ????????
 			for(uint8_t j = 0; j < 7; j++)
 			{
-				clearTextValue(temp_screen_id, point_site_ctrl_id[i][j]); // 默认清空箭头
+				clearTextValue(temp_screen_id, point_site_ctrl_id[i][j]); // ????????
 			}
 		}
-		bkcnc_entry->curr_menu_state = OutMenu; // 默认在菜单外
+		bkcnc_entry->curr_menu_state = OutMenu; // ?????????
 		bkcnc_entry->last_menu_state = OutMenu;
-		// 初始化的时候 赋值一次
+		// ?????????? ??????
 		bkcnc_entry->last_show_len[ForceAlarmPart] = pcfws.self_bottom_point;
 		bkcnc_entry->last_show_len[FaultPart]      = pcfs_buttom_point;
 		bkcnc_entry->last_show_len[FireAlarmPart]  = pcfas.self_bottom_point;
@@ -9722,26 +9710,26 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 		SetTextValue(temp_screen_id, partition_ctrl_id[ForceAlarmPart], "<-");
 	}
 	
-	// 箭头位置更新
+	// ???λ?????
 	
-	// 故障箭头刷新 - 修改部分
+	// ????????? - ??????
 	if(((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) > bkcnc_entry->last_show_len[FaultPart])
 	{
-		// 如果故障数量增加了 箭头位置不用动
+		// ????????????????? ???λ?ò????
 		bkcnc_entry->last_show_len[FaultPart] = (uint8_t)((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount());
 	}
 	else if(((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) < bkcnc_entry->last_show_len[FaultPart])
 	{
-		// 如果故障数量减少了（有恢复）
+		// ???????????????????л????
 		uint8_t new_count = (uint8_t)((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount());
 			
-		// 调整当前箭头位置，确保不超出范围
+		// ??????????λ??????????????Χ
 		if (bkcnc_entry->curr_point_site[FaultPart] >= new_count) 
 		{
 			bkcnc_entry->curr_point_site[FaultPart] = (new_count > 0) ? new_count - 1 : 0;
 		}
 			
-		// 调整翻页索引，确保显示区域有效
+		// ?????????????????????????Ч
 		if (fault_current_page + Fault_Show_Zone > new_count) 
 		{
 			if (new_count > Fault_Show_Zone) 
@@ -9758,24 +9746,24 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 		bkcnc_entry->last_show_len[FaultPart] = new_count;
 	}
 	
-	// 预警箭头刷新 - 修改部分
+	// ????????? - ??????
 	if(pcfws.self_bottom_point > bkcnc_entry->last_show_len[ForceAlarmPart])
 	{
-		// 如果预警数量增加了 箭头位置不用动
+		// ???????????????? ???λ?ò????
 		bkcnc_entry->last_show_len[ForceAlarmPart] = pcfws.self_bottom_point;
 	}
 	else if(pcfws.self_bottom_point < bkcnc_entry->last_show_len[ForceAlarmPart])
 	{
-		// 如果预警数量减少了（有恢复）
+		// ??????????????????л????
 		uint8_t new_count = pcfws.self_bottom_point;
 		
-		// 调整当前箭头位置，确保不超出范围
+		// ??????????λ??????????????Χ
 		if (bkcnc_entry->curr_point_site[ForceAlarmPart] >= new_count) 
 		{
 			bkcnc_entry->curr_point_site[ForceAlarmPart] = (new_count > 0) ? new_count - 1 : 0;
 		}
 			
-		// 调整翻页索引，确保显示区域有效
+		// ?????????????????????????Ч
 		if (fore_alarm_start_index + Alarm_Show_Zone > new_count) 
 		{
 			if (new_count > Alarm_Show_Zone) 
@@ -9797,13 +9785,13 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 	{
 		clearMatrixKeyValue();
 	}
-	// 获取按键值 
+	// ???????? 
 	switch(key_val_temp)
 	{
-		case KEY6_DIRECTION_UP   : // 方向键 上
-			if(bkcnc_entry->curr_menu_state == OutMenu) // 如果当前是在菜单外
+		case KEY6_DIRECTION_UP   : // ????? ??
+			if(bkcnc_entry->curr_menu_state == OutMenu) // ??????????????
 			{
-				if(temp_partition == FireAlarmPart) // 如果当前分区是火警分区
+				if(temp_partition == FireAlarmPart) // ?????????????????
 				{
 					bkcnc_entry->curr_partition = ForceAlarmPart;
 					temp_partition = ForceAlarmPart;
@@ -9814,18 +9802,18 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 					temp_partition = FaultPart;
 				}
 			}
-			else // 如果是在菜单内 
+			else // ??????????? 
 			{
-				if(temp_partition == ForceAlarmPart) // 如果是在预警栏
+				if(temp_partition == ForceAlarmPart) // ????????????
 				{
 					if(pcfws.self_bottom_point > 0)
 					{
 						// 
 						if(bkcnc_entry->curr_point_site[temp_partition] > 0) 
 						{
-							bkcnc_entry->curr_point_site[temp_partition]--; // 指针偏移
+							bkcnc_entry->curr_point_site[temp_partition]--; // ??????
 						}
-						else if(bkcnc_entry->curr_point_site[temp_partition] == 0) // 向上滚动
+						else if(bkcnc_entry->curr_point_site[temp_partition] == 0) // ???????
 						{
 							if(fore_alarm_start_index > 0)
 							{
@@ -9835,105 +9823,105 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 						}
 					}
 				}
-				else if(temp_partition == FaultPart) // 如果是故障栏
+				else if(temp_partition == FaultPart) // ??????????
 				{
-					// 如果有故障信息
+					// ????й??????
 					if(pcfs_buttom_point > 0)
 					{
-						// 如果当前指针没在最顶上面 先移动箭头到最上面
+						// ?????????????????? ????????????????
 						if(bkcnc_entry->curr_point_site[temp_partition] > 0) 
 						{
-							bkcnc_entry->curr_point_site[temp_partition]--; // 指针偏移
+							bkcnc_entry->curr_point_site[temp_partition]--; // ??????
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == 0)
 						{
-							// 翻页逻辑 向上翻页
+							// ?????? ??????
 							if (fault_current_page > 0) 
 							{ 
 								fault_current_page--;
-								fault_check_new_flag = 1; // 标记按下
+								fault_check_new_flag = 1; // ??????
 							} 
 						}
 						
-						// 暂时不支持到头回底
+						// ?????????????
 //						else {
-//							// 跳到最后一页
+//							// ?????????
 //							fault_current_page = pcfs_buttom_point - Fault_Show_Zone;
-//							// 处理最后一页不足的情况
+//							// ?????????????????
 //							if (fault_current_page < 0) {
-//									fault_current_page = 0; // 如果总条目不足一页，保持在首页
+//									fault_current_page = 0; // ?????????????????????????
 //							}
 //						}
 						
 					}
 					else
 					{
-						// 否则指针默认指在第一个
+						// ?????????????????
 						bkcnc_entry->curr_point_site[temp_partition] = 0;
 					}
 				}
-				else if(temp_partition == FireAlarmPart) // 如果是火警
+				else if(temp_partition == FireAlarmPart) // ??????
 				{
-					// 如果有故障信息
-					if(pcfas.self_bottom_point > 0) // 有火警
+					// ????й??????
+					if(pcfas.self_bottom_point > 0) // ?л?
 					{
-						// 如果当前指针没在最顶上面 先移动箭头到最上面
+						// ?????????????????? ????????????????
 						if(bkcnc_entry->curr_point_site[temp_partition] > 0) 
 						{
-							bkcnc_entry->curr_point_site[temp_partition]--; // 指针偏移
+							bkcnc_entry->curr_point_site[temp_partition]--; // ??????
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == 0)
 						{
-							// 翻页逻辑 向上翻页
+							// ?????? ??????
 							if (fire_alarm_start_index > 0) 
 							{ 
 								fire_alarm_start_index--;
-								fire_alarm_check_new_flag = 1; // 标记按下
+								fire_alarm_check_new_flag = 1; // ??????
 							} 
 						}
 					}
 					
 				}
-				else if(temp_partition == OutFirePart) // 气灭分区
+				else if(temp_partition == OutFirePart) // ???????
 				{
 					if(fedas.self_point_len > 0)
 					{
-						// 如果当前指针没在最顶上面 先移动箭头到最上面
+						// ?????????????????? ????????????????
 						if(bkcnc_entry->curr_point_site[temp_partition] > 0) 
 						{
-							bkcnc_entry->curr_point_site[temp_partition]--; // 指针偏移
+							bkcnc_entry->curr_point_site[temp_partition]--; // ??????
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == 0)
 						{
-							// 翻页逻辑 向上翻页
+							// ?????? ??????
 							if (fedas_fresh_point > 0) 
 							{ 
 								fedas_fresh_point--;
-								fed_fresh_flag = 1; // 标记按下
+								fed_fresh_flag = 1; // ??????
 							} 
 						}
 					}
 				}
 			}
 			break;
-		case KEY7_DIRECTION_RIGHT: // 如果方向键 右 按下
-			if(temp_partition == ForceAlarmPart) // 如果当前分区是预警
+		case KEY7_DIRECTION_RIGHT: // ???????? ?? ????
+			if(temp_partition == ForceAlarmPart) // ???????????????
 			{
-				if(bkcnc_entry->curr_menu_state == InMenu) // 如果在菜单内
+				if(bkcnc_entry->curr_menu_state == InMenu) // ?????????
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; // 退出菜单
+					bkcnc_entry->curr_menu_state = OutMenu; // ??????
 				}
-				else // 本来就在菜单外
+				else // ????????????
 				{
-					bkcnc_entry->curr_partition = FaultPart; // 切换分区
+					bkcnc_entry->curr_partition = FaultPart; // ?л?????
 					temp_partition = FaultPart;
 				}
 			}
 			else if(temp_partition == FireAlarmPart)
 			{
-				if(bkcnc_entry->curr_menu_state == InMenu) // 如果在菜单内
+				if(bkcnc_entry->curr_menu_state == InMenu) // ?????????
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; // 退出菜单
+					bkcnc_entry->curr_menu_state = OutMenu; // ??????
 				}
 				else 
 				{
@@ -9943,20 +9931,20 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			}
 			else if(temp_partition == FaultPart || temp_partition == OutFirePart)
 			{
-				if(bkcnc_entry->curr_menu_state == OutMenu) // 菜单外
+				if(bkcnc_entry->curr_menu_state == OutMenu) // ?????
 				{
-					bkcnc_entry->curr_menu_state = InMenu; //  进入菜单内
+					bkcnc_entry->curr_menu_state = InMenu; //  ????????
 				}
 				else
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; //  退出菜单
+					bkcnc_entry->curr_menu_state = OutMenu; //  ??????
 				}
 			}
 			break;
-		case KEY8_DIRECTION_DOWN : // 方向键下
-			if(bkcnc_entry->curr_menu_state == OutMenu) // 如果当前是在菜单外
+		case KEY8_DIRECTION_DOWN : // ???????
+			if(bkcnc_entry->curr_menu_state == OutMenu) // ??????????????
 			{
-				if(temp_partition == ForceAlarmPart) // 如果当前分区是预警分区
+				if(temp_partition == ForceAlarmPart) // ???????????????????
 				{
 					bkcnc_entry->curr_partition = FireAlarmPart;
 					temp_partition = FireAlarmPart;
@@ -9969,22 +9957,22 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			}
 			else
 			{
-				if(temp_partition == ForceAlarmPart) // 如果是在预警栏
+				if(temp_partition == ForceAlarmPart) // ????????????
 				{
-					// 如果有预警
+					// ????????
 					if(pcfws.self_bottom_point > 0)
 					{
-						// 如果 当前箭头位置还没有指到底
+						// ??? ??????λ???????????
 						if(bkcnc_entry->curr_point_site[temp_partition] < Alarm_Show_Zone - 1) 
 						{
-							// 检查是否超过实际数据范围（防止数据量不足时越界）
+							// ????????????????Χ??????????????????磩
 							if (bkcnc_entry->curr_point_site[temp_partition] < pcfws.self_bottom_point - 1) {
 									bkcnc_entry->curr_point_site[temp_partition]++;
 							}
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == Alarm_Show_Zone - 1)
 						{
-							// 翻页逻辑 // 当前页+显示区域长度 小于总数 则可以往后滚动
+							// ?????? // ????+????????? С?????? ????????????
 							if (fore_alarm_start_index + Alarm_Show_Zone < pcfws.self_bottom_point) 
 							{
 								fore_alarm_start_index++;
@@ -9993,11 +9981,11 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 						}
 					}
 				}
-				else if(temp_partition == FaultPart) // 如果是故障栏
+				else if(temp_partition == FaultPart) // ??????????
 				{
-					if(pcfs_buttom_point > 0) // 如果有报警
+					if(pcfs_buttom_point > 0) // ????б???
 					{
-						// 如果 当前箭头位置还没有指到底
+						// ??? ??????λ???????????
 						if(bkcnc_entry->curr_point_site[temp_partition] < Fault_Show_Zone - 1) 
 						{
 //							bkcnc_entry->curr_point_site[temp_partition]++;
@@ -10005,19 +9993,19 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 //							{
 //								bkcnc_entry->curr_point_site[temp_partition] = pcfs_buttom_point - 1;
 //							}
-							// 检查是否超过实际数据范围（防止数据量不足时越界）
+							// ????????????????Χ??????????????????磩
 							if (((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) > 0U && bkcnc_entry->curr_point_site[temp_partition] < ((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) - 1U) {
 									bkcnc_entry->curr_point_site[temp_partition]++;
 							}
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == Fault_Show_Zone - 1)
 						{
-							// 翻页逻辑 // 当前页+显示区域长度 小于总数 则可以往后滚动
+							// ?????? // ????+????????? С?????? ????????????
 							if ((uint16_t)fault_current_page + Fault_Show_Zone < (uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) {
 								fault_current_page++;
-								fault_check_new_flag = 1; // 标记按下
+								fault_check_new_flag = 1; // ??????
 							} 
-					// 暂时去掉到底回头
+					// ???????????
 //					else {
 //						fault_current_page = 0;
 //					}
@@ -10028,11 +10016,11 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 						bkcnc_entry->curr_point_site[temp_partition] = 0;
 					}
 				}
-				else if(temp_partition == FireAlarmPart) // 火警
+				else if(temp_partition == FireAlarmPart) // ??
 				{
 					if(pcfas.self_bottom_point > 0)
 					{
-						// 如果 当前箭头位置还没有指到底
+						// ??? ??????λ???????????
 						if(bkcnc_entry->curr_point_site[temp_partition] < Alarm_Show_Zone - 1) 
 						{
 							if (bkcnc_entry->curr_point_site[temp_partition] < pcfas.self_bottom_point - 1) {
@@ -10046,13 +10034,13 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 								fire_alarm_check_new_flag = 1;
 							} 
 						}			
-					} // 如果火警存储有记录
+					} // ??????洢?м??
 				}
-				else if(temp_partition == OutFirePart) // 气灭分区
+				else if(temp_partition == OutFirePart) // ???????
 				{
 					if(fedas.self_point_len > 0)
 					{
-						// 如果 当前箭头位置还没有指到底
+						// ??? ??????λ???????????
 						if(bkcnc_entry->curr_point_site[temp_partition] < Out_Fire_Show_Zone - 1) 
 						{
 							if (bkcnc_entry->curr_point_site[temp_partition] < fedas.self_point_len - 1) {
@@ -10067,17 +10055,17 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 								fed_fresh_flag = 1;
 							} 
 						}	
-					} // 如果气灭分区存储有记录
+					} // ???????????洢?м??
 					
 				}
 			}
 			break;
-		case KEY9_DIRECTION_LEFT : // 方向键 左 按下
+		case KEY9_DIRECTION_LEFT : // ????? ?? ????
 			if(temp_partition == FaultPart)
 			{
-				if(bkcnc_entry->curr_menu_state == InMenu) // 如果在菜单内
+				if(bkcnc_entry->curr_menu_state == InMenu) // ?????????
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; // 退出菜单
+					bkcnc_entry->curr_menu_state = OutMenu; // ??????
 				}
 				else
 				{
@@ -10087,9 +10075,9 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			}
 			else if(temp_partition == OutFirePart)
 			{
-				if(bkcnc_entry->curr_menu_state == InMenu) // 如果在菜单内
+				if(bkcnc_entry->curr_menu_state == InMenu) // ?????????
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; // 退出菜单
+					bkcnc_entry->curr_menu_state = OutMenu; // ??????
 				}
 				else
 				{
@@ -10099,13 +10087,13 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			}
 			else if(temp_partition == ForceAlarmPart || temp_partition == FireAlarmPart)
 			{
-				if(bkcnc_entry->curr_menu_state == OutMenu) // 菜单外
+				if(bkcnc_entry->curr_menu_state == OutMenu) // ?????
 				{
-					bkcnc_entry->curr_menu_state = InMenu; // 进入菜单
+					bkcnc_entry->curr_menu_state = InMenu; // ??????
 				}
 				else
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; //  退出菜单
+					bkcnc_entry->curr_menu_state = OutMenu; //  ??????
 				}
 			}
 			break;
@@ -10113,12 +10101,12 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			break;
 	}
 	
-	// 初始化菜单内显示
+	// ?????????????
 	if(temp_partition != bkcnc_entry->last_partition) // 
 	{
-		// 清除历史分区箭头
+		// ?????????????
 		clearTextValue(temp_screen_id, partition_ctrl_id[bkcnc_entry->last_partition]);
-		bkcnc_entry->last_partition = temp_partition; // 表明已经更新
+		bkcnc_entry->last_partition = temp_partition; // ???????????
 
 		switch(temp_partition)
 		{
@@ -10139,12 +10127,12 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 		}
 	}
 	
-	// 菜单内指针控制
-	if( bkcnc_entry->last_point_site[temp_partition] != bkcnc_entry->curr_point_site[temp_partition] || // 如果是分区状态位置改变
-			bkcnc_entry->last_menu_state                 != bkcnc_entry->curr_menu_state                    // 如果是菜单内外状态改变
+	// ???????????
+	if( bkcnc_entry->last_point_site[temp_partition] != bkcnc_entry->curr_point_site[temp_partition] || // ??????????λ????
+			bkcnc_entry->last_menu_state                 != bkcnc_entry->curr_menu_state                    // ????????????????
 	)
 	{
-		// 清除历史箭头
+		// ?????????
 		clearTextValue(temp_screen_id, point_site_ctrl_id[ prev_partition % 4 ][ bkcnc_entry->last_point_site[prev_partition] % 7 ]); // XR5000_CURSOR_FIX_20260726: was indexing with the already-updated last_partition/temp_partition, so the stale arrow at the old partition/position never got cleared.
 		if(bkcnc_entry->curr_menu_state == InMenu)
 		{
@@ -10174,7 +10162,7 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 
 void InternalSwitchInterfaceCtrlInit(void)
 {
-	switch_ui_ctrl.curr_pack_alarm_len = &pas_pointer; // 绑定包火警数量
+	switch_ui_ctrl.curr_pack_alarm_len = &pas_pointer; // ??????????
 	switch_ui_ctrl.last_pack_alarm_len = 0;
 	
 	switch_ui_ctrl.curr_pc_fire_alarm_len = &pcfas.self_bottom_point;
@@ -10209,7 +10197,7 @@ static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry)
 			sic_entry->curr_pc_fore_alarm_len == NULL ||
 			sic_entry->curr_pc_fault_len      == NULL ||
 			sic_entry->curr_pc_outfire_len    == NULL
-	) // 如果有任意的报警 故障存在
+	) // ????????????? ???????
 	{
 		return;
 	}
@@ -10218,13 +10206,13 @@ static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry)
 			*(sic_entry->curr_pc_fore_alarm_len) != 0 ||
 			*(sic_entry->curr_pc_fault_len     ) != 0	||
 			*(sic_entry->curr_pc_outfire_len   ) != 0
-	) // 如果有任意的报警 故障存在
+	) // ????????????? ???????
 	{
 		uint32_t curr_time = osKernelGetTickCount();
 		if(curr_time - sic_entry->curr_sys_time >= 180000)
 		{
 			sic_entry->curr_sys_time = curr_time;
-			// 打开屏幕背光
+			// ?????????
 			beiguangkai();
 		}
 	}
@@ -10234,7 +10222,7 @@ static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry)
 			*(sic_entry->curr_pc_fore_alarm_len) != sic_entry->last_pc_fore_alarm_len ||
 			*(sic_entry->curr_pc_fault_len     ) != sic_entry->last_pc_fault_len      ||
 			*(sic_entry->curr_pc_outfire_len   ) != sic_entry->last_pc_outfire_len
-	) // 如果有任意的报警 故障变动
+	) // ????????????? ?????
 	{
 		sic_entry->last_pack_alarm_len    = *(sic_entry->curr_pack_alarm_len);
 		sic_entry->last_pc_fire_alarm_len = *(sic_entry->curr_pc_fire_alarm_len);
@@ -10242,15 +10230,15 @@ static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry)
 		sic_entry->last_pc_fault_len      = *(sic_entry->curr_pc_fault_len     );
 		sic_entry->last_pc_outfire_len    = *(sic_entry->curr_pc_outfire_len   );
 
-		// 打开屏幕背光
+		// ?????????
 		beiguangkai();
-		// 回一次主界面
+		// ???????????
 		SetMonitorPageFrom(current_screen_id); /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
 	}
 	
 }
 
-// 查询报警切换界面（这是第一步，查询报警界面，从查询报警来）
+// ????????л????棨????????????????????棬????????????
 static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t ctrl_id, uint8_t state)
 {
 	if(state == 1)
@@ -10260,11 +10248,11 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 			case 1: {
 				int8_t temp_sector = 0;
 				bsrr_entry->curr_show_type = RECORD_FAULT;
-				SetScreen(57);	// 进入二级密码页
-				// 先读取数量
+				SetScreen(57);	// ????????????
+				// ????????
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(FAULT_FLASH_SAVE);
-				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //记录总数显示
-				bsrr_entry->force_fresh_flag = 1; // 每次进入必须强制刷新一次
+				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //??????????
+				bsrr_entry->force_fresh_flag = 1; // ??ν???????????????
 				
 //				BspReadFlashData(FAULT_FLASH_SAVE, read_data[0].byte_buff, 0);
 //				BspReadFlashData(FAULT_FLASH_SAVE, read_data[1].byte_buff, 1);
@@ -10273,9 +10261,9 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				
 				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=500)
 				{
-					// 计算缓冲区下标
+					// ?????????±?
 					temp_sector = temp_sum/500;
-					// 读取缓冲区中的内容
+					// ??????????е?????
 					BspReadFlashData(FAULT_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10286,17 +10274,17 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 			case 2: {
 				int8_t temp_sector = 0;
 				bsrr_entry->curr_show_type = RECORD_ALARM;
-				SetScreen(56);	// 切换到报警显示页
+				SetScreen(56);	// ?л???????????
 				
-				// 先读取数量
+				// ????????
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(FIRE_FLASH_SAVE);
-				SetTextInt32(56, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //记录总数显示
-				bsrr_entry->force_fresh_flag = 1; // 每次进入必须强制刷新一次
+				SetTextInt32(56, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //??????????
+				bsrr_entry->force_fresh_flag = 1; // ??ν???????????????
 				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=400)
 				{
-					// 计算缓冲区下标
+					// ?????????±?
 					temp_sector = temp_sum/400;
-					// 读取缓冲区中的内容
+					// ??????????е?????
 					BspReadFlashData(FIRE_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10310,21 +10298,21 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				bsrr_entry->curr_show_type = RECORD_GASOF;
 				SetScreen(57);	// 
 				
-				// 先读取数量
+				// ????????
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(GASER_FLASH_SAVE);
-				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //记录总数显示
-				bsrr_entry->force_fresh_flag = 1; // 每次进入必须强制刷新一次
+				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //??????????
+				bsrr_entry->force_fresh_flag = 1; // ??ν???????????????
 				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=500)
 				{
-					// 计算缓冲区下标
+					// ?????????±?
 					temp_sector = temp_sum/500;
-					// 读取缓冲区中的内容
+					// ??????????е?????
 					BspReadFlashData(GASER_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
 				GetScreen();
 				
-				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //记录总数显示
+				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //??????????
 				
 				break;
 			}
@@ -10334,15 +10322,15 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				bsrr_entry->curr_show_type = RECORD_OTHER;
 				SetScreen(57);	// 
 
-				// 先读取数量
+				// ????????
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(OTHER_FLASH_SAVE);
-				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //记录总数显示
-				bsrr_entry->force_fresh_flag = 1; // 每次进入必须强制刷新一次
+				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //??????????
+				bsrr_entry->force_fresh_flag = 1; // ??ν???????????????
 				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=500)
 				{
-					// 计算缓冲区下标
+					// ?????????±?
 					temp_sector = temp_sum/500;
-					// 读取缓冲区中的内容
+					// ??????????е?????
 					BspReadFlashData(OTHER_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10353,11 +10341,11 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 			default:
 				break;
 		}
-		bsrr_entry->curr_page[bsrr_entry->curr_show_type] = 1; // 每次进入强制显示第一页
+		bsrr_entry->curr_page[bsrr_entry->curr_show_type] = 1; // ??ν?????????????
 	}
 }
 
-// 查询时切换页按键，换页动作
+// ?????л???????????????
 static void InternalScreenRecordShiftButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t ctrl_id, uint8_t state)
 {
 	if(state == 1)
@@ -10368,7 +10356,7 @@ static void InternalScreenRecordShiftButtonCtrl(BspScreenReadRecord_t *bsrr_entr
 				if(bsrr_entry->curr_page[bsrr_entry->curr_show_type] > 1)
 				{
 					bsrr_entry->curr_page[bsrr_entry->curr_show_type]--;
-					bsrr_entry->force_fresh_flag = 1; // 强制刷新标志位
+					bsrr_entry->force_fresh_flag = 1; // ?????±??λ
 				}
 				break;
 			case 2:
@@ -10390,126 +10378,126 @@ uint8_t retime_ctrl_id[10] = {26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
 uint8_t states_ctrl_id[10] = {36, 37, 38, 39, 40, 41, 42, 43, 44, 45};
 
 uint8_t values_ctrl_id[10] = {86, 87, 88, 89, 90, 91, 92, 93, 94, 95};
-// 显示记录,同时换页后也调用这个进行显示
+// ??????,??????????????????????
 static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 {
 	uint8_t temp_screen_id = 0;
-	uint8_t x_sector; // 扇区偏移
-	uint8_t temp_page = bsrr_entry->curr_page[bsrr_entry->curr_show_type]; // 临时记录一次页 预防再别处被修改
+	uint8_t x_sector; // ???????
+	uint8_t temp_page = bsrr_entry->curr_page[bsrr_entry->curr_show_type]; // ?????????? ???????????
 	
-	if(bsrr_entry->force_fresh_flag == 1) // 强制刷新标志位
+	if(bsrr_entry->force_fresh_flag == 1) // ?????±??λ
 	{
 		uint8_t show_buff[32];
 		uint16_t temp_caculate;
 		uint16_t data_index;
-		uint16_t start = (temp_page - 1)*RECORD_SHOW_ZONE; // 开始下标
+		uint16_t start = (temp_page - 1)*RECORD_SHOW_ZONE; // ????±?
 		uint16_t total_records = bsrr_entry->record_sum[bsrr_entry->curr_show_type];
 		
-		// 通过一个变量修改显示页面
+		// ???????????????????
 		temp_screen_id = (bsrr_entry->curr_show_type == RECORD_ALARM) ? 56 : 57;
 
-		// 更新显示页 只刷新一次
+		// ???????? ???????
 		bsrr_entry->force_fresh_flag = 0;
 		
-		// 更新页显示
+		// ????????
 		SetTextInt32(temp_screen_id, 97, temp_page, 0, 1);   
 		
 		for(uint16_t i = 0; i < RECORD_SHOW_ZONE; i++)
 		{
 			temp_caculate = start + i;
-			if(temp_caculate < total_records) // 如果当前索引小于总数
+			if(temp_caculate < total_records) // ??????????С??????
 			{
-				// 假设总数 total_records = 591 条 现在 temp_page = 10 第十页 start = （10-1）*10 = 90
-				// 假设现在i = 0，temp_caculate = start + i = 90；i= 1，temp_caculate = start + i = 91；...
-				// reverse_index = 591 - 1 - 90 = 500；reverse_index = 591 - 1 - 91 = 499 
+				// ???????? total_records = 591 ?? ???? temp_page = 10 ???? start = ??10-1??*10 = 90
+				// ????????i = 0??temp_caculate = start + i = 90??i= 1??temp_caculate = start + i = 91??...
+				// reverse_index = 591 - 1 - 90 = 500??reverse_index = 591 - 1 - 91 = 499 
 				uint16_t reverse_index = total_records - 1 - temp_caculate;
 				// 
 				switch(bsrr_entry->curr_show_type)
 				{
 					case RECORD_FAULT: {
-						// 测试数据是否正确
+						// ??????????????
 						//DebugSendString(read_data[total_records/500].byte_buff, total_records * 8);
 						//x_sector = total_records/500;
 						x_sector = reverse_index/500;
 						data_index = reverse_index%500;
 						
-						// 显示序号
+						// ??????
 						SetTextInt32(temp_screen_id, serial_ctrl_id[i], temp_caculate + 1, 0, 1);   //
 
-						// 设备名称判断
+						// ?豸?????ж?
 						if(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id != 0)
 						{
 							if(FormatRS485DetectFlashDeviceName(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id,
 								read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id, show_buff) == 1)
 							{
-								// XR5000_LOOP3_CHANGE_20260726: Loop 3 history fault display uses "第3回路 X号".
+								// XR5000_LOOP3_CHANGE_20260726: Loop 3 history fault display uses "??3??· X??".
 							}
 							else if(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id == MBUS_CONTROL_FLASH_ID)
 							{
-								sprintf((char *)show_buff, "第2回路 %d号", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
+								sprintf((char *)show_buff, "??2??· %d??", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
 							}
 							else if(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id == LINKAGE_CLUSTER_ID)
 							{
 								switch(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id)
 								{
 									case Deflate_Package_ID: {
-										sprintf((char *)show_buff, "放气误入");
+										sprintf((char *)show_buff, "????????");
 										break;
 									}
 									case SoundLt_Package_ID: {
-										sprintf((char *)show_buff, "声光报警器");
+										sprintf((char *)show_buff, "????????");
 										break;
 									}
 									case SirenBk_Package_ID: {
-										sprintf((char *)show_buff, "警笛/备用");
+										sprintf((char *)show_buff, "????/????");
 										break;
 									}
 									case OutFir1_Package_ID: {
-										sprintf((char *)show_buff, "灭火装置1");
+										sprintf((char *)show_buff, "??????1");
 										break;
 									}
 									case OutFir2_Package_ID: {
-										sprintf((char *)show_buff, "灭火装置2");
+										sprintf((char *)show_buff, "??????2");
 										break;
 									}
 									case CabinBK_Package_ID: {
-										sprintf((char *)show_buff, "喷放装置");
+										sprintf((char *)show_buff, "??????");
 										break;
 									}
 									case FEEDBK1_Package_ID: {
-										sprintf((char *)show_buff, "反馈1");
+										sprintf((char *)show_buff, "????1");
 										break;
 									}
 									case FEEDBK2_Package_ID: {
-										sprintf((char *)show_buff, "反馈2");
+										sprintf((char *)show_buff, "????2");
 										break;
 									}
 									case HANDPOT_Package_ID: {
-										sprintf((char *)show_buff, "手报");
+										sprintf((char *)show_buff, "???");
 										break;
 									}
 									case SYS_MAIN_POWER_KEY_ID: {
-										sprintf((char *)show_buff, "主电源");
+										sprintf((char *)show_buff, "?????");
 										break;
 									}
 									case SYS_BACK_POWER_KEY_ID: {
-										sprintf((char *)show_buff, "备电池");
+										sprintf((char *)show_buff, "?????");
 										break;
 									}
 									case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_1: {
-										sprintf((char *)show_buff, "回路1");
+										sprintf((char *)show_buff, "??·1");
 										break;
 									}
 									case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_2: {
-										sprintf((char *)show_buff, "回路2");
+										sprintf((char *)show_buff, "??·2");
 										break;
 									}
 									case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_3: {
-										sprintf((char *)show_buff, "回路3");
+										sprintf((char *)show_buff, "??·3");
 										break;
 									}
 									case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_4: {
-										sprintf((char *)show_buff, "回路4");
+										sprintf((char *)show_buff, "??·4");
 										break;
 									}
 									default:
@@ -10518,43 +10506,43 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 							}
 							else
 							{
-								sprintf((char *)show_buff, "第%d簇%dpack", 
+								sprintf((char *)show_buff, "??%d??%dpack", 
 									read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id,
 									read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
 							}
 						}
 						else
 						{
-							sprintf((char *)show_buff, "第1回路 %d号", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
+							sprintf((char *)show_buff, "??1??· %d??", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
 						}
-						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //刷新设备名称
-						// 显示时间
+						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //????豸????
+						// ??????
 						
-						// 申请 临时变量 用来刷新时间显示
+						// ???? ??????? ?????????????
 						FlashSaveTime_t temp_time_save = {0};
 						
 						getFlashTime_Plus(read_data[x_sector].fs_sys_fault[data_index].fs_time_buff, &temp_time_save);
 
-						sprintf((char *)show_buff, "%02d年%02d月%02d日 %02d时%02d分%02d秒", temp_time_save.years + 2000, temp_time_save.months, 
+						sprintf((char *)show_buff, "%02d??%02d??%02d?? %02d?%02d??%02d??", temp_time_save.years + 2000, temp_time_save.months, 
 							temp_time_save.days, temp_time_save.hours , temp_time_save.minute, temp_time_save.second);
 						
-						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //刷新时间
-						// 状态显示
+						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //??????
+						// ?????
 						if(read_data[x_sector].fs_sys_fault[data_index].state == DISCONNECT)
 						{
-							sprintf((char *)show_buff, "设备掉线");
+							sprintf((char *)show_buff, "?豸????");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == DIS_RECOVERY)
 						{
-							sprintf((char *)show_buff, "掉线恢复");
+							sprintf((char *)show_buff, "??????");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == SHORTCIRCUIT)
 						{
-							sprintf((char *)show_buff, "设备短路");
+							sprintf((char *)show_buff, "?豸??·");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == SHO_RECOVERY)
 						{
-							sprintf((char *)show_buff, "短路恢复");
+							sprintf((char *)show_buff, "??·???");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_TEMP_SENSOR_FAULT)
 						{
@@ -10562,15 +10550,15 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_TEMP_SENSOR_RECOVERY)
 						{
-							sprintf((char *)show_buff, "温度故障恢复");
+							sprintf((char *)show_buff, "????????");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_SMOKE_POLLUTION_FAULT)
 						{
-							sprintf((char *)show_buff, "烟雾污染故障");
+							sprintf((char *)show_buff, "???????????");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_SMOKE_POLLUTION_RECOVERY)
 						{
-							sprintf((char *)show_buff, "烟雾污染故障恢复");
+							sprintf((char *)show_buff, "?????????????");
 						}
                         else if(read_data[x_sector].fs_sys_fault[data_index].state == LOOP1_TEMP_SENSOR_FAULT)
                         {
@@ -10596,22 +10584,22 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
                         {
                             sprintf((char *)show_buff, "\xD1\xCC\xCE\xED\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF\xBB\xD6\xB8\xB4");
                         }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CO_SENSOR_FAULT) { sprintf((char *)show_buff, "CO传感器故障"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CO_SENSOR_RECOVERY) { sprintf((char *)show_buff, "CO传感器故障恢复"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_H2_SENSOR_FAULT) { sprintf((char *)show_buff, "H2传感器故障"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_H2_SENSOR_RECOVERY) { sprintf((char *)show_buff, "H2传感器故障恢复"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_VOC_SENSOR_FAULT) { sprintf((char *)show_buff, "VOC传感器故障"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_VOC_SENSOR_RECOVERY) { sprintf((char *)show_buff, "VOC传感器故障恢复"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_FAULT) { sprintf((char *)show_buff, "CH4传感器故障"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_RECOVERY) { sprintf((char *)show_buff, "CH4传感器故障恢复"); }
-						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //刷新状态
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CO_SENSOR_FAULT) { sprintf((char *)show_buff, "CO??????????"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CO_SENSOR_RECOVERY) { sprintf((char *)show_buff, "CO????????????"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_H2_SENSOR_FAULT) { sprintf((char *)show_buff, "H2??????????"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_H2_SENSOR_RECOVERY) { sprintf((char *)show_buff, "H2????????????"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_VOC_SENSOR_FAULT) { sprintf((char *)show_buff, "VOC??????????"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_VOC_SENSOR_RECOVERY) { sprintf((char *)show_buff, "VOC????????????"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_FAULT) { sprintf((char *)show_buff, "CH4??????????"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_RECOVERY) { sprintf((char *)show_buff, "CH4????????????"); }
+						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //?????
 						
 						break;
 					}
 					case RECORD_ALARM: {
-						// 临时扇区
+						// ???????
 //						x_sector = total_records/400;
-//						data_index = (total_records - 1 - temp_caculate)%400; // 计算数据索引
+//						data_index = (total_records - 1 - temp_caculate)%400; // ????????????
 //						
 						x_sector = reverse_index/400;
 						data_index = reverse_index%400;
@@ -10619,7 +10607,7 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 //						DebugSendString(&read_data[total_records/500].byte_buff[data_index * 10], 10);
 //						
 //						sprintf((char *)show_buff, "%d", total_records);
-//						SetTextValue(1, 37, show_buff); //刷新状态
+//						SetTextValue(1, 37, show_buff); //?????
 //						
 //						sprintf((char *)show_buff, "%d %d %d %d %d %d %d %d %d %d", 
 //							read_data[x_sector].byte_buff[0],
@@ -10632,87 +10620,87 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 //							read_data[x_sector].byte_buff[7],
 //							read_data[x_sector].byte_buff[8],
 //							read_data[x_sector].byte_buff[9] );
-//						SetTextValue(1, 36, show_buff); //刷新状态
+//						SetTextValue(1, 36, show_buff); //?????
 //						
-						// 设备名称判断
+						// ?豸?????ж?
 						if(FormatRS485DetectFlashDeviceName(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id,
 							read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id, show_buff) == 1)
 						{
-							// XR5000_LOOP3_CHANGE_20260726: Loop 3 history alarm display uses "第3回路 X号".
+							// XR5000_LOOP3_CHANGE_20260726: Loop 3 history alarm display uses "??3??· X??".
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id == MBUS_CONTROL_FLASH_ID)
 					{
 						/* XR5000_MBUS2_HAND_ALARM_FIRE_HISTORY_20260729: render loop2 manual alarm device. */
-						sprintf((char *)show_buff, "第2回路 %d号", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
+						sprintf((char *)show_buff, "??2??· %d??", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
 					}
 					else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id == LINKAGE_CLUSTER_ID)
 						{
 							if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id == ALARM_ANNUNCIATOR_ID)
 							{
-								sprintf((char *)show_buff, "报警器");
+								sprintf((char *)show_buff, "??????");
 							}
 							else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id == HANDPOT_Package_ID)
 							{
-								sprintf((char *)show_buff, "手动报警器");
+								sprintf((char *)show_buff, "?????????");
 							}
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id != 0)
 						{
-							sprintf((char *)show_buff, "第%d簇%dpack", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id,
+							sprintf((char *)show_buff, "??%d??%dpack", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id,
 								read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
 							
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id == 0 && 
 										read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id != 0)
 						{
-							sprintf((char *)show_buff, "第1回路 %d号", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
+							sprintf((char *)show_buff, "??1??· %d??", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
 						}
 						else
 						{
-							sprintf((char *)show_buff, "未知设备");
+							sprintf((char *)show_buff, "δ??豸");
 						}
-						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //刷新设备名称
+						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //????豸????
 						
-						// 显示序号
+						// ??????
 						SetTextInt32(temp_screen_id, serial_ctrl_id[i], temp_caculate + 1, 0, 1);   //
 						
-						// 显示时间
-						// 2025/11/19 15:39 修改
-						// 申请 临时变量 用来刷新时间显示
+						// ??????
+						// 2025/11/19 15:39 ???
+						// ???? ??????? ?????????????
 						FlashSaveTime_t temp_time_save = {0};
 						
 						getFlashTime_Plus(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_time_buff, &temp_time_save);
 
-						sprintf((char *)show_buff, "%02d年%02d月%02d日 %02d时%02d分%02d秒", temp_time_save.years + 2000, temp_time_save.months, 
+						sprintf((char *)show_buff, "%02d??%02d??%02d?? %02d?%02d??%02d??", temp_time_save.years + 2000, temp_time_save.months, 
 							temp_time_save.days, temp_time_save.hours , temp_time_save.minute, temp_time_save.second);
 
-						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //刷新时间
+						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //??????
 						
-						// 状态显示
+						// ?????
 						if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == FIRGAS_ALARM)
 						{
-							sprintf((char *)show_buff, "可燃气体报警");
+							sprintf((char *)show_buff, "??????屨??");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == EAR_RECOVERY)
 						{
-							sprintf((char *)show_buff, "可燃气体恢复");
+							sprintf((char *)show_buff, "?????????");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == SMOKE_ALARM)
 						{
-							sprintf((char *)show_buff, "烟雾报警");
+							sprintf((char *)show_buff, "???????");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == TEMPRT_ALARM)
 						{
-							sprintf((char *)show_buff, "温度火警");
+							sprintf((char *)show_buff, "????");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == LINKAGE_PRESS)
 						{
-							sprintf((char *)show_buff, "报警器报警");
+							sprintf((char *)show_buff, "??????????");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == MBUS2_HAND_ALARM)
 						{
 							/* XR5000_MBUS2_HAND_ALARM_FIRE_HISTORY_20260729: render manual alarm state. */
-							sprintf((char *)show_buff, "手动报警");
+							sprintf((char *)show_buff, "???????");
 						}
 					else if(FIRGAS_ALARM_CO == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
@@ -10723,7 +10711,7 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 							}
 							else
 							{
-								sprintf((char *)show_buff, "可燃气体一氧化碳报警");
+								sprintf((char *)show_buff, "?????????????????");
 							}
 						}
 						else if(FIRGAS_ALARM_HH == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
@@ -10735,24 +10723,24 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 							}
 							else
 							{
-								sprintf((char *)show_buff, "可燃气体氢气报警");
+								sprintf((char *)show_buff, "???????????????");
 							}
 						}
 						else if(RS485_TEMP_WARNING == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
-							sprintf((char *)show_buff, "温度预警");
+							sprintf((char *)show_buff, "??????");
 						}
 						else if(RS485_CO_FIRE == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
-							sprintf((char *)show_buff, "CO火警");
+							sprintf((char *)show_buff, "CO??");
 						}
 						else if(RS485_H2_FIRE == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
-							sprintf((char *)show_buff, "H2火警");
+							sprintf((char *)show_buff, "H2??");
 						}
 						else if(FIRGAS_ALARM_VOC == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
-							sprintf((char *)show_buff, "VOC预警");
+							sprintf((char *)show_buff, "VOC???");
 						}
                         else if(LOOP1_TEMP_WARNING == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
                         {
@@ -10770,7 +10758,7 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
                         {
                             sprintf((char *)show_buff, "\xD1\xCC\xCE\xED\xD4\xA4\xBE\xAF\xBB\xD6\xB8\xB4");
                         }
-						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //刷新状态
+						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //?????
 						
 						if(read_data[x_sector].fs_fire_alarm[data_index].data_high == 0xFFFF)
 						{
@@ -10780,165 +10768,165 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						{
 							sprintf((char *)show_buff, "%d", read_data[x_sector].fs_fire_alarm[data_index].data_high);
 						}
-						SetTextValue(temp_screen_id, values_ctrl_id[i], show_buff); //刷新状态
+						SetTextValue(temp_screen_id, values_ctrl_id[i], show_buff); //?????
 						
 						break;
 					}
 					case RECORD_GASOF: {
-						// 临时扇区
+						// ???????
 //						x_sector = total_records/500;
-//						data_index = (total_records - 1 - temp_caculate)%500; // 计算数据索引
+//						data_index = (total_records - 1 - temp_caculate)%500; // ????????????
 						x_sector = reverse_index/500;
 						data_index = reverse_index%500;
 
-						// 显示序号
+						// ??????
 						SetTextInt32(temp_screen_id, serial_ctrl_id[i], temp_caculate + 1, 0, 1);   //
 						
-						// 设备名称判断
-						// 如果是外联设备
+						// ?豸?????ж?
+						// ??????????豸
 						if(FormatRS485DetectFlashDeviceName(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id,
 							read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id, show_buff) == 1)
 						{
-							// XR5000_LOOP3_CHANGE_20260726: Loop 3 gas action history display uses "第3回路 X号".
+							// XR5000_LOOP3_CHANGE_20260726: Loop 3 gas action history display uses "??3??· X??".
 						}
 						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id == OUTFIRE_CLUSTER_ID)
 						{
 							if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id == OUTFIR1_PACKAGE_ID)
 							{
-								sprintf((char *)show_buff, "灭火装置1");
+								sprintf((char *)show_buff, "??????1");
 							}
 							else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id == OUTFIR2_PACKAGE_ID)
 							{
-								sprintf((char *)show_buff, "灭火装置2");
+								sprintf((char *)show_buff, "??????2");
 							}
 							else
 							{
-								sprintf((char *)show_buff, "灭火装置");
+								sprintf((char *)show_buff, "??????");
 							}
 						}
 						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id == LINKAGE_CLUSTER_ID)
 						{
 							if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id == ALARM_ANNUNCIATOR_ID)
 							{
-								sprintf((char *)show_buff, "警报器");
+								sprintf((char *)show_buff, "??????");
 							}
 							else if(PART1_HAND_AUTO_Package_ID == read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id)
 							{
-								sprintf((char *)show_buff, "分区1");
+								sprintf((char *)show_buff, "????1");
 							}
 							else if(PART2_HAND_AUTO_Package_ID == read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id)
 							{
-								sprintf((char *)show_buff, "分区2");
+								sprintf((char *)show_buff, "????2");
 							}
 							else if(SYS_HAND_AUTO_Package_ID == read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id)
 							{
-								sprintf((char *)show_buff, "联动启动");
+								sprintf((char *)show_buff, "???????");
 							}
 							else if(FEEDBK1_Package_ID == read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id)
 							{
-								sprintf((char *)show_buff, "反馈1");
+								sprintf((char *)show_buff, "????1");
 							}
 						}
 						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id != 0)
 						{
-							sprintf((char *)show_buff, "第%d簇%dpack", 
+							sprintf((char *)show_buff, "??%d??%dpack", 
 								read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id,
 								read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id);
 						}
 						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id == 0 && 
 										read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id != 0)
 						{
-							sprintf((char *)show_buff, "第1回路 %d号", read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id);
+							sprintf((char *)show_buff, "??1??· %d??", read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id);
 						}
-						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //刷新设备名称
+						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //????豸????
 
-						// 显示时间
-						// 2025/11/19 15:39 修改
+						// ??????
+						// 2025/11/19 15:39 ???
 						FlashSaveTime_t temp_time_save = {0};
 						
 						getFlashTime_Plus(read_data[x_sector].fs_gas_outfires[data_index].fs_time_buff, &temp_time_save);
 
-						sprintf((char *)show_buff, "%02d年%02d月%02d日 %02d时%02d分%02d秒", temp_time_save.years + 2000, temp_time_save.months, 
+						sprintf((char *)show_buff, "%02d??%02d??%02d?? %02d?%02d??%02d??", temp_time_save.years + 2000, temp_time_save.months, 
 							temp_time_save.days, temp_time_save.hours , temp_time_save.minute, temp_time_save.second);
 			
-						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //刷新时间
+						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //??????
 
-						// 状态显示
+						// ?????
 						switch(read_data[x_sector].fs_gas_outfires[data_index].state)
 						{
 							case OUTFIRE1OPEN_1:
-								sprintf((char *)show_buff, "灭火装置第一次启动");
+								sprintf((char *)show_buff, "?????????????");
 								break;
 							case OUTFIRE1CLOSE:
-								sprintf((char *)show_buff, "灭火装置关闭");
+								sprintf((char *)show_buff, "?????ù??");
 								break;
 							case OUTFIRE1OPEN_2:
-								sprintf((char *)show_buff, "灭火装置第二次启动");
+								sprintf((char *)show_buff, "?????????????");
 								break;
 							case OUTFIRE1OPEN_3:
-								sprintf((char *)show_buff, "灭火装置第三次启动");
+								sprintf((char *)show_buff, "??????????????");
 								break;
 							case OUTFIRE_1_START_DELAY:
-								sprintf((char *)show_buff, "灭火装置第一次启动倒计时开始");
+								sprintf((char *)show_buff, "?????????????????????");
 								break;
 							case OUTFIRE_2_START_DELAY:
-								sprintf((char *)show_buff, "灭火装置第二次启动倒计时开始");
+								sprintf((char *)show_buff, "?????????????????????");
 								break;
 							case OUTFIRE_3_START_DELAY:
-								sprintf((char *)show_buff, "灭火装置第三次启动倒计时开始");
+								sprintf((char *)show_buff, "??????????????????????");
 								break;
 							case OUTFIRE_STOP  :
-								sprintf((char *)show_buff, "灭火装置强制停止");
+								sprintf((char *)show_buff, "???????????");
 								break;
 							case OUTFIRESTART_AGAIN:
-								sprintf((char *)show_buff, "灭火装置再次启动");
+								sprintf((char *)show_buff, "????????????");
 								break;
 							case OUTFIRE_ST_PRESS:
-								sprintf((char *)show_buff, "灭火装置启动按键按下");
+								sprintf((char *)show_buff, "?????????????????");
 								break;
 							case OUTFIRE_SP_PRESS:
-								sprintf((char *)show_buff, "灭火装置停止按键按下");
+								sprintf((char *)show_buff, "????????????????");
 								break;
 							case OUTFIRE_SL_PRESS:
-								sprintf((char *)show_buff, "声光按键按下");
+								sprintf((char *)show_buff, "??????????");
 								break;
 							case OUTFIRE_OVER :
-								sprintf((char *)show_buff, "灭火装置喷放完成");
+								sprintf((char *)show_buff, "????????????");
 								break;
 							case OTHER_PART1_TURN_AUTO:
-								sprintf((char *)show_buff, "分区1切换为自动");
+								sprintf((char *)show_buff, "????1?л?????");
 								break;
 							case OTHER_PART1_TURN_HAND:
-								sprintf((char *)show_buff, "分区1切换为手动");
+								sprintf((char *)show_buff, "????1?л?????");
 								break;
 							case OTHER_PART2_TURN_AUTO:
-								sprintf((char *)show_buff, "分区2切换为自动");
+								sprintf((char *)show_buff, "????2?л?????");
 								break;
 							case OTHER_PART2_TURN_HAND:
-								sprintf((char *)show_buff, "分区2切换为手动");
+								sprintf((char *)show_buff, "????2?л?????");
 								break;
 							case OTHER_SYS_TURN_HAND:
-								sprintf((char *)show_buff, "联动启动切换为手动");
+								sprintf((char *)show_buff, "????????л?????");
 								break;
 							case OTHER_SYS_TURN_AUTO:
-								sprintf((char *)show_buff, "联动启动切换为自动");
+								sprintf((char *)show_buff, "????????л?????");
 								break;
 							case OUTFIRE_FEEDBACK1:
-								sprintf((char *)show_buff, "反馈1触发");
+								sprintf((char *)show_buff, "????1????");
 								break;
 							default:
-								sprintf((char *)show_buff,"未知状态");
+								sprintf((char *)show_buff,"δ???");
 								break;
 						}
 
-						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //刷新状态
+						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //?????
 						
 						break;
 					}
-					case RECORD_OTHER: { // 其它记录分区
-						// 临时扇区
+					case RECORD_OTHER: { // ???????????
+						// ???????
 //						x_sector = total_records/500;
-//						data_index = (total_records - 1 - temp_caculate)%500; // 计算数据索引
+//						data_index = (total_records - 1 - temp_caculate)%500; // ????????????
 						x_sector = reverse_index/500;
 						data_index = reverse_index%500;
 						
@@ -10946,24 +10934,24 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 //						
 						//DebugSendString(read_data[x_sector].byte_buff, total_records * 8);
 						
-						// 显示序号
+						// ??????
 						SetTextInt32(temp_screen_id, serial_ctrl_id[i], temp_caculate + 1, 0, 1);   //
 					
-						// 设备名称判断
-						// 如果是外联设备
+						// ?豸?????ж?
+						// ??????????豸
 						if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cluster_id == LINKAGE_CLUSTER_ID)
 						{
 							if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_RESET_Package_ID)
 							{
-								sprintf((char *)show_buff, "系统复位按键");
+								sprintf((char *)show_buff, "????λ????");
 							}
 							else if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_MAIN_POWER_KEY_ID)
 							{
-								sprintf((char *)show_buff, "系统电源按键");
+								sprintf((char *)show_buff, "?????????");
 							}
 							else if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_SELFCHECK_Package_ID)
 							{
-								sprintf((char *)show_buff, "系统自检按键");
+								sprintf((char *)show_buff, "???????");
 							}
 							else if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_CHECK_Package_ID)
 						{
@@ -10971,37 +10959,37 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						}
 						else if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_TURN_OFF_Package_ID)
 							{
-								sprintf((char *)show_buff, "系统关机按键");
+								sprintf((char *)show_buff, "?????????");
 							}
 						}
 						else
 						{
-							sprintf((char *)show_buff, "未知设备");
+							sprintf((char *)show_buff, "δ??豸");
 						}
-						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //刷新设备名称
+						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //????豸????
 						
-						// 显示时间
-						// 2025/11/19 15:39 修改
+						// ??????
+						// 2025/11/19 15:39 ???
 						FlashSaveTime_t temp_time_save = {0};
 						
 						getFlashTime_Plus(read_data[x_sector].fs_other_record[data_index].fs_time_buff, &temp_time_save);
 
-						sprintf((char *)show_buff, "%02d年%02d月%02d日 %02d时%02d分%02d秒", temp_time_save.years + 2000, temp_time_save.months, 
+						sprintf((char *)show_buff, "%02d??%02d??%02d?? %02d?%02d??%02d??", temp_time_save.years + 2000, temp_time_save.months, 
 							temp_time_save.days, temp_time_save.hours , temp_time_save.minute, temp_time_save.second);
 
-						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //刷新时间
+						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //??????
 						
 						if(read_data[x_sector].fs_other_record[data_index].state == OTHER_SYS_RESET)
 						{
-							sprintf((char *)show_buff, "系统复位成功");
+							sprintf((char *)show_buff, "????λ???");
 						}
 						else if(read_data[x_sector].fs_other_record[data_index].state == OTHER_TURN_ON)
 						{
-							sprintf((char *)show_buff, "系统开机成功");
+							sprintf((char *)show_buff, "?????????");
 						}
 						else if(read_data[x_sector].fs_other_record[data_index].state == OTHER_SYS_SELF_CHECK)
 						{
-							sprintf((char *)show_buff, "系统自检");
+							sprintf((char *)show_buff, "?????");
 						}
 						else if(OTHER_SYS_CHECK == read_data[x_sector].fs_other_record[data_index].state)
 						{
@@ -11009,9 +10997,9 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						}
 						else if(OTHER_TURN_OFF == read_data[x_sector].fs_other_record[data_index].state )
 						{
-							sprintf((char *)show_buff, "系统关机成功");
+							sprintf((char *)show_buff, "????????");
 						}
-						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //刷新状态
+						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //?????
 						break;
 					}
 					default:
@@ -11019,40 +11007,40 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 				}
 
 			}
-			else // 否则清空剩余显示
+			else // ?????????????
 			{
-				clearTextValue(temp_screen_id , serial_ctrl_id[i]); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , device_ctrl_id[i]); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , retime_ctrl_id[i]); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , states_ctrl_id[i]); //(画面ID,控件ID）
+				clearTextValue(temp_screen_id , serial_ctrl_id[i]); //(????ID,???ID??
+				clearTextValue(temp_screen_id , device_ctrl_id[i]); //(????ID,???ID??
+				clearTextValue(temp_screen_id , retime_ctrl_id[i]); //(????ID,???ID??
+				clearTextValue(temp_screen_id , states_ctrl_id[i]); //(????ID,???ID??
 				if(bsrr_entry->curr_show_type == RECORD_ALARM)
 				{
-					clearTextValue(temp_screen_id , values_ctrl_id[i]); //(画面ID,控件ID）
+					clearTextValue(temp_screen_id , values_ctrl_id[i]); //(????ID,???ID??
 				}
 			}
-		} // for循环刷新显示的括号
-	} // 判断是否刷新的括号
+		} // for???????????????
+	} // ?ж??????μ?????
 }
 
-// 该函数是用来给FLASH存报警记录的
+// ?ú???????????FLASH?汨???????
 static void BspAlarmDataSaveApp(
-	FlashReadCtrlId addr_type, // 存储地址
-	FlashSaveType save_type,   // 存储类型
-	uint8_t cluster_id,        // 簇号
-	uint8_t pack_or_cabin,     // 包号
-	uint16_t val               // 值
+	FlashReadCtrlId addr_type, // ?洢???
+	FlashSaveType save_type,   // ?洢????
+	uint8_t cluster_id,        // ???
+	uint8_t pack_or_cabin,     // ????
+	uint16_t val               // ?
 )
 {
 	FlashSaveFireAlarm_t temp_data = {0};
 
-	// 设备号赋值
-	temp_data.fs_base.fs_detect_id.cluster_id = cluster_id; // 簇ID
-	temp_data.fs_base.fs_detect_id.cabin_or_pack_id = pack_or_cabin; // packID 簇不为0就是pack
-	// 时间赋值
-	// 2025/11/19 15:39 修改
+	// ?豸????
+	temp_data.fs_base.fs_detect_id.cluster_id = cluster_id; // ??ID
+	temp_data.fs_base.fs_detect_id.cabin_or_pack_id = pack_or_cabin; // packID ????0????pack
+	// ??丳?
+	// 2025/11/19 15:39 ???
 	
 	FlashSaveTimeBuff temp_time = {0};
-	// 给数组赋值
+	// ?????鸳?
 	setFlashTime(temp_time, years, months, days, hours, minutes, secs);
 
 	
@@ -11062,9 +11050,9 @@ static void BspAlarmDataSaveApp(
 		temp_data.fs_base.fs_time_buff[i] = temp_time[i];
 	}
 
-	// 状态赋值 火警
+	// ????? ??
 	temp_data.fs_base.state = save_type;
-	// 存储报警温度值
+	// ?洢????????
 	temp_data.data_high = val;
 	
 	BspSaveDataToFlash(addr_type, save_type, (void *)&temp_data);
@@ -11072,36 +11060,36 @@ static void BspAlarmDataSaveApp(
 
 static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state)
 {
-	// 如果备电故障 主电异常
+	// ?????????? ??????
 	if(main_power_state == 0 && (back_power_state == open_circuit || back_power_state == short_circuit))
 	{
 		BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_TURN_OFF, LINKAGE_CLUSTER_ID, SYS_TURN_OFF_Package_ID);
 	}
 	else
 	{
-		// 判断主电
+		// ?ж?????
 		if(main_power_state != 1 && main_power_alarm_flag == 0)
 		{
 			main_power_beep_ctrl |= (1U << 0);
-			silencers_state  = 0;  // 主电异常 关闭消音指示灯 蜂鸣器开始报警
+			silencers_state  = 0;  // ?????? ??????????? ?????????????
 			main_power_alarm_flag = 1;
 			
-			// 存储到FLASH故障存储区中 主电掉电
+			// ?洢??FLASH????洢???? ??????
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID);
-			// 存RAM
+			// ??RAM
 			creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID, DISCONNECT);
 			
 		}
 		else if(main_power_state == 1 && main_power_alarm_flag == 1)
 		{
-			// 清除更新抑制
+			// ???????????
 			main_power_alarm_flag = 0;
-			// 关闭本位蜂鸣器
+			// ????λ??????
 			main_power_beep_ctrl &= ~(1U << 0);
-	//				silencers_state  = 0;  // 关闭消音指示灯 关闭蜂鸣器 // 消音指示灯不应主动熄灭 应在新的故障到来或者系统复位后熄灭
-			// 存储到FLASH故障存储区中 主电掉电
+	//				silencers_state  = 0;  // ??????????? ???????? // ????????????????? ????μ???????????????λ?????
+			// ?洢??FLASH????洢???? ??????
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID);
-			// 从缓冲区中寻找有存在的故障
+			// ?????????????д???????
 			uint8_t temp_index_ = findRecoveryDevice(LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID, 0);
 			if(0xFF != temp_index_)
 			{
@@ -11109,56 +11097,56 @@ static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state)
 			}
 		}
 		
-		// 判断备电
+		// ?ж????
 		if(back_power_alarm_flag == 0 && back_power_state == open_circuit)
 		{
-			// 打开蜂鸣器
+			// ????????
 			main_power_beep_ctrl |= (1U << 1);
-			// 更新抑制
+			// ????????
 			back_power_alarm_flag = 1;
 			
-			silencers_state  = 0;  // 主电异常 关闭消音指示灯 蜂鸣器开始报警
-			// 存储到FLASH故障存储区中 备电掉电
+			silencers_state  = 0;  // ?????? ??????????? ?????????????
+			// ?洢??FLASH????洢???? ??????
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
-			// 存RAM
+			// ??RAM
 			creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID, DISCONNECT);
-		} // 备电断路时括号
+		} // ?????·?????
 		else if(back_power_alarm_flag == 0 && back_power_state == short_circuit)
 		{
-			// 打开蜂鸣器
+			// ????????
 			main_power_beep_ctrl |= (1U << 1);
-			// 更新抑制 记录状态
+			// ???????? ?????
 			back_power_alarm_flag = 2;
-			silencers_state  = 0;  // 主电异常 关闭消音指示灯 蜂鸣器开始报警
-			// 存储到FLASH故障存储区中 备电短路
+			silencers_state  = 0;  // ?????? ??????????? ?????????????
+			// ?洢??FLASH????洢???? ?????·
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, SHORTCIRCUIT, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
-			// 存RAM
+			// ??RAM
 			creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID, SHORTCIRCUIT);
-		} // 备电短路时括号
+		} // ?????·?????
 		else if(back_power_alarm_flag != 0 && back_power_state != open_circuit && back_power_state != short_circuit)
 		{
 			if(back_power_alarm_flag == 1)
 			{
-				// 存储到FLASH故障存储区中 备电短路
+				// ?洢??FLASH????洢???? ?????·
 				BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
 			}
 			else
 			{
-				// 存储到FLASH故障存储区中 备电短路
+				// ?洢??FLASH????洢???? ?????·
 				BspCommonDataSaveApp(FAULT_FLASH_SAVE, SHO_RECOVERY, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
 			}
 			
 			main_power_beep_ctrl &= ~(1U << 1);
 			
-			// 从缓冲区中寻找有存在的故障
+			// ?????????????д???????
 			uint8_t temp_index_ = findRecoveryDevice(LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID, 0);
 			if(0xFF != temp_index_)
 			{
 				deletRecoveryRecord(temp_index_);
 			}
 			back_power_alarm_flag = 0;
-		} // 备电恢复时括号
-	} // 只有一个异常时的判断括号
+		} // ???????????
+	} // ????????????ж?????
 }
 
 static void HandForceStartAnyCluster(FireExtinguishDeviceActionSave *fedas_entry, uint16_t ctrl_id, uint8_t state)
@@ -11169,9 +11157,9 @@ static void HandForceStartAnyCluster(FireExtinguishDeviceActionSave *fedas_entry
 		{
 			return;
 		}
-		getBM8563TimeToSystemTime(); // 获取一下RTC时间
-		// 创建一条新纪录
-		// 记录创建时间
+		getBM8563TimeToSystemTime(); // ??????RTC???
+		// ???????????
+		// ??????????
 		fedas_entry->atr[fedas_entry->self_point_len].years  = years + 2000;
 		fedas_entry->atr[fedas_entry->self_point_len].months = months;
 		fedas_entry->atr[fedas_entry->self_point_len].days   = days;
@@ -11181,9 +11169,9 @@ static void HandForceStartAnyCluster(FireExtinguishDeviceActionSave *fedas_entry
 
 		fedas_entry->cabin_id[fedas_entry->self_point_len]   = 0;
 		fedas_entry->cluster_id[fedas_entry->self_point_len] = ctrl_id - 20;
-		fedas_entry->pack_id[fedas_entry->self_point_len]    = 1; // 包ID默认是1
-		fedas_entry->fed_action[fedas_entry->self_point_len] = FIRE_EXTINGUISH_START_SPRAY_DELAY; // 启动延时状态
-		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // 延时时长30秒
+		fedas_entry->pack_id[fedas_entry->self_point_len]    = 1; // ??ID?????1
+		fedas_entry->fed_action[fedas_entry->self_point_len] = FIRE_EXTINGUISH_START_SPRAY_DELAY; // ????????
+		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // ??????30??
 		
 		fedas_entry->curr_cntd_time[fedas_entry->self_point_len] = baojingjishi;
 		fedas_entry->start_cntd_time[fedas_entry->self_point_len] = fedas_entry->curr_cntd_time[fedas_entry->self_point_len];
@@ -11200,29 +11188,29 @@ static void BspFanOnlineJudgeFaultRecord(PackCabinFaultStorage *pcfs_entry, uint
 {
 	if(fan_disconnect_count == 5)
 	{
-		// 判断是否写入
+		// ?ж????д??
 		if(fan_disconnect_record_flag == 0)
 		{
-			// 判断结构体中是否有 如果没有 创建新的 
+			// ?ж??????????? ?????? ?????μ? 
 			if(creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, LINKAGE_FAN_Package_ID, 0) == 0)
 			{
-				// 如果写入成功 开蜂鸣器 点亮故障LED 
-				beep_fault_ctrl  = 2;   // 蜂鸣器开 故障蜂鸣器标志位
-				silencers_state  = 0;   // 消音灯灭
-				disconnect_state = 1;   // 点亮故障灯
-				// 修改为函数存储
+				// ???д???? ???????? ????????LED 
+				beep_fault_ctrl  = 2;   // ???????? ????????????λ
+				silencers_state  = 0;   // ???????
+				disconnect_state = 1;   // ?????????
+				// ?????????洢
 				//DebugSendString((uint8_t *)&temp_data, sizeof(FlashSaveDetectFault_t));
 				BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, LINKAGE_CLUSTER_ID, LINKAGE_FAN_Package_ID);
 			}
-			// 标记写入
+			// ???д??
 			fan_disconnect_record_flag = 1;
 		}
 	}
-	else // 如果风机没有掉线
+	else // ????????е???
 	{
 		if(fan_disconnect_record_flag == 1)
 		{
-			// 从缓冲区中寻找有存在的故障
+			// ?????????????д???????
 			uint8_t temp_index_ = findRecoveryDevice(LINKAGE_CLUSTER_ID, LINKAGE_FAN_Package_ID, 0);
 			if(0xFF != temp_index_)
 			{
@@ -11246,22 +11234,22 @@ void FanSendCountInit(void)
 
 static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t fire_alarm_num)
 {
-	// 如果风机是掉线 故障 正在运行 则不用发送启动
+	// ??????????? ???? ???????? ???÷??????
 	if(fan_sta == fan_disconnect || fan_sta == fan_break || fan_sta == fan_run)
 	{
 //		return;
 	}
-	// 两秒一发 判断风机状态发送指令 避免队列溢出
+	// ??????? ?ж???????????? ??????????
 	if(baojingjishi - fan_start_ticks >= 2)
 	{
 		fan_start_ticks = baojingjishi;
 		if(fan_sta == fan_stop && early_aralm_num != 0 && fire_alarm_num == 0)
 		{
-			if(getSysHandAutoState() == KEY_MANUAL) // 手动状态需要手动启动 风机
+			if(getSysHandAutoState() == KEY_MANUAL) // ?????????????? ???
 			{
 				if(linkage_start_key_press_flag == 1)
 				{
-					// 发送风机启动
+					// ?????????
 					Fan1CtrlOpen();
 					Fan2CtrlOpen();
 					linkage_start_key_press_flag = 0;
@@ -11270,14 +11258,14 @@ static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t
 			}
 			else
 			{
-				// 发送风机启动
+				// ?????????
 				Fan1CtrlOpen();
 				Fan2CtrlOpen();
 				SysStartStateLedCtrl(LED_ON);
 			}
 			
 		}
-		// 如果风机正在工作 并且预警 火警都为0 关闭风机
+		// ????????????? ??????? ?????0 ?????
 		if(fan_sta == fan_run && early_aralm_num == 0 && fire_alarm_num == 0)
 		{
 			Fan1CtrlClose();
@@ -11285,7 +11273,7 @@ static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t
 		}
 		
 
-		// 发送风机关闭
+		// ?????????
 		if(early_aralm_num == 0 && fire_alarm_num == 0)
 		{
 			SysStartStateLedCtrl(LED_OFF);
@@ -11305,9 +11293,9 @@ static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t
 			}
 			
 		}
-		if(fan_send_counts < 10 && fire_alarm_num != 0) // 如果发送数量小于10并且
+		if(fan_send_counts < 10 && fire_alarm_num != 0) // ???????????С??10????
 		{
-			// 如果风机正在工作 并且出现火警 关闭风机
+			// ????????????? ???????? ?????
 			if(fan_sta == fan_run)
 			{
 				Fan1CtrlClose();
@@ -11330,7 +11318,7 @@ static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t
 	}
 }
 
-// 0 没有报警 1有报警 2已经触发仓气体灭火
+// 0 ??б??? 1?б??? 2????????????????
 uint8_t any_point_temper_alarm = 0;
 uint8_t any_point_smoke_alarm = 0;
 
@@ -11939,6 +11927,9 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
             {
                 if(old_state == 1U) Loop1RemoveWarning(addr, Loop1TempWarning, LOOP1_TEMP_WARNING_RECOVERY, value);
                 if(old_state == 3U) Loop1RemoveFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_RECOVERY);
+                /* ?????:???????? */
+                if(old_state == 3U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1);
+                if(old_state == 3U) FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1); /* FECbus:???????? */
                 setPointTypeMixtureDetectTempertureMemory(addr, raw_state == 2U ? 1U : 0U);
 
                 if(raw_state == 1U) Loop1AddWarning(addr, Loop1TempWarning, LOOP1_TEMP_WARNING, value);
@@ -11952,11 +11943,17 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, 0U, addr, value);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FIRE);
+                    /* ?????:???Loop1????(????ж????) */
+                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 1, 0);
+                    FecbusReport_Fire(addr, DEV_TYPE_TEMPERATURE, 1, 0); /* FECbus:???? */
                 }
                 else if(raw_state == 3U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FAULT);
+                    /* ?????:???????????? */
+                    StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 0);
+                    FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 0); /* FECbus:?????? */
                 }
             }
             else
@@ -11964,6 +11961,11 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                 if(old_state == 1U) Loop1RemoveWarning(addr, Loop1SmokeWarning, LOOP1_SMOKE_WARNING_RECOVERY, value);
                 if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_SMOKE_POLLUTION, LOOP1_SMOKE_POLLUTION_RECOVERY);
                 if(old_state == 9U) Loop1RemoveFault(addr, LOOP1_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_RECOVERY);
+                /* ?????:???????/???????????? */
+                if(old_state == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);
+                if(old_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);
+                if(old_state == 8U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:?????????? */
+                if(old_state == 9U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:???????????? */
                 setPointTypeMixtureDetectSmokeMemory(addr, raw_state == 2U ? 1U : 0U);
 
                 if(raw_state == 1U) Loop1AddWarning(addr, Loop1SmokeWarning, LOOP1_SMOKE_WARNING, value);
@@ -11977,16 +11979,25 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, 0U, addr, value);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FIRE);
+                    /* ?????:???Loop1?????(????ж????) */
+                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 1, 0);
+                    FecbusReport_Fire(addr, DEV_TYPE_SMOKE, 1, 0); /* FECbus:????? */
                 }
                 else if(raw_state == 8U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_SMOKE_POLLUTION, LOOP1_SMOKE_POLLUTION_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FAULT);
+                    /* ?????:??????????? */
+                    StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 0);
+                    FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:??????????? */
                 }
                 else if(raw_state == 9U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FAULT);
+                    /* ?????:????????????? */
+                    StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 0);
+                    FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:????????????? */
                 }
             }
             loop1_raw_state_memory[addr] = raw_state;
@@ -12000,29 +12011,29 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
     if(pcfs_buttom_point > 0U) disconnect_state = 1U;
     return fault_sum;
 }
-uint8_t last_point_type_found_online_state = 1; // 默认必须刷新一次
+uint8_t last_point_type_found_online_state = 1; // ????????????
 static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 {
 	uint8_t temp_screen_id = 67;
 	
-	ptsc_entry->curr_fresh_time_ctrl = osKernelGetTickCount(); // 系统当前时间戳
+	ptsc_entry->curr_fresh_time_ctrl = osKernelGetTickCount(); // ?????????
 	
-	if(ptsc_entry->curr_fresh_time_ctrl - ptsc_entry->last_fresh_time_ctrl >= 3000 || ptsc_entry->poll_show_ctrl.key_perss_fresh != 0) // 三秒一刷新
+	if(ptsc_entry->curr_fresh_time_ctrl - ptsc_entry->last_fresh_time_ctrl >= 3000 || ptsc_entry->poll_show_ctrl.key_perss_fresh != 0) // ????????
 	{
 		uint8_t show_addr;
 		
 		uint8_t found_online = 0;
 		
-		ptsc_entry->last_fresh_time_ctrl = ptsc_entry->curr_fresh_time_ctrl; // 记录刷新时间
+		ptsc_entry->last_fresh_time_ctrl = ptsc_entry->curr_fresh_time_ctrl; // ?????????
 		
-		// 先将值保存给上次轮询值
+		// ????????????????
 		ptsc_entry->poll_show_ctrl.last_detector_id = ptsc_entry->poll_show_ctrl.poll_circuits_id;
 
 		if(ptsc_entry->poll_show_ctrl.key_perss_fresh == 'p')
 		{
 			for(uint8_t test_addr = 0U; test_addr < MIXTURE_DEVICE_MAX_ADDR; test_addr++)
 			{
-				ptsc_entry->poll_show_ctrl.poll_circuits_id--; // 遍历数组 直到找到上线的数组
+				ptsc_entry->poll_show_ctrl.poll_circuits_id--; // ???????? ???????????????
 				
 				if(ptsc_entry->poll_show_ctrl.poll_circuits_id > MIXTURE_DEVICE_MAX_ADDR || ptsc_entry->poll_show_ctrl.poll_circuits_id < 1)
 				{
@@ -12032,7 +12043,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 				if(getPointTypeMixtureDetectOnlineState( ptsc_entry->poll_show_ctrl.poll_circuits_id ) == 1)
 				{
 					found_online = 1;
-					last_point_type_found_online_state = 1; // 如果发现上线该状态设为1 用来防止每次都没有上线时重复刷新屏幕
+					last_point_type_found_online_state = 1; // ?????????????????1 ?????????ζ??????????????????
 					show_addr = ptsc_entry->poll_show_ctrl.poll_circuits_id;
 
 					break;
@@ -12044,7 +12055,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 		{
 			for(uint8_t test_addr = 0U; test_addr < MIXTURE_DEVICE_MAX_ADDR; test_addr++)
 			{
-				ptsc_entry->poll_show_ctrl.poll_circuits_id++; // 遍历数组 直到找到上线的数组
+				ptsc_entry->poll_show_ctrl.poll_circuits_id++; // ???????? ???????????????
 				
 				if(ptsc_entry->poll_show_ctrl.poll_circuits_id > MIXTURE_DEVICE_MAX_ADDR || ptsc_entry->poll_show_ctrl.poll_circuits_id < 1)
 				{
@@ -12054,7 +12065,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 				if(getPointTypeMixtureDetectOnlineState( ptsc_entry->poll_show_ctrl.poll_circuits_id ) == 1)
 				{
 					found_online = 1;
-					last_point_type_found_online_state = 1; // 如果发现上线该状态设为1 用来防止每次都没有上线时重复刷新屏幕
+					last_point_type_found_online_state = 1; // ?????????????????1 ?????????ζ??????????????????
 					show_addr = ptsc_entry->poll_show_ctrl.poll_circuits_id;
 
 					break;
@@ -12064,94 +12075,94 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 			ptsc_entry->poll_show_ctrl.key_perss_fresh = 0;
 		}
 
-		if(found_online == 0 && last_point_type_found_online_state != 0) // 如果没有发现上线的探测器
+		if(found_online == 0 && last_point_type_found_online_state != 0) // ?????з?????????????
 		{
-			last_point_type_found_online_state = 0; // 更新抑制
-			ptsc_entry->poll_show_ctrl.poll_circuits_id = ptsc_entry->poll_show_ctrl.last_detector_id; // 从上次轮询值开始
+			last_point_type_found_online_state = 0; // ????????
+			ptsc_entry->poll_show_ctrl.poll_circuits_id = ptsc_entry->poll_show_ctrl.last_detector_id; // ????????????
 			
-			// 更新屏幕显示
-			SetTextValue(temp_screen_id, 33, "无任何探测器启用"); //刷新状态
-			clearTextValue(temp_screen_id , 34); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 35); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 36); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 37); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 38); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 39); //(画面ID,控件ID）
+			// ??????????
+			SetTextValue(temp_screen_id, 33, "???κ??????????"); //?????
+			clearTextValue(temp_screen_id , 34); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 35); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 36); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 37); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 38); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 39); //(????ID,???ID??
 		}
-		else if(found_online != 0) // 发现有探测器上线 才更新显示
+		else if(found_online != 0) // ??????????????? ????????
 		{
 			uint8_t temp_detect_type;
 			
 			uint8_t temp_buff[64] = {0};
 			
-			if(getPointTypeMixtureDisconnectCount(show_addr) < MIXTURE_DEVICE_DISCONNECT_SUM) // 探测器在线
+			if(getPointTypeMixtureDisconnectCount(show_addr) < MIXTURE_DEVICE_DISCONNECT_SUM) // ?????????
 			{
 //				if(getPointTypeMixtureDetectSmokeMemory(show_addr) == 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) == 0)
 //				{
-//					sprintf((char *)temp_buff, "探测器%d状态:在线 | 无温度报警 | 无烟雾报警", show_addr);
+//					sprintf((char *)temp_buff, "?????%d??:???? | ???????? | ?????????", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) != 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) == 0)
 //				{
-//					sprintf((char *)temp_buff, "探测器%d状态:在线 | 无温度报警 | 烟雾报警", show_addr);
+//					sprintf((char *)temp_buff, "?????%d??:???? | ???????? | ???????", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) == 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) != 0)
 //				{
-//					sprintf((char *)temp_buff, "探测器%d状态:在线 | 温度报警 | 无烟雾报警", show_addr);
+//					sprintf((char *)temp_buff, "?????%d??:???? | ?????? | ?????????", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) != 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) != 0)
 //				{
-//					sprintf((char *)temp_buff, "探测器%d状态:在线 | 温度报警 | 烟雾报警", show_addr);
+//					sprintf((char *)temp_buff, "?????%d??:???? | ?????? | ???????", show_addr);
 //				}
-				sprintf((char *)temp_buff, "探测器%d状态:在线", show_addr);
-				SetTextValue(temp_screen_id, 33, temp_buff); //刷新状态
+				sprintf((char *)temp_buff, "?????%d??:????", show_addr);
+				SetTextValue(temp_screen_id, 33, temp_buff); //?????
 				
-				// 显示探测器型号
+				// ???????????
 				temp_detect_type = getPointTypeMixtureDetectName(show_addr);
 				switch(temp_detect_type)
 				{
 					case 1: {
-						SetTextValue(temp_screen_id, 34, "探测器型号:XR805-V2.0"); //刷新状态
+						SetTextValue(temp_screen_id, 34, "????????:XR805-V2.0"); //?????
 						break;
 					}
 					case 2: {
-						SetTextValue(temp_screen_id, 34, "探测器型号:XR805-EXD"); //刷新状态
+						SetTextValue(temp_screen_id, 34, "????????:XR805-EXD"); //?????
 						break;
 					}
 					case 3: {
-						SetTextValue(temp_screen_id, 34, "探测器型号:XR805-EXi"); //刷新状态
+						SetTextValue(temp_screen_id, 34, "????????:XR805-EXi"); //?????
 						break;
 					}
 					case 4: {
-						SetTextValue(temp_screen_id, 34, "探测器型号:XR-DLYGWG"); //刷新状态
+						SetTextValue(temp_screen_id, 34, "????????:XR-DLYGWG"); //?????
 						break;
 					}
 					case 5: {
-						SetTextValue(temp_screen_id, 34, "探测器型号:JTY-XR800B"); //刷新状态
+						SetTextValue(temp_screen_id, 34, "????????:JTY-XR800B"); //?????
 						break;
 					}
 					case 6: {
-						SetTextValue(temp_screen_id, 34, "探测器型号:JTY-ZDM-XR8002/C"); //刷新状态
+						SetTextValue(temp_screen_id, 34, "????????:JTY-ZDM-XR8002/C"); //?????
 						break;
 					}
 					case 7: {
-						SetTextValue(temp_screen_id, 34, "探测器型号:JTY-GD-XR8001AI"); //刷新状态
+						SetTextValue(temp_screen_id, 34, "????????:JTY-GD-XR8001AI"); //?????
 						break;
 					}
 					default: {
-						SetTextValue(temp_screen_id, 34, "探测器型号:--"); //刷新状态
+						SetTextValue(temp_screen_id, 34, "????????:--"); //?????
 						break;
 					}
 				}
 				
-				// 显示探测器传感器启用状态
+				// ????????????????????
 				uint8_t sensor_enable_state = getPointTypeMixtureDetectType(show_addr);
 				if(sensor_enable_state == 0)
 				{
-					SetTextValue(temp_screen_id, 35, "传感器启用状态:无传感器启动");
+					SetTextValue(temp_screen_id, 35, "????????????:??????????");
 				}
 				else
 				{
-					uint8_t first_sensor = 1;  // 标记是否是第一个传感器
+					uint8_t first_sensor = 1;  // ??????????????????
 					uint8_t pos = 0;
 					
 					pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "%s", sensor_str[6]);
@@ -12159,7 +12170,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 					{
 						if( (sensor_enable_state >> i) & 0x01 )
 						{
-							// 如果不是第一个，添加分隔符
+							// ???????????????????
 							if(!first_sensor)
 							{
 									pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -12174,83 +12185,83 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 					SetTextValue(temp_screen_id, 35, temp_buff);
 				}
 				
-				clearTextValue(temp_screen_id , 36); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 37); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 38); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 39); //(画面ID,控件ID）
+				clearTextValue(temp_screen_id , 36); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 37); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 38); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 39); //(????ID,???ID??
 				
-				// 根据启用状态显示值
+				// ??????????????
 				uint8_t screen_show_id_offset = 0;
-				if(sensor_enable_state & 0x20) // 判断温度是否启用
+				if(sensor_enable_state & 0x20) // ?ж???????????
 				{
-					sprintf((char *)temp_buff, "温度值:%d度", getPointTypeMixtureReceiveData(PointTypeData_Temper, show_addr));
+					sprintf((char *)temp_buff, "????:%d??", getPointTypeMixtureReceiveData(PointTypeData_Temper, show_addr));
 					SetTextValue(temp_screen_id, 36 + screen_show_id_offset, temp_buff);
-					screen_show_id_offset++; // 修改地址偏移 
+					screen_show_id_offset++; // ???????? 
 				}
-				if(sensor_enable_state & 0x01) // 判断烟雾是否启用
+				if(sensor_enable_state & 0x01) // ?ж????????????
 				{
 					if(getPointTypeMixtureReceiveState(PointTypeData_Smoke, show_addr) == 1)
 					{
-						SetTextValue(temp_screen_id, 36 + screen_show_id_offset, "烟雾状态:报警");
+						SetTextValue(temp_screen_id, 36 + screen_show_id_offset, "??????:????");
 					}
 					else
 					{
-						SetTextValue(temp_screen_id, 36 + screen_show_id_offset, "烟雾状态:正常");
+						SetTextValue(temp_screen_id, 36 + screen_show_id_offset, "??????:????");
 					}
-					screen_show_id_offset++; // 修改地址偏移 
+					screen_show_id_offset++; // ???????? 
 				}
 				if(sensor_enable_state & 0x10)
 				{
 					
-					screen_show_id_offset++; // 修改地址偏移 
+					screen_show_id_offset++; // ???????? 
 				}
 				
 				
 			}
-			else // 否则掉线
+			else // ???????
 			{
-				sprintf((char *)temp_buff, "探测器%d状态:掉线", show_addr);
-				SetTextValue(temp_screen_id, 33, temp_buff); //刷新状态
-				SetTextValue(temp_screen_id, 34, "探测器型号:--"); //刷新状态
-				SetTextValue(temp_screen_id, 35, "传感器启用状态:--");
-				clearTextValue(temp_screen_id , 36); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 37); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 38); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 39); //(画面ID,控件ID）
+				sprintf((char *)temp_buff, "?????%d??:????", show_addr);
+				SetTextValue(temp_screen_id, 33, temp_buff); //?????
+				SetTextValue(temp_screen_id, 34, "????????:--"); //?????
+				SetTextValue(temp_screen_id, 35, "????????????:--");
+				clearTextValue(temp_screen_id , 36); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 37); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 38); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 39); //(????ID,???ID??
 			}
-		} // 找到有设置上线的探测器
-	} // 刷新计时到了 刷新一次
+		} // ???????????????????
+	} // ????????? ??????
 	
-	// 查询刷新
-	if(ptsc_entry->verb_show_ctrl.verb_detector_id == 0) // 如果是0 没有查询ID
+	// ??????
+	if(ptsc_entry->verb_show_ctrl.verb_detector_id == 0) // ?????0 ??в??ID
 	{
-		ptsc_entry->verb_show_ctrl.verb_detector_id = 255; // 更新抑制
-		SetTextValue(temp_screen_id, 23, "请输入查询探测器ID"); //刷新状态
-		clearTextValue(temp_screen_id , 24); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 25); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 26); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 27); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 28); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 29); //(画面ID,控件ID）
-		SetTextValue(temp_screen_id, 30, "此处输入ID"); //刷新状态
+		ptsc_entry->verb_show_ctrl.verb_detector_id = 255; // ????????
+		SetTextValue(temp_screen_id, 23, "?????????????ID"); //?????
+		clearTextValue(temp_screen_id , 24); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 25); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 26); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 27); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 28); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 29); //(????ID,???ID??
+		SetTextValue(temp_screen_id, 30, "???????ID"); //?????
 	}
-	else if(ptsc_entry->verb_show_ctrl.verb_detector_id != 255) // 如果有正确ID输入 且不是更新抑制的值
+	else if(ptsc_entry->verb_show_ctrl.verb_detector_id != 255) // ????????ID???? ??????????????
 	{
 		uint8_t show_addr = ptsc_entry->verb_show_ctrl.verb_detector_id;
 		
-		if(getPointTypeMixtureDetectOnlineState( show_addr ) == 1) // 如果设置上线了
+		if(getPointTypeMixtureDetectOnlineState( show_addr ) == 1) // ?????????????
 		{
 			uint8_t temp_buff[64] = {0};
-			// 判断探测器是否在线
+			// ?ж?????????????
 			if(getPointTypeMixtureDisconnectCount(show_addr) < MIXTURE_DEVICE_DISCONNECT_SUM)
 			{
-				// 如果id变更
+				// ???id???
 				if(show_addr != ptsc_entry->verb_show_ctrl.last_detector_id || ptsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
-					ptsc_entry->verb_show_ctrl.last_detector_id = show_addr; // 更新抑制
+					ptsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ????????
 					
-					sprintf((char *)temp_buff, "探测器%d状态:在线", show_addr);
-					SetTextValue(temp_screen_id, 23, temp_buff); //刷新状态
+					sprintf((char *)temp_buff, "?????%d??:????", show_addr);
+					SetTextValue(temp_screen_id, 23, temp_buff); //?????
 				}
 				
 				ptsc_entry->verb_show_ctrl.verb_detect_name = getPointTypeMixtureDetectName(show_addr);
@@ -12259,45 +12270,45 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 				{
 					ptsc_entry->verb_show_ctrl.lsat_detect_name = ptsc_entry->verb_show_ctrl.verb_detect_name;
 					
-					// 显示探测器型号
+					// ???????????
 					switch(ptsc_entry->verb_show_ctrl.verb_detect_name)
 					{
 						case 1: {
-							SetTextValue(temp_screen_id, 24, "探测器型号:XR805-V2.0"); //刷新状态
+							SetTextValue(temp_screen_id, 24, "????????:XR805-V2.0"); //?????
 							break;
 						}
 						case 2: {
-							SetTextValue(temp_screen_id, 24, "探测器型号:XR805-EXD"); //刷新状态
+							SetTextValue(temp_screen_id, 24, "????????:XR805-EXD"); //?????
 							break;
 						}
 						case 3: {
-							SetTextValue(temp_screen_id, 24, "探测器型号:XR805-EXi"); //刷新状态
+							SetTextValue(temp_screen_id, 24, "????????:XR805-EXi"); //?????
 							break;
 						}
 						case 4: {
-							SetTextValue(temp_screen_id, 24, "探测器型号:XR-DLYGWG"); //刷新状态
+							SetTextValue(temp_screen_id, 24, "????????:XR-DLYGWG"); //?????
 							break;
 						}
 						case 5: {
-							SetTextValue(temp_screen_id, 24, "探测器型号:JTY-XR800B"); //刷新状态
+							SetTextValue(temp_screen_id, 24, "????????:JTY-XR800B"); //?????
 							break;
 						}
 						case 6: {
-							SetTextValue(temp_screen_id, 24, "探测器型号:JTY-ZDM-XR8002/C"); //刷新状态
+							SetTextValue(temp_screen_id, 24, "????????:JTY-ZDM-XR8002/C"); //?????
 							break;
 						}
 						case 7: {
-							SetTextValue(temp_screen_id, 24, "探测器型号:JTY-GD-XR8001AI"); //刷新状态
+							SetTextValue(temp_screen_id, 24, "????????:JTY-GD-XR8001AI"); //?????
 							break;
 						}
 						default: {
-							SetTextValue(temp_screen_id, 24, "探测器型号:--"); //刷新状态
+							SetTextValue(temp_screen_id, 24, "????????:--"); //?????
 							break;
 						}
 					}
 				}
 				
-				// 显示探测器传感器启用状态
+				// ????????????????????
 				ptsc_entry->verb_show_ctrl.verb_sensor_state = getPointTypeMixtureDetectType(show_addr);
 				
 				if(ptsc_entry->verb_show_ctrl.last_sensor_state != ptsc_entry->verb_show_ctrl.verb_sensor_state || ptsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
@@ -12306,11 +12317,11 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 					
 					if(ptsc_entry->verb_show_ctrl.verb_sensor_state == 0)
 					{
-						SetTextValue(temp_screen_id, 25, "传感器启用状态:无传感器启动");
+						SetTextValue(temp_screen_id, 25, "????????????:??????????");
 					}
 					else
 					{
-						uint8_t first_sensor = 1;  // 标记是否是第一个传感器
+						uint8_t first_sensor = 1;  // ??????????????????
 						uint8_t pos = 0;
 						
 						pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "%s", sensor_str[6]);
@@ -12318,7 +12329,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 						{
 							if( (ptsc_entry->verb_show_ctrl.verb_sensor_state >> i) & 0x01 )
 							{
-								// 如果不是第一个，添加分隔符
+								// ???????????????????
 								if(!first_sensor)
 								{
 										pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -12333,26 +12344,26 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 						SetTextValue(temp_screen_id, 25, temp_buff);
 					}
 					
-					clearTextValue(temp_screen_id , 26); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 27); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 28); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 29); //(画面ID,控件ID）
+					clearTextValue(temp_screen_id , 26); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 27); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 28); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 29); //(????ID,???ID??
 				}
 
-				// 根据启用状态显示值
+				// ??????????????
 				uint8_t screen_show_id_offset = 0;
-				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x20) // 判断温度是否启用
+				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x20) // ?ж???????????
 				{
 					ptsc_entry->verb_show_ctrl.verb_temper_value = getPointTypeMixtureReceiveData(PointTypeData_Temper, show_addr);
 					if(ptsc_entry->verb_show_ctrl.verb_temper_value != ptsc_entry->verb_show_ctrl.last_temper_value || ptsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 					{
 						ptsc_entry->verb_show_ctrl.last_temper_value = ptsc_entry->verb_show_ctrl.verb_temper_value;
-						sprintf((char *)temp_buff, "温度值:%d度", ptsc_entry->verb_show_ctrl.verb_temper_value);
+						sprintf((char *)temp_buff, "????:%d??", ptsc_entry->verb_show_ctrl.verb_temper_value);
 						SetTextValue(temp_screen_id, 26 + screen_show_id_offset, temp_buff);
-						screen_show_id_offset++; // 修改地址偏移 
+						screen_show_id_offset++; // ???????? 
 					}
 				}
-				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x01) // 判断烟雾是否启用
+				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x01) // ?ж????????????
 				{
 					ptsc_entry->verb_show_ctrl.verb_smokes_state = getPointTypeMixtureReceiveState(PointTypeData_Smoke, show_addr);
 					
@@ -12362,49 +12373,49 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 						
 						if(ptsc_entry->verb_show_ctrl.verb_smokes_state == 1)
 						{
-							SetTextValue(temp_screen_id, 26 + screen_show_id_offset, "烟雾状态:报警");
+							SetTextValue(temp_screen_id, 26 + screen_show_id_offset, "??????:????");
 						}
 						else
 						{
-							SetTextValue(temp_screen_id, 26 + screen_show_id_offset, "烟雾状态:正常");
+							SetTextValue(temp_screen_id, 26 + screen_show_id_offset, "??????:????");
 						}
-						screen_show_id_offset++; // 修改地址偏移 
+						screen_show_id_offset++; // ???????? 
 					}
 				}
 				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x10)
 				{
 					
-					screen_show_id_offset++; // 修改地址偏移 
+					screen_show_id_offset++; // ???????? 
 				}
 			}
-			else // 设置启用 但掉线了
+			else // ???????? ????????
 			{
 				if(show_addr != ptsc_entry->verb_show_ctrl.last_detector_id || ptsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
-					ptsc_entry->verb_show_ctrl.last_detector_id = show_addr; // 更新抑制
+					ptsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ????????
 					
-					sprintf((char *)temp_buff, "探测器%d状态:掉线", show_addr);
-					SetTextValue(temp_screen_id, 23, temp_buff); //刷新状态
-					SetTextValue(temp_screen_id, 24, "探测器型号:--"); //刷新状态
-					SetTextValue(temp_screen_id, 25, "传感器启用状态:--");
-					clearTextValue(temp_screen_id , 26); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 27); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 28); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 29); //(画面ID,控件ID）
+					sprintf((char *)temp_buff, "?????%d??:????", show_addr);
+					SetTextValue(temp_screen_id, 23, temp_buff); //?????
+					SetTextValue(temp_screen_id, 24, "????????:--"); //?????
+					SetTextValue(temp_screen_id, 25, "????????????:--");
+					clearTextValue(temp_screen_id , 26); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 27); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 28); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 29); //(????ID,???ID??
 				}
 			}
 			ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 0;
 		}
-		else // 没设置上线
+		else // ?????????
 		{
-			ptsc_entry->verb_show_ctrl.verb_detector_id = 255; // 更新抑制
-			SetTextValue(temp_screen_id, 23, "该探测器未启用"); //刷新状态
-			clearTextValue(temp_screen_id , 24); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 25); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 26); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 27); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 28); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 29); //(画面ID,控件ID）
+			ptsc_entry->verb_show_ctrl.verb_detector_id = 255; // ????????
+			SetTextValue(temp_screen_id, 23, "???????δ????"); //?????
+			clearTextValue(temp_screen_id , 24); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 25); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 26); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 27); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 28); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 29); //(????ID,???ID??
 		}
 
 	}
@@ -12425,55 +12436,55 @@ static void PointTypeDetectorButtonCtrlApp(PointTypeShowCtrl_t *ptsc_entry, uint
 static void PointTypeDetectorTextInputCtrlApp(PointTypeShowCtrl_t *ptsc_entry, uint16 control_id, uint8 *str)
 {
 	int32 value=0;  			
-	sscanf((const char*)str,"%ld",&value); //把字符串转换为整数 
+	sscanf((const char*)str,"%ld",&value); //??????????????? 
 	if(control_id == 30)    
 	{
 		ptsc_entry->verb_show_ctrl.verb_detector_id = value;
 		
-		ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // 强制刷新一次
+		ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // ?????????
 	}
 }
 
 static void PointTypeDetectorScreenSwitchShowApp(PointTypeShowCtrl_t *ptsc_entry)
 {
-	ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // 进入界面后强制刷新一次
+	ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // ?????????????????
 }
 
-// 复合探测器刷新
-uint8_t last_composite_found_online_state = 1; // 如果都没上线开局强制刷新一次
+// ????????????
+uint8_t last_composite_found_online_state = 1; // ??????????????????????
 void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 {
 	uint8_t temp_screen_id = 67;
 	
-	cpsc_entry->curr_fresh_time_ctrl = osKernelGetTickCount(); // 系统当前时间戳
+	cpsc_entry->curr_fresh_time_ctrl = osKernelGetTickCount(); // ?????????
 	
-	if(cpsc_entry->curr_fresh_time_ctrl - cpsc_entry->last_fresh_time_ctrl >= 3000 || cpsc_entry->poll_show_ctrl.key_perss_fresh != 0) // 三秒一刷新
+	if(cpsc_entry->curr_fresh_time_ctrl - cpsc_entry->last_fresh_time_ctrl >= 3000 || cpsc_entry->poll_show_ctrl.key_perss_fresh != 0) // ????????
 	{
 		uint8_t show_addr;
 		
 		uint8_t found_online = 0;
 		
-		cpsc_entry->last_fresh_time_ctrl = cpsc_entry->curr_fresh_time_ctrl; // 记录刷新时间
+		cpsc_entry->last_fresh_time_ctrl = cpsc_entry->curr_fresh_time_ctrl; // ?????????
 		
-		// 先将值保存给上次轮询值
+		// ????????????????
 		cpsc_entry->poll_show_ctrl.last_detector_id = cpsc_entry->poll_show_ctrl.poll_circuits_id;
 
 		if(cpsc_entry->poll_show_ctrl.key_perss_fresh == 'p')
 		{
 			for(uint8_t test_addr = 0U; test_addr < MIXTURE_DEVICE_MAX_ADDR; test_addr++)
 			{
-				cpsc_entry->poll_show_ctrl.poll_circuits_id--; // 遍历数组 直到找到上线的数组
+				cpsc_entry->poll_show_ctrl.poll_circuits_id--; // ???????? ???????????????
 				
 				if(cpsc_entry->poll_show_ctrl.poll_circuits_id > MIXTURE_DEVICE_MAX_ADDR || cpsc_entry->poll_show_ctrl.poll_circuits_id < 1)
 				{
 					cpsc_entry->poll_show_ctrl.poll_circuits_id = MIXTURE_DEVICE_MAX_ADDR;
 				}
 				
-				// 此处修改为 复合仓上线判断状态 筛选出来上线的探测器判断
+				// ??????? ??????????ж??? ?????????????????ж?
 				if( cang_sxzt[ cpsc_entry->poll_show_ctrl.poll_circuits_id ] == 1 )
 				{
 					found_online = 1;
-					last_composite_found_online_state = 1; // 如果发现上线该状态设为1 用来防止每次都没有上线时重复刷新屏幕
+					last_composite_found_online_state = 1; // ?????????????????1 ?????????ζ??????????????????
 					show_addr = cpsc_entry->poll_show_ctrl.poll_circuits_id;
 
 					break;
@@ -12485,7 +12496,7 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 		{
 			for(uint8_t test_addr = 0U; test_addr < MIXTURE_DEVICE_MAX_ADDR; test_addr++)
 			{
-				cpsc_entry->poll_show_ctrl.poll_circuits_id++; // 遍历数组 直到找到上线的数组
+				cpsc_entry->poll_show_ctrl.poll_circuits_id++; // ???????? ???????????????
 				
 				if(cpsc_entry->poll_show_ctrl.poll_circuits_id > MIXTURE_DEVICE_MAX_ADDR || cpsc_entry->poll_show_ctrl.poll_circuits_id < 1)
 				{
@@ -12495,7 +12506,7 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 				if( cang_sxzt[ cpsc_entry->poll_show_ctrl.poll_circuits_id ] == 1 )
 				{
 					found_online = 1;
-					last_composite_found_online_state = 1; // 如果发现上线该状态设为1 用来防止每次都没有上线时重复刷新屏幕
+					last_composite_found_online_state = 1; // ?????????????????1 ?????????ζ??????????????????
 					show_addr = cpsc_entry->poll_show_ctrl.poll_circuits_id;
 
 					break;
@@ -12505,92 +12516,92 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 			cpsc_entry->poll_show_ctrl.key_perss_fresh = 0;
 		}
 
-		if(found_online == 0 && last_composite_found_online_state != 0) // 如果没有发现上线的探测器
+		if(found_online == 0 && last_composite_found_online_state != 0) // ?????з?????????????
 		{
-			last_composite_found_online_state = 0; // 更新抑制
-			cpsc_entry->poll_show_ctrl.poll_circuits_id = cpsc_entry->poll_show_ctrl.last_detector_id; // 从上次轮询值开始
+			last_composite_found_online_state = 0; // ????????
+			cpsc_entry->poll_show_ctrl.poll_circuits_id = cpsc_entry->poll_show_ctrl.last_detector_id; // ????????????
 			
-			// 更新屏幕显示
-			SetTextValue(temp_screen_id, 15, "无任何探测器启用"); //刷新状态
-			clearTextValue(temp_screen_id , 16); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 17); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 18); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 19); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 20); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 21); //(画面ID,控件ID）
+			// ??????????
+			SetTextValue(temp_screen_id, 15, "???κ??????????"); //?????
+			clearTextValue(temp_screen_id , 16); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 17); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 18); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 19); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 20); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 21); //(????ID,???ID??
 		}
-		else if(found_online != 0) // 发现有探测器上线 才更新显示
+		else if(found_online != 0) // ??????????????? ????????
 		{
 			uint8_t temp_buff[64] = {0};
 			
-			// 此处修改为 判断复合仓是否掉线
-			if( Cang_zx_buf[ cpsc_entry->poll_show_ctrl.poll_circuits_id ] < CabinDisconnectCount ) // 探测器在线
+			// ??????? ?ж???????????
+			if( Cang_zx_buf[ cpsc_entry->poll_show_ctrl.poll_circuits_id ] < CabinDisconnectCount ) // ?????????
 			{
 //				if(getPointTypeMixtureDetectSmokeMemory(show_addr) == 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) == 0)
 //				{
-//					sprintf((char *)temp_buff, "探测器%d状态:在线 | 无温度报警 | 无烟雾报警", show_addr);
+//					sprintf((char *)temp_buff, "?????%d??:???? | ???????? | ?????????", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) != 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) == 0)
 //				{
-//					sprintf((char *)temp_buff, "探测器%d状态:在线 | 无温度报警 | 烟雾报警", show_addr);
+//					sprintf((char *)temp_buff, "?????%d??:???? | ???????? | ???????", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) == 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) != 0)
 //				{
-//					sprintf((char *)temp_buff, "探测器%d状态:在线 | 温度报警 | 无烟雾报警", show_addr);
+//					sprintf((char *)temp_buff, "?????%d??:???? | ?????? | ?????????", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) != 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) != 0)
 //				{
-//					sprintf((char *)temp_buff, "探测器%d状态:在线 | 温度报警 | 烟雾报警", show_addr);
+//					sprintf((char *)temp_buff, "?????%d??:???? | ?????? | ???????", show_addr);
 //				}
-				sprintf((char *)temp_buff, "探测器%d状态:在线", show_addr);
-				SetTextValue(temp_screen_id, 15, temp_buff); //刷新状态
+				sprintf((char *)temp_buff, "?????%d??:????", show_addr);
+				SetTextValue(temp_screen_id, 15, temp_buff); //?????
 				
-				// 显示探测器型号 此处修改为 805xxx复合探测器类型
+				// ??????????? ??????? 805xxx?????????????
 				switch( Cang_TCQXH_buf[ show_addr ] )
 				{
 					case 1: {
-						SetTextValue(temp_screen_id, 16, "探测器型号:XR805-V2.0"); //刷新状态
+						SetTextValue(temp_screen_id, 16, "????????:XR805-V2.0"); //?????
 						break;
 					}
 					case 2: {
-						SetTextValue(temp_screen_id, 16, "探测器型号:XR805-EXD"); //刷新状态
+						SetTextValue(temp_screen_id, 16, "????????:XR805-EXD"); //?????
 						break;
 					}
 					case 3: {
-						SetTextValue(temp_screen_id, 16, "探测器型号:XR805-EXi"); //刷新状态
+						SetTextValue(temp_screen_id, 16, "????????:XR805-EXi"); //?????
 						break;
 					}
 					case 4: {
-						SetTextValue(temp_screen_id, 16, "探测器型号:XR-DLYGWG"); //刷新状态
+						SetTextValue(temp_screen_id, 16, "????????:XR-DLYGWG"); //?????
 						break;
 					}
 					case 5: {
-						SetTextValue(temp_screen_id, 16, "探测器型号:JTY-XR800B"); //刷新状态
+						SetTextValue(temp_screen_id, 16, "????????:JTY-XR800B"); //?????
 						break;
 					}
 					case 6: {
-						SetTextValue(temp_screen_id, 16, "探测器型号:JTY-ZDM-XR8002/C"); //刷新状态
+						SetTextValue(temp_screen_id, 16, "????????:JTY-ZDM-XR8002/C"); //?????
 						break;
 					}
 					case 7: {
-						SetTextValue(temp_screen_id, 16, "探测器型号:JTY-GD-XR8001AI"); //刷新状态
+						SetTextValue(temp_screen_id, 16, "????????:JTY-GD-XR8001AI"); //?????
 						break;
 					}
 					default: {
-						SetTextValue(temp_screen_id, 16, "探测器型号:--"); //刷新状态
+						SetTextValue(temp_screen_id, 16, "????????:--"); //?????
 						break;
 					}
 				}
 
-				// 显示探测器传感器启用状态 此处修改为 805xxx复合探测器类型
+				// ???????????????????? ??????? 805xxx?????????????
 				uint8_t sensor_enable_state = Cang_CGQQY_buf[ show_addr ];
 				if(sensor_enable_state  == 0 )
 				{
-					SetTextValue(temp_screen_id, 17, "传感器启用状态:无传感器启动");
+					SetTextValue(temp_screen_id, 17, "????????????:??????????");
 				}
 				else
 				{
-					uint8_t first_sensor = 1;  // 标记是否是第一个传感器
+					uint8_t first_sensor = 1;  // ??????????????????
 					uint8_t pos = 0;
 					
 					pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "%s", sensor_str[6]);
@@ -12598,7 +12609,7 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 					{
 						if( (sensor_enable_state >> i) & 0x01 )
 						{
-							// 如果不是第一个，添加分隔符
+							// ???????????????????
 							if(!first_sensor)
 							{
 									pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -12613,145 +12624,145 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 					SetTextValue(temp_screen_id, 17, temp_buff);
 				}
 				
-				clearTextValue(temp_screen_id , 18); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 19); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 20); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 21); //(画面ID,控件ID）
+				clearTextValue(temp_screen_id , 18); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 19); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 20); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 21); //(????ID,???ID??
 	
-				// 根据启用状态显示值
+				// ??????????????
 				uint8_t screen_show_id_offset = 0;
-				if(sensor_enable_state & 0x20) // 判断温度是否启用
+				if(sensor_enable_state & 0x20) // ?ж???????????
 				{
-					// 此处修改为 805xxx复合探测器类型
-					sprintf((char *)temp_buff, "温度值:%d度", Cang_wendu_buf[ show_addr ] );
+					// ??????? 805xxx?????????????
+					sprintf((char *)temp_buff, "????:%d??", Cang_wendu_buf[ show_addr ] );
 					SetTextValue(temp_screen_id, 18 + screen_show_id_offset, temp_buff);
-					screen_show_id_offset++; // 修改地址偏移 
+					screen_show_id_offset++; // ???????? 
 				}
-				if(sensor_enable_state & 0x01) // 判断烟雾是否启用
+				if(sensor_enable_state & 0x01) // ?ж????????????
 				{
 					if(Cang_YWZT_buf[ show_addr ] == 1)
 					{
-						SetTextValue(temp_screen_id, 18 + screen_show_id_offset, "烟雾状态:报警");
+						SetTextValue(temp_screen_id, 18 + screen_show_id_offset, "??????:????");
 					}
 					else
 					{
-						SetTextValue(temp_screen_id, 18 + screen_show_id_offset, "烟雾状态:正常");
+						SetTextValue(temp_screen_id, 18 + screen_show_id_offset, "??????:????");
 					}
-					screen_show_id_offset++; // 修改地址偏移 
+					screen_show_id_offset++; // ???????? 
 				}
-				if(sensor_enable_state & 0x10) // 判断一氧化碳寄存器是否启用
+				if(sensor_enable_state & 0x10) // ?ж???????????????????
 				{
-					// 此处修改为 805xxx复合探测器类型
-					sprintf((char *)temp_buff, "一氧化碳浓度:%dPPM", Cang_COzhi_buf[ show_addr ] );
+					// ??????? 805xxx?????????????
+					sprintf((char *)temp_buff, "?????????:%dPPM", Cang_COzhi_buf[ show_addr ] );
 					SetTextValue(temp_screen_id, 18 + screen_show_id_offset, temp_buff);
-					screen_show_id_offset++; // 修改地址偏移 
+					screen_show_id_offset++; // ???????? 
 				}
-				if(sensor_enable_state & 0x04) // 判断氢气是否启用
+				if(sensor_enable_state & 0x04) // ?ж????????????
 				{
-					// 此处修改为 805xxx复合探测器类型
-					sprintf((char *)temp_buff, "氢气浓度:%dPPM", Cang_H2zhi_buf[show_addr] );
+					// ??????? 805xxx?????????????
+					sprintf((char *)temp_buff, "???????:%dPPM", Cang_H2zhi_buf[show_addr] );
 					SetTextValue(temp_screen_id, 18 + screen_show_id_offset, temp_buff);
-					screen_show_id_offset++; // 修改地址偏移 
+					screen_show_id_offset++; // ???????? 
 				}
 			}
-			else // 否则掉线
+			else // ???????
 			{
-				sprintf((char *)temp_buff, "探测器%d状态:掉线", show_addr);
-				SetTextValue(temp_screen_id, 15, temp_buff); //刷新状态
-				SetTextValue(temp_screen_id, 16, "探测器型号:--"); //刷新状态
-				SetTextValue(temp_screen_id, 17, "传感器启用状态:--");
-				clearTextValue(temp_screen_id , 18); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 19); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 20); //(画面ID,控件ID）
-				clearTextValue(temp_screen_id , 21); //(画面ID,控件ID）
+				sprintf((char *)temp_buff, "?????%d??:????", show_addr);
+				SetTextValue(temp_screen_id, 15, temp_buff); //?????
+				SetTextValue(temp_screen_id, 16, "????????:--"); //?????
+				SetTextValue(temp_screen_id, 17, "????????????:--");
+				clearTextValue(temp_screen_id , 18); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 19); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 20); //(????ID,???ID??
+				clearTextValue(temp_screen_id , 21); //(????ID,???ID??
 			}
-		} // 找到有设置上线的探测器
-	} // 刷新计时到了 刷新一次
+		} // ???????????????????
+	} // ????????? ??????
 }
 
 void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 {
 	uint8_t temp_screen_id = 67;
-	// 查询刷新
-	if(cpsc_entry->verb_show_ctrl.verb_detector_id == 0) // 如果是0 没有查询ID
+	// ??????
+	if(cpsc_entry->verb_show_ctrl.verb_detector_id == 0) // ?????0 ??в??ID
 	{
-		cpsc_entry->verb_show_ctrl.verb_detector_id = 255; // 更新抑制
-		SetTextValue(temp_screen_id, 5, "请输入查询探测器ID"); //刷新状态
-		clearTextValue(temp_screen_id , 6); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 7); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 8); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 9); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 10); //(画面ID,控件ID）
-		clearTextValue(temp_screen_id , 11); //(画面ID,控件ID）
+		cpsc_entry->verb_show_ctrl.verb_detector_id = 255; // ????????
+		SetTextValue(temp_screen_id, 5, "?????????????ID"); //?????
+		clearTextValue(temp_screen_id , 6); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 7); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 8); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 9); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 10); //(????ID,???ID??
+		clearTextValue(temp_screen_id , 11); //(????ID,???ID??
 		
-		SetTextValue(temp_screen_id, 12, "此处输入ID"); //刷新状态
+		SetTextValue(temp_screen_id, 12, "???????ID"); //?????
 	}
-	else if(cpsc_entry->verb_show_ctrl.verb_detector_id != 255) // 如果有正确ID输入 且不是更新抑制的值
+	else if(cpsc_entry->verb_show_ctrl.verb_detector_id != 255) // ????????ID???? ??????????????
 	{
 		uint8_t show_addr = cpsc_entry->verb_show_ctrl.verb_detector_id;
 		
-		// 1 修改
-		if( cang_sxzt[ show_addr ] == 1 ) // 如果设置上线了
+		// 1 ???
+		if( cang_sxzt[ show_addr ] == 1 ) // ?????????????
 		{
 			uint8_t temp_buff[64] = {0};
-			// 判断探测器是否在线 2 修改
+			// ?ж????????????? 2 ???
 			if( Cang_zx_buf[ show_addr ] < CabinDisconnectCount )
 			{
-				// 如果id变更
+				// ???id???
 				if(show_addr != cpsc_entry->verb_show_ctrl.last_detector_id || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
-					cpsc_entry->verb_show_ctrl.last_detector_id = show_addr; // 更新抑制
+					cpsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ????????
 					
-					sprintf((char *)temp_buff, "探测器%d状态:在线", show_addr);
-					SetTextValue(temp_screen_id, 5, temp_buff); //刷新状态
+					sprintf((char *)temp_buff, "?????%d??:????", show_addr);
+					SetTextValue(temp_screen_id, 5, temp_buff); //?????
 				}
 				
-				// 3 修改
+				// 3 ???
 				cpsc_entry->verb_show_ctrl.verb_detect_name = Cang_TCQXH_buf[ show_addr ];
 				
 				if(cpsc_entry->verb_show_ctrl.lsat_detect_name != cpsc_entry->verb_show_ctrl.verb_detect_name || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
 					cpsc_entry->verb_show_ctrl.lsat_detect_name = cpsc_entry->verb_show_ctrl.verb_detect_name;
 					
-					// 显示探测器型号
+					// ???????????
 					switch(cpsc_entry->verb_show_ctrl.verb_detect_name)
 					{
 						case 1: {
-							SetTextValue(temp_screen_id, 6, "探测器型号:XR805-V2.0"); //刷新状态
+							SetTextValue(temp_screen_id, 6, "????????:XR805-V2.0"); //?????
 							break;
 						}
 						case 2: {
-							SetTextValue(temp_screen_id, 6, "探测器型号:XR805-EXD"); //刷新状态
+							SetTextValue(temp_screen_id, 6, "????????:XR805-EXD"); //?????
 							break;
 						}
 						case 3: {
-							SetTextValue(temp_screen_id, 6, "探测器型号:XR805-EXi"); //刷新状态
+							SetTextValue(temp_screen_id, 6, "????????:XR805-EXi"); //?????
 							break;
 						}
 						case 4: {
-							SetTextValue(temp_screen_id, 6, "探测器型号:XR-DLYGWG"); //刷新状态
+							SetTextValue(temp_screen_id, 6, "????????:XR-DLYGWG"); //?????
 							break;
 						}
 						case 5: {
-							SetTextValue(temp_screen_id, 6, "探测器型号:JTY-XR800B"); //刷新状态
+							SetTextValue(temp_screen_id, 6, "????????:JTY-XR800B"); //?????
 							break;
 						}
 						case 6: {
-							SetTextValue(temp_screen_id, 6, "探测器型号:JTY-ZDM-XR8002/C"); //刷新状态
+							SetTextValue(temp_screen_id, 6, "????????:JTY-ZDM-XR8002/C"); //?????
 							break;
 						}
 						case 7: {
-							SetTextValue(temp_screen_id, 6, "探测器型号:JTY-GD-XR8001AI"); //刷新状态
+							SetTextValue(temp_screen_id, 6, "????????:JTY-GD-XR8001AI"); //?????
 							break;
 						}
 						default: {
-							SetTextValue(temp_screen_id, 6, "探测器型号:--"); //刷新状态
+							SetTextValue(temp_screen_id, 6, "????????:--"); //?????
 							break;
 						}
 					}
 				}
 				
-				// 显示探测器传感器启用状态 4 修改
+				// ???????????????????? 4 ???
 				cpsc_entry->verb_show_ctrl.verb_sensor_state = Cang_CGQQY_buf[ show_addr ];
 				
 				if(cpsc_entry->verb_show_ctrl.last_sensor_state != cpsc_entry->verb_show_ctrl.verb_sensor_state || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
@@ -12760,11 +12771,11 @@ void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 					
 					if(cpsc_entry->verb_show_ctrl.verb_sensor_state == 0)
 					{
-						SetTextValue(temp_screen_id, 7, "传感器启用状态:无传感器启动");
+						SetTextValue(temp_screen_id, 7, "????????????:??????????");
 					}
 					else
 					{
-						uint8_t first_sensor = 1;  // 标记是否是第一个传感器
+						uint8_t first_sensor = 1;  // ??????????????????
 						uint8_t pos = 0;
 						
 						pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "%s", sensor_str[6]);
@@ -12772,7 +12783,7 @@ void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 						{
 							if( (cpsc_entry->verb_show_ctrl.verb_sensor_state >> i) & 0x01 )
 							{
-								// 如果不是第一个，添加分隔符
+								// ???????????????????
 								if(!first_sensor)
 								{
 										pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -12787,26 +12798,26 @@ void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 						SetTextValue(temp_screen_id, 7, temp_buff);
 					}
 					
-					clearTextValue(temp_screen_id , 8); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 9); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 10); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 11); //(画面ID,控件ID）
+					clearTextValue(temp_screen_id , 8); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 9); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 10); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 11); //(????ID,???ID??
 				}
 
-				// 根据启用状态显示值
+				// ??????????????
 				uint8_t screen_show_id_offset = 0;
-				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x20) // 判断温度是否启用
+				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x20) // ?ж???????????
 				{
 					cpsc_entry->verb_show_ctrl.verb_temper_value = Cang_wendu_buf[ show_addr ];
 					if(cpsc_entry->verb_show_ctrl.verb_temper_value != cpsc_entry->verb_show_ctrl.last_temper_value || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 					{
 						cpsc_entry->verb_show_ctrl.last_temper_value = cpsc_entry->verb_show_ctrl.verb_temper_value;
-						sprintf((char *)temp_buff, "温度值:%d度", cpsc_entry->verb_show_ctrl.verb_temper_value);
+						sprintf((char *)temp_buff, "????:%d??", cpsc_entry->verb_show_ctrl.verb_temper_value);
 						SetTextValue(temp_screen_id, 8 + screen_show_id_offset, temp_buff);
-						screen_show_id_offset++; // 修改地址偏移 
+						screen_show_id_offset++; // ???????? 
 					}
 				}
-				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x01) // 判断烟雾是否启用
+				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x01) // ?ж????????????
 				{
 					cpsc_entry->verb_show_ctrl.verb_smokes_state = Cang_wendu_buf[ show_addr ];
 					
@@ -12816,74 +12827,74 @@ void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 						
 						if(cpsc_entry->verb_show_ctrl.verb_smokes_state == 1)
 						{
-							SetTextValue(temp_screen_id, 8 + screen_show_id_offset, "烟雾状态:报警");
+							SetTextValue(temp_screen_id, 8 + screen_show_id_offset, "??????:????");
 						}
 						else
 						{
-							SetTextValue(temp_screen_id, 8 + screen_show_id_offset, "烟雾状态:正常");
+							SetTextValue(temp_screen_id, 8 + screen_show_id_offset, "??????:????");
 						}
-						screen_show_id_offset++; // 修改地址偏移 
+						screen_show_id_offset++; // ???????? 
 					}
 				}
-				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x10) // 判断一氧化碳寄存器是否启用
+				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x10) // ?ж???????????????????
 				{
-					// 此处修改为 805xxx复合探测器类型
+					// ??????? 805xxx?????????????
 					cpsc_entry->verb_show_ctrl.verb_carbon_value = Cang_COzhi_buf[ show_addr ];
 					if(cpsc_entry->verb_show_ctrl.last_carbon_value != cpsc_entry->verb_show_ctrl.verb_carbon_value || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 					{
-						// 添加更新抑制
+						// ??????????
 						cpsc_entry->verb_show_ctrl.last_carbon_value = cpsc_entry->verb_show_ctrl.verb_carbon_value;
 						
-						sprintf((char *)temp_buff, "一氧化碳浓度:%dPPM", cpsc_entry->verb_show_ctrl.verb_carbon_value );
+						sprintf((char *)temp_buff, "?????????:%dPPM", cpsc_entry->verb_show_ctrl.verb_carbon_value );
 						SetTextValue(temp_screen_id, 8 + screen_show_id_offset, temp_buff);
-						screen_show_id_offset++; // 修改地址偏移 
+						screen_show_id_offset++; // ???????? 
 					}
 				}
-				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x04) // 判断氢气是否启用
+				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x04) // ?ж????????????
 				{
 					
 					cpsc_entry->verb_show_ctrl.verb_hydrog_value = Cang_H2zhi_buf[ show_addr ]; 
 					
 					if(cpsc_entry->verb_show_ctrl.lsat_hydrog_value != cpsc_entry->verb_show_ctrl.verb_hydrog_value || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 					{
-						// 更新抑制
+						// ????????
 						cpsc_entry->verb_show_ctrl.lsat_hydrog_value = cpsc_entry->verb_show_ctrl.verb_hydrog_value;
 						
-						// 此处修改为 805xxx复合探测器类型
-						sprintf((char *)temp_buff, "氢气浓度:%dPPM", cpsc_entry->verb_show_ctrl.verb_hydrog_value );
+						// ??????? 805xxx?????????????
+						sprintf((char *)temp_buff, "???????:%dPPM", cpsc_entry->verb_show_ctrl.verb_hydrog_value );
 						SetTextValue(temp_screen_id, 8 + screen_show_id_offset, temp_buff);
-						screen_show_id_offset++; // 修改地址偏移 
+						screen_show_id_offset++; // ???????? 
 					}
 				}
 			}
-			else // 设置启用 但掉线了
+			else // ???????? ????????
 			{
 				if(show_addr != cpsc_entry->verb_show_ctrl.last_detector_id || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
-					cpsc_entry->verb_show_ctrl.last_detector_id = show_addr; // 更新抑制
+					cpsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ????????
 					
-					sprintf((char *)temp_buff, "探测器%d状态:掉线", show_addr);
-					SetTextValue(temp_screen_id, 5, temp_buff); //刷新状态
-					SetTextValue(temp_screen_id, 6, "探测器型号:--"); //刷新状态
-					SetTextValue(temp_screen_id, 7, "传感器启用状态:--");
-					clearTextValue(temp_screen_id , 8); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 9); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 10); //(画面ID,控件ID）
-					clearTextValue(temp_screen_id , 11); //(画面ID,控件ID）
+					sprintf((char *)temp_buff, "?????%d??:????", show_addr);
+					SetTextValue(temp_screen_id, 5, temp_buff); //?????
+					SetTextValue(temp_screen_id, 6, "????????:--"); //?????
+					SetTextValue(temp_screen_id, 7, "????????????:--");
+					clearTextValue(temp_screen_id , 8); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 9); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 10); //(????ID,???ID??
+					clearTextValue(temp_screen_id , 11); //(????ID,???ID??
 				}
 			}
 			cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 0;
 		}
-		else // 没设置上线
+		else // ?????????
 		{
-			cpsc_entry->verb_show_ctrl.verb_detector_id = 255; // 更新抑制
-			SetTextValue(temp_screen_id, 5, "该探测器未启用"); //刷新状态
-			clearTextValue(temp_screen_id , 6); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 7); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 8); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 9); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 10); //(画面ID,控件ID）
-			clearTextValue(temp_screen_id , 11); //(画面ID,控件ID）
+			cpsc_entry->verb_show_ctrl.verb_detector_id = 255; // ????????
+			SetTextValue(temp_screen_id, 5, "???????δ????"); //?????
+			clearTextValue(temp_screen_id , 6); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 7); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 8); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 9); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 10); //(????ID,???ID??
+			clearTextValue(temp_screen_id , 11); //(????ID,???ID??
 		}
 
 	}
@@ -12910,18 +12921,18 @@ static void CompositeDetectorButtonCtrlApp(CompositeShowCtrl_t *cpsc_entry, uint
 static void CompositeDetectorTextInputCtrlApp(CompositeShowCtrl_t *cpsc_entry, uint16 control_id, uint8 *str)
 {
 	int32 value=0;  			
-	sscanf((const char*)str,"%ld",&value); //把字符串转换为整数 
+	sscanf((const char*)str,"%ld",&value); //??????????????? 
 	if(control_id == 12)    
 	{
 		cpsc_entry->verb_show_ctrl.verb_detector_id = value;
 		
-		cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // 强制刷新一次
+		cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // ?????????
 	}
 }
 
 static void CompositeDetectorScreenSwitchShowApp(CompositeShowCtrl_t *cpsc_entry)
 {
-	cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // 进入界面后强制刷新一次
+	cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // ?????????????????
 }
 
 UART_HandleTypeDef *getSimulateSirealPortSendHandle(uint8_t port_comid)
@@ -12943,15 +12954,15 @@ UART_HandleTypeDef *getSimulateSirealPortSendHandle(uint8_t port_comid)
 			break;
 		}
 		case 4:{
-			uart_handle = &huart3; // EMS串口
+			uart_handle = &huart3; // EMS????
 			break;
 		}
 		case 5:{
-			uart_handle = &huart1; // 场站串口
+			uart_handle = &huart1; // ???????
 			break;
 		}
 		case 6:{
-			uart_handle = NULL; /* XR5000_UART5_EXCLUSIVE_FIX_20260730 */ // 控制总线串口
+			uart_handle = NULL; /* XR5000_UART5_EXCLUSIVE_FIX_20260730 */ // ???????????
 			break;
 		}
 		default:{
@@ -12981,15 +12992,15 @@ eUartOrder getSimulateSirealPortReceiveIndex(uint8_t port_comid)
 			break;
 		}
 		case 4:{
-			temp_order = EMSSITE; // EMS串口
+			temp_order = EMSSITE; // EMS????
 			break;
 		}
 		case 5:{
-			temp_order = STATION_OPTICALFIBER; // 场站串口
+			temp_order = STATION_OPTICALFIBER; // ???????
 			break;
 		}
 		case 6:{
-			temp_order = ERRORSITE; /* XR5000_UART5_EXCLUSIVE_FIX_20260730 */ // 控制总线串口
+			temp_order = ERRORSITE; /* XR5000_UART5_EXCLUSIVE_FIX_20260730 */ // ???????????
 			break;
 		}
 		default:{
@@ -13005,48 +13016,48 @@ static void SimulationSerialPortFirstFresh(SimulationSerialPortAssistant_t *sspa
 {
 	if(sspa_entry->serial_port_state == 0)
 	{
-		SetTextValue(3, 9, "打开串口"); //刷新状态
+		SetTextValue(3, 9, "??????"); //?????
 	}
 	else
 	{
-		SetTextValue(3, 9, "关闭串口"); //刷新状态
+		SetTextValue(3, 9, "??????"); //?????
 	}
 	
 	if(sspa_entry->serial_port_comid == 0 || sspa_entry->serial_port_comid == 0xFF)
 	{
-		clearTextValue(3, 6); //(画面ID,控件ID）
+		clearTextValue(3, 6); //(????ID,???ID??
 	}
 	
 	if(sspa_entry->serial_port_send_mode == 0)
 	{
-		SetTextValue(3, 32, "字符串发送"); //刷新状态
+		SetTextValue(3, 32, "?????????"); //?????
 	}
 	else
 	{
-		SetTextValue(3, 32, "16进制发送"); //刷新状态
+		SetTextValue(3, 32, "16???????"); //?????
 	}
 	
 	if(sspa_entry->serial_port_show_mode == 0)
 	{
-		SetTextValue(3, 36, "字符串接收"); //刷新状态
+		SetTextValue(3, 36, "?????????"); //?????
 	}
 	else
 	{
-		SetTextValue(3, 36, "16进制接收"); //刷新状态
+		SetTextValue(3, 36, "16???????"); //?????
 	}
 	
 	if(sspa_entry->serial_port_send_new_row == 0)
 	{
-		SetTextValue(3, 38, "不发送新行"); //刷新状态
+		SetTextValue(3, 38, "??????????"); //?????
 	}
 	else
 	{
-		SetTextValue(3, 38, "发送新行"); //刷新状态
+		SetTextValue(3, 38, "????????"); //?????
 	}
 	
 	if(sspa_entry->serial_port_send_len == 0)
 	{
-		clearTextValue(3, 28); //(画面ID,控件ID）
+		clearTextValue(3, 28); //(????ID,???ID??
 	}
 
 }
@@ -13057,47 +13068,47 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 	
 	switch(ctrl_id)
 	{
-		case 10: { // 打开串口按键
-			if(sspa_entry->serial_port_state == 0) // 如果现在串口是关闭状态
+		case 10: { // ?????????
+			if(sspa_entry->serial_port_state == 0) // ????????????????
 			{
-				if(sspa_entry->serial_port_comid != 0xFF && sspa_entry->serial_port_comid != 6U) // 如果端口号正确
+				if(sspa_entry->serial_port_comid != 0xFF && sspa_entry->serial_port_comid != 6U) // ??????????
 				{
 					eUartOrder temp_order = ERRORSITE;
 					temp_order = getSimulateSirealPortReceiveIndex(sspa_entry->serial_port_comid);
-					if(temp_order != ERRORSITE) // 如果是正确的ID
+					if(temp_order != ERRORSITE) // ??????????ID
 					{
 						uartbuff[temp_order].recepetion_flag = 0;
 						memset(uartbuff[temp_order].recepetion_buff, 0, BUFF_MAX);
 					}
-					sspa_entry->serial_port_state = 1; // 打开串口
-					SuspendTask(sspa_entry->serial_port_comid); // 挂起对应的任务使串口空闲
-					SetTextValue(3, 9, "关闭串口"); //刷新状态
+					sspa_entry->serial_port_state = 1; // ??????
+					SuspendTask(sspa_entry->serial_port_comid); // ????????????????????
+					SetTextValue(3, 9, "??????"); //?????
 				}
 			}
 			else
 			{
 				eUartOrder temp_order = ERRORSITE;
 				temp_order = getSimulateSirealPortReceiveIndex(sspa_entry->serial_port_comid);
-				if(temp_order != ERRORSITE) // 如果是正确的ID
+				if(temp_order != ERRORSITE) // ??????????ID
 				{
 					uartbuff[temp_order].recepetion_flag = 0;
 					memset(uartbuff[temp_order].recepetion_buff, 0, BUFF_MAX);
 				}
-				sspa_entry->serial_port_state = 0; // 关闭串口
-				ResumeTask(sspa_entry->serial_port_comid); // 恢复串口 
-				SetTextValue(3, 9, "打开串口"); //刷新状态
+				sspa_entry->serial_port_state = 0; // ??????
+				ResumeTask(sspa_entry->serial_port_comid); // ??????? 
+				SetTextValue(3, 9, "??????"); //?????
 			}
 			break;
 		}
-		case 14: { // 发送按键
-			if(sspa_entry->serial_port_state == 1) // 如果串口是打开的
+		case 14: { // ???????
+			if(sspa_entry->serial_port_state == 1) // ????????????
 			{
-				if(sspa_entry->serial_port_send_len != 0) // 如果发送缓冲区提取的长度不等于0
+				if(sspa_entry->serial_port_send_len != 0) // ?????????????????????????0
 				{
 					temp_uart = getSimulateSirealPortSendHandle(sspa_entry->serial_port_comid);
 					if(temp_uart != NULL)
 					{
-						if(sspa_entry->serial_port_send_new_row == 1) // 发送新行
+						if(sspa_entry->serial_port_send_new_row == 1) // ????????
 						{
 							uint8_t temp_send_buff[256];
 							uint8_t temp_buff_len = sspa_entry->serial_port_send_len;
@@ -13107,11 +13118,11 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 							temp_send_buff[temp_buff_len++] = '\r';
 							temp_send_buff[temp_buff_len++] = '\n';
 							
-							HAL_UART_Transmit(temp_uart, temp_send_buff, temp_buff_len, 0xff); // 发送数据
+							HAL_UART_Transmit(temp_uart, temp_send_buff, temp_buff_len, 0xff); // ????????
 						}
 						else
 						{
-							HAL_UART_Transmit(temp_uart, sspa_entry->serial_port_send_buff, sspa_entry->serial_port_send_len, 0xff); // 发送数据
+							HAL_UART_Transmit(temp_uart, sspa_entry->serial_port_send_buff, sspa_entry->serial_port_send_len, 0xff); // ????????
 						}
 						
 					}
@@ -13120,26 +13131,26 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 			
 			break;
 		}
-		case 30: { // 查询全部配置按键
-			if(sspa_entry->serial_port_state == 1) // 如果串口是打开的
+		case 30: { // ?????????e???
+			if(sspa_entry->serial_port_state == 1) // ????????????
 			{
 				temp_uart = getSimulateSirealPortSendHandle(sspa_entry->serial_port_comid);
 				if(temp_uart != NULL)
 				{
 					char cxpz_buff[] = "##,CXPZ,$$\r\n";
-					HAL_UART_Transmit(temp_uart, (uint8_t *)cxpz_buff, strlen(cxpz_buff), 0xff); // 发送数据
+					HAL_UART_Transmit(temp_uart, (uint8_t *)cxpz_buff, strlen(cxpz_buff), 0xff); // ????????
 				}
 			}
 			break;
 		}
-		case 31: { // 恢复默认配置
-			if(sspa_entry->serial_port_state == 1) // 如果串口是打开的
+		case 31: { // ??????????
+			if(sspa_entry->serial_port_state == 1) // ????????????
 			{
 				temp_uart = getSimulateSirealPortSendHandle(sspa_entry->serial_port_comid);
 				if(temp_uart != NULL)
 				{
 					char cxpz_buff[] = "##,RESETALL,$$\r\n";
-					HAL_UART_Transmit(temp_uart, (uint8_t *)cxpz_buff, strlen(cxpz_buff), 0xff); // 发送数据
+					HAL_UART_Transmit(temp_uart, (uint8_t *)cxpz_buff, strlen(cxpz_buff), 0xff); // ????????
 				}
 			}
 			break;
@@ -13147,34 +13158,34 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 		case 29: {
 			eUartOrder temp_order = ERRORSITE;
 			temp_order = getSimulateSirealPortReceiveIndex(sspa_entry->serial_port_comid);
-			if(temp_order != ERRORSITE) // 如果是正确的ID
+			if(temp_order != ERRORSITE) // ??????????ID
 			{
 				uartbuff[temp_order].recepetion_flag = 0;
 				memset(uartbuff[temp_order].recepetion_buff, 0, BUFF_MAX);
 			}
 			
-			sspa_entry->serial_port_state = 0; // 关闭串口
-			ResumeTask(sspa_entry->serial_port_comid); // 恢复串口 
-			SetTextValue(3, 9, "打开串口"); //刷新状态
+			sspa_entry->serial_port_state = 0; // ??????
+			ResumeTask(sspa_entry->serial_port_comid); // ??????? 
+			SetTextValue(3, 9, "??????"); //?????
 			break;
 		}
 		case 35: {
 			for(uint8_t i = 15; i < 28; i++)
 			{
-				clearTextValue(3 , i); //(画面ID,控件ID）
+				clearTextValue(3 , i); //(????ID,???ID??
 			}
 			sspa_entry->serial_port_show_offset = 0;
 			break;
 		}
-		case 33: { // 字符串发送
+		case 33: { // ?????????
 			sspa_entry->serial_port_send_mode = !sspa_entry->serial_port_send_mode;
 			if(sspa_entry->serial_port_send_mode == 0)
 			{
-				SetTextValue(3, 32, "字符串发送"); //刷新状态
+				SetTextValue(3, 32, "?????????"); //?????
 			}
 			else
 			{
-				SetTextValue(3, 32, "16进制发送"); //刷新状态
+				SetTextValue(3, 32, "16???????"); //?????
 			}
 			
 			
@@ -13184,11 +13195,11 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 			sspa_entry->serial_port_show_mode = !sspa_entry->serial_port_show_mode;
 			if(sspa_entry->serial_port_show_mode == 0)
 			{
-				SetTextValue(3, 36, "字符串接收"); //刷新状态
+				SetTextValue(3, 36, "?????????"); //?????
 			}
 			else
 			{
-				SetTextValue(3, 36, "16进制接收"); //刷新状态
+				SetTextValue(3, 36, "16???????"); //?????
 			}
 			break;
 		}
@@ -13197,11 +13208,11 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 			
 			if(sspa_entry->serial_port_send_new_row == 0)
 			{
-				SetTextValue(3, 38, "不发送新行"); //刷新状态
+				SetTextValue(3, 38, "??????????"); //?????
 			}
 			else
 			{
-				SetTextValue(3, 38, "发送新行"); //刷新状态
+				SetTextValue(3, 38, "????????"); //?????
 			}
 			
 			break;
@@ -13214,7 +13225,7 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 static void SimulationSerialPortMenuCtrl(SimulationSerialPortAssistant_t *sspa_entry, uint16_t ctrl_id, uint8_t item, uint8_t state)
 {
     if (ctrl_id != 8 || state != 1) {
-        return;  // 提前返回，减少嵌套层级
+        return;  // ????????????????
     }
 
     uint8_t new_com_id = item + 1;
@@ -13225,21 +13236,21 @@ static void SimulationSerialPortMenuCtrl(SimulationSerialPortAssistant_t *sspa_e
         return;
     }
     
-    // 如果选择的是同一个串口，不需要任何操作
+    // ????????????????????????κβ???
     if (new_com_id == current_com_id) {
         return;
     }
     
-    // 只有当串口当前是打开状态时才需要处理挂起/恢复操作
+    // ??е?????????????????????????/???????
     if (sspa_entry->serial_port_state == 1 && current_com_id != 0) {
-        // 恢复当前使用的串口任务
+        // ?????????????????
         ResumeTask(current_com_id);
         
-        // 挂起新选择的串口任务
+        // ?????????????????
         SuspendTask(new_com_id);
     }
     
-    // 更新选择的串口ID
+    // ???????????ID
     sspa_entry->serial_port_comid = new_com_id;
 }
 
@@ -13247,12 +13258,12 @@ static void SimulationSerialPortTextCtrl(SimulationSerialPortAssistant_t *sspa_e
 {
 	UART_HandleTypeDef *temp_uart = NULL;
 	
-	if(control_id == 4) // 如果是修改地址控件
+	if(control_id == 4) // ?????????????
 	{
 		int slave_addr;
 		sscanf((const char *)str, "%d", &slave_addr);
 		
-		if(sspa_entry->serial_port_state == 1) // 如果串口是打开的
+		if(sspa_entry->serial_port_state == 1) // ????????????
 		{
 			temp_uart = getSimulateSirealPortSendHandle(sspa_entry->serial_port_comid);
 			if(temp_uart != NULL)
@@ -13260,7 +13271,7 @@ static void SimulationSerialPortTextCtrl(SimulationSerialPortAssistant_t *sspa_e
 				uint8_t buff_len;
 				uint8_t cxpz_buff[32];
 				buff_len = sprintf((char *)cxpz_buff, "##,ADR=%d,$$\r\n", slave_addr);
-				HAL_UART_Transmit(temp_uart, cxpz_buff, buff_len, 0xff); // 发送数据
+				HAL_UART_Transmit(temp_uart, cxpz_buff, buff_len, 0xff); // ????????
 			}
 		}
 		
@@ -13285,17 +13296,17 @@ static void SimulationSerialPortTextCtrl(SimulationSerialPortAssistant_t *sspa_e
 							continue;
 					}
 					
-					// 转换单个十六进制字符为数值
+					// ?????????????????????
 					if(c >= '0' && c <= '9') value = c - '0';
 					else if(c >= 'A' && c <= 'F') value = c - 'A' + 10;
 					else if(c >= 'a' && c <= 'f') value = c - 'a' + 10;
 					else {
-							str_point++; // 跳过无效字符
+							str_point++; // ??????Ч???
 							continue;
 					}
 					
 					if(!got_high_nibble) {
-							high_nibble = value << 4; // 高4位
+							high_nibble = value << 4; // ??4λ
 							got_high_nibble = 1;
 					} else {
 							sspa_entry->serial_port_send_buff[buff_point++] = high_nibble | value;
@@ -13320,12 +13331,12 @@ void HexToHexStringLight(uint8_t *data, uint8_t len, uint8_t *output)
     uint8_t pos = 0;
     
     for(uint8_t i = 0; i < len; i++) {
-        // 高4位
+        // ??4λ
         output[pos++] = hex_chars[(data[i] >> 4) & 0x0F];
-        // 低4位
+        // ??4λ
         output[pos++] = hex_chars[data[i] & 0x0F];
         
-        // 每个字节后添加空格（当前就是每2个字符加空格）
+        // ????????????????????2?????????
         if(i < len - 1) {
             output[pos++] = ' ';
         }
@@ -13337,21 +13348,21 @@ static void SimulationSerialPortScreenShowApp(SimulationSerialPortAssistant_t *s
 {
 	eUartOrder temp_order = ERRORSITE;
 	
-	if(sspa_entry->serial_port_state == 1) // 如果串口是打开的
+	if(sspa_entry->serial_port_state == 1) // ????????????
 	{
 		temp_order = getSimulateSirealPortReceiveIndex(sspa_entry->serial_port_comid);
 		if(temp_order != ERRORSITE)
 		{
-			if(uartbuff[temp_order].recepetion_flag == 1) // 如果接收到了
+			if(uartbuff[temp_order].recepetion_flag == 1) // ??????????
 			{
-				uartbuff[temp_order].recepetion_flag = 0; // 清空接收
+				uartbuff[temp_order].recepetion_flag = 0; // ??????
 				
-				if(sspa_entry->serial_port_show_mode == 1) // 16进制显示
+				if(sspa_entry->serial_port_show_mode == 1) // 16???????
 				{
-					uint8_t serial_port_receive_buff[256]; // 显示缓冲区 用来将数据变成16进制
+					uint8_t serial_port_receive_buff[256]; // ????????? ????????????16????
 					HexToHexStringLight(uartbuff[temp_order].recepetion_buff, uartbuff[temp_order].recepetion_len, serial_port_receive_buff);
 					
-					SetTextValue(3, 15 + sspa_entry->serial_port_show_offset, serial_port_receive_buff); //刷新状态
+					SetTextValue(3, 15 + sspa_entry->serial_port_show_offset, serial_port_receive_buff); //?????
 					sspa_entry->serial_port_show_offset++;
 					sspa_entry->serial_port_show_offset %= 13;
 				}
@@ -13361,7 +13372,7 @@ static void SimulationSerialPortScreenShowApp(SimulationSerialPortAssistant_t *s
 					char *token = strtok((char *)uartbuff[temp_order].recepetion_buff, delimiter);
 					
 					while (token != NULL) {
-							SetTextValue(3, 15 + sspa_entry->serial_port_show_offset, (uint8_t *)token); //刷新状态
+							SetTextValue(3, 15 + sspa_entry->serial_port_show_offset, (uint8_t *)token); //?????
 							token = strtok(NULL, delimiter);
 							sspa_entry->serial_port_show_offset++;
 							sspa_entry->serial_port_show_offset %= 13;
@@ -13388,42 +13399,42 @@ static void FirstAlarmInformationShowCtrl(
 	{
 		uint8_t temp_buff[64];
 		
-		sicj_entry->warn_fresh_flag = 1; // 标志所有状态刷新完成
-		// 第一条报警信息置顶显示
+		sicj_entry->warn_fresh_flag = 1; // ???????????????
+		// ??????????????????
 		if(pcfws_entry->detector_class[0] == PackClassID && pcfws_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first warning display uses "第3回路 X号".
+			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first warning display uses "??3??· X??".
 			FormatRS485DetectForeWarnLine(temp_buff, 1, pcfws_entry, 0);
 		}
 		else if(pcfws_entry->detector_class[0] == PackClassID)
 		{
 			if(pcfws_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK????????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws.da[0].cluster_id, pcfws.da[0].pack_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
 			}
 		}
-		else if(pcfws_entry->detector_class[0] == LinkageClassID) // 如果是外联设备
+		else if(pcfws_entry->detector_class[0] == LinkageClassID) // ??????????豸
 		{
 			if(pcfws_entry->alarm_type[0] == AlarmCtrlKey)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 报警器按下", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??????????", 1,
 					pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 					pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second);
 			}
@@ -13437,28 +13448,28 @@ static void FirstAlarmInformationShowCtrl(
 		{
 			if(pcfws_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ???????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws.da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Hydrogen)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ????????", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
@@ -13467,7 +13478,7 @@ static void FirstAlarmInformationShowCtrl(
 		
 		for(uint8_t i = 0; i < 4; i++)
 		{
-			SetTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i], temp_buff); // 刷新第一条报警内容
+			SetTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i], temp_buff); // ??μ????????????
 		}
 	
 	}
@@ -13475,7 +13486,7 @@ static void FirstAlarmInformationShowCtrl(
 	{
 		for(uint8_t i = 0; i < 4; i++)
 		{
-			clearTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i]); // 刷新第一条报警内容
+			clearTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i]); // ??μ????????????
 		}
 		sicj_entry->warn_fresh_flag = 0;
 	}
@@ -13485,31 +13496,31 @@ static void FirstAlarmInformationShowCtrl(
 		uint8_t temp_buff[64];
 		
 		sicj_entry->fire_fresh_flag = 1;
-		// 第一条报警信息置顶显示
+		// ??????????????????
 		if(pcfas_entry->detector_class[0] == PackClassID && pcfas_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first fire display uses "第3回路 X号".
+			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first fire display uses "??3??· X??".
 			FormatRS485DetectFireAlarmLine(temp_buff, 1, pcfas_entry, 0);
 		}
 		else if(pcfas_entry->detector_class[0] == PackClassID)
 		{
 			if(pcfas_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK????????????", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??%d??%d??PACK???????????????", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
@@ -13519,13 +13530,13 @@ static void FirstAlarmInformationShowCtrl(
 		{
 			if(pcfas_entry->alarm_type[0] == AlarmCtrlKey)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 报警器按下", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??????????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
 			}
 			else
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 手报按下报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??????±???", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
 			}
@@ -13540,28 +13551,28 @@ static void FirstAlarmInformationShowCtrl(
 		{
 			if(pcfas_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ???????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfws.atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ??????????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Hydrogen)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ??1??· %d?? ????????", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
@@ -13569,14 +13580,14 @@ static void FirstAlarmInformationShowCtrl(
 		}
 		for(uint8_t i = 0; i < 4; i++)
 		{
-			SetTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i], temp_buff); // 刷新第一条报警内容
+			SetTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i], temp_buff); // ??μ????????????
 		}
 	}
 	else if(pcfas_entry->self_bottom_point == 0 && sicj_entry->fire_fresh_flag != 0)
 	{
 		for(uint8_t i = 0; i < 4; i++)
 		{
-			clearTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i]); // 刷新第一条报警内容
+			clearTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i]); // ??μ????????????
 		}
 		sicj_entry->fire_fresh_flag = 0;
 	}
@@ -13589,6 +13600,6 @@ static void LicenseVerificationCtrl(void)
 //	int8_t compare_value_3 = strncmp();
 //	
 //	SystemSaveInfo.curr_license_store[0] = '\0';
-//	SystemSaveInfo.last_license_store[0] = '\0'; // 之前存储的授权码
+//	SystemSaveInfo.last_license_store[0] = '\0'; // ???洢???????
 //	SystemSaveInfo.pref_license_store[0] = '\0'; // 
 }

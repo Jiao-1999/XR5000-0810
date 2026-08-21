@@ -109,7 +109,15 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-
+  /* 直接寄存器打印HardFault标志,不用DebugPrintf(栈可能已损坏) */
+  {
+    const char *msg = "!!HARDFAULT!!\r\n";
+    while (*msg) {
+        uint32_t to = 100000;
+        while (!(UART4->ISR & USART_ISR_TXE_TXFNF) && to--) {}
+        UART4->TDR = (uint32_t)(*msg++);
+    }
+  }
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {

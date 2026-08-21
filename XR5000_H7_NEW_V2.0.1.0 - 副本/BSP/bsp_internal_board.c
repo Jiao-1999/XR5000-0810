@@ -14,6 +14,9 @@
 
 #include "bsp_save_ctrl.h"
 
+#include "bsp_storage_event.h"  /* ï¿½ï¿½Ï»ï¿½Ó´æ´¢ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+#include "bsp_fecbus_report.h" /* FECbus RS485 ï¿½Ï±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (GB4717 ï¿½ï¿½Â¼C) */
+
 #define InternalBoardAddr 1U
 
 #define getMainPowerState()   (zhu_state           ? 1 : 0)
@@ -692,6 +695,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 							case KEY_SYSTEM_LINKAGE_S  : // Áª¶¯Æô¶¯°´ÏÂ
 								key_value_storage = LINKAGE_START_KEY; // 
 								StartupLinkageDevice();
+								StorageEvent_LogStart(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+							FecbusReport_Start(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* FECbus:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 								break;
 							default:
 								break;
@@ -706,6 +711,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»ÎªÊÖ¶¯
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_HAND, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
+									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* ï¿½ï¿½Ï»ï¿½ï¿½:ÏµÍ³ï¿½Ö¶ï¿½ */
+								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* FECbus:ÏµÍ³ï¿½Ö¶ï¿½ */
 								}
 								break;
 							case KEY_AUTO:
@@ -715,6 +722,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»Îª×Ô¶¯
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_AUTO, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
+									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* ï¿½ï¿½Ï»ï¿½ï¿½:ÏµÍ³ï¿½Ô¶ï¿½ */
+								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* FECbus:ÏµÍ³ï¿½Ô¶ï¿½ */
 								}
 								break;
 						}
@@ -728,6 +737,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»ÎªÊÖ¶¯
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_HAND, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
+									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½1ï¿½Ö¶ï¿½ */
+								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* FECbus:ï¿½ï¿½ï¿½ï¿½1ï¿½Ö¶ï¿½ */
 								}
 								break;
 							case KEY_AUTO:
@@ -737,6 +748,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»Îª×Ô¶¯
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_AUTO, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
+									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½1ï¿½Ô¶ï¿½ */
+								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* FECbus:ï¿½ï¿½ï¿½ï¿½1ï¿½Ô¶ï¿½ */
 								}
 								break;
 						}
@@ -750,6 +763,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»ÎªÊÖ¶¯
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_HAND, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
+									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½2ï¿½Ö¶ï¿½ */
+								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* FECbus:ï¿½ï¿½ï¿½ï¿½2ï¿½Ö¶ï¿½ */
 								}
 								break;
 							case KEY_AUTO:
@@ -759,6 +774,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»Îª×Ô¶¯
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_AUTO, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
+									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½2ï¿½Ô¶ï¿½ */
+								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* FECbus:ï¿½ï¿½ï¿½ï¿½2ï¿½Ô¶ï¿½ */
 								}
 								break;
 						}

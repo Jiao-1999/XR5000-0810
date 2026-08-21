@@ -6,6 +6,7 @@
 #include "cmd_queue.h"
 #include "cmd_process.h"
 #include "bsp_debug.h"
+#include "bsp_fecbus_rx.h"   /* FECbus RX: USART3 ï¿½ï¿½ï¿½Ö½ï¿½ITï¿½ï¿½ï¿½ï¿½ï¿½ë»· */
 
 //UartBuffer_t uartbuff[10];
 
@@ -28,6 +29,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		while(HAL_UART_Receive_IT(&huart8,&screendata,1)!= HAL_OK)
 		{
 				__HAL_UNLOCK(&huart8);
+		}
+  }
+  else if (huart->Instance == USART3) {
+		/* FECbus RX: ï¿½Ö½ï¿½ï¿½ë»· + ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Ö½Ú½ï¿½ï¿½ï¿½ */
+		FecbusRx_OnByte(g_fecbus_rx_byte);
+		while(HAL_UART_Receive_IT(&huart3,(uint8_t *)&g_fecbus_rx_byte,1)!= HAL_OK)
+		{
+				__HAL_UNLOCK(&huart3);
 		}
   }
 }
@@ -124,12 +133,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	}
 	else if (huart->Instance == USART3)
   {
-		uartbuff[2].recepetion_flag = 1;
-		uartbuff[2].recepetion_len = Size;
-
-		// Î¬»¤CacheÒ»ÖÂÐÔ
-    SCB_InvalidateDCache_by_Addr((uint32_t*)uartbuff[2].recepetion_buff, BUFF_MAX);
-		HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX);
+		/* FECbus ï¿½ï¿½Õ¼ USART3 ï¿½ï¿½ï¿½ï¿½ (bsp_fecbus_rx.c ï¿½ï¿½ï¿½Ö½ï¿½IT), ï¿½ï¿½ï¿½ï¿½DMA/uartbuff[2] */
 	}
 	else if (huart->Instance == UART4)
   {
@@ -280,9 +284,9 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 
     /* 2. Òç³ö´íÎó´¦Àí (ORE) */
     if(huart->ErrorCode & HAL_UART_ERROR_ORE) {
-        __HAL_UART_CLEAR_OREFLAG(huart); // Òç³ö´íÎó
-        // ¶ÔÓÚDMAÄ£Ê½ÐèÒªÌØÊâ´¦Àí
-        if(huart->hdmarx != NULL) {
+        __HAL_UART_CLEAR_OREFLAG(huart); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿?
+        // ï¿½ï¿½ï¿½ï¿½DMAÄ£Ê½ï¿½ï¿½Òªï¿½ï¿½ï¿½â´¦ï¿½ï¿½ (USART3=FECbus ITï¿½ï¿½ï¿½ï¿½, ï¿½Å³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½DMA)
+        if((huart->hdmarx != NULL) && (huart->Instance != USART3)) {
             HAL_UART_DMAStop(huart);
 						//huart->hdmarx->Instance->CNDTR = BUFF_MAX;
             __HAL_DMA_ENABLE(huart->hdmarx);
@@ -319,7 +323,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 		}
 		else if (huart->Instance == USART3)
 		{
-			HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX);
+			/* FECbus RX: ï¿½ï¿½ï¿½ï¿½Ö¸ï¿? ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö½ï¿½ITï¿½ï¿½ï¿½ï¿½ (bsp_fecbus_rx.c) */
+			HAL_UART_Receive_IT(&huart3, (uint8_t *)&g_fecbus_rx_byte, 1);
 		}
 		else if (huart->Instance == UART4)
 		{
