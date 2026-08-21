@@ -3,7 +3,7 @@
 
 #include "main.h"
 
-/* XR5000_UART4_DEBUG_20260811: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½UART4Ö±ï¿½Ó¼Ä´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(PC10/PC11, 115200 8N1) */
+/* XR5000_UART4_DEBUG_20260811: µ÷ÊÔÊä³öÍ¨¹ýUART4Ö±½Ó¼Ä´æÆ÷·¢ËÍ(PC10/PC11, 115200 8N1) */
 #define DEBUG_OUTPUT_ENABLED 1
 
 void DebugSendString(uint8_t *buf, uint8_t len);
