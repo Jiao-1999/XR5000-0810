@@ -1076,8 +1076,7 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
         {
             LogicRule_Get(ids[i], &rule);
 
-            /* 编号按显示顺序连续(最新=1), 不使用内部rule_id(可能因删除而不连续) */
-            sprintf(disp, "#%d: ", (uint16_t)(start + shown + 1));
+            sprintf(disp, "#%d: ", rule.rule_id);
             pre_len = (uint16_t)strlen(disp);
             BuildRuleDisplay(&rule, disp + pre_len,
                              (uint8_t)(sizeof(disp) - pre_len));
