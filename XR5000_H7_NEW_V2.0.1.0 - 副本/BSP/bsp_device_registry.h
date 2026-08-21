@@ -81,6 +81,7 @@ uint8_t DeviceRegistry_RequiresSensorMask(uint16_t product_code); /* ÅĞ¶ÏÊÇ·ñĞèÒ
 uint8_t DeviceRegistry_IsSensorMaskValid(uint16_t product_code, uint16_t sensor_mask); /* Ğ£Ñé0x000F´«¸ĞÆ÷Î»ÊÇ·ñºÏ·¨ */
 uint8_t DeviceRegistry_IsNationalTypeKnown(uint16_t national_type_code); /* ÅĞ¶Ï¹ú±êÉè±¸ÀàĞÍÂëÊÇ·ñÒÑµÇ¼Ç */
 uint8_t DeviceRegistry_IsNationalProductMatch(uint16_t national_type_code, uint16_t product_code); /* ¼ì²é¹ú±êÂëÓëÄÚ²¿²úÆ·ÂëÊÇ·ñÆ¥Åä */
+const char *DeviceRegistry_GetNameByNationalCode(uint16_t national_type_code); /* °´0x000D¹ú±êÉè±¸ÀàĞÍÂë·µ»ØÖĞÎÄÏÔÊ¾Ãû£¬Î´Öª·µ»Ø"Î´ÖªÉè±¸" */
 
 /* °´¡°»ØÂ·+Éè±¸µØÖ·¡±±£´æ¡¢²éÑ¯ºÍÃ¶¾Ùµ±Ç°Ê¶±ğ¹ÊÕÏ¡£ */
 void DeviceRegistry_SetIdentifyError(uint8_t loop, uint8_t address, DeviceIdentifyError error); /* ÉèÖÃÊ¶±ğ¹ÊÕÏ£¬´«ÈëOKÇå³ı */

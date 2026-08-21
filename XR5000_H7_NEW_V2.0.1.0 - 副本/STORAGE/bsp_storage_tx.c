@@ -1,35 +1,35 @@
 /**
  * @file    bsp_storage_tx.c
- * @brief   主控存储发送模块 - 主控通过LPUART1(PB6/PB7, 115200 8N1)向
- *          存储侧单片机发送事件记录.
+ * @brief   存储通信发送模块 - 经LPUART1(PB6/PB7, 115200 8N1)与
+ *          存储端MCU通信的发送/接收/重试模块.
  *
  * @details
- *   硬件接口:
+ *   硬件链路:
  *     UART:  LPUART1 PB6=TX, PB7=RX, 115200 8N1
- *            本模块自行初始化(CubeMX未配置LPUART1), 完全使用HAL寄存器操作.
- *     存储:  存储侧单片机管理SPI Flash W25Q256, 可选USB上报.
+ *            手动初始化LPUART1(CubeMX未配置LPUART1), 采用HAL寄存器级驱动.
+ *     Flash: 存储端MCU管理SPI Flash W25Q256, 经USB转接.
  *
- *   帧格式(主控 -> 存储侧):
+ *   帧格式(主机 -> 存储端):
  *     [0xA5][len][cmd][payload...][CRC16_lo][CRC16_hi][0x5A]
  *     len  = 命令码字节数(1) + 数据载荷字节数  (不含帧头/帧尾/CRC)
- *     CRC16计算范围: 从len字节到最后一字节payload, 多项式0xA001, 小端存储.
+ *     CRC16校验范围: 从len字节到payload末尾, 多项式0xA001, 小端存储.
  *
- *   关键背景(ORE处理):
- *     H7 LPUART的ORE(过载)标志一旦置位会永久阻塞RXNE, 导致RX通道永久失效.
- *     这是已修复的关键bug: WaitByte中检测并清除ORE, FlushRx在每次发送前清
- *     错误标志并排空RDR残留, 避免上一次事务超时后才到达的应答触发ORE.
+ *   硬件问题(ORE溢出):
+ *     H7 LPUART的ORE(溢出错误)标志位可能被错误置位而阻塞RXNE, 导致RX接收无效.
+ *     本模块的应对bug: WaitByte中检测到ORE, 调用FlushRx清空一次接收缓冲
+ *     并重新等待RDR数据, 通过多次重试策略避免ORE.
  *
- *   依赖关系:
- *     bsp_rtc.h   - SystemTime, getBM8563TimeToSystemTime() 用于时间戳
- *     FreeRTOS    - 队列与任务
+ *   时间戳来源:
+ *     bsp_rtc.h   - SystemTime, getBM8563TimeToSystemTime() 获取RTC时间
+ *     FreeRTOS    - 任务调度/队列阻塞
  *
- *   使用方式:
- *     StorageTx_QueueRecord()  中断/任务安全(非阻塞入队)
- *     StorageTx_TaskLoop()     专用FreeRTOS任务(阻塞出队发送)
+ *   调用方式:
+ *     StorageTx_QueueRecord()  中断/任务上下文(队列发送)
+ *     StorageTx_TaskLoop()     在FreeRTOS任务中循环(阻塞等待队列)
  */
 #include "bsp_storage_tx.h"
 #include "bsp_rtc.h"            /* SystemTime, getBM8563TimeToSystemTime() */
-#include "bsp_debug.h"          /* XR5000_STX_DIAG_20260811: 调试串口输出(COM4) */
+#include "bsp_debug.h"          /* XR5000_STX_DIAG_20260811: 调试打印输出(COM4) */
 #include "usart.h"
 #include "stm32h7xx_hal.h"
 #include <string.h>
@@ -40,13 +40,13 @@
 #include "task.h"
 
 /*==============================================================
- * 内部定义
+ * 内部变量
  *============================================================*/
-/* 存储发送UART: LPUART1 (PB6=TX, PB7=RX, 115200 8N1), 本模块自行初始化 */
+/* 存储通信UART: LPUART1 (PB6=TX, PB7=RX, 115200 8N1), 手动初始化驱动 */
 static UART_HandleTypeDef s_hlpuart1;
 #define STX_UART             (&s_hlpuart1)
-static uint8_t s_initialized = 0;           /* 初始化完成标志 */
-static QueueHandle_t s_tx_queue = NULL;     /* 发送队列句柄 */
+static uint8_t s_initialized = 0;           /* 初始化标志 */
+static QueueHandle_t s_tx_queue = NULL;     /* 发送消息队列句柄 */
 
 /* 队列项: 命令码 + 事件记录 */
 typedef struct {
@@ -55,7 +55,7 @@ typedef struct {
 } StorageTx_QueueItem_t;
 
 /*==============================================================
- * 内部函数原型
+ * 内部函数声明
  *============================================================*/
 static void StorageTx_InitLPUART1(void);
 static void StorageTx_SendByte(uint8_t data);
@@ -65,34 +65,34 @@ static uint16_t StorageTx_CRC16(const uint8_t *data, uint16_t len);
 static void StorageTx_SendFrame(uint8_t cmd, const uint8_t *payload, uint16_t payload_len);
 
 /*==============================================================
- * LPUART1初始化 (PB6=TX, PB7=RX, 115200 8N1)
+ * LPUART1驱动层 (PB6=TX, PB7=RX, 115200 8N1)
  *============================================================*/
 /**
- * @brief  初始化LPUART1及PB6/PB7引脚, 配置波特率并使能UE/TE/RE位
- * @说明   配置流程:
- *           1. 选择LPUART1内核时钟源 = D3PCLK1 (PCLK4)
- *           2. 使能GPIOB与LPUART1时钟
- *           3. 配置PB6/PB7为复用推挽AF8(LPUART)
+ * @brief  手动初始化LPUART1的PB6/PB7引脚, 同时设置UE/TE/RE位
+ * @note   初始化步骤:
+ *           1. 配置LPUART1时钟源 = D3PCLK1 (PCLK4)
+ *           2. 使能GPIOB和LPUART1时钟
+ *           3. 设置PB6/PB7为复用功能AF8(LPUART)
  *           4. HAL_UART_Init配置115200/8N1/TX+RX/无流控
- *         关键: HAL_UART_Init返回值必须检查; 失败时RE位不会置位会导致
- *         RX永久无数据, 故失败时手动置UE/TE/RE兜底. 此外无论成功与否都
- *         显式置RE(H7 LPUART1在某些时钟配置下HAL可能不置RE).
+ *         问题: HAL_UART_Init不使能USART; 需要手动设置UE/TE/RE位后
+ *         RX才能接收数据, 否则无法接收, 需手动操作UE/TE/RE寄存器. 此处手动
+ *        开启RE(H7 LPUART1有些特殊寄存器位可能被HAL库遗漏的RE).
  */
 static void StorageTx_InitLPUART1(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
-    /* 配置LPUART1内核时钟源 = D3PCLK1 (PCLK4) */
+    /* 配置LPUART1时钟源 = D3PCLK1 (PCLK4) */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LPUART1;
     PeriphClkInitStruct.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_D3PCLK1;
     (void)HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
 
-    /* 使能GPIOB与LPUART1时钟 */
+    /* 使能GPIOB和LPUART1时钟 */
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_LPUART1_CLK_ENABLE();
 
-    /* PB6=TX, PB7=RX, 复用功能AF8 */
+    /* PB6=TX, PB7=RX, 配置复用功能AF8 */
     GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
@@ -110,16 +110,16 @@ static void StorageTx_InitLPUART1(void)
     s_hlpuart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
     s_hlpuart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
     s_hlpuart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-    /* XR5000_FIX_20260805: HAL_UART_Init 返回值必须检查;若失败 RE 位不会置位,
-       会导致 RX 永久无数据。失败时打印并显式置 TE/RE/UE。 */
+    /* XR5000_FIX_20260805: HAL_UART_Init 不会使能USART; 需要手动设置 RE 位使能接收,
+       否则 RX 无法接收数据. 因此手动设置 TE/RE/UE位 */
     if (HAL_UART_Init(&s_hlpuart1) != HAL_OK)
     {
-        /* 兜底:手动使能 UE/TE/RE,保证即使 HAL 初始化部分失败 RX 仍可用 */
+        /* 注:使能 UE/TE/RE,确保 HAL 初始化完成后 RX 能够接收 */
         SET_BIT(s_hlpuart1.Instance->CR1, USART_CR1_UE);
         SET_BIT(s_hlpuart1.Instance->CR1, USART_CR1_TE | USART_CR1_RE);
     }
-    /* 防御性:无论 HAL_UART_Init 是否成功,都显式确保 RE 位被置位
-       (H7 LPUART1 在某些时钟配置下 HAL_UART_Init 可能不置 RE) */
+    /* 追加:即使 HAL_UART_Init 成功,仍需确保 RE 位已使能
+       (H7 LPUART1 有些特殊寄存器位可能被 HAL_UART_Init 遗漏的 RE) */
     SET_BIT(s_hlpuart1.Instance->CR1, USART_CR1_RE);
 }
 
@@ -128,8 +128,8 @@ static void StorageTx_InitLPUART1(void)
  *============================================================*/
 
 /**
- * @brief  初始化存储发送模块(LPUART1 + 发送队列)
- * @说明   幂等: 已初始化则直接返回. 先初始化LPUART1, 再创建发送队列.
+ * @brief  初始化存储通信模块(LPUART1 + 消息队列)
+ * @note   注意: 该函数可重复调用. 首次调用初始化LPUART1, 后续直接返回.
  */
 void StorageTx_Init(void)
 {
@@ -138,7 +138,7 @@ void StorageTx_Init(void)
     /* 初始化LPUART1 (PB6/PB7, 115200 8N1) */
     StorageTx_InitLPUART1();
 
-    /* 创建发送队列 */
+    /* 创建发送消息队列 */
     if (s_tx_queue == NULL) {
         s_tx_queue = xQueueCreate(STX_QUEUE_DEPTH, sizeof(StorageTx_QueueItem_t));
     }
@@ -151,10 +151,10 @@ void StorageTx_Init(void)
  *============================================================*/
 
 /**
- * @brief  阻塞发送一个字节
- * @param  data: 待发送字节
- * @说明   轮询TXE(发送数据寄存器空)后写TDR, 再轮询TC(发送完成)确保字节发完.
- *         超时计数避免硬件异常时永久卡死.
+ * @brief  发送单个字节(阻塞轮询)
+ * @param  data: 待发送的字节数据
+ * @note   等待TXE(发送数据寄存器空)后写TDR, 再等待TC(发送完成)后返回.
+ *         超时后放弃发送, 不阻塞调用者.
  */
 static void StorageTx_SendByte(uint8_t data)
 {
@@ -172,20 +172,19 @@ static void StorageTx_SendByte(uint8_t data)
 }
 
 /**
- * @brief   带超时接收一个字节(非阻塞轮询)
- * @param   data: 输出接收到的字节
+ * @brief   等待接收一个字节(轮询超时)
+ * @param   data: 接收到的字节存放位置
  * @param   timeout_ms: 超时时间(ms)
- * @retval  0=成功收到字节, 1=超时
- * @说明    XR5000_FIX_20260805: H7 LPUART 的 ORE(过载)标志一旦置位会永久
- *          阻塞 RXNE, 导致后续字节永远收不到、WaitByte 必然超时。这里在
- *          轮询中检测并清除 ORE, 避免一次过载就使整个 RX 通道永久卡死。
- *          这是已修复的关键bug, ORE处理不可省略。
+ * @retval  0=接收成功, 1=超时
+ * @note    XR5000_FIX_20260805: H7 LPUART 的 ORE(溢出)标志可能被错误置位而
+ *          阻塞 RXNE, 导致接收卡死. 本函数在等待 RXNE 循环中检测到 ORE,
+ *          则清除一次 ORE 标志并重新等待, 通过多次重试避免 ORE 阻塞问题.
  */
 static uint8_t StorageTx_WaitByte(uint8_t *data, uint32_t timeout_ms)
 {
     uint32_t tickstart = HAL_GetTick();
     while (!__HAL_UART_GET_FLAG(STX_UART, UART_FLAG_RXNE)) {
-        /* ORE 置位时 RXNE 不会再次置位,必须先清 ORE 才能继续接收新字节 */
+        /* ORE 置位时 RXNE 不会再被置位,检测到 ORE 则清除后继续等待 */
         if (__HAL_UART_GET_FLAG(STX_UART, UART_FLAG_ORE)) {
             __HAL_UART_CLEAR_FLAG(STX_UART, UART_CLEAR_OREF);
         }
@@ -198,17 +197,17 @@ static uint8_t StorageTx_WaitByte(uint8_t *data, uint32_t timeout_ms)
 }
 
 /**
- * @brief  清空RX路径: 清错误标志并排空RDR残留字节
- * @说明    XR5000_FIX_20260805: 必须在每次发起查询/发送前调用,清除上一次事务
- *          未读残留(含超时后才到达的应答字节)。否则残留字节与新应答叠加会
- *          触发 ORE,进而阻塞 RXNE 导致本次事务必然失败。
- *          先写ICR清PE/FE/NE/ORE/IDLE错误标志, 再循环读RDR清RXNE.
+ * @brief  清空RX缓冲: 清除标志位并读取RDR清空数据
+ * @note    XR5000_FIX_20260805: 每次发送查询/记录前调用,防止上一次残留
+ *          未读完的应答数据导致后续应答解析偏移或触发 ORE,
+ *          进而阻塞 RXNE 使后续接收永久失效。
+ *          先写ICR清PE/FE/NE/ORE/IDLE标志位, 再循环读RDR清RXNE.
  */
 static void StorageTx_FlushRx(void)
 {
-    /* 清除 PE/FE/NE/ORE/IDLE 错误标志 (ICR 写1清零) */
+    /* 清 PE/FE/NE/ORE/IDLE 错误标志 (ICR 写1清除) */
     STX_UART->Instance->ICR = 0x0000001FU;
-    /* 排空 RDR 中的残留字节 (读 RDR 自动清 RXNE) */
+    /* 清空 RDR 中的残余数据 (读 RDR 自动清 RXNE) */
     while (__HAL_UART_GET_FLAG(STX_UART, UART_FLAG_RXNE)) {
         (void)STX_UART->Instance->RDR;
     }
@@ -222,8 +221,8 @@ static void StorageTx_FlushRx(void)
  * @param   data: 待校验数据
  * @param   len:  数据长度
  * @retval  CRC16值(小端存储)
- * @说明    初值0xFFFF, 逐字节异或后按位移8次, 最低位为1则右移异或0xA001.
- *          与存储侧约定一致, 用于帧校验.
+ * @note    初值0xFFFF, 每字节异或后移位8次, 最低位为1则异或0xA001.
+ *          小端存储约定一致, 用于帧校验.
  */
 static uint16_t StorageTx_CRC16(const uint8_t *data, uint16_t len)
 {
@@ -247,13 +246,13 @@ static uint16_t StorageTx_CRC16(const uint8_t *data, uint16_t len)
  *============================================================*/
 
 /**
- * @brief  组装并发送一个完整STX帧
+ * @brief  封装并发送一条完整STX帧
  * @param  cmd: 命令码
- * @param  payload: 数据载荷指针(可为NULL)
+ * @param  payload: 数据载荷指针(可NULL)
  * @param  payload_len: 数据载荷长度
- * @说明   帧结构: [0xA5][len][cmd][payload...][CRC16_lo][CRC16_hi][0x5A]
- *         len = 命令码(1) + payload_len; CRC16范围从len字节到最后一字节payload,
- *         小端存储. 组装到本地buf后逐字节发送.
+ * @note   帧结构: [0xA5][len][cmd][payload...][CRC16_lo][CRC16_hi][0x5A]
+ *         len = 命令码(1) + payload_len; CRC16范围从len字节到最后一个payload,
+ *         小端存储. 封装到buf后逐字节发送.
  */
 static void StorageTx_SendFrame(uint8_t cmd, const uint8_t *payload, uint16_t payload_len)
 {
@@ -295,15 +294,15 @@ static void StorageTx_SendFrame(uint8_t cmd, const uint8_t *payload, uint16_t pa
 }
 
 /*==============================================================
- * 公开API
+ * 发送API
  *============================================================*/
 
 /**
- * @brief   同步发送一条事件记录到存储侧(阻塞, 含3次重试)
+ * @brief   同步发送一条事件记录到存储端(阻塞, 最多3次重试)
  * @param   cmd: 命令码(STX_CMD_STORE_xxx)
  * @param   record: 17字节事件记录指针
- * @retval  0=成功, 1=无应答/超时, 2=CRC错误(已重试), 3=存储已满(不重试), 4=忙
- * @说明    每次重试前调用FlushRx清空RX残留, 防止上次超时后才到达的应答触发ORE.
+ * @retval  0=成功, 1=无应答/超时, 2=CRC错误(存储端), 3=存储已满(不重试), 4=忙
+ * @note    每次发送前调用FlushRx清RX缓冲, 防止上次残留应答导致解析偏移触发ORE.
  *          应答帧格式: [0xA5][len][cmd_echo][ack_code][CRC16][0x5A].
  *          存储已满(STX_ACK_ERR_FULL)直接返回不重试.
  */
@@ -317,10 +316,10 @@ uint8_t StorageTx_SendRecord(uint8_t cmd, const EventRecord_t *record)
     uint8_t retry;
 
     for (retry = 0; retry < STX_RETRY_COUNT; retry++) {
-        /* XR5000_FIX_20260805: 每次发送前清空 RX 残留,防止上一次超时后才
-         * 到达的应答字节与新应答叠加触发 ORE。 */
+        /* XR5000_FIX_20260805: 每次发送前清空 RX 缓冲,防止上一次残留
+         * 的应答数据导致后续应答解析偏移或触发 ORE */
         StorageTx_FlushRx();
-        /* 发送请求帧 */
+        /* 发送数据帧 */
         StorageTx_SendFrame(cmd, (const uint8_t *)record, sizeof(EventRecord_t));
 
         /* 等待应答: [0xA5][len][cmd_echo][ack_code][CRC16][0x5A] */
@@ -352,13 +351,13 @@ uint8_t StorageTx_SendRecord(uint8_t cmd, const EventRecord_t *record)
             continue;
         }
 
-        /* 消费CRC与帧尾(不校验, 仅读出) */
+        /* 跳过CRC和帧尾(不校验, 信任存储端) */
         uint8_t dummy;
         StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);  /* CRC低字节 */
         StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);  /* CRC高字节 */
         StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);  /* 帧尾 */
 
-        /* 检查应答码 */
+        /* 解析应答码 */
         if (ack_code == STX_ACK_OK) {
             return 0;  /* 成功 */
         } else if (ack_code == STX_ACK_ERR_CRC) {
@@ -372,18 +371,18 @@ uint8_t StorageTx_SendRecord(uint8_t cmd, const EventRecord_t *record)
         }
     }
 
-    /* XR5000_STX_DIAG_20260811: 调试-发送结果统计(0=ACK成功,1=超时,2=CRC错,3=满,4=忙) */
+    /* XR5000_STX_DIAG_20260811: 调试-打印发送结果(0=ACK成功,1=超时,2=CRC错,3=满,4=忙) */
     DebugPrintf("[STX-TX] cmd=%d result=%d\r\n", cmd, ret);
 
     return ret;
 }
 
 /**
- * @brief   查询存储侧剩余容量(阻塞, 含3次重试)
- * @param   remaining: 输出剩余容量条数
+ * @brief   查询存储端剩余容量(阻塞, 最多3次重试)
+ * @param   remaining: 输出剩余容量值
  * @retval  0=成功, 1=全部重试失败
- * @说明    XR5000_FIX_20260805: 与 SendRecord 一致加重试,吸收首次事务的竞态
- *          失败(如启动后首查、偶发超时)。每次重试前 FlushRx 清空残留。
+ * @note    XR5000_FIX_20260805: 同 SendRecord 一样需要处理,容易遇到静态
+ *          失败(设备状态碰撞、偶发超时)故每次发送前 FlushRx 清空缓冲.
  *          应答帧格式: [0xA5][len][cmd_echo][remaining 4字节小端][CRC16][0x5A].
  */
 uint8_t StorageTx_QueryCapacity(uint32_t *remaining)
@@ -392,8 +391,8 @@ uint8_t StorageTx_QueryCapacity(uint32_t *remaining)
         return 1;
     }
 
-    /* XR5000_FIX_20260805: 与 SendRecord 一致加重试,吸收首次事务的竞态失败
-     * (如启动后首查、偶发超时)。每次重试前 FlushRx 清空残留。 */
+    /* XR5000_FIX_20260805: 同 SendRecord 一样需要处理,容易遇到静态失败
+     * (设备状态碰撞、偶发超时)故每次发送前 FlushRx 清空缓冲 */
     uint8_t retry;
     for (retry = 0; retry < STX_RETRY_COUNT; retry++) {
         StorageTx_FlushRx();
@@ -422,7 +421,7 @@ uint8_t StorageTx_QueryCapacity(uint32_t *remaining)
         *remaining = (uint32_t)cap[0] | ((uint32_t)cap[1] << 8) |
                      ((uint32_t)cap[2] << 16) | ((uint32_t)cap[3] << 24);
 
-        /* 消费CRC与帧尾 */
+        /* 跳过CRC和帧尾 */
         uint8_t dummy;
         StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);
         StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);
@@ -435,9 +434,9 @@ uint8_t StorageTx_QueryCapacity(uint32_t *remaining)
 }
 
 /**
- * @brief   发送心跳到存储侧(不等应答)
+ * @brief   发送心跳到存储端(无应答等待)
  * @retval  0=已发送, 1=未初始化
- * @说明    心跳帧无载荷, 发送后不等待应答.
+ * @note    只发送帧不等待应答, 发送后立即返回.
  */
 uint8_t StorageTx_Heartbeat(void)
 {
@@ -445,14 +444,14 @@ uint8_t StorageTx_Heartbeat(void)
         return 1;
     }
     StorageTx_SendFrame(STX_CMD_HEARTBEAT, NULL, 0);
-    /* 心跳不等待应答 */
+    /* 不等待应答 */
     return 0;
 }
 
 /**
- * @brief   填充记录时间戳(读取BM8563实时钟)
- * @param   rec: 待填充时间戳的记录
- * @说明    先读RTC到SystemTime, 再写入记录. 年份存储为完整年份-2000
+ * @brief   填充记录时间戳(读取BM8563实时时钟)
+ * @param   rec: 待填充时间的记录
+ * @note    先读RTC到SystemTime, 再写入记录. 年份存储为公历年-2000
  *         (如2026 -> 26).
  */
 void StorageTx_FillTimestamp(EventRecord_t *rec)
@@ -462,7 +461,7 @@ void StorageTx_FillTimestamp(EventRecord_t *rec)
     /* 读取RTC(BM8563)到SystemTime */
     getBM8563TimeToSystemTime();
 
-    /* 填充时间戳(年 = 完整年份 - 2000, 如 2026 -> 26) */
+    /* 填充时间值(年 = 公历年 - 2000, 如 2026 -> 26) */
     rec->year   = (uint8_t)(SystemTime.year - 2000);
     rec->month  = SystemTime.month;
     rec->day    = SystemTime.day;
@@ -472,14 +471,14 @@ void StorageTx_FillTimestamp(EventRecord_t *rec)
 }
 
 /**
- * @brief   构造完整事件记录结构(含RTC时间戳)
- * @param   rec: 待填充记录
+ * @brief   构建完整事件记录结构(含RTC时间戳)
+ * @param   rec: 输出记录
  * @param   dev_no: 设备号
- * @param   dev_type: 设备类型代码
+ * @param   dev_type: 设备类型码
  * @param   event_code: 事件代码
  * @param   state_code: 状态代码
- * @说明    先清零记录, 再填固定字段(控制器号=1, 单元号=1, 通道号=0)与
- *         传入字段, 最后调用FillTimestamp填入RTC时间.
+ * @note    填充固定字段(控制器号=1, 单元号=1, 通道号=0)和
+ *         可变字段, 最后调用FillTimestamp填入RTC时间.
  */
 void StorageTx_BuildRecord(EventRecord_t *rec,
                            uint8_t dev_no,
@@ -503,7 +502,7 @@ void StorageTx_BuildRecord(EventRecord_t *rec,
     /* 通道号: 固定0 */
     rec->channel_no = 0;
 
-    /* 设备类型代码 */
+    /* 设备类型码 */
     rec->dev_type = dev_type;
 
     /* 事件代码 */
@@ -517,16 +516,16 @@ void StorageTx_BuildRecord(EventRecord_t *rec,
 }
 
 /*==============================================================
- * 队列API (任务安全)
+ * 异步API (线程安全)
  *============================================================*/
 
 /**
- * @brief   异步入队一条事件记录(非阻塞, 任务安全)
+ * @brief   异步发送一条事件记录(入队列, 线程安全)
  * @param   cmd: 命令码(STX_CMD_STORE_xxx)
  * @param   record: 17字节事件记录指针
- * @retval  0=入队成功, 1=队列满(已丢最旧后入队或仍失败), 2=未初始化
- * @说明    适合中断/任务调用. 队列满时丢弃最旧一条再重试入队, 保证最新
- *          事件优先. 真正发送由StorageTx_TaskLoop完成.
+ * @retval  0=入队成功, 1=入队失败(队列满丢弃最旧记录), 2=未初始化
+ * @note    适合中断/任务上下文. 队列满时丢弃最旧一条记录再尝试, 保证最新
+ *          事件不丢失. 实际发送由StorageTx_TaskLoop处理.
  */
 uint8_t StorageTx_QueueRecord(uint8_t cmd, const EventRecord_t *record)
 {
@@ -538,47 +537,47 @@ uint8_t StorageTx_QueueRecord(uint8_t cmd, const EventRecord_t *record)
     item.cmd = cmd;
     memcpy(&item.record, record, sizeof(EventRecord_t));
 
-    /* XR5000_STX_DIAG_20260811: 调试-队列记录信息打印 */
+    /* XR5000_STX_DIAG_20260811: 调试-打印队列记录详情 */
     DebugPrintf("[STX-Q ] cmd=%d ctl=%d unit=%d dev=%d ch=%d type=%d evt=%d st=%d\r\n",
                 cmd, record->controller_no, record->unit_no, record->device_no,
                 record->channel_no, record->dev_type, record->event_code, record->state_code);
 
-    /* 尝试入队(非阻塞) */
+    /* 尝试入队(不等待) */
     if (xQueueSend(s_tx_queue, &item, 0) == pdTRUE) {
         return 0;  /* 入队成功 */
     }
 
-    /* 队列满: 丢弃最旧一条后重试 */
+    /* 队列满: 丢弃最旧一条再尝试 */
     StorageTx_QueueItem_t old;
     xQueueReceive(s_tx_queue, &old, 0);
     if (xQueueSend(s_tx_queue, &item, 0) == pdTRUE) {
-        return 1;  /* 已入队, 最旧被丢弃 */
+        return 1;  /* 成功, 丢弃最旧记录 */
     }
 
     return 1;  /* 入队失败 */
 }
 
 /**
- * @brief   存储发送任务主循环(需在专用FreeRTOS任务中调用)
- * @说明    未初始化时休眠1秒返回. 阻塞等待队列, 收到记录后调用SendRecord
- *          发送(内含重试与ACK), 发送完短暂让出CPU(10ms)给其它任务.
+ * @brief   存储通信任务主循环(在专用FreeRTOS任务中调用)
+ * @note    未初始化时延时1秒返回. 阻塞等待队列, 收到记录后调用SendRecord
+ *          同步发送(内含等待ACK), 发送完成后让出CPU(10ms)给其他任务.
  */
 void StorageTx_TaskLoop(void)
 {
     if (!s_initialized || s_tx_queue == NULL) {
-        /* 未初始化, 休眠 */
+        /* 未初始化, 等待 */
         vTaskDelay(1000);
         return;
     }
 
     StorageTx_QueueItem_t item;
 
-    /* 阻塞等待队列项到达 */
+    /* 阻塞等待队列消息 */
     if (xQueueReceive(s_tx_queue, &item, portMAX_DELAY) == pdTRUE) {
-        /* 发送记录(内含重试与应答) */
+        /* 发送记录(内含等待应答) */
         StorageTx_SendRecord(item.cmd, &item.record);
 
-        /* 让出CPU给其它任务 */
+        /* 让出CPU给其他任务 */
         vTaskDelay(10);
     }
 }

@@ -71,16 +71,16 @@ static uint8_t Fecbus_NextSeq(void)
  * @注意   先等 TXE(发送数据寄存器空)再写 TDR, 再等 TC(发送完成)再退出.
  *         查询带超时避免死等. 参考 bsp_storage_tx.c 实现.
  */
-static void Fecbus_SendByte(uint8_t data)
+static void Fecbus_SendByte(UART_HandleTypeDef *huart, uint8_t data)
 {
     uint32_t timeout = 100000;
-    while (!__HAL_UART_GET_FLAG(&huart3, UART_FLAG_TXE) && timeout--) { ; }
+    while (!__HAL_UART_GET_FLAG(huart, UART_FLAG_TXE) && timeout--) { ; }
     if (timeout == 0) return;
 
-    huart3.Instance->TDR = (uint32_t)data;
+    huart->Instance->TDR = (uint32_t)data;
 
     timeout = 100000;
-    while (!__HAL_UART_GET_FLAG(&huart3, UART_FLAG_TC) && timeout--) { ; }
+    while (!__HAL_UART_GET_FLAG(huart, UART_FLAG_TC) && timeout--) { ; }
 }
 
 /**
@@ -88,11 +88,11 @@ static void Fecbus_SendByte(uint8_t data)
  * @注意   每帧发送前调用, 避免残留数据触发 ORE 影响下次 RXNE.
  *         先写 ICR 清 PE/FE/NE/ORE/IDLE 标志, 再读 RDR 清 RXNE.
  */
-static void Fecbus_FlushRx(void)
+static void Fecbus_FlushRx(UART_HandleTypeDef *huart)
 {
-    huart3.Instance->ICR = 0x0000001FU;
-    while (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_RXNE)) {
-        (void)huart3.Instance->RDR;
+    huart->Instance->ICR = 0x0000001FU;
+    while (__HAL_UART_GET_FLAG(huart, UART_FLAG_RXNE)) {
+        (void)huart->Instance->RDR;
     }
 }
 
@@ -142,7 +142,7 @@ uint16_t Fecbus_CalcCRC16(const uint8_t *data, uint16_t len)
  *         CRC 范围: FT 至数据区末 (即 DA..payload, 共 6+payload_len 字节)
  *         小端存储. 发送时逐字节查询发送.
  */
-static void Fecbus_SendFrame(uint8_t ft, uint8_t da, uint8_t pa,
+static void Fecbus_SendFrame(UART_HandleTypeDef *huart, uint8_t ft, uint8_t da, uint8_t pa,
                              uint8_t mn, uint8_t tn,
                              const uint8_t *payload, uint16_t payload_len)
 {
@@ -185,7 +185,7 @@ static void Fecbus_SendFrame(uint8_t ft, uint8_t da, uint8_t pa,
 
     /* 逐字节发送 */
     for (uint16_t i = 0; i < idx; i++) {
-        Fecbus_SendByte(buf[i]);
+        Fecbus_SendByte(huart, buf[i]);
     }
 }
 
@@ -204,7 +204,8 @@ uint8_t Fecbus_SendRawFrame(uint8_t ft, uint8_t da, uint8_t pa,
     if (xSemaphoreTakeRecursive(s_tx_mutex, FECBUS_TX_MUTEX_TIMEOUT) != pdTRUE) {
         return 1;
     }
-    Fecbus_SendFrame(ft, da, pa, mn, tn, payload, payload_len);
+    /* 0FH 应答回上报总线: 走 USART3 (从机通道) */
+    Fecbus_SendFrame(&huart3, ft, da, pa, mn, tn, payload, payload_len);
     xSemaphoreGiveRecursive(s_tx_mutex);
     return 0;
 }
@@ -230,9 +231,9 @@ static uint8_t Fecbus_SendFrameWithAck(uint8_t ft, uint8_t da, uint8_t pa,
 {
     uint8_t retry;
 
-    /* 广播帧不等待应答 */
+    /* 广播帧不等待应答 (走主机通道 USART1) */
     if (da == FECBUS_DA_BROADCAST) {
-        Fecbus_SendFrame(ft, da, pa, mn, tn, payload, payload_len);
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, tn, payload, payload_len);
         return 0;
     }
 
@@ -240,11 +241,11 @@ static uint8_t Fecbus_SendFrameWithAck(uint8_t ft, uint8_t da, uint8_t pa,
         uint32_t tickstart;
         /* 每帧发送前喂 IWDG (3帧约耗时 ~3s, IWDG ~8.2s) */
         HAL_IWDG_Refresh(&hiwdg1);
-        Fecbus_FlushRx();        /* 清硬件 RX 残留字节 */
+        Fecbus_FlushRx(&huart1);  /* 清 USART1 硬件 RX 残留 (主动下发通道) */
         FecbusRx_Flush();        /* 清接收环形缓冲 (丢弃发送前残留数据) */
         FecbusRx_ResetAck();     /* 清 0FH 应答标志 */
 
-        Fecbus_SendFrame(ft, da, pa, mn, tn, payload, payload_len);
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, tn, payload, payload_len);  /* 主动下发走主机通道 USART1 */
 
         /* GB4717: 单播通告等待收方0FH状态应答(FT=1, func=0FH, MN匹配), 超时1s */
         tickstart = HAL_GetTick();
@@ -341,10 +342,10 @@ static void Fecbus_SendSyncBeat(void)
 
     if (xSemaphoreTakeRecursive(s_tx_mutex, FECBUS_TX_MUTEX_TIMEOUT) != pdTRUE) return;
     HAL_IWDG_Refresh(&hiwdg1);
-    Fecbus_FlushRx();
-    Fecbus_SendFrame(FECBUS_FT_UNCONFIRMED, FECBUS_DA_BROADCAST,
+    Fecbus_FlushRx(&huart1);
+    Fecbus_SendFrame(&huart1, FECBUS_FT_UNCONFIRMED, FECBUS_DA_BROADCAST,
                      FECBUS_PA_NORMAL, mn, FECBUS_TN_SINGLE,
-                     payload, 1);
+                     payload, 1);  /* 周期广播走主机通道 USART1 */
     xSemaphoreGiveRecursive(s_tx_mutex);
 }
 
@@ -359,10 +360,10 @@ static void Fecbus_SendHeartbeat(void)
 
     if (xSemaphoreTakeRecursive(s_tx_mutex, FECBUS_TX_MUTEX_TIMEOUT) != pdTRUE) return;
     HAL_IWDG_Refresh(&hiwdg1);
-    Fecbus_FlushRx();
-    Fecbus_SendFrame(FECBUS_FT_UNCONFIRMED, FECBUS_DA_BROADCAST,
+    Fecbus_FlushRx(&huart1);
+    Fecbus_SendFrame(&huart1, FECBUS_FT_UNCONFIRMED, FECBUS_DA_BROADCAST,
                      FECBUS_PA_NORMAL, mn, FECBUS_TN_SINGLE,
-                     payload, 1);
+                     payload, 1);  /* 周期广播走主机通道 USART1 */
     xSemaphoreGiveRecursive(s_tx_mutex);
 }
 
@@ -387,8 +388,8 @@ static void Fecbus_SendClockBC(void)
 
     if (xSemaphoreTakeRecursive(s_tx_mutex, FECBUS_TX_MUTEX_TIMEOUT) != pdTRUE) return;
     HAL_IWDG_Refresh(&hiwdg1);
-    Fecbus_FlushRx();
-    Fecbus_SendFrame(FECBUS_FT_UNCONFIRMED, FECBUS_DA_BROADCAST,
+    Fecbus_FlushRx(&huart1);
+    Fecbus_SendFrame(&huart1, FECBUS_FT_UNCONFIRMED, FECBUS_DA_BROADCAST,
                      FECBUS_PA_NORMAL, mn, FECBUS_TN_SINGLE,
                      payload, 8);
     xSemaphoreGiveRecursive(s_tx_mutex);
@@ -410,7 +411,8 @@ void Fecbus_Init(void)
 {
     if (s_initialized) return;
 
-    /* 使能接收: 打开 USART3 RE 位, 参考 bsp_storage_tx.c 实现 */
+    /* 使能接收: 打开 USART1/USART3 RE 位 (双串口: USART1 主机通道 / USART3 从机通道) */
+    SET_BIT(huart1.Instance->CR1, USART_CR1_RE);
     SET_BIT(huart3.Instance->CR1, USART_CR1_RE);
 
     /* 创建事件队列 */

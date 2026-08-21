@@ -29,7 +29,7 @@
 #define CAN_MONITOR_NAME_BYTES       32U
 #define CAN_MONITOR_NAME_ALL_ITEM    6U
 
-/* 鏂板姞鍔熻兘锛欶CP-1011鍏矾鎺у埗鏉匡紱鏃堕棿锛?026-08-06 */
+/* 新增功能：FCP-1011六路控制板；时间：2026-08-06 */
 typedef struct
 {
     uint8_t channel_state[CAN_MONITOR_CHANNEL_COUNT];

@@ -10,6 +10,11 @@
 
 #include "bsp_debug.h"
 
+/* ============================================================
+ * FECbus 双串口改造 20260818: USART1 让位 FECbus 主机通道,
+ * 场站功能(Modbus 从站)整体注释腾空。恢复时删除 #if 0 即可。
+ * ============================================================ */
+#if 0
 #define FRAME_HAND 3
 #define STATION_DATA (0x45*2)
 
@@ -149,6 +154,7 @@ void StationResponseTesk(void *parameter)
 		osDelay(100);
 	}
 }
+#endif /* FECbus 双串口改造: 场站功能腾空 20260818 */
 
 
 

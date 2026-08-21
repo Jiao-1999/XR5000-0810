@@ -43,6 +43,8 @@ typedef enum {
  *--------------------------------------------------------------*/
 /* USART3 IT 接收当前字节（bsp_itcallback.c 中断中调用 FecbusRx_OnByte） */
 volatile uint8_t g_fecbus_rx_byte;
+/* USART1 IT 接收当前字节（主机通道收从机应答, 与 USART3 共用环形缓冲/状态机） */
+volatile uint8_t g_fecbus_rx_byte_u1;
 
 /* 环形缓冲（中断写 / 任务读） */
 static uint8_t           s_rx_ring[FECBUS_RX_RING_SIZE];
@@ -92,8 +94,10 @@ void Fecbus_RxInit(void)
     s_state   = RX_STATE_WAIT_HEAD;
     s_ack_ok  = 0;
 
-    /* 启动逐字节 IT 接收（1字节，RxCpltCallback 在 bsp_itcallback.c 中处理） */
+    /* 启动逐字节 IT 接收（1字节，RxCpltCallback 在 bsp_itcallback.c 中处理）
+     * USART3 = 从机通道(收从机上报), USART1 = 主机通道(收从机应答) */
     HAL_UART_Receive_IT(&huart3, (uint8_t *)&g_fecbus_rx_byte, 1);
+    HAL_UART_Receive_IT(&huart1, (uint8_t *)&g_fecbus_rx_byte_u1, 1);
 }
 
 /*--------------------------------------------------------------

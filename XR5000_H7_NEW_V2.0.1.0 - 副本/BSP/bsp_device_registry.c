@@ -110,6 +110,34 @@ uint8_t DeviceRegistry_IsNationalProductMatch(uint16_t national_type_code, uint1
     return descriptor->national_type_code == 0U || descriptor->national_type_code == national_type_code ? 1U : 0U;
 }
 
+/* 国标设备类型码 → 屏幕显示中文名映射表（供联动逻辑规则显示使用）。
+ * 命名按GB4717标准；10(消防泵控制)与76(防排烟)待确认暂不登记，未知码统一返回"未知设备"。 */
+static const struct
+{
+    uint16_t code;      /* 0x000D国标设备类型码 */
+    const char *name;   /* GB标准中文名 */
+} g_national_name_table[] =
+{
+    {23U, "感烟火灾探测器"},
+    {31U, "感温火灾探测器"},
+    {50U, "复合式火灾探测器"},
+    {61U, "消防电气控制装置"},
+    {82U, "声光报警器"}
+};
+
+const char *DeviceRegistry_GetNameByNationalCode(uint16_t national_type_code)
+{
+    uint32_t index;
+    for(index = 0U; index < (sizeof(g_national_name_table) / sizeof(g_national_name_table[0])); index++)
+    {
+        if(g_national_name_table[index].code == national_type_code)
+        {
+            return g_national_name_table[index].name;
+        }
+    }
+    return "未知设备";
+}
+
 void DeviceRegistry_SetIdentifyError(uint8_t loop, uint8_t address, DeviceIdentifyError error)
 {
     if(loop < DEVICE_REGISTRY_LOOP1 || loop > DEVICE_REGISTRY_LOOP3 || address == 0U || address > DEVICE_REGISTRY_MAX_ADDRESS) return;

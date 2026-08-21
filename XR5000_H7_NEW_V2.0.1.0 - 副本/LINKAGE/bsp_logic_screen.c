@@ -36,6 +36,10 @@
 #include "bsp_logic_expr.h"      /* 规则CRUD与表达式求值 */
 #include "hmi_driver.h"          /* SetTextValue, clearTextValue */
 #include "bsp_debug.h"           /* DebugPrintf: test trace on UART4 */
+#include "bsp_device_registry.h" /* 国标设备类型码→中文显示名 */
+#include "bsp_mbus.h"            /* 回路1设备国标码读取 */
+#include "bsp_mbus_control.h"    /* 回路2设备国标码读取 */
+#include "bsp_rs485_detect.h"    /* 回路3设备国标码读取 */
 #include <stdio.h>               /* sprintf */
 #include <string.h>              /* memset, strcat, strlen */
 
@@ -76,6 +80,11 @@ static EditState s_edit;
 
 /* 显示缓冲区（静态变量，512字节足够12个条件+括号+多动作） */
 static char s_disp_buf[512];
+
+/* 列表页分页状态（静态变量）
+ *   s_list_page: 当前页码(0基), 最新规则在第0页最上方
+ *   进入列表页时不重置页码, 保留上次浏览位置 */
+static uint8_t s_list_page = 0;
 
 /*--------------------------------------------------------------
  * 第二部分：内部辅助函数
@@ -154,6 +163,100 @@ static const char *SensorSuffix(uint8_t sensor_type)
     case SENSOR_VOC:         return "VOC";    /* VOC传感器 */
     case SENSOR_PRESSURE:    return "压力";   /* 压力传感器 */
     default:                 return "";       /* 任意类型不显示后缀 */
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：GetNationalCode
+ * 功能说明：按回路号+设备号获取该设备的国标设备类型码，用于中文显示。
+ * 输入参数：loop_no - 回路号(1~3), dev_no - 设备号
+ * 返回值  ：国标设备类型码，无效返回0
+ *--------------------------------------------------------------*/
+static uint16_t GetNationalCode(uint8_t loop_no, uint16_t dev_no)
+{
+    switch (loop_no)
+    {
+    case 1:  return getPointTypeMixtureNationalCode((uint8_t)dev_no);
+    case 2:  return MBusCtrl_GetNationalCode((uint8_t)dev_no);
+    case 3:  return RS485Detect_GetNationalCode((uint8_t)dev_no);
+    default: return 0U;
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：BuildCondText
+ * 功能说明：将条件转换为中文可读描述并写入buf。
+ *           通配符(0xFF)显示"任意"；选了传感器类型显示"探测器+传感器名"；
+ *           未选传感器按国标设备类型码显示设备中文名。
+ * 输入参数：cond - 条件结构体, buf - 输出缓冲, size - 缓冲大小
+ *--------------------------------------------------------------*/
+static void BuildCondText(const Cond_t *cond, char *buf, uint8_t size)
+{
+    uint16_t code;
+    const char *name;
+
+    (void)size;
+    if (cond->loop_no == LOGIC_WILDCARD && cond->dev_no == LOGIC_WILDCARD)
+    {
+        sprintf(buf, "任意设备");
+    }
+    else if (cond->sensor_type != SENSOR_ANY)
+    {
+        if (cond->loop_no == LOGIC_WILDCARD)
+        {
+            sprintf(buf, "任意回路%03d号探测器%s报警", cond->dev_no, SensorSuffix(cond->sensor_type));
+        }
+        else if (cond->dev_no == LOGIC_WILDCARD)
+        {
+            sprintf(buf, "%02d回路任意设备%s报警", cond->loop_no, SensorSuffix(cond->sensor_type));
+        }
+        else
+        {
+            sprintf(buf, "%02d回路%03d号探测器%s报警", cond->loop_no, cond->dev_no, SensorSuffix(cond->sensor_type));
+        }
+    }
+    else
+    {
+        if (cond->loop_no == LOGIC_WILDCARD)
+        {
+            sprintf(buf, "任意回路%03d号设备报警", cond->dev_no);
+        }
+        else if (cond->dev_no == LOGIC_WILDCARD)
+        {
+            sprintf(buf, "%02d回路任意设备报警", cond->loop_no);
+        }
+        else
+        {
+            code = GetNationalCode(cond->loop_no, cond->dev_no);
+            name = DeviceRegistry_GetNameByNationalCode(code);
+            sprintf(buf, "%02d回路%03d号%s报警", cond->loop_no, cond->dev_no, name);
+        }
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：BuildActionText
+ * 功能说明：将动作转换为中文可读描述并写入buf。
+ *           动作1开启/0关闭，按"回路+设备号+设备+启停"显示。
+ * 输入参数：act - 动作结构体, buf - 输出缓冲, size - 缓冲大小
+ *--------------------------------------------------------------*/
+static void BuildActionText(const Action_t *act, char *buf, uint8_t size)
+{
+    const char *op;
+
+    (void)size;
+    if (act->loop_no == LOGIC_WILDCARD)
+    {
+        sprintf(buf, "任意回路%03d号设备%s", act->dev_no, act->action != 0U ? "开启" : "关闭");
+    }
+    else if (act->dev_no == LOGIC_WILDCARD)
+    {
+        sprintf(buf, "%02d回路任意设备%s", act->loop_no, act->action != 0U ? "开启" : "关闭");
+    }
+    else
+    {
+        op = (act->action != 0U) ? "开启" : "关闭";
+        sprintf(buf, "%02d%03d号设备%s", act->loop_no, act->dev_no, op);
     }
 }
 
@@ -365,22 +468,52 @@ static void SaveRule(void)
     s_edit.rule.enable = 1;
     s_edit.rule.rule_id = AllocRuleId();
 
-    /* 保存规则 */
+    /* 保存规则到RAM表格 */
     create_ret = LogicRule_Create(s_edit.rule.rule_id, &s_edit.rule);
 
-    /* 持久化到Flash供下次启动加载 */
-    LogicRule_SaveAll();
+    if (create_ret == 0U)
+    {
+        /* 保存成功: 持久化到Flash供下次启动加载 */
+        LogicRule_SaveAll();
 
-    DebugPrintf("[LOGIC] SaveRule id=%d create_ret=%d (0=OK)\r\n",
-                s_edit.rule.rule_id, create_ret);
+        DebugPrintf("[LOGIC] SaveRule id=%d OK\r\n", s_edit.rule.rule_id);
 
-    /* 清空编辑状态，准备下一次编辑 */
-    memset(&s_edit.rule, 0, sizeof(LogicRule_t));
-    s_edit.step = EDIT_STEP_NONE;
-    s_edit.phase = EDIT_COND;
-    ClearDigitBuf();
-    s_edit.has_action = 0;
-    s_edit.active = 0;
+        /* 清空编辑状态, 准备下一次编辑 */
+        memset(&s_edit.rule, 0, sizeof(LogicRule_t));
+        s_edit.step = EDIT_STEP_NONE;
+        s_edit.phase = EDIT_COND;
+        ClearDigitBuf();
+        s_edit.has_action = 0;
+        s_edit.active = 0;
+
+        /* 保存成功后自动跳转到列表页45, 显示最新规则 */
+        SetScreen(LOGIC_SCREEN_LIST);
+    }
+    else
+    {
+        /* 保存失败: 不清空编辑状态, 保留用户输入供修正
+         * create_ret: 1=ID重复 2=表满 3=结构无效(条件/动作/设备号非法) */
+        DebugPrintf("[LOGIC] SaveRule id=%d FAIL ret=%d (1=id 2=full 3=invalid)\r\n",
+                    s_edit.rule.rule_id, create_ret);
+
+        /* 在编辑页预览窗口显示失败原因, 方便用户诊断 */
+        switch (create_ret)
+        {
+            case 1:
+                sprintf(s_disp_buf, "保存失败: ID%d重复", s_edit.rule.rule_id);
+                break;
+            case 2:
+                sprintf(s_disp_buf, "保存失败: 规则表已满(最多%d条)", LOGIC_RULE_MAX);
+                break;
+            case 3:
+                sprintf(s_disp_buf, "保存失败: 规则无效,请检查条件设备号");
+                break;
+            default:
+                sprintf(s_disp_buf, "保存失败: 未知错误%d", create_ret);
+                break;
+        }
+        SetTextValue(LOGIC_SCREEN_EDIT, LOGIC_TXT_PREVIEW, (uint8_t *)s_disp_buf);
+    }
 }
 
 /*--------------------------------------------------------------
@@ -399,7 +532,7 @@ static void BuildExprDisplay(void)
     uint8_t i;        /* Token循环计数器 */
     uint8_t j;        /* 动作循环计数器 */
     uint8_t idx;      /* 条件数组索引 */
-    char    temp[32]; /* 临时格式化缓冲区 */
+    char    temp[48]; /* 临时格式化缓冲区 */
 
     s_disp_buf[0] = '\0';
 
@@ -490,7 +623,7 @@ static void BuildRuleDisplay(const LogicRule_t *rule, char *buf, uint8_t size)
     uint8_t i;
     uint8_t j;
     uint8_t idx;
-    char    temp[32];
+    char    temp[48];
 
     buf[0] = '\0';
 
@@ -508,20 +641,17 @@ static void BuildRuleDisplay(const LogicRule_t *rule, char *buf, uint8_t size)
             idx = rule->tokens[i].cond_idx;
             if (idx < rule->cond_count)
             {
-                sprintf(temp, "%02d%03d%s",
-                        rule->conditions[idx].loop_no,
-                        rule->conditions[idx].dev_no,
-                        SensorSuffix(rule->conditions[idx].sensor_type));
+                BuildCondText(&rule->conditions[idx], temp, sizeof(temp));
                 strcat(buf, temp);
             }
             break;
 
         case TOK_AND:
-            strcat(buf, " & ");
+            strcat(buf, "与");
             break;
 
         case TOK_OR:
-            strcat(buf, " | ");
+            strcat(buf, "或");
             break;
 
         case TOK_LPAREN:
@@ -537,19 +667,17 @@ static void BuildRuleDisplay(const LogicRule_t *rule, char *buf, uint8_t size)
         }
     }
 
-    /* 添加动作显示（多动作用&连接） */
+    /* 添加动作显示（多动作用"和"连接） */
     if (rule->action_count > 0)
     {
-        strcat(buf, " = ");
+        strcat(buf, "触发");
         for (j = 0; j < rule->action_count; j++)
         {
             if (j > 0)
             {
-                strcat(buf, " & ");
+                strcat(buf, "和");
             }
-            sprintf(temp, "%02d%03d",
-                    rule->actions[j].loop_no,
-                    rule->actions[j].dev_no);
+            BuildActionText(&rule->actions[j], temp, sizeof(temp));
             strcat(buf, temp);
         }
     }
@@ -764,8 +892,32 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
         s_edit.active = 0;
         break;
 
-    /* === 查看逻辑: 跳转到列表页(由屏幕固件处理跳转) === */
-    case LOGIC_BTN_VIEW_LIST:
+    /* === 控件23: 编辑页=查看逻辑占位, 列表页=下一页 ===
+     *   编辑页43: 查看逻辑按钮, 跳转由屏幕固件处理(此处预留空操作)
+     *   列表页45: 下一页, 页码+1(不超过最大页) */
+    case LOGIC_BTN_NEXT_PAGE:
+        if (screen_id == LOGIC_SCREEN_LIST)
+        {
+            uint8_t total_rules = LogicRule_GetCount();
+            uint8_t total_pages = (uint8_t)((total_rules + LOGIC_LIST_PAGE_SIZE - 1) / LOGIC_LIST_PAGE_SIZE);
+            if (total_pages == 0) total_pages = 1;
+            if (s_list_page < total_pages - 1)
+            {
+                s_list_page++;
+            }
+        }
+        break;
+
+    /* === 控件22: 上一页(仅列表页45响应) ===
+     *   页码-1, 不低于0 */
+    case LOGIC_BTN_PREV_PAGE:
+        if (screen_id == LOGIC_SCREEN_LIST)
+        {
+            if (s_list_page > 0)
+            {
+                s_list_page--;
+            }
+        }
         break;
 
     /* === 传感器快捷按钮: 条件区5位编码后确认子级别条件 === */
@@ -839,7 +991,7 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
     uint8_t count;
     uint8_t shown;
     LogicRule_t rule;
-    char    disp[128];
+    char    disp[256];
     uint16_t pre_len;
 
     /* Test trace: dump rules once when entering list page */
@@ -848,6 +1000,8 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
         s_last_page = screen_id;
         if (screen_id == LOGIC_SCREEN_LIST)
         {
+            /* 进入列表页: 重置到第0页, 显示最新规则 */
+            s_list_page = 0;
             DebugPrintf("[LOGIC-UI] enter list page, rules:\r\n");
             for (i = 0; i < LOGIC_RULE_MAX; i++)
             {
@@ -873,33 +1027,72 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
         SetTextValue(screen_id, LOGIC_TXT_PREVIEW, (uint8_t *)s_disp_buf);
         break;
 
-    /* === 列表页: 显示所有规则 === */
+    /* === 列表页: 按ID降序分页显示已设置的规则(最新规则在最上面) === */
     case LOGIC_SCREEN_LIST:
-        count = LogicRule_GetCount();
-        shown = 0;
+    {
+        uint8_t ids[LOGIC_RULE_MAX];  /* 有效规则ID集合 */
+        uint8_t n = 0;                /* 有效规则数 */
+        uint8_t k;
+        uint8_t start;
+        uint8_t total_pages;
+        LogicRule_t *tbl = LogicExpr_GetTable();
 
-        for (i = 0; i < LOGIC_RULE_MAX && shown < 9; i++)
+        /* 收集所有有效规则ID */
+        for (i = 0; i < LOGIC_RULE_MAX; i++)
         {
-            if (LogicExpr_GetTable()[i].rule_id != 0)
+            if (tbl[i].rule_id != 0)
             {
-                LogicRule_Get(LogicExpr_GetTable()[i].rule_id, &rule);
-
-                sprintf(disp, "#%d: ", rule.rule_id);
-                pre_len = (uint16_t)strlen(disp);
-                BuildRuleDisplay(&rule, disp + pre_len,
-                                 (uint8_t)(sizeof(disp) - pre_len));
-
-                SetTextValue(screen_id, LOGIC_TXT_LIST_BASE + shown, (uint8_t *)disp);
-                shown++;
+                ids[n++] = tbl[i].rule_id;
             }
         }
 
-        /* 清空未使用的行 */
-        for (i = shown; i < 9; i++)
+        /* 按ID降序冒泡排序(最新规则排在前) */
+        for (i = 0; i < n; i++)
         {
-            clearTextValue(screen_id, LOGIC_TXT_LIST_BASE + i);
+            for (k = (uint8_t)(i + 1); k < n; k++)
+            {
+                if (ids[k] > ids[i])
+                {
+                    uint8_t tmp = ids[i];
+                    ids[i] = ids[k];
+                    ids[k] = tmp;
+                }
+            }
         }
-        break;
+
+        /* 页码越界保护: 规则被删除后页码可能越界, 回到最后一页 */
+        total_pages = (uint8_t)((n + LOGIC_LIST_PAGE_SIZE - 1) / LOGIC_LIST_PAGE_SIZE);
+        if (total_pages == 0) total_pages = 1;
+        if (s_list_page >= total_pages)
+        {
+            s_list_page = (uint8_t)(total_pages - 1);
+        }
+
+        /* 按当前页码偏移显示(最新规则在第0页最上方) */
+        count = n;
+        start = (uint8_t)(s_list_page * LOGIC_LIST_PAGE_SIZE);
+        shown = 0;
+        for (i = start; i < n && shown < LOGIC_LIST_PAGE_SIZE; i++)
+        {
+            LogicRule_Get(ids[i], &rule);
+
+            /* 编号按显示顺序连续(最新=1), 不使用内部rule_id(可能因删除而不连续) */
+            sprintf(disp, "#%d: ", (uint16_t)(start + shown + 1));
+            pre_len = (uint16_t)strlen(disp);
+            BuildRuleDisplay(&rule, disp + pre_len,
+                             (uint8_t)(sizeof(disp) - pre_len));
+
+            SetTextValue(screen_id, (uint16_t)(LOGIC_TXT_LIST_BASE + shown), (uint8_t *)disp);
+            shown++;
+        }
+
+        /* 清空未使用的行 */
+        for (i = shown; i < LOGIC_LIST_PAGE_SIZE; i++)
+        {
+            clearTextValue(screen_id, (uint16_t)(LOGIC_TXT_LIST_BASE + i));
+        }
+    }
+    break;
 
     default:
         break;

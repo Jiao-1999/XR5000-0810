@@ -12958,7 +12958,7 @@ UART_HandleTypeDef *getSimulateSirealPortSendHandle(uint8_t port_comid)
 			break;
 		}
 		case 5:{
-			uart_handle = &huart1; // ???????
+			uart_handle = NULL; /* FECbus: USART1 freed for master, station port NULL */
 			break;
 		}
 		case 6:{

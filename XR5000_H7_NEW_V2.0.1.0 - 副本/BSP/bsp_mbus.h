@@ -109,6 +109,8 @@ void MBus1ResetAllDevices(void);
 void MBus2SendString(uint8_t* buf, uint8_t len);
 uint16_t getPointTypeMixtureReceiveData16(ePointTypeDataOrder detect_data_type, uint8_t detect_id);
 uint8_t getPointTypeMixtureStateClass(uint8_t detect_id);
+// 获取探测器国标设备类型码(供联动逻辑显示用)
+uint16_t getPointTypeMixtureNationalCode(uint8_t detector_id);
 
 // 总线轮询同时处理接收任务
 void MBus1PollSlaveAndReceiveTask(void* parameter);

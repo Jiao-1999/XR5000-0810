@@ -3,11 +3,12 @@
  * @brief   GB4717-2024 附录C FECbus RS485 协议
  *
  * @details
- *   通信链路:
- *     STM32H723 USART3 (PB10=TX, PB11=RX) -> RS485 收发器
- *     波特率 19200 8N1 (GB4717 附录C 规定), DMA2_Stream1 RX 沿用 CubeMX 配置
- *     收发不碰硬件 GPIO/DMA, 仅用 MX_USART3_UART_Init() 初始化
- *     (接收波特率在 bsp_fecbus 的 Fecbus_Init 切换为 19200)
+ *   通信链路 (双串口拆分):
+ *     USART3 (PB10=TX, PB11=RX) -> RS485 收发器 A: 从机通道
+ *       RX 收从机主动上报, TX 回 0FH 应答给上报方
+ *     USART1 (PB14=TX, PB15=RX) -> RS485 收发器 B: 主机通道
+ *       TX 本机主动下发(设置/广播/查询/事件上报), RX 收从机 0FH 应答
+ *     两串口均 19200 8N1 (GB4717 附录C 规定), 两串口 RX 共用同一环形缓冲/状态机(FecbusRx_OnByte)
  *
  *   调试链路:
  *     RS485 收发器接 USB-RS485 转换器, 上位机用 PC 端 COM6 口, 与控制器互发 FECbus 帧
@@ -34,7 +35,8 @@
  *
  *   注意事项:
  *     - 周期上报需周期性 HAL_IWDG_Refresh(&hiwdg1) (3个周期任务约 ~3s, IWDG ~8.2s)
- *     - 收发共用同一物理链路 USART3, 用 g_fecbus_tx_mutex 递归互斥做收发互斥
+ *     - 主动下发(USART1)与被动回应(USART3)物理隔离, 发送互斥锁 s_tx_mutex 仍保留
+ *       (防止多任务并发主动下发交错; 0FH 回应由接收中断驱动, 与主动下发不同串口不冲突)
  *     - 事件上报可走 bsp_storage_event 存储链路 (LPUART1)
  */
 #ifndef __BSP_FECBUS_H

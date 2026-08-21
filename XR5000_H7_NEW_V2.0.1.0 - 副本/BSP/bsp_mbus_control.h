@@ -80,8 +80,6 @@ uint8_t MBusCtrl_GetOnline(uint8_t addr);            /* »ñÈ¡ÔÚÏß±êÖ¾(ÆÁÄ»ÏÂ·¢Öµ)
 uint8_t MBusCtrl_IsDisconnected(uint8_t addr);       /* ÅĞ¶ÏÊÇ·ñµôÏß(¼ÆÊı>=ãĞÖµ) */
 uint8_t MBusCtrl_GetOnlineCount(void);
 uint8_t MBusCtrl_IsIdentified(uint8_t addr);
-uint16_t MBusCtrl_GetNationalTypeCode(uint8_t addr); /* »ñÈ¡Éè±¸Êµ¼Ê·µ»Ø²¢±£´æµÄ0x000D¹ú±êÀàĞÍÂë */
-uint16_t MBusCtrl_GetProductCode(uint8_t addr); /* »ñÈ¡Éè±¸Êµ¼Ê·µ»Ø²¢±£´æµÄ0x000EÄÚ²¿²úÆ·Âë */
 uint8_t MBusCtrl_GetActiveCount(void);               /* »ØÂ·2ÔÚÏßÉè±¸×ÜÊı */
 uint8_t MBusCtrl_GetDisconnectCount(void);           /* »ØÂ·2µôÏßÉè±¸×ÜÊı */
 uint8_t MBusCtrl_GetAlarmCount(void);                /* »ØÂ·2±¨¾¯Éè±¸×ÜÊı */
@@ -89,8 +87,10 @@ uint8_t MBusCtrl_GetAlarmCount(void);                /* »ØÂ·2±¨¾¯Éè±¸×ÜÊı */
 /* ---- Éè±¸ĞÅÏ¢²éÑ¯ ---- */
 const char* MBusCtrl_GetDeviceName(uint8_t addr);    /* ¸ù¾İµØÖ·»ñÈ¡Éè±¸Ãû³Æ(ÖĞÎÄ) */
 uint8_t MBusCtrl_GetDeviceState(uint8_t addr);       /* »ñÈ¡Éè±¸´«¸ĞÆ÷×´Ì¬Öµ */
+void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state);       /* ×¢Èë´«¸ĞÆ÷×´Ì¬(²âÊÔÓÃ) */
 uint8_t MBusCtrl_GetDeviceType(uint8_t addr);        /* »ñÈ¡Éè±¸ÀàĞÍ(MBusCtrlDevType) */
 uint8_t MBusCtrl_IsAlarmState(uint8_t addr);         /* ÅĞ¶ÏÉè±¸ÊÇ·ñ´¦ÓÚ±¨¾¯×´Ì¬ */
+uint16_t MBusCtrl_GetNationalCode(uint8_t addr);     /* »ñÈ¡Éè±¸¹ú±êÉè±¸ÀàĞÍÂë(¹©Áª¶¯Âß¼­ÏÔÊ¾ÓÃ) */
 
 /* ---- »ğÔÖÏÔÊ¾ÅÌÊÂ¼şÉÏ±¨(10¹¦ÄÜÂëĞ´¶à¼Ä´æÆ÷) ---- */
 uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type);
@@ -106,7 +106,5 @@ int8_t ReceiveDataFromMBus2Queue(uint8_t *buf);              /* ´ÓMBus2¶ÓÁĞ½ÓÊÕÊ
 /* ---- RTOSÂÖÑ¯ÈÎÎñ ---- */
 void MBusControlPollSlaveAndReceiveTask(void* parameter);    /* »ØÂ·2ÂÖÑ¯ÈÎÎñ(·¢ËÍ²éÑ¯¡ú½ÓÊÕ½âÎö¡ú¿ØÖÆ·şÎñ) */
 
-
-void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state);  /* ²âÊÔ×¢Èë:ÉèÖÃ´«¸ĞÆ÷×´Ì¬ */
 #endif
 

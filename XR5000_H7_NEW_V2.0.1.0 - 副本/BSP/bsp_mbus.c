@@ -378,6 +378,13 @@ static void MBus1ClearIdentification(uint8_t addr)
     PointTypeMixtureDisconnectCount[addr] = 0U;
     DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP1, addr, 0U);
 }
+
+/* 获取探测器国标设备类型码(供联动逻辑显示用), 地址无效返回0 */
+uint16_t getPointTypeMixtureNationalCode(uint8_t detector_id)
+{
+    if(detector_id == 0U || detector_id > MIXTURE_DEVICE_MAX_ADDR) return 0U;
+    return g_mbus1_national_code[detector_id];
+}
 static uint8_t g_mbus1_transaction_pending = 0U;
 static uint8_t g_mbus1_transaction_addr = 0U;
 static uint8_t g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;

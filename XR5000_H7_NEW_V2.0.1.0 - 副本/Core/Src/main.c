@@ -48,7 +48,7 @@
 #include "bsp_adc.h"
 #include "bsp_save_ctrl.h"
 #include "bsp_fdcan1.h"
-#include "bsp_fecbus.h"  /* FECbus RS485 协议: USART3(PB10/PB11), GB4717 附录C */
+#include "bsp_fecbus.h"  /* FECbus RS485 ???: USART3(PB10/PB11), GB4717 ???C */
 #include "bsp_logic_expr.h"    /* Logic module: rule CRUD/expr eval */
 #include "bsp_logic_dev.h"     /* Logic module: device abstraction layer */
 #include "bsp_logic_engine.h"  /* Logic module: linkage engine state machine */
@@ -150,7 +150,7 @@ int main(void)
   MX_SPI2_Init();
   MX_TIM7_Init();
   MX_IWDG1_Init();
-  /* 改PB6为LPUART1_TX, PB7为LPUART1_RX, 供存储侧通信(bsp_storage_tx)使用 */
+  /* ?: PB6=LPUART1_TX, PB7=LPUART1_RX, ????洢???(bsp_storage_tx) */
 //  MX_FDCAN2_Init();
   MX_FDCAN1_Init();
   /* USER CODE BEGIN 2 */
@@ -168,9 +168,9 @@ int main(void)
 	LogicDev_Register();
 	LogicEngine_Init();
 	LogicScreen_Init();
-	/* 注: Fecbus_Init() 改在 RTOS 任务内调用(freertos.c FecbusPeriodicTask),
-	 * 因 osKernelStart 之后 FreeRTOS 中断嵌套使用 BASEPRI=0x50,
-	 * 以及 TIM6 中断内调用 HAL_Delay 会干扰(IWDG喂狗时机) */
+	/* ?: Fecbus_Init() ???? RTOS ?????г????(freertos.c FecbusPeriodicTask),
+	 * ?? osKernelStart ??? FreeRTOS ?ж?????? BASEPRI=0x50,
+	 * ?? TIM6 ?ж?????????? HAL_Delay ???????(IWDGι?????) */
 //	SystemDebugTest();
 	
 //	HAL_UARTEx_ReceiveToIdle_IT(&huart1, uartbuff[0].recepetion_buff, BUFF_MAX);
@@ -184,14 +184,14 @@ int main(void)
 //	HAL_UARTEx_ReceiveToIdle_IT(&huart9, uartbuff[8].recepetion_buff, BUFF_MAX);
 //	HAL_UARTEx_ReceiveToIdle_IT(&huart10, uartbuff[9].recepetion_buff, BUFF_MAX);
 
-	// 由于串口屏的特殊性，采用单独中断加帧头帧尾判断结束
+	// ??????????????????????????ж?????β?ж????
 	HAL_UART_Receive_IT(&huart8, &screendata, 1);
 	
-	// 修改为串口空闲中断加DMA搬运
+	// ????????????ж??DMA????
 	
-	HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uartbuff[0].recepetion_buff, BUFF_MAX);
+//	HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uartbuff[0].recepetion_buff, BUFF_MAX); /* FECbus ????????: USART1 ???? IT ?ж????, ?????? DMA ??? 20260818 */
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, uartbuff[1].recepetion_buff, BUFF_MAX);
-// HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX); /* XR5000_FECBUS_TEST: 改USART3 DMA接收, FECbus独占 */
+// HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX); /* XR5000_FECBUS_TEST: ?USART3 DMA????, FECbus??? */
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart4, uartbuff[3].recepetion_buff, BUFF_MAX);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart5, uartbuff[4].recepetion_buff, BUFF_MAX);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart6, uartbuff[5].recepetion_buff, BUFF_MAX);
@@ -203,8 +203,8 @@ int main(void)
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_DMA_BUFF, ADC_CARRY_NUM);
 	
 	FDCAN1_Start();
-	// 让ADC先采集两秒
-	HAL_Delay(2000);  // 2秒延时，ADC已工作2秒
+	// ??ADC????????
+	HAL_Delay(2000);  // 2???????ADC?????2??
 	
 //	uint8_t temp[20] = {0};
 //	sprintf((char *)temp, "id = %d \r\n", W25QXX_ReadID());

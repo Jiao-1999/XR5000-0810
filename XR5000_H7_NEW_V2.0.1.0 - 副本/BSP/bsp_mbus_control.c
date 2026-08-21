@@ -396,6 +396,14 @@ uint8_t MBusCtrl_GetDeviceState(uint8_t addr)
     return g_mbus_ctrl_devices[addr].sensor_state;
 }
 
+/* 获取设备国标设备类型码(供联动逻辑显示用), 地址无效返回0 */
+uint16_t MBusCtrl_GetNationalCode(uint8_t addr)
+{
+    if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
+        return 0;
+    return g_mbus_ctrl_devices[addr].national_type_code;
+}
+
 /* 获取设备类型(MBusCtrlDevType) */
 uint8_t MBusCtrl_GetDeviceType(uint8_t addr)
 {
