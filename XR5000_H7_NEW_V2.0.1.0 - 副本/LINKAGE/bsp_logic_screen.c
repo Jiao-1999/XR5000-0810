@@ -478,6 +478,10 @@ static void SaveRule(void)
 
         DebugPrintf("[LOGIC] SaveRule id=%d OK\r\n", s_edit.rule.rule_id);
 
+        /* 保存成功: 在编辑页预览窗口显示提示, 不跳转列表页(停留编辑页继续编辑) */
+        sprintf(s_disp_buf, "保存成功: 规则ID%d已存入", s_edit.rule.rule_id);
+        SetTextValue(LOGIC_SCREEN_EDIT, LOGIC_TXT_PREVIEW, (uint8_t *)s_disp_buf);
+
         /* 清空编辑状态, 准备下一次编辑 */
         memset(&s_edit.rule, 0, sizeof(LogicRule_t));
         s_edit.step = EDIT_STEP_NONE;
@@ -486,8 +490,8 @@ static void SaveRule(void)
         s_edit.has_action = 0;
         s_edit.active = 0;
 
-        /* 保存成功后自动跳转到列表页45, 显示最新规则 */
-        SetScreen(LOGIC_SCREEN_LIST);
+        /* 不跳转列表页45, 停留编辑页43继续编辑(用户可手动进入45查看) */
+        /* SetScreen(LOGIC_SCREEN_LIST); */
     }
     else
     {
@@ -987,6 +991,8 @@ void LogicScreen_OnText(uint16_t screen_id, uint16_t control_id, uint8_t *str)
 void LogicScreen_UpdateUI(uint16_t screen_id)
 {
     static uint16_t s_last_page = 0xFFFF;  /* edge detect: page enter trace */
+    static uint8_t  s_last_list_count = 0xFF;  /* 上次列表页刷新的规则数(差分门控, 避免画面闪烁) */
+    static uint8_t  s_last_list_page = 0xFF;   /* 上次列表页刷新的页码(差分门控) */
     uint8_t i;
     uint8_t count;
     uint8_t shown;
@@ -1000,8 +1006,10 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
         s_last_page = screen_id;
         if (screen_id == LOGIC_SCREEN_LIST)
         {
-            /* 进入列表页: 重置到第0页, 显示最新规则 */
+            /* 进入列表页: 重置到第0页, 并强制下次全量刷新(差分门控失效) */
             s_list_page = 0;
+            s_last_list_count = 0xFF;
+            s_last_list_page = 0xFF;
             DebugPrintf("[LOGIC-UI] enter list page, rules:\r\n");
             for (i = 0; i < LOGIC_RULE_MAX; i++)
             {
@@ -1045,6 +1053,14 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
                 ids[n++] = tbl[i].rule_id;
             }
         }
+
+        /* 差分门控: 规则数和页码都没变 → 跳过全量重发, 避免画面45持续闪烁 */
+        if (n == s_last_list_count && s_list_page == s_last_list_page)
+        {
+            break;  /* 内容未变, 不刷新 */
+        }
+        s_last_list_count = n;
+        s_last_list_page = s_list_page;
 
         /* 按ID降序冒泡排序(最新规则排在前) */
         for (i = 0; i < n; i++)

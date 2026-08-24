@@ -205,9 +205,95 @@ void StorageEvent_LogStart(uint8_t dev_no, uint16_t dev_type)
 
 void StorageEvent_LogReset(void)
 {
-    /* 系统复位: 控制器号1, EVT_NORMAL, state=0, 存入0x01普通区段
+    /* 系统复位: 控制器号1, EVT_RESET(122), state=0, 存入0x01普通区段
+     * (规范B.1.2.2仅要求首警/火警/故障独立记录, 复位属其他运行状态信息)
      * 注意: 复位时StorageTx可能未就绪, 入队失败可接受 */
     StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
                          1U, DEV_TYPE_CONTROLLER, 1U, 0U,
-                         EVT_NORMAL, 0U);
+                         EVT_RESET, 0U);
+}
+
+/*==============================================================
+ * 新增API(GB4717-2024附录B.1.1.1整改, 2026-08-24)
+ *============================================================*/
+
+void StorageEvent_LogPowerOn(void)
+{
+    /* 控制器开机: EVT_POWER_ON(120), 存入0x01普通区段
+     * 调用点: freertos.c StartDefaultTask() StorageTx_Init()之后 */
+    StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
+                         1U, DEV_TYPE_CONTROLLER, 1U, 0U,
+                         EVT_POWER_ON, 0U);
+}
+
+void StorageEvent_LogPowerOff(void)
+{
+    /* 控制器关机: EVT_POWER_OFF(121), 存入0x01普通区段
+     * 调用点: bsp_adc.c备电耗尽处 + cmd_process.c PowerManageCtrl主备全失处
+     * 关机瞬间异步入队可能来不及发出, 尽力而为 */
+    StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
+                         1U, DEV_TYPE_CONTROLLER, 1U, 0U,
+                         EVT_POWER_OFF, 0U);
+}
+
+void StorageEvent_LogConfirmButton(void)
+{
+    /* 信息确认按钮动作: EVT_CONFIRM_BUTTON(128), 存入0x01普通区段
+     * 调用点: bsp_internal_board.c KEY1_INFORM_CERTAIN case */
+    StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
+                         1U, DEV_TYPE_CONTROLLER, 1U, 0U,
+                         EVT_CONFIRM_BUTTON, 0U);
+}
+
+void StorageEvent_LogCheckButton(void)
+{
+    /* 检查功能按钮动作: EVT_CHECK_BUTTON(129), 存入0x01普通区段
+     * 调用点: cmd_process.c UpdateUI() check_record_pending消费点(复用去重) */
+    StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
+                         1U, DEV_TYPE_CONTROLLER, 1U, 0U,
+                         EVT_CHECK_BUTTON, 0U);
+}
+
+void StorageEvent_LogLinkageStartButton(uint8_t dev_no, uint16_t dev_type)
+{
+    /* 联动启动按钮动作: EVT_LINKAGE_START_BUTTON(130), 存入0x01普通区段
+     * 与StorageEvent_LogStart(19=设备已启动)并存: 130=按下动作, 19=启动结果
+     * 调用点: bsp_internal_board.c KEY_SYSTEM_LINKAGE_S case */
+    StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
+                         dev_no, dev_type, 1U, 0U,
+                         EVT_LINKAGE_START_BUTTON, 0U);
+}
+
+void StorageEvent_LogClockAdjust(void)
+{
+    /* 时钟调整: EVT_CLOCK_ADJUST(131), 存入0x01普通区段
+     * 调用点: bsp_screen.c InternalScreenRTCSetting() 画面41六个控件,
+     * 每修改一个字段记录一条; 时间戳由FillTimestamp实时读RTC(即调整后新值) */
+    StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
+                         1U, DEV_TYPE_CONTROLLER, 1U, 0U,
+                         EVT_CLOCK_ADJUST, 0U);
+}
+
+void StorageEvent_LogSelfCheck(uint8_t is_fail)
+{
+    /* 自检/自检失败: EVT_SELF_CHECK(123)/EVT_SELF_CHECK_FAIL(124), 存入0x01普通区段
+     * 调用点: cmd_process.c 密码页53 SELFCHECK_KEY case */
+    uint16_t event_code = (is_fail != 0U) ? EVT_SELF_CHECK_FAIL : EVT_SELF_CHECK;
+
+    StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
+                         1U, DEV_TYPE_CONTROLLER, 1U, 0U,
+                         event_code, 0U);
+}
+
+void StorageEvent_LogSupervise(uint8_t dev_no, uint16_t dev_type,
+                               uint8_t is_release)
+{
+    /* 监管/监管解除: EVT_SUPERVISED(70)/EVT_SUPERVISED_RELEASE(71),
+     * 存入0x01普通区段. 预留不接线: XR5000三回路均无监管类信号源,
+     * 本API仅补齐供型式试验查表, 待监管设备协议接入后挂到raw_state解析处 */
+    uint16_t event_code = (is_release != 0U) ? EVT_SUPERVISED_RELEASE : EVT_SUPERVISED;
+
+    StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
+                         dev_no, dev_type, 1U, 0U,
+                         event_code, 0U);
 }

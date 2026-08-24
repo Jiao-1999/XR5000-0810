@@ -64,6 +64,7 @@
 #include "bsp_aht20.h"
 #include "iwdg.h"
 #include "bsp_storage_tx.h"  /* ?洢???: LPUART1(PB6/PB7) */
+#include "bsp_storage_event.h" /* 黑匣子事件记录API: 开机等GB4717-2024事件 */
 #include "bsp_fecbus.h"      /* FECbus RS485 ???: USART3(PB10/PB11), GB4717 ???C */
 #include "bsp_test_inject.h" /* COM4??????????: UART4 RX?????, ??DMA?ж?????У?? */
 #include "bsp_logic_engine.h" /* Linkage logic engine task: rule eval + action exec, 100ms cycle */
@@ -566,99 +567,7 @@ void StartDefaultTask(void *argument)
 	/* ?洢?????: ?????LPUART1?????·, ????????ACK=0?????·???? */
 	HAL_IWDG_Refresh(&hiwdg1);
 	StorageTx_Init();
-	{
-		EventRecord_t rec;
-		uint8_t ret;
-		uint8_t pass = 0, fail = 0;
-
-		DebugPrintf("=== STX VERIFY (sync send + ACK) ===\r\n");
-
-		/* 1. ??α???(0x02): dev=1 type=61 evt=2 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_HAND_REPORT, EVT_FIRST_FIRE, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FIRST_ALARM, &rec);
-		DebugPrintf("#1 FIRST dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 2. ??(0x03): dev=1 type=61 evt=3 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_HAND_REPORT, EVT_FIRE, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FIRE_ALARM, &rec);
-		DebugPrintf("#2 FIRE  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 3. ??2(0x03): dev=2 type=21 evt=3 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 2, DEV_TYPE_SMOKE, EVT_FIRE, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FIRE_ALARM, &rec);
-		DebugPrintf("#3 FIRE  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 4. ????(0x04): dev=3 type=31 evt=80 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 3, DEV_TYPE_TEMPERATURE, EVT_FAULT, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FAULT, &rec);
-		DebugPrintf("#4 FAULT dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 5. ??????(0x04): dev=3 type=31 evt=100 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 3, DEV_TYPE_TEMPERATURE, EVT_FAULT_RECOVER, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_FAULT, &rec);
-		DebugPrintf("#5 RECOV dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 6. ????(0x01): dev=4 type=163 evt=26 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 4, DEV_TYPE_CONTROL_DEV, EVT_FEEDBACK, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#6 FEED  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 7. ???(0x01): dev=1 type=163 evt=125 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_CONTROL_DEV, EVT_MANUAL, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#7 MANU  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 8. ???(0x01): dev=1 type=163 evt=126 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_CONTROL_DEV, EVT_AUTO, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#8 AUTO  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 9. ????(0x01): dev=1 type=163 evt=19 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_CONTROL_DEV, EVT_START, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#9 START dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 10. ????(0x01): dev=5 type=21 evt=72 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 5, DEV_TYPE_SMOKE, EVT_SHIELD, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#10 SHLD  dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 11. ???????(0x01): dev=5 type=21 evt=73 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 5, DEV_TYPE_SMOKE, EVT_SHIELD_RELEASE, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#11 REL   dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		/* 12. ??λ(0x01): dev=1 type=1 evt=1 */
-		HAL_IWDG_Refresh(&hiwdg1);
-		StorageTx_BuildRecord(&rec, 1, DEV_TYPE_CONTROLLER, EVT_NORMAL, 0);
-		ret = StorageTx_SendRecord(STX_CMD_STORE_EVENT, &rec);
-		DebugPrintf("#12 RESET dev=%d type=%d evt=%d -> ACK=%d %s\r\n", rec.device_no, rec.dev_type, rec.event_code, ret, ret==0?"OK":"FAIL");
-		ret==0 ? pass++ : fail++;
-
-		DebugPrintf("=== RESULT: %d PASS / %d FAIL (ACK=0 means storage verified write) ===\r\n", pass, fail);
-	}
+	StorageEvent_LogPowerOn();  /* GB4717-2024 B.1.1.1d: 控制器开机事件(EVT_POWER_ON=120)记录 */
 
   /* Infinite loop */
 	DebugPrintf("XR5000 Boot OK\r\n");  /* UART4????????? */
@@ -669,18 +578,6 @@ void StartDefaultTask(void *argument)
 		// XR5000_AHT20_CHANGE_20260727: refresh cached home-screen temperature/humidity.
 		(void)AHT20_Update();
 		DebugPrintf("maintain:%d\r\n", freeHeap);  /* ????????С, ????????? */
-
-		/* STX_LOOP: cyclic send test frame to storage side for link verification */
-		{
-			EventRecord_t rec;
-			uint8_t ret;
-			static uint32_t stx_loop_cnt = 0;
-			HAL_IWDG_Refresh(&hiwdg1);
-			StorageTx_BuildRecord(&rec, 1, DEV_TYPE_HAND_REPORT, EVT_FIRE, 0);
-			ret = StorageTx_SendRecord(STX_CMD_STORE_FIRE_ALARM, &rec);
-			stx_loop_cnt++;
-			DebugPrintf("[STX_LOOP] #%lu FIRE -> ACK=%d %s\r\n", (unsigned long)stx_loop_cnt, ret, ret==0?"OK":"FAIL");
-		}
 
 //		FDCAN1_SendStdDataFrame(0x123, test_data, 8);
 		osDelay(2000);

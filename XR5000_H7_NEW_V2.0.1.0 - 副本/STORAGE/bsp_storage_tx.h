@@ -96,6 +96,8 @@ typedef struct {
 #define DEV_TYPE_H2             55    /* 氢气探测器 */
 #define DEV_TYPE_FIRE_ALARM     82    /* 火灾报警器件 */
 #define DEV_TYPE_CONTROL_DEV    163   /* 控制设备 */
+#define DEV_TYPE_STORAGE        18    /* 运行数据存储单元(表C.16, 存储故障上报用) */
+#define DEV_TYPE_MULTI_SENSOR   50    /* 多传感复合探测器(表C.16) */
 
 /*==============================================================
  * 事件代码(GB4717-2024附录C表C.17)
@@ -114,6 +116,18 @@ typedef struct {
 #define EVT_FAULT_RECOVER       100   /* 故障恢复 */
 #define EVT_MANUAL              125   /* 手动 */
 #define EVT_AUTO                126   /* 自动 */
+/* 以下为GB4717-2024表C.17补充事件代码(P1-1整改, 2026-08-24) */
+#define EVT_SUPERVISED          70    /* 监管 */
+#define EVT_SUPERVISED_RELEASE  71    /* 监管解除 */
+#define EVT_POWER_ON            120   /* 开机 */
+#define EVT_POWER_OFF           121   /* 关机 */
+#define EVT_RESET               122   /* 复位 */
+#define EVT_SELF_CHECK          123   /* 自检 */
+#define EVT_SELF_CHECK_FAIL     124   /* 自检失败 */
+#define EVT_CONFIRM_BUTTON      128   /* 信息确认按钮动作 */
+#define EVT_CHECK_BUTTON        129   /* 检查功能按钮动作 */
+#define EVT_LINKAGE_START_BUTTON 130  /* 联动启动按钮动作 */
+#define EVT_CLOCK_ADJUST        131   /* 调整时钟 */
 
 /*==============================================================
  * API声明

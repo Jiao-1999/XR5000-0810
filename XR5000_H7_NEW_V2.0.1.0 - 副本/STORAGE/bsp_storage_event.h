@@ -112,11 +112,81 @@ void StorageEvent_LogStart(uint8_t dev_no, uint16_t dev_type);
 /**
  * @brief  记录系统复位事件到黑匣子(普通区段)
  * @note   在 BspCmdProcessInit() 末尾调用, 紧跟 StorageEvent_ResetFirstFire().
- *         dev_no=1, dev_type=DEV_TYPE_CONTROLLER, event=EVT_NORMAL, state=0.
- *         使用0x01命令码存入普通区段. 异步入队, 非阻塞.
- *         注意: 复位时StorageTx可能未就绪, 入队失败可接受.
+ *         dev_no=1, dev_type=DEV_TYPE_CONTROLLER, event=EVT_RESET(122), state=0.
+ *         使用0x01命令码存入普通区段(规范B.1.2.2仅要求首警/火警/故障独立记录,
+ *         复位属其他运行状态信息, 不得写入首警独立区段).
+ *         异步入队, 非阻塞. 复位时StorageTx可能未就绪, 入队失败可接受.
  */
 void StorageEvent_LogReset(void);
+
+/*==============================================================
+ * 新增API(GB4717-2024附录B.1.1.1整改, 2026-08-24)
+ *============================================================*/
+
+/**
+ * @brief  记录开机事件到黑匣子(EVT_POWER_ON=120)
+ * @note   调用点: freertos.c StartDefaultTask() 中 StorageTx_Init() 之后.
+ *         dev_no=1, dev_type=DEV_TYPE_CONTROLLER.
+ *         不能在 StorageTx_Init() 之前调用(LPUART1未初始化必丢).
+ */
+void StorageEvent_LogPowerOn(void);
+
+/**
+ * @brief  记录关机事件到黑匣子(EVT_POWER_OFF=121)
+ * @note   调用点: bsp_adc.c 备电耗尽处 + cmd_process.c PowerManageCtrl() 主备全失处.
+ *         关机瞬间系统即将断电, 异步入队可能来不及发出, 尽力而为.
+ */
+void StorageEvent_LogPowerOff(void);
+
+/**
+ * @brief  记录信息确认按钮动作到黑匣子(EVT_CONFIRM_BUTTON=128)
+ * @note   调用点: bsp_internal_board.c KEY1_INFORM_CERTAIN case(空case处补入).
+ *         该键不走密码页, 按键动作本身直接记录.
+ */
+void StorageEvent_LogConfirmButton(void);
+
+/**
+ * @brief  记录检查功能按钮动作到黑匣子(EVT_CHECK_BUTTON=129)
+ * @note   调用点: cmd_process.c UpdateUI() 中 check_record_pending 消费点,
+ *         与EEPROM记录并排(复用去重+延迟机制, 连按只记1条).
+ */
+void StorageEvent_LogCheckButton(void);
+
+/**
+ * @brief  记录联动启动按钮动作到黑匣子(EVT_LINKAGE_START_BUTTON=130)
+ * @note   调用点: bsp_internal_board.c KEY_SYSTEM_LINKAGE_S case,
+ *         与现有 StorageEvent_LogStart(19=设备已启动) 并存:
+ *         130=用户按下按钮(动作), 19=联动设备已启动(结果), 两者是不同事件.
+ */
+void StorageEvent_LogLinkageStartButton(uint8_t dev_no, uint16_t dev_type);
+
+/**
+ * @brief  记录时钟调整事件到黑匣子(EVT_CLOCK_ADJUST=131)
+ * @note   调用点: bsp_screen.c InternalScreenRTCSetting() 画面41六个控件,
+ *         每修改一个字段记录一条(不去重, 用户确认).
+ *         时间戳由 FillTimestamp 入队时实时读RTC, 即调整后新值.
+ */
+void StorageEvent_LogClockAdjust(void);
+
+/**
+ * @brief  记录自检事件到黑匣子(EVT_SELF_CHECK=123/124)
+ * @param  is_fail: 0=自检(123), 1=自检失败(124)
+ * @note   调用点: cmd_process.c 密码页53 SELFCHECK_KEY case.
+ *         当前工程无自检失败判定, is_fail参数预留.
+ */
+void StorageEvent_LogSelfCheck(uint8_t is_fail);
+
+/**
+ * @brief  记录监管事件到黑匣子(EVT_SUPERVISED=70/71) - 预留不接线
+ * @param  dev_no:      设备号
+ * @param  dev_type:    设备类型代码
+ * @param  is_release:  0=监管(70), 1=监管解除(71)
+ * @note   XR5000三回路均无监管类信号源(水流指示器/压力开关/信号阀),
+ *         本API仅补齐供型式试验查表, 接入点待监管设备协议接入后
+ *         挂到对应 raw_state 解析处.
+ */
+void StorageEvent_LogSupervise(uint8_t dev_no, uint16_t dev_type,
+                               uint8_t is_release);
 
 #ifdef __cplusplus
 }

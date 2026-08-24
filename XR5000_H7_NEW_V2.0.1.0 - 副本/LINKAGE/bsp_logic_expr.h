@@ -188,6 +188,7 @@ void    LogicRule_ClearAll(void);                                /* 清空所有规则
 
 uint8_t LogicRule_SaveAll(void);   /* 将所有规则保存到Flash */
 uint8_t LogicRule_LoadAll(void);   /* 从Flash加载所有规则 */
+void    LogicRule_WipeAllPersistent(void);  /* 一次性持久化清空: 清RAM+擦写Flash, 重启不复活 */
 
 /*--------------------------------------------------------------
  * 7. API声明 - 表达式求值

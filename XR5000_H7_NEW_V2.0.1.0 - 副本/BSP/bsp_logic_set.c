@@ -568,8 +568,10 @@ void FireAlarmTriggerLogicUpdataUI(uint16_t _screen_id, FireAlarmLogic_t fals, F
 		
 		while(i < 9)
 		{
-			clearTextValue(_screen_id, i + 1);     //(画面ID,控件ID） // 清掉不存在的逻辑
-			clearTextValue(_screen_id, i + 10);     //(画面ID,控件ID） // 清掉不存在的逻辑
+			clearTextValue(_screen_id, i + 1);     //(画面ID,控件ID） // 清掉不存在的序号(控件1~9)
+			/* 控件10~18已由 LogicScreen_UpdateUI(联动规则列表)负责显示,
+			 * 此处不清空避免与联动规则冲突导致画面45内容被清空消失 */
+			/* clearTextValue(_screen_id, i + 10); */
 			i++;
 		}
 	}

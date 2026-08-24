@@ -13,6 +13,7 @@
 
 #include "bsp_save_ctrl.h"
 #include "bsp_internal_board.h"
+#include "bsp_storage_event.h" /* 黑匣子事件记录API: 关机事件(GB4717-2024 B.1.1.1d) */
 
 #define TIMEOUT_NUM 60000
 
@@ -848,6 +849,7 @@ void MainAndStandbyPowerJudge(void)
 			if(turn_off_flag == 0) // 避免存储一堆关机记录
 			{
 				BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_TURN_OFF, LINKAGE_CLUSTER_ID, SYS_TURN_OFF_Package_ID);
+				StorageEvent_LogPowerOff(); /* 黑匣子:关机事件(EVT_POWER_OFF=121), 主电已掉且备电耗尽 */
 				turn_off_flag = 1;
 			}
 			BatteryBoostRelayCtrl(JDQ_OFF); // 断开升压电路继电器 避免电池过放

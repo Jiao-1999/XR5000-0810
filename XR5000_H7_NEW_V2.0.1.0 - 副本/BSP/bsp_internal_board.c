@@ -14,8 +14,8 @@
 
 #include "bsp_save_ctrl.h"
 
-#include "bsp_storage_event.h"  /* ï¿½ï¿½Ï»ï¿½Ó´æ´¢ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
-#include "bsp_fecbus_report.h" /* FECbus RS485 ï¿½Ï±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (GB4717 ï¿½ï¿½Â¼C) */
+#include "bsp_storage_event.h"  /* ?????›¥???????? */
+#include "bsp_fecbus_report.h" /* FECbus RS485 ???????? (GB4717 ???C) */
 
 #define InternalBoardAddr 1U
 
@@ -39,21 +39,21 @@
 #define getSirenStartState()  (siren_start_state   ? 1 : 0)
 #define getSirenFaultState()  (siren_fault_state   ? 1 : 0)
 #define getSelfCheckState()   (self_check_state    ? 1 : 0)
-// ·ÖÇø1 ×´Ì¬
+// ????1 ??
 #define getPart1StartState()  (part_1_start_state  ? 1 : 0)
 #define getPart1DelayState()  (part_1_start_delay  ? 1 : 0)
 #define getPart1SprayState()  (part_1_spray_state  ? 1 : 0)
 #define getPart1FeedbackState()  (part_1_feedback  ? 1 : 0)
 #define getPart1SoundState()  (part_1_sound_light  ? 1 : 0)
 #define getPart1FaultState()  (part_1_fault_state  ? 1 : 0)
-// ·ÖÇø2 ×´Ì¬
+// ????2 ??
 #define getPart2StartState()  (part_2_start_state  ? 1 : 0)
 #define getPart2DelayState()  (part_2_start_delay  ? 1 : 0)
 #define getPart2SprayState()  (part_2_spray_state  ? 1 : 0)
 #define getPart2FeedbackState()  (part_2_feedback  ? 1 : 0)
 #define getPart2SoundState()  (part_2_sound_light  ? 1 : 0)
 #define getPart2FaultState()  (part_2_fault_state  ? 1 : 0)
-// ±¸ÓÃ/ÌØÊâ LED×´Ì¬
+// ????/???? LED??
 #define getSpareGasCheck()    (spare_gas_selfcheck ? 1 : 0)
 #define getSpareGasAlarm()    (spare_gas_alarm     ? 1 : 0)
 #define getSpareGasFault()    (spare_gas_fault     ? 1 : 0)
@@ -77,142 +77,142 @@
                               linkage_beep_ctrl        ? 2 :  \
 															beep_general_io_ctrl     ? 2 : 0)
 
-// LED ÀàÐÍÃ¶¾Ù
+// LED ???????
 typedef enum {
-  LED_MAIN_POWER,           // ¼Ä´æÆ÷0    Ö÷µç
-	LED_BACKUP_POWER,         // ¼Ä´æÆ÷1    ±¸µç
-	LED_FIRE_ALARM,           // ¼Ä´æÆ÷2    »ð¾¯
-	LED_DISCONNECT_FAULT,     // ¼Ä´æÆ÷3
-	LED_SILENCE,              // ¼Ä´æÆ÷4
-	LED_SYSTEM_FAULT,         // ¼Ä´æÆ÷5
-	LED_SYSTEM_START_UP,      // ¼Ä´æÆ÷6
-	LED_SYSTEM_START_DELAY,   // ¼Ä´æÆ÷7
-	LED_SYSTEM_FEEDBACK,      // ¼Ä´æÆ÷8
-	LED_SYSTEM_REGULAR_ALARM, // ¼Ä´æÆ÷9
-	LED_SYSTEM_SHIELD,        // ¼Ä´æÆ÷10
-	LED_SIREN_STARTUP,        // ¼Ä´æÆ÷11
-	LED_SIREN_FAULT,          // ¼Ä´æÆ÷12
-	LED_SYSTEM_SELF_CHECK,    // ¼Ä´æÆ÷13
-	LED_PART_STARTUP_1,       // ¼Ä´æÆ÷14
-	LED_PART_STARTUP_DELAY_1, // ¼Ä´æÆ÷15
-	LED_PART_SPRAY_STARTUP_1, // ¼Ä´æÆ÷16
-	LED_PART_SPRAY_FEEDBACK_1,// ¼Ä´æÆ÷17
-	LED_PART_SOUND_ALARM_1,   // ¼Ä´æÆ÷18
-	LED_PART_FAULT_1,         // ¼Ä´æÆ÷19
-	LED_PART_STARTUP_2,       // ¼Ä´æÆ÷20
-	LED_PART_STARTUP_DELAY_2, // ¼Ä´æÆ÷21
-	LED_PART_SPRAY_STARTUP_2, // ¼Ä´æÆ÷22
-	LED_PART_SPRAY_FEEDBACK_2,// ¼Ä´æÆ÷23
-	LED_PART_SOUND_ALARM_2,   // ¼Ä´æÆ÷24
-	LED_PART_FAULT_2,         // ¼Ä´æÆ÷25
+  LED_MAIN_POWER,           // ?????0    ????
+	LED_BACKUP_POWER,         // ?????1    ????
+	LED_FIRE_ALARM,           // ?????2    ??
+	LED_DISCONNECT_FAULT,     // ?????3
+	LED_SILENCE,              // ?????4
+	LED_SYSTEM_FAULT,         // ?????5
+	LED_SYSTEM_START_UP,      // ?????6
+	LED_SYSTEM_START_DELAY,   // ?????7
+	LED_SYSTEM_FEEDBACK,      // ?????8
+	LED_SYSTEM_REGULAR_ALARM, // ?????9
+	LED_SYSTEM_SHIELD,        // ?????10
+	LED_SIREN_STARTUP,        // ?????11
+	LED_SIREN_FAULT,          // ?????12
+	LED_SYSTEM_SELF_CHECK,    // ?????13
+	LED_PART_STARTUP_1,       // ?????14
+	LED_PART_STARTUP_DELAY_1, // ?????15
+	LED_PART_SPRAY_STARTUP_1, // ?????16
+	LED_PART_SPRAY_FEEDBACK_1,// ?????17
+	LED_PART_SOUND_ALARM_1,   // ?????18
+	LED_PART_FAULT_1,         // ?????19
+	LED_PART_STARTUP_2,       // ?????20
+	LED_PART_STARTUP_DELAY_2, // ?????21
+	LED_PART_SPRAY_STARTUP_2, // ?????22
+	LED_PART_SPRAY_FEEDBACK_2,// ?????23
+	LED_PART_SOUND_ALARM_2,   // ?????24
+	LED_PART_FAULT_2,         // ?????25
 	
-	// ÐÂÔöLED¼Ä´æÆ÷ 2025/10/10
-	LED_COMBUSTIBLE_GAS_SELF_CHECK, // ¿ÉÈ¼ÆøÌå×Ô¼ì // ¼Ä´æÆ÷26
-	LED_COMBUSTIBLE_GAS_ALARM,  // ¿ÉÈ¼ÆøÌå±¨¾¯ // ¼Ä´æÆ÷27
-	LED_COMBUSTIBLE_GAS_FAULT,  // ¿ÉÈ¼ÆøÌå¹ÊÕÏ // ¼Ä´æÆ÷28
-	LED_COMBUSTIBLE_GAS_DELAY,  // ¿ÉÈ¼ÆøÌåÑÓÊ± // ¼Ä´æÆ÷29
-	LED_STANDBY_1,              // Ô¤ÁôLED1 // ¼Ä´æÆ÷30
-	LED_STANDBY_2,              // Ô¤ÁôLED2 // ¼Ä´æÆ÷31
-	LED_STANDBY_3,              // Ô¤ÁôLED3 // ¼Ä´æÆ÷32
-	// ÌØÊâLED¼Ä´æÆ÷ 2025/10/10
-	LED_COMMUNICATION,          // Í¨ÐÅLED // ¼Ä´æÆ÷33
-	LED_WORKING,                // ÔËÐÐÖ¸Ê¾µÆ // ¼Ä´æÆ÷34
+	// ????LED????? 2025/10/10
+	LED_COMBUSTIBLE_GAS_SELF_CHECK, // ?????????? // ?????26
+	LED_COMBUSTIBLE_GAS_ALARM,  // ??????ŒÕ?? // ?????27
+	LED_COMBUSTIBLE_GAS_FAULT,  // ?????????? // ?????28
+	LED_COMBUSTIBLE_GAS_DELAY,  // ?????????? // ?????29
+	LED_STANDBY_1,              // ???LED1 // ?????30
+	LED_STANDBY_2,              // ???LED2 // ?????31
+	LED_STANDBY_3,              // ???LED3 // ?????32
+	// ????LED????? 2025/10/10
+	LED_COMMUNICATION,          // ???LED // ?????33
+	LED_WORKING,                // ???????? // ?????34
     
-  LED_COUNT  // LED×ÜÊý
+  LED_COUNT  // LED????
 } LED_REGISTER_ID;
 
-// led_valµÆµÄ×´Ì¬Öµ nµÚnÎ» x×´Ì¬
+// led_val?????? n??n¦Ë x??
 #define setLedxRegisterBit(led_val, n, x) ( (led_val) |= ((x) << (n)) )
 
-// ¶ÀÁ¢°´¼ü¼üÖµ¶¨Òå
+// ???????????????
 typedef enum
 {
-	KEY_SYSTEM_ANNOUNCIAT = 0x01,  // ÏµÍ³±¨¾¯Æ÷Æô¶¯
-	KEY_SYSTEM_LINKAGE_S  = 0x02,  // Áª¶¯Æô¶¯°´ÏÂ
+	KEY_SYSTEM_ANNOUNCIAT = 0x01,  // ????????????
+	KEY_SYSTEM_LINKAGE_S  = 0x02,  // ????????????
 	
-	SEPERATE_KEY_NO_PRESS = 0X00,  // ¶ÀÁ¢°´¼üÃ»ÓÐ°´ÏÂ
+	SEPERATE_KEY_NO_PRESS = 0X00,  // ??????????§Ñ???
 }BspSeperateKeyPressValue;
 
-// ÊÖ×Ô¶¯×´Ì¬¼üÖµ¶¨Òå
+// ??????????????
 typedef enum
 {
 	KEY_SYSTEM_MANUAL = 0x01,
 	KEY_SYSTEM_AUTO   = 0x02,
 	
-	KEY_PART1_MANUAL  = 0x04,  // ·ÖÇø1ÇÐ»»ÊÖ¶¯
-	KEY_PART1_AUTO    = 0x08,  // ·ÖÇø1ÇÐ»»×Ô¶¯
+	KEY_PART1_MANUAL  = 0x04,  // ????1?§Ý????
+	KEY_PART1_AUTO    = 0x08,  // ????1?§Ý????
 	
-	KEY_PART2_MANUAL  = 0x10,  // ·ÖÇø1ÇÐ»»ÊÖ¶¯
-	KEY_PART2_AUTO    = 0x20,  // ·ÖÇø1ÇÐ»»×Ô¶¯
+	KEY_PART2_MANUAL  = 0x10,  // ????1?§Ý????
+	KEY_PART2_AUTO    = 0x20,  // ????1?§Ý????
 	
 }BspHandAutoState;
 
-uint8_t fire_alarm_state    = 0; // »ð¾¯×´Ì¬
-uint8_t disconnect_state    = 0; // µôÏß×´Ì¬
-uint8_t silencers_state     = 0; // ÏûÒô×´Ì¬
-uint8_t system_fault_state  = 0; // ÏµÍ³¹ÊÕÏ×´Ì¬
-uint8_t sys_start_state = 0; // Æô¶¯×´Ì¬
-uint8_t start_delay_state   = 0; // Æô¶¯ÑÓÊ±×´Ì¬
-uint8_t feedbacked_state    = 0; // ·´À¡×´Ì¬
-uint8_t regul_alarm_state   = 0; // ¼à¹Ü±¨¾¯×´Ì¬
-uint8_t shielding_state     = 0; // ÆÁ±Î×´Ì¬
-uint8_t siren_start_state   = 0; // ±¨¾¯Æ÷Æô¶¯×´Ì¬
-uint8_t siren_fault_state   = 0; // ±¨¾¯Æ÷¹ÊÕÏ×´Ì¬
-uint8_t self_check_state    = 0; // ×Ô¼ì×´Ì¬
-// ·ÖÇø1 ×´Ì¬¿ØÖÆ±äÁ¿
+uint8_t fire_alarm_state    = 0; // ????
+uint8_t disconnect_state    = 0; // ??????
+uint8_t silencers_state     = 0; // ??????
+uint8_t system_fault_state  = 0; // ????????
+uint8_t sys_start_state = 0; // ??????
+uint8_t start_delay_state   = 0; // ?????????
+uint8_t feedbacked_state    = 0; // ??????
+uint8_t regul_alarm_state   = 0; // ????????
+uint8_t shielding_state     = 0; // ??????
+uint8_t siren_start_state   = 0; // ????????????
+uint8_t siren_fault_state   = 0; // ????????????
+uint8_t self_check_state    = 0; // ?????
+// ????1 ?????????
 uint8_t part_1_start_state  = 0;
 uint8_t part_1_start_delay  = 0;
 uint8_t part_1_spray_state  = 0;
 uint8_t part_1_feedback     = 0;
 uint8_t part_1_sound_light  = 0;
 uint8_t part_1_fault_state  = 0;
-// ·ÖÇø2 ×´Ì¬¿ØÖÆ±äÁ¿
+// ????2 ?????????
 uint8_t part_2_start_state  = 0;
 uint8_t part_2_start_delay  = 0;
 uint8_t part_2_spray_state  = 0;
 uint8_t part_2_feedback     = 0;
 uint8_t part_2_sound_light  = 0;
 uint8_t part_2_fault_state  = 0;
-// ±¸ÓÃLED×´Ì¬¿ØÖÆ±äÁ¿
-uint8_t spare_gas_selfcheck = 0; // ±¸ÓÃ ¿ÉÈ¼ÆøÌå×Ô¼ì
-uint8_t spare_gas_alarm     = 0; // ±¸ÓÃ ¿ÉÈ¼ÆøÌå±¨¾¯
-uint8_t spare_gas_fault     = 0; // ±¸ÓÃ ¿ÉÈ¼ÆøÌå¹ÊÕÏ
-uint8_t spare_gas_delay     = 0; // ±¸ÓÃ ¿ÉÈ¼ÆøÌåÑÓÊ±
-uint8_t spare_1_led         = 0; // ±¸ÓÃ 
-uint8_t spare_2_led         = 0; // ±¸ÓÃ 
-uint8_t spare_3_led         = 0; // ±¸ÓÃ 
+// ????LED?????????
+uint8_t spare_gas_selfcheck = 0; // ???? ??????????
+uint8_t spare_gas_alarm     = 0; // ???? ??????ŒÕ??
+uint8_t spare_gas_fault     = 0; // ???? ??????????
+uint8_t spare_gas_delay     = 0; // ???? ??????????
+uint8_t spare_1_led         = 0; // ???? 
+uint8_t spare_2_led         = 0; // ???? 
+uint8_t spare_3_led         = 0; // ???? 
 
-uint8_t special_communic    = 0; // Í¨ÐÅLED
-uint8_t special_running     = 0; // ÔËÐÐLED    
+uint8_t special_communic    = 0; // ???LED
+uint8_t special_running     = 0; // ????LED    
 
-// ÏµÍ³¸´Î»ÏÔÊ¾¿ØÖÆ
+// ????¦Ë???????
 uint8_t system_reset_flag   = 0;
-// [7:4] ÀúÊ·×´Ì¬ [3:0] µ±Ç°×´Ì¬
+// [7:4] ????? [3:0] ?????
 uint8_t screen_show_siren_information = 0;
 
 void LedStateInit(void)
 {
-	// Ö÷Ãæ°åLED
-	fire_alarm_state    = 0; // »ð¾¯×´Ì¬
-	disconnect_state    = 0; // µôÏß×´Ì¬
-	silencers_state     = 0; // ÏûÒô×´Ì¬
-	system_fault_state  = 0; // ÏµÍ³¹ÊÕÏ×´Ì¬
-	sys_start_state     = 0; // Æô¶¯×´Ì¬
-	start_delay_state   = 0; // Æô¶¯ÑÓÊ±×´Ì¬
-	feedbacked_state    = 0; // ·´À¡×´Ì¬
-	regul_alarm_state   = 0; // ¼à¹Ü±¨¾¯×´Ì¬
-	shielding_state     = 0; // ÆÁ±Î×´Ì¬
-	siren_start_state   = 0; // ±¨¾¯Æ÷Æô¶¯×´Ì¬
-	siren_fault_state   = 0; // ±¨¾¯Æ÷¹ÊÕÏ×´Ì¬
-	self_check_state    = 0; // ×Ô¼ì×´Ì¬
-	// ·ÖÇø1 ×´Ì¬¿ØÖÆ±äÁ¿
+	// ?????LED
+	fire_alarm_state    = 0; // ????
+	disconnect_state    = 0; // ??????
+	silencers_state     = 0; // ??????
+	system_fault_state  = 0; // ????????
+	sys_start_state     = 0; // ??????
+	start_delay_state   = 0; // ?????????
+	feedbacked_state    = 0; // ??????
+	regul_alarm_state   = 0; // ????????
+	shielding_state     = 0; // ??????
+	siren_start_state   = 0; // ????????????
+	siren_fault_state   = 0; // ????????????
+	self_check_state    = 0; // ?????
+	// ????1 ?????????
 	part_1_start_state  = 0;
 	part_1_start_delay  = 0;
 	part_1_spray_state  = 0;
 	part_1_feedback     = 0;
 	part_1_sound_light  = 0;
 	part_1_fault_state  = 0;
-	// ·ÖÇø2 ×´Ì¬¿ØÖÆ±äÁ¿
+	// ????2 ?????????
 	part_2_start_state  = 0;
 	part_2_start_delay  = 0;
 	part_2_spray_state  = 0;
@@ -220,19 +220,19 @@ void LedStateInit(void)
 	part_2_sound_light  = 0;
 	part_2_fault_state  = 0;
 	
-	// ±¸ÓÃLED×´Ì¬¿ØÖÆ±äÁ¿
-	spare_gas_selfcheck = 0; // ±¸ÓÃ ¿ÉÈ¼ÆøÌå×Ô¼ì
-	spare_gas_alarm     = 0; // ±¸ÓÃ ¿ÉÈ¼ÆøÌå±¨¾¯
-	spare_gas_fault     = 0; // ±¸ÓÃ ¿ÉÈ¼ÆøÌå¹ÊÕÏ
-	spare_gas_delay     = 0; // ±¸ÓÃ ¿ÉÈ¼ÆøÌåÑÓÊ±
-	spare_1_led         = 0; // ±¸ÓÃ 
-	spare_2_led         = 0; // ±¸ÓÃ 
-	spare_3_led         = 0; // ±¸ÓÃ 
-	// ÌØÊâLED
-	special_communic    = 0; // Í¨ÐÅLED
-	special_running     = 0; // ÔËÐÐLED  
+	// ????LED?????????
+	spare_gas_selfcheck = 0; // ???? ??????????
+	spare_gas_alarm     = 0; // ???? ??????ŒÕ??
+	spare_gas_fault     = 0; // ???? ??????????
+	spare_gas_delay     = 0; // ???? ??????????
+	spare_1_led         = 0; // ???? 
+	spare_2_led         = 0; // ???? 
+	spare_3_led         = 0; // ???? 
+	// ????LED
+	special_communic    = 0; // ???LED
+	special_running     = 0; // ????LED  
 	
-	// ½«ÊÖ±¨×´Ì¬³õÊ¼»¯
+	// ????????????
 	screen_show_siren_information = 0;
 }
 
@@ -251,7 +251,7 @@ void SysStartStateLedCtrl(LED_STATE state)
 	sys_start_state = state;
 }
 
-// ·ÖÇø1
+// ????1
 void Part1StartLedCtrl(LED_STATE state)
 {
 	part_1_start_state = state;
@@ -282,7 +282,7 @@ void Part1FaultLedCtrl(LED_STATE state)
 	part_1_fault_state = state;
 }
 
-// 2025/10/28 10:10 Ìí¼Ó·ÖÇø2¿ØÖÆ
+// 2025/10/28 10:10 ???????2????
 void Part2StartLedCtrl(LED_STATE state)
 {
 	part_2_start_state = state;
@@ -356,34 +356,34 @@ void getLedStateReg(uint8_t *led_state_buff, uint8_t len)
 		return;
 	}
 	
-	// ¸ù¾ÝÖ÷µç×´Ì¬ÐÞ¸ÄLEDÖµµÄ×´Ì¬
-	setLedxRegisterBit(led_state_buff[LED_MAIN_POWER/8]          , LED_MAIN_POWER            %8, getMainPowerState()  ); // Ö÷µçLED
-	setLedxRegisterBit(led_state_buff[LED_BACKUP_POWER/8]        , LED_BACKUP_POWER          %8, getSparePowerState() ); // ±¸µç
-	setLedxRegisterBit(led_state_buff[LED_FIRE_ALARM/8]          , LED_FIRE_ALARM            %8, getFireAlarmState()  ); // »ð¾¯
-	setLedxRegisterBit(led_state_buff[LED_DISCONNECT_FAULT/8]    , LED_DISCONNECT_FAULT      %8, getDisconnectState() ); // µôÏß¹ÊÕÏ
-	setLedxRegisterBit(led_state_buff[LED_SILENCE/8]             , LED_SILENCE               %8, getSilencersState()  ); // ÏûÒôLED
-	setLedxRegisterBit(led_state_buff[LED_SYSTEM_FAULT/8]        , LED_SYSTEM_FAULT          %8, getSystemFaultState()); // ÏµÍ³¹ÊÕÏ
-	setLedxRegisterBit(led_state_buff[LED_SYSTEM_START_UP/8]     , LED_SYSTEM_START_UP       %8, getInitiationState() ); // Æô¶¯
-	setLedxRegisterBit(led_state_buff[LED_SYSTEM_START_DELAY/8]  , LED_SYSTEM_START_DELAY    %8, getStartDelayState() ); // Æô¶¯ÑÓÊ±
-	setLedxRegisterBit(led_state_buff[LED_SYSTEM_FEEDBACK/8]     , LED_SYSTEM_FEEDBACK       %8, getFeedbackedState() ); // ·´À¡
-	setLedxRegisterBit(led_state_buff[LED_SYSTEM_REGULAR_ALARM/8], LED_SYSTEM_REGULAR_ALARM  %8, getRegulAlarmState() ); // ¼à¹Ü±¨¾¯
-	setLedxRegisterBit(led_state_buff[LED_SYSTEM_SHIELD/8]       , LED_SYSTEM_SHIELD         %8, getShieldingState()  ); // ÆÁ±Î×´Ì¬
-	setLedxRegisterBit(led_state_buff[LED_SIREN_STARTUP/8]       , LED_SIREN_STARTUP         %8, getSirenStartState() ); // ±¨¾¯Æ÷Æô¶¯LED
-	setLedxRegisterBit(led_state_buff[LED_SIREN_FAULT/8]         , LED_SIREN_FAULT           %8, getSirenFaultState() ); // ±¨¾¯Æ÷¹ÊÕÏLED
-	setLedxRegisterBit(led_state_buff[LED_SYSTEM_SELF_CHECK/8]   , LED_SYSTEM_SELF_CHECK     %8, getSelfCheckState()  ); // ×Ô¼ì¿ªÆôLED ½áÊøºó×Ô¶¯¹Ø±Õ
-	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_1/8]      , LED_PART_STARTUP_1        %8, getPart1StartState() ); // ·ÖÇøÆô¶¯1Æô¶¯LED
-	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_DELAY_1/8], LED_PART_STARTUP_DELAY_1  %8, getPart1DelayState() ); // ·ÖÇø1Æô¶¯ÑÓÊ±LED
-	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_STARTUP_1/8], LED_PART_SPRAY_STARTUP_1  %8, getPart1SprayState() ); // ·ÖÇø1Åç·ÅÆô¶¯×´Ì¬LED
-	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_STARTUP_1/8], LED_PART_SPRAY_STARTUP_1  %8, getPart1FeedbackState()); // ·ÖÇø1Åç·Å·´À¡LED
-	setLedxRegisterBit(led_state_buff[LED_PART_SOUND_ALARM_1/8]  , LED_PART_SOUND_ALARM_1    %8, getPart1SoundState() ); // ·ÖÇø1Éù¹â×´Ì¬
-	setLedxRegisterBit(led_state_buff[LED_PART_FAULT_1/8]        , LED_PART_FAULT_1          %8, getPart1FaultState() ); // ·ÖÇø1¹ÊÕÏ×´Ì¬LED
-	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_2/8]      , LED_PART_STARTUP_2        %8, getPart2StartState() ); // ·ÖÇøÆô¶¯2Æô¶¯LED
-	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_DELAY_2/8], LED_PART_STARTUP_DELAY_2  %8, getPart2DelayState() ); // ·ÖÇø2Æô¶¯ÑÓÊ±LED
-	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_STARTUP_2/8], LED_PART_SPRAY_STARTUP_2  %8, getPart2SprayState() ); // ·ÖÇø2Åç·ÅÆô¶¯×´Ì¬LED
-	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_FEEDBACK_2/8], LED_PART_SPRAY_FEEDBACK_2%8, getPart2FeedbackState()); // ·ÖÇø2Åç·Å·´À¡LED
-	setLedxRegisterBit(led_state_buff[LED_PART_SOUND_ALARM_2/8]   , LED_PART_SOUND_ALARM_2   %8, getPart2SoundState() ); // ·ÖÇø2Éù¹â×´Ì¬
-	setLedxRegisterBit(led_state_buff[LED_PART_FAULT_2/8]         , LED_PART_FAULT_2         %8, getPart2FaultState() ); // ·ÖÇø2¹ÊÕÏ×´Ì¬LED
-	// ÐÂÔö±¸ÓÃLED¿ØÖÆ 2025/10/10 16:56
+	// ?????????????LED?????
+	setLedxRegisterBit(led_state_buff[LED_MAIN_POWER/8]          , LED_MAIN_POWER            %8, getMainPowerState()  ); // ????LED
+	setLedxRegisterBit(led_state_buff[LED_BACKUP_POWER/8]        , LED_BACKUP_POWER          %8, getSparePowerState() ); // ????
+	setLedxRegisterBit(led_state_buff[LED_FIRE_ALARM/8]          , LED_FIRE_ALARM            %8, getFireAlarmState()  ); // ??
+	setLedxRegisterBit(led_state_buff[LED_DISCONNECT_FAULT/8]    , LED_DISCONNECT_FAULT      %8, getDisconnectState() ); // ???????
+	setLedxRegisterBit(led_state_buff[LED_SILENCE/8]             , LED_SILENCE               %8, getSilencersState()  ); // ????LED
+	setLedxRegisterBit(led_state_buff[LED_SYSTEM_FAULT/8]        , LED_SYSTEM_FAULT          %8, getSystemFaultState()); // ??????
+	setLedxRegisterBit(led_state_buff[LED_SYSTEM_START_UP/8]     , LED_SYSTEM_START_UP       %8, getInitiationState() ); // ????
+	setLedxRegisterBit(led_state_buff[LED_SYSTEM_START_DELAY/8]  , LED_SYSTEM_START_DELAY    %8, getStartDelayState() ); // ???????
+	setLedxRegisterBit(led_state_buff[LED_SYSTEM_FEEDBACK/8]     , LED_SYSTEM_FEEDBACK       %8, getFeedbackedState() ); // ????
+	setLedxRegisterBit(led_state_buff[LED_SYSTEM_REGULAR_ALARM/8], LED_SYSTEM_REGULAR_ALARM  %8, getRegulAlarmState() ); // ??????
+	setLedxRegisterBit(led_state_buff[LED_SYSTEM_SHIELD/8]       , LED_SYSTEM_SHIELD         %8, getShieldingState()  ); // ??????
+	setLedxRegisterBit(led_state_buff[LED_SIREN_STARTUP/8]       , LED_SIREN_STARTUP         %8, getSirenStartState() ); // ??????????LED
+	setLedxRegisterBit(led_state_buff[LED_SIREN_FAULT/8]         , LED_SIREN_FAULT           %8, getSirenFaultState() ); // ??????????LED
+	setLedxRegisterBit(led_state_buff[LED_SYSTEM_SELF_CHECK/8]   , LED_SYSTEM_SELF_CHECK     %8, getSelfCheckState()  ); // ?????LED ????????????
+	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_1/8]      , LED_PART_STARTUP_1        %8, getPart1StartState() ); // ????????1????LED
+	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_DELAY_1/8], LED_PART_STARTUP_DELAY_1  %8, getPart1DelayState() ); // ????1???????LED
+	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_STARTUP_1/8], LED_PART_SPRAY_STARTUP_1  %8, getPart1SprayState() ); // ????1?????????LED
+	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_STARTUP_1/8], LED_PART_SPRAY_STARTUP_1  %8, getPart1FeedbackState()); // ????1??????LED
+	setLedxRegisterBit(led_state_buff[LED_PART_SOUND_ALARM_1/8]  , LED_PART_SOUND_ALARM_1    %8, getPart1SoundState() ); // ????1??????
+	setLedxRegisterBit(led_state_buff[LED_PART_FAULT_1/8]        , LED_PART_FAULT_1          %8, getPart1FaultState() ); // ????1??????LED
+	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_2/8]      , LED_PART_STARTUP_2        %8, getPart2StartState() ); // ????????2????LED
+	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_DELAY_2/8], LED_PART_STARTUP_DELAY_2  %8, getPart2DelayState() ); // ????2???????LED
+	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_STARTUP_2/8], LED_PART_SPRAY_STARTUP_2  %8, getPart2SprayState() ); // ????2?????????LED
+	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_FEEDBACK_2/8], LED_PART_SPRAY_FEEDBACK_2%8, getPart2FeedbackState()); // ????2??????LED
+	setLedxRegisterBit(led_state_buff[LED_PART_SOUND_ALARM_2/8]   , LED_PART_SOUND_ALARM_2   %8, getPart2SoundState() ); // ????2??????
+	setLedxRegisterBit(led_state_buff[LED_PART_FAULT_2/8]         , LED_PART_FAULT_2         %8, getPart2FaultState() ); // ????2??????LED
+	// ????????LED???? 2025/10/10 16:56
 	setLedxRegisterBit(led_state_buff[LED_COMBUSTIBLE_GAS_SELF_CHECK/8], LED_COMBUSTIBLE_GAS_SELF_CHECK%8, getSpareGasCheck() ); // 
 	setLedxRegisterBit(led_state_buff[LED_COMBUSTIBLE_GAS_ALARM     /8], LED_COMBUSTIBLE_GAS_ALARM     %8, getSpareGasAlarm() ); // 
 	setLedxRegisterBit(led_state_buff[LED_COMBUSTIBLE_GAS_FAULT     /8], LED_COMBUSTIBLE_GAS_FAULT     %8, getSpareGasFault() ); // 
@@ -398,19 +398,19 @@ void getLedStateReg(uint8_t *led_state_buff, uint8_t len)
 
 void HostUploadDataTask(void *parameter)
 {
-	uint8_t modbusbuf[24]; // ·¢ËÍ»º³åÇø
-	uint16_t crc16 = 0x0000; // CRCÐ£ÑéÂë
+	uint8_t modbusbuf[24]; // ?????????
+	uint16_t crc16 = 0x0000; // CRC§µ????
 	for(;;)
 	{
 		if(system_reset_flag == 1)
 		{
-			modbusbuf[0] = 0xFF; // ´Ó»úµØÖ·È¡Öµ
-			modbusbuf[1] = 0x05; // 05¹¦ÄÜÂë
+			modbusbuf[0] = 0xFF; // ????????
+			modbusbuf[1] = 0x05; // 05??????
 			modbusbuf[2] = 0x00;
 			modbusbuf[3] = 20;
 			modbusbuf[4] = 0xFF;
 			modbusbuf[5] = 0x00; // 
-			crc16 = CalcCrc16(modbusbuf, 6); // ¼ÆËãÁù×Ö½ÚÊý¾ÝµÄCRCÐ£ÑéÂë
+			crc16 = CalcCrc16(modbusbuf, 6); // ??????????????CRC§µ????
 			modbusbuf[6] = crc16 >> 0;
 			modbusbuf[7] = crc16 >> 8;
 			
@@ -419,54 +419,54 @@ void HostUploadDataTask(void *parameter)
 		}
 		else
 		{
-			if(self_check_show_content == 1) // LEDÖ¸Ê¾µÆ×Ô¼ì
+			if(self_check_show_content == 1) // LED???????
 			{
 				uint8_t data_count = 0;
 				modbusbuf[data_count++] = InternalBoardAddr;
-				modbusbuf[data_count++] = 0x04;  // Ê¹ÓÃ04¹¦ÄÜÂë ·¢ËÍÈ«²¿×´Ì¬
-				modbusbuf[data_count++] = 6;  // ·µ»ØµÄ×Ö½ÚÊý
+				modbusbuf[data_count++] = 0x04;  // ???04?????? ?????????
+				modbusbuf[data_count++] = 6;  // ??????????
 				
 				for(uint8_t i = 0; i < 5; i++)
 				{
-					modbusbuf[data_count++] = 0xFF; // È«²¿µãÁÁ
+					modbusbuf[data_count++] = 0xFF; // ???????
 				}
 				modbusbuf[data_count++] = 0;
-				modbusbuf[data_count++] = 0; // ¹Ø±Õ·äÃùÆ÷
+				modbusbuf[data_count++] = 0; // ????????
 
-				crc16 = CalcCrc16(modbusbuf, data_count); // ¼ÆËãÁù×Ö½ÚÊý¾ÝµÄCRCÐ£ÑéÂë
+				crc16 = CalcCrc16(modbusbuf, data_count); // ??????????????CRC§µ????
 				modbusbuf[data_count++] = (uint8_t)(crc16);
 				modbusbuf[data_count++] = (crc16 >> 8);
 				
-				InternalBoardSendString(modbusbuf, data_count); // ·¢ËÍÊý¾Ýµ½3303
+				InternalBoardSendString(modbusbuf, data_count); // ?????????3303
 				
 				crc16 = 0;
 				
 				osDelay(2000);
 				self_check_show_content = 2;
 			}
-			else if(self_check_show_content == 2) // ·äÃùÆ÷×Ô¼ì
+			else if(self_check_show_content == 2) // ?????????
 			{
 				uint8_t data_count = 0;
-				uint8_t led_reg_state[5] = { 0 }; // Ä¬ÈÏ¹Ø±Õ
+				uint8_t led_reg_state[5] = { 0 }; // ?????
 				
 				modbusbuf[data_count++] = InternalBoardAddr;
-				modbusbuf[data_count++] = 0x04;  // Ê¹ÓÃ04¹¦ÄÜÂë ·¢ËÍÈ«²¿×´Ì¬
-				modbusbuf[data_count++] = 6;  // ·µ»ØµÄ×Ö½ÚÊý
+				modbusbuf[data_count++] = 0x04;  // ???04?????? ?????????
+				modbusbuf[data_count++] = 6;  // ??????????
 				
 				getLedStateReg(led_reg_state, 5);
 				
 				for(uint8_t i = 0; i < 5; i++)
 				{
-					modbusbuf[data_count++] = led_reg_state[i]; // È«²¿Ãðµô
+					modbusbuf[data_count++] = led_reg_state[i]; // ??????
 				}
 				modbusbuf[data_count++] = 0;
-				modbusbuf[data_count++] = 1; // ´ò¿ª·äÃùÆ÷ Ãù½ÐÒ»Ãë
+				modbusbuf[data_count++] = 1; // ??????? ???????
 
-				crc16 = CalcCrc16(modbusbuf, data_count); // ¼ÆËãÁù×Ö½ÚÊý¾ÝµÄCRCÐ£ÑéÂë
+				crc16 = CalcCrc16(modbusbuf, data_count); // ??????????????CRC§µ????
 				modbusbuf[data_count++] = (uint8_t)(crc16);
 				modbusbuf[data_count++] = (crc16 >> 8);
 				
-				InternalBoardSendString(modbusbuf, data_count); // ·¢ËÍÊý¾Ýµ½3303
+				InternalBoardSendString(modbusbuf, data_count); // ?????????3303
 				
 				crc16 = 0;
 				
@@ -475,14 +475,14 @@ void HostUploadDataTask(void *parameter)
 			}
 			else
 			{
-				uint8_t led_reg_state[5] = { 0 }; // Ä¬ÈÏ¹Ø±Õ
+				uint8_t led_reg_state[5] = { 0 }; // ?????
 				
 				getLedStateReg(led_reg_state, 5);
 
 				uint8_t data_count = 0;
 				modbusbuf[data_count++] = InternalBoardAddr;
-				modbusbuf[data_count++] = 0x04;  // Ê¹ÓÃ04¹¦ÄÜÂë ·¢ËÍÈ«²¿×´Ì¬
-				modbusbuf[data_count++] = 6;  // ·µ»ØµÄ×Ö½ÚÊý
+				modbusbuf[data_count++] = 0x04;  // ???04?????? ?????????
+				modbusbuf[data_count++] = 6;  // ??????????
 				
 				for(uint8_t i = 0; i < 5; i++)
 				{
@@ -491,7 +491,7 @@ void HostUploadDataTask(void *parameter)
 				modbusbuf[data_count++] = 0;
 				modbusbuf[data_count++] = getBuzzerWorkState();
 
-				crc16 = CalcCrc16(modbusbuf, data_count); // ¼ÆËãÁù×Ö½ÚÊý¾ÝµÄCRCÐ£ÑéÂë
+				crc16 = CalcCrc16(modbusbuf, data_count); // ??????????????CRC§µ????
 				modbusbuf[data_count++] = (uint8_t)(crc16);
 				modbusbuf[data_count++] = (crc16 >> 8);
 				
@@ -506,7 +506,7 @@ void HostUploadDataTask(void *parameter)
 	}
 }
 
-static uint8_t key_value_storage = NONE_KEY; // Ä¬ÈÏÃ»ÓÐ°´¼ü°´ÏÂ
+static uint8_t key_value_storage = NONE_KEY; // ?????§Ñ???????
 
 uint8_t getKeyPressValue(void)
 {
@@ -542,13 +542,13 @@ void clearOutFireKeyValue(void)
 	outfire_key_val = NO_MATRIX_KEY_PRESS;
 }
 
-uint8_t part1_hand_or_auto_state = KEY_AUTO; // Ä¬ÈÏ×Ô¶¯
+uint8_t part1_hand_or_auto_state = KEY_AUTO; // ??????
 uint8_t getPart1HandAutoState(void)
 {
 	return part1_hand_or_auto_state;
 }
 
-uint8_t sys_hand_or_auto_state = KEY_AUTO; // Ä¬ÈÏ×Ô¶¯
+uint8_t sys_hand_or_auto_state = KEY_AUTO; // ??????
 uint8_t getSysHandAutoState(void)
 {
 	return sys_hand_or_auto_state;
@@ -563,7 +563,7 @@ uint8_t getPart2HandAutoState(void)
 void InternalScreenBoradRecvDealTask(void * parameter)
 {
 	uint8_t temp_key_val;
-	uint16_t crc16 = 0x0000; // CRCÐ£ÑéÂë
+	uint16_t crc16 = 0x0000; // CRC§µ????
 	
 	for(;;)
 	{
@@ -588,17 +588,17 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 						outfire_key_val = temp_key_val;
 						switch(temp_key_val)
 						{
-							case KEY1_INFORM_CERTAIN  : // ÐÅÏ¢È·ÈÏ
+							case KEY1_INFORM_CERTAIN  : StorageEvent_LogConfirmButton(); /* ºÚÏ»×Ó:ÐÅÏ¢È·ÈÏ°´Å¥¶¯×÷(EVT_CONFIRM_BUTTON=128), GB4717-2024 B.1.1.1b */ // ??????
 								break;
-							case KEY2_SELF_INSPECTION : // ÏµÍ³×Ô¼ì
-								key_value_storage = SELFCHECK_KEY; // ¸³Öµ×Ô¼ì
+							case KEY2_SELF_INSPECTION : // ?????
+								key_value_storage = SELFCHECK_KEY; // ??????
 								taskENTER_CRITICAL();
-								SetScreen(53);	// ½øÈë¶þ¼¶ÃÜÂëÒ³
+								SetScreen(53);	// ????????????
 								taskEXIT_CRITICAL();	
 								osDelay(5);
 								GetScreen();
 								break;
-							case KEY3_SYSTEM_SILENCE  : { // ÏµÍ³ÏûÒô
+							case KEY3_SYSTEM_SILENCE  : { // ??????
 //								key_value_storage = SILENSE_KEY;
 								if( main_power_beep_ctrl     != 0 || 
 										linkage_beep_ctrl        != 0 ||
@@ -608,7 +608,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 										beep_general_io_ctrl     != 0    
 								) 
 								{		
-									silencers_state = 1; // ÏûÒô±êÖ¾
+									silencers_state = 1; // ???????
 								}
 								
 								beep_spray_feedback_ctrl = 0;
@@ -621,10 +621,10 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								beep_general_io_ctrl = 0;
 								break;
 							}
-							case KEY4_SYSTEM_RESET    : // ÏµÍ³¸´Î»
+							case KEY4_SYSTEM_RESET    : // ????¦Ë
 								key_value_storage = RESET_KEY;
 								taskENTER_CRITICAL();
-								SetScreen(53);	// ½øÈë¶þ¼¶ÃÜÂëÒ³
+								SetScreen(53);	// ????????????
 								taskEXIT_CRITICAL();	
 								osDelay(5);
 								GetScreen();
@@ -640,37 +640,37 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								osDelay(5);
 								GetScreen();
 								break;
-							case KEY6_DIRECTION_UP    : // ·½Ïò¼üÉÏ
+							case KEY6_DIRECTION_UP    : // ???????
 								
 								break;
-							case KEY7_DIRECTION_RIGHT : // ·½Ïò¼üÓÒ
+							case KEY7_DIRECTION_RIGHT : // ???????
 								
 								break;
-							case KEY8_DIRECTION_DOWN  : // ·½Ïò¼üÏÂ
+							case KEY8_DIRECTION_DOWN  : // ???????
 								
 								break;
-							case KEY9_DIRECTION_LEFT  : // ·½Ïò¼ü×ó
+							case KEY9_DIRECTION_LEFT  : // ???????
 								
 								break;
-							case KEY10_DIRECTION_OK   : // ·½Ïò¼üok
+							case KEY10_DIRECTION_OK   : // ?????ok
 								
 								break;
-							case KEY11_PART1_SOUNDLT  : // ·ÖÇø1Éù¹â
+							case KEY11_PART1_SOUNDLT  : // ????1????
 								break;
-							case KEY12_PART1_STOP     : // ·ÖÇø1Í£Ö¹
+							case KEY12_PART1_STOP     : // ????1??
 								break;
-							case KEY13_PART2_SOUNDLT  :  // ·ÖÇø2Éù¹â
+							case KEY13_PART2_SOUNDLT  :  // ????2????
 								break;
-							case KEY14_PART2_STOP     :  // ·ÖÇø2Í£Ö¹
+							case KEY14_PART2_STOP     :  // ????2??
 								break;
-							case KEY15_PART1_SPRAY_ST : { // ·ÖÇø1ÅçÈ÷Æô¶¯
+							case KEY15_PART1_SPRAY_ST : { // ????1????????
 								key_value_storage = PART1_SPRY_START;
 								SetScreen(53);								
 								osDelay(5);
 								GetScreen();
 								break;
 							}
-							case KEY16_PART2_SPRAY_ST : { // ·ÖÇø2ÅçÈ÷Æô¶¯
+							case KEY16_PART2_SPRAY_ST : { // ????2????????
 								key_value_storage = PART2_SPRY_START;
 								SetScreen(53);								
 								osDelay(5);
@@ -683,51 +683,52 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 
 						switch(uartbuff[INSCREENSITE].recepetion_buff[5])
 						{
-							case KEY_SYSTEM_ANNOUNCIAT : // ÏµÍ³±¨¾¯Æ÷Æô¶¯
+							case KEY_SYSTEM_ANNOUNCIAT : // ????????????
 								key_value_storage = SIREN_KEY; // 
 //								taskENTER_CRITICAL();
-//								SetScreen(53);	// ½øÈë¶þ¼¶ÃÜÂëÒ³
+//								SetScreen(53);	// ????????????
 //								taskEXIT_CRITICAL();
 								SetScreen(53);								
 								osDelay(5);
 								GetScreen();
 								break;
-							case KEY_SYSTEM_LINKAGE_S  : // Áª¶¯Æô¶¯°´ÏÂ
-								key_value_storage = LINKAGE_START_KEY; // 
+							case KEY_SYSTEM_LINKAGE_S  : // ????????????
+								key_value_storage = LINKAGE_START_KEY; //
 								StartupLinkageDevice();
-								StorageEvent_LogStart(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
-							FecbusReport_Start(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* FECbus:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+								StorageEvent_LogLinkageStartButton(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* ºÚÏ»×Ó:Áª¶¯Æô¶¯°´Å¥°´ÏÂ¶¯×÷(EVT_LINKAGE_START_BUTTON=130), GB4717-2024 B.1.1.1b */
+								StorageEvent_LogStart(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* ?????:??????? */
+							FecbusReport_Start(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* FECbus:??????? */
 								break;
 							default:
 								break;
 						}
-						// ÅÐ¶ÏÏµÍ³ÊÖ×Ô¶¯
+						// ?§Ø????????
 						switch(uartbuff[INSCREENSITE].recepetion_buff[6] & 0x03)
 						{
 							case KEY_MANUAL:
-								if(SystemSaveInfo.system_hand_or_auto_state != KEY_MANUAL) // ÊÖ¶¯
+								if(SystemSaveInfo.system_hand_or_auto_state != KEY_MANUAL) // ???
 								{
-									SystemSaveInfo.system_hand_or_auto_state = KEY_MANUAL; // ÊÖ¶¯
+									SystemSaveInfo.system_hand_or_auto_state = KEY_MANUAL; // ???
 									SystemInfoSave();
-									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»ÎªÊÖ¶¯
+									// ??????????? ???§Ý?????
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_HAND, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* ï¿½ï¿½Ï»ï¿½ï¿½:ÏµÍ³ï¿½Ö¶ï¿½ */
-								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* FECbus:ÏµÍ³ï¿½Ö¶ï¿½ */
+									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* ?????:????? */
+								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* FECbus:????? */
 								}
 								break;
 							case KEY_AUTO:
-								if(SystemSaveInfo.system_hand_or_auto_state != KEY_AUTO) // ÊÖ¶¯
+								if(SystemSaveInfo.system_hand_or_auto_state != KEY_AUTO) // ???
 								{
-									SystemSaveInfo.system_hand_or_auto_state = KEY_AUTO; // Ä£Ê½ÇÐ»»Îª×Ô¶¯
+									SystemSaveInfo.system_hand_or_auto_state = KEY_AUTO; // ???§Ý?????
 									SystemInfoSave();
-									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»Îª×Ô¶¯
+									// ??????????? ???§Ý?????
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_AUTO, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* ï¿½ï¿½Ï»ï¿½ï¿½:ÏµÍ³ï¿½Ô¶ï¿½ */
-								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* FECbus:ÏµÍ³ï¿½Ô¶ï¿½ */
+									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* ?????:????? */
+								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* FECbus:????? */
 								}
 								break;
 						}
-						// ÅÐ¶Ï·ÖÇø1ÊÖ×Ô¶¯
+						// ?§Ø????1?????
 						switch((uartbuff[INSCREENSITE].recepetion_buff[6] >> 2) & 0x03)
 						{
 							case KEY_MANUAL:
@@ -735,10 +736,10 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								{
 									SystemSaveInfo.part1_hand_or_auto_state = KEY_MANUAL;
 									SystemInfoSave();
-									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»ÎªÊÖ¶¯
+									// ??????????? ???§Ý?????
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_HAND, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½1ï¿½Ö¶ï¿½ */
-								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* FECbus:ï¿½ï¿½ï¿½ï¿½1ï¿½Ö¶ï¿½ */
+									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* ?????:????1??? */
+								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* FECbus:????1??? */
 								}
 								break;
 							case KEY_AUTO:
@@ -746,14 +747,14 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								{
 									SystemSaveInfo.part1_hand_or_auto_state = KEY_AUTO;
 									SystemInfoSave();
-									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»Îª×Ô¶¯
+									// ??????????? ???§Ý?????
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_AUTO, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½1ï¿½Ô¶ï¿½ */
-								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* FECbus:ï¿½ï¿½ï¿½ï¿½1ï¿½Ô¶ï¿½ */
+									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* ?????:????1??? */
+								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* FECbus:????1??? */
 								}
 								break;
 						}
-						// ÅÐ¶Ï·ÖÇø2ÊÖ×Ô¶¯
+						// ?§Ø????2?????
 						switch((uartbuff[INSCREENSITE].recepetion_buff[6] >> 4) & 0x03)
 						{
 							case KEY_MANUAL:
@@ -761,10 +762,10 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								{
 									SystemSaveInfo.part2_hand_or_auto_state = KEY_MANUAL;
 									SystemInfoSave();
-									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»ÎªÊÖ¶¯
+									// ??????????? ???§Ý?????
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_HAND, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½2ï¿½Ö¶ï¿½ */
-								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* FECbus:ï¿½ï¿½ï¿½ï¿½2ï¿½Ö¶ï¿½ */
+									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* ?????:????2??? */
+								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* FECbus:????2??? */
 								}
 								break;
 							case KEY_AUTO:
@@ -772,10 +773,10 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								{
 									SystemSaveInfo.part2_hand_or_auto_state = KEY_AUTO;
 									SystemInfoSave();
-									// ´æÈëÆøÃð·ÖÇø ×´Ì¬ÇÐ»»Îª×Ô¶¯
+									// ??????????? ???§Ý?????
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_AUTO, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½2ï¿½Ô¶ï¿½ */
-								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* FECbus:ï¿½ï¿½ï¿½ï¿½2ï¿½Ô¶ï¿½ */
+									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* ?????:????2??? */
+								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* FECbus:????2??? */
 								}
 								break;
 						}

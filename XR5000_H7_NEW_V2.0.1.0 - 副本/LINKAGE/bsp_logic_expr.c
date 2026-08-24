@@ -561,6 +561,21 @@ uint8_t LogicRule_SaveAll(void)
 }
 
 /*--------------------------------------------------------------
+ * 函数名称：LogicRule_WipeAllPersistent
+ * 功能描述：一次性持久化清空所有联动规则（RAM + Flash）
+ *           清空后重启不会从Flash加载回旧规则，也不会触发默认规则回填
+ *           （因为SaveAll会写入 magic=LOGIC_MAGIC + rule_count=0 的元数据，
+ *            LoadAll校验通过且循环0次，LogicExpr_Init不会走LoadDefault路径）
+ * 用法     ：在 main.c 的 LogicExpr_Init() 之后调用一次，烧录运行后注释掉
+ *--------------------------------------------------------------*/
+void LogicRule_WipeAllPersistent(void)
+{
+    LogicRule_ClearAll();     /* 1. 清空RAM规则表 + 重置运行时状态 */
+    (void)LogicRule_SaveAll();  /* 2. 擦除Flash 4个扇区 + 写入空元数据(rule_count=0) */
+    DebugPrintf("[LOGIC] WipeAllPersistent: rules wiped (RAM+Flash), reboot stays empty\r\n");
+}
+
+/*--------------------------------------------------------------
  * 函数名称：LogicRule_LoadAll
  * 功能描述：从Flash加载所有规则到RAM中
  * 加载时对每条规则进行CRC校验

@@ -165,6 +165,8 @@ int main(void)
 	LinkageDeviceStateInit();
 	/* Linkage logic init: expr(Flash rules) -> dev(register callbacks) -> engine(runtime) -> screen(UI state) */
 	LogicExpr_Init();
+	/* 一次性清空联动规则(RAM+Flash), 烧录运行一次后注释掉本行 */
+	//LogicRule_WipeAllPersistent();
 	LogicDev_Register();
 	LogicEngine_Init();
 	LogicScreen_Init();
