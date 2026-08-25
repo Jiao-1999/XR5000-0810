@@ -31,6 +31,7 @@ static uint8_t g_mbus_ctrl_polling_addr = 1; /* 当前轮询地址(1~63循环) */
 #define MBUS_FIRE_DISPLAY_MAX_RETRY             3U   /* 火灾显示盘最大重试次数 */
 #define MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS    15U  /* 声光报警器响应等待超时(tick) */
 #define MBUS_SOUND_LIGHT_MAX_RETRY              3U   /* 声光报警器最大重试次数 */
+#define MBUS_CONTROL_REQUEST_QUEUE_LEN           8U   /* 通用控制请求静态队列长度 */
 
 /* 火灾显示盘事件定义(环形队列元素) */
 typedef struct
@@ -50,15 +51,31 @@ static uint8_t g_fire_display_wait_response = 0; /* 是否等待显示盘响应 */
 static uint8_t g_fire_display_wait_ticks = 0;    /* 等待响应已计tick数 */
 static uint8_t g_fire_display_retry_count = 0;   /* 当前事件重试计数 */
 
-/* 声光报警器控制状态(独立于设备在线状态, 保留最后目标值) */
-static uint8_t g_sound_light_target_valid = 0;   /* 目标值是否有效 */
-static uint8_t g_sound_light_target_state = 0;   /* 目标状态(0=关闭, 1=开启) */
-static uint8_t g_sound_light_confirmed_valid = 0;/* 确认值是否有效 */
-static uint8_t g_sound_light_confirmed_state = 0;/* 已确认的当前状态 */
-static uint8_t g_sound_light_request_pending = 0;/* 是否有待发送的控制请求 */
-static uint8_t g_sound_light_wait_response = 0;  /* 是否等待声光报警器响应 */
-static uint8_t g_sound_light_wait_ticks = 0;     /* 等待响应已计tick数 */
-static uint8_t g_sound_light_retry_count = 0;    /* 当前控制重试计数 */
+/* 通用控制队列元素。final_outputs是合并update_mask后的完整目标快照。 */
+typedef struct
+{
+    MBusCtrlRequest request;
+    uint32_t final_outputs;
+    uint8_t driver_id;
+} MBusQueuedControl;
+
+/* 固定RAM环形队列，不使用动态内存，也不在调用者栈中保存待执行请求。 */
+static MBusQueuedControl g_control_queue[MBUS_CONTROL_REQUEST_QUEUE_LEN];
+static uint8_t g_control_queue_head = 0U;
+static uint8_t g_control_queue_tail = 0U;
+static uint8_t g_control_queue_count = 0U;
+static MBusQueuedControl g_active_control;
+static uint8_t g_active_control_valid = 0U;
+static uint8_t g_control_wait_response = 0U;
+static uint8_t g_control_wait_ticks = 0U;
+static uint8_t g_control_retry_count = 0U;
+
+/* 每个物理地址独立保存目标值、确认值和异步结果，便于后续扩展更多输出设备。 */
+static uint32_t g_control_target_outputs[MBUS_CONTROL_MAX_DEVICES];
+static uint32_t g_control_confirmed_outputs[MBUS_CONTROL_MAX_DEVICES];
+static uint8_t g_control_confirmed_valid[MBUS_CONTROL_MAX_DEVICES];
+static uint8_t g_control_pending_count[MBUS_CONTROL_MAX_DEVICES];
+static uint8_t g_control_status[MBUS_CONTROL_MAX_DEVICES];
 
 /* 固定地址设备类型映射表(索引=地址, 值=MBusCtrlDevType) */
 /* 设备中文名称映射表(索引=MBusCtrlDevType) */
@@ -158,74 +175,180 @@ static uint8_t MBusCtrl_ServiceFireDisplayEvents(void)
 }
 
 /* ============================================================
- * 声光报警器控制: 05功能码写单线圈, 由XR2200手动报警器状态触发
+ * 通用异步控制: 单一外部入口、静态队列、产品驱动分派
  * ============================================================ */
 
-/* 根据XR2200手动报警器状态更新声光报警器目标值: state=2(报警)→开启, state=1(正常)→关闭 */
-static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
+/* 完成当前事务并更新该地址的最终状态；若同地址仍有排队请求则继续显示等待。 */
+static void MBusCtrl_FinishActiveControl(MBusCtrlStatus result)
 {
-    uint8_t target_state;
-
-    if (manual_state == 2U)
-        target_state = 1U;
-    else if (manual_state == 1U)
-        target_state = 0U;
-    else
-        return;
-
-    /* XR5000_MBUS2_MANUAL_SOUNDLIGHT_CHANGE_20260730: only valid XR2200 states change the retained target. */
-    g_sound_light_target_valid = 1U;
-    g_sound_light_target_state = target_state;
-    if (g_sound_light_confirmed_valid == 0U || g_sound_light_confirmed_state != target_state)
-        g_sound_light_request_pending = 1U;
+    uint8_t addr = g_active_control.request.addr;
+    if(addr > 0U && addr < MBUS_CONTROL_MAX_DEVICES)
+    {
+        if(g_control_pending_count[addr] > 0U) g_control_pending_count[addr]--;
+        g_control_status[addr] = g_control_pending_count[addr] > 0U ?
+                                 MBUS_CTRL_STATUS_PENDING : (uint8_t)result;
+    }
+    g_active_control_valid = 0U;
+    g_control_wait_response = 0U;
+    g_control_wait_ticks = 0U;
+    g_control_retry_count = 0U;
 }
 
-/* 发送声光报警器控制帧: 05功能码, 线圈值0xFF00(开启)或0x0000(关闭) */
-static void MBusCtrl_SendSoundLightControl(void)
+/* 请求执行前再次检查设备，防止排队期间设备被下线或重新识别。 */
+static uint8_t MBusCtrl_CanExecute(const MBusQueuedControl *control)
+{
+    uint8_t addr = control->request.addr;
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES) return 0U;
+    if(g_mbus_ctrl_devices[addr].online == 0U || g_mbus_ctrl_devices[addr].type_confirmed == 0U) return 0U;
+    if(g_mbus_ctrl_devices[addr].disconnect_count >= MBUS_CONTROL_DISCONNECT_THRESHOLD) return 0U;
+    return DeviceRegistry_GetControlDriver(g_mbus_ctrl_devices[addr].product_code) == control->driver_id ? 1U : 0U;
+}
+
+/* 当前只登记XR-SGBJQ驱动：05功能码写线圈0，输出1表示声光整体状态。 */
+static uint8_t MBusCtrl_BuildControlFrame(const MBusQueuedControl *control, uint8_t *frame, uint8_t *length)
+{
+    uint16_t crc16;
+    if(control == 0 || frame == 0 || length == 0) return 0U;
+    if(control->driver_id != DEVICE_CONTROL_DRIVER_SGBJQ ||
+       control->request.operation != MBUS_OPERATION_SET_OUTPUT) return 0U;
+
+    frame[0] = control->request.addr;
+    frame[1] = 0x05U;
+    frame[2] = 0x00U;
+    frame[3] = 0x00U;
+    frame[4] = (control->final_outputs & MBUS_OUTPUT_SOUND_LIGHT) != 0U ? 0xFFU : 0x00U;
+    frame[5] = 0x00U;
+    crc16 = CalcCrc16(frame, 6U);
+    frame[6] = (uint8_t)(crc16 & 0xFFU);
+    frame[7] = (uint8_t)(crc16 >> 8);
+    *length = 8U;
+    return 1U;
+}
+
+/* 发送当前控制事务；所有UART2控制报文只能由回路2任务调用这里发送。 */
+static uint8_t MBusCtrl_SendActiveControl(void)
 {
     uint8_t frame[8] = {0};
-    uint16_t crc16;
-
-    frame[0] = MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ);
-    if(frame[0] == 0U) return;
-    frame[1] = 0x05;
-    frame[4] = g_sound_light_target_state ? 0xFF : 0x00;
-    crc16 = CalcCrc16(frame, 6);
-    frame[6] = crc16 & 0xFF;
-    frame[7] = crc16 >> 8;
-    MBus2SendString(frame, sizeof(frame));
-    g_sound_light_wait_response = 1U;
-    g_sound_light_wait_ticks = 0U;
+    uint8_t length = 0U;
+    if(MBusCtrl_BuildControlFrame(&g_active_control, frame, &length) == 0U) return 0U;
+    MBus2SendString(frame, length);
+    g_control_wait_response = 1U;
+    g_control_wait_ticks = 0U;
+    g_control_status[g_active_control.request.addr] = MBUS_CTRL_STATUS_SENDING;
+    return 1U;
 }
 
-/* 声光报警器控制服务: 检查请求→发送控制帧→等待响应→超时重试→放弃 */
-static uint8_t MBusCtrl_ServiceSoundLightControl(void)
+/* 取出一条请求并执行；控制事务期间暂停普通轮询，超时后自动释放总线。 */
+static uint8_t MBusCtrl_ServiceControlRequest(void)
 {
-    if (g_sound_light_target_valid == 0U || g_sound_light_request_pending == 0U)
-        return 0U;
-    if (MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ) == 0U)
-        return 0U;
-
-    if (g_sound_light_wait_response == 0U)
+    if(g_active_control_valid == 0U)
     {
-        MBusCtrl_SendSoundLightControl();
-    }
-    else if (++g_sound_light_wait_ticks >= MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS)
-    {
-        if (g_sound_light_retry_count++ < MBUS_SOUND_LIGHT_MAX_RETRY)
+        taskENTER_CRITICAL();
+        if(g_control_queue_count == 0U)
         {
-            MBusCtrl_SendSoundLightControl();
+            taskEXIT_CRITICAL();
+            return 0U;
+        }
+        g_active_control = g_control_queue[g_control_queue_head];
+        g_control_queue_head = (uint8_t)((g_control_queue_head + 1U) % MBUS_CONTROL_REQUEST_QUEUE_LEN);
+        g_control_queue_count--;
+        taskEXIT_CRITICAL();
+        g_active_control_valid = 1U;
+
+        if(MBusCtrl_CanExecute(&g_active_control) == 0U || MBusCtrl_SendActiveControl() == 0U)
+        {
+            MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
+            return 0U;
+        }
+    }
+    else if(g_control_wait_response != 0U && ++g_control_wait_ticks >= MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS)
+    {
+        if(g_control_retry_count++ < MBUS_SOUND_LIGHT_MAX_RETRY)
+        {
+            if(MBusCtrl_SendActiveControl() == 0U)
+                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
         }
         else
         {
-            /* XR5000_MBUS2_MANUAL_SOUNDLIGHT_CHANGE_20260730: abandon this cycle so polling cannot be blocked forever. */
-            g_sound_light_request_pending = 0U;
-            g_sound_light_wait_response = 0U;
-            g_sound_light_wait_ticks = 0U;
-            g_sound_light_retry_count = 0U;
+            MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_TIMEOUT);
         }
     }
-    return 1U;
+    return g_active_control_valid != 0U ? 1U : 0U;
+}
+
+/* 唯一正式外部控制入口：校验能力并入队，不在调用任务中直接访问UART2。 */
+MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request)
+{
+    uint8_t addr;
+    uint8_t driver_id;
+    uint32_t capabilities;
+    uint32_t supported_outputs;
+    uint32_t final_outputs;
+
+    if(request == 0) return MBUS_CTRL_INVALID_PARAMETER;
+    addr = request->addr;
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES) return MBUS_CTRL_INVALID_ADDR;
+    if(g_mbus_ctrl_devices[addr].online == 0U) return MBUS_CTRL_NOT_CONFIGURED;
+    if(g_mbus_ctrl_devices[addr].type_confirmed == 0U) return MBUS_CTRL_UNIDENTIFIED;
+    if(g_mbus_ctrl_devices[addr].disconnect_count >= MBUS_CONTROL_DISCONNECT_THRESHOLD) return MBUS_CTRL_DISCONNECTED;
+    if(request->operation != MBUS_OPERATION_SET_OUTPUT) return MBUS_CTRL_UNSUPPORTED;
+
+    capabilities = DeviceRegistry_GetCapabilities(g_mbus_ctrl_devices[addr].product_code);
+    supported_outputs = DeviceRegistry_GetSupportedOutputs(g_mbus_ctrl_devices[addr].product_code);
+    driver_id = DeviceRegistry_GetControlDriver(g_mbus_ctrl_devices[addr].product_code);
+    if((capabilities & DEVICE_CAP_OUTPUT_CONTROL) == 0U || driver_id == DEVICE_CONTROL_DRIVER_NONE)
+        return MBUS_CTRL_UNSUPPORTED;
+    if(request->target_mask == 0U || (request->target_mask & ~supported_outputs) != 0U ||
+       (request->target_value & ~request->target_mask) != 0U)
+        return MBUS_CTRL_INVALID_PARAMETER;
+
+    taskENTER_CRITICAL();
+    final_outputs = (g_control_target_outputs[addr] & ~request->target_mask) |
+                    (request->target_value & request->target_mask);
+    /* 相同目标已经确认，或相同目标正在排队时，不重复占用队列。 */
+    if(final_outputs == g_control_target_outputs[addr] &&
+       ((g_control_pending_count[addr] > 0U) ||
+        (g_control_confirmed_valid[addr] != 0U && g_control_confirmed_outputs[addr] == final_outputs)))
+    {
+        taskEXIT_CRITICAL();
+        return MBUS_CTRL_ACCEPTED;
+    }
+    if(g_control_queue_count >= MBUS_CONTROL_REQUEST_QUEUE_LEN)
+    {
+        taskEXIT_CRITICAL();
+        return MBUS_CTRL_QUEUE_FULL;
+    }
+    g_control_target_outputs[addr] = final_outputs;
+    g_control_queue[g_control_queue_tail].request = *request;
+    g_control_queue[g_control_queue_tail].final_outputs = final_outputs;
+    g_control_queue[g_control_queue_tail].driver_id = driver_id;
+    g_control_queue_tail = (uint8_t)((g_control_queue_tail + 1U) % MBUS_CONTROL_REQUEST_QUEUE_LEN);
+    g_control_queue_count++;
+    if(g_control_pending_count[addr] < 0xFFU) g_control_pending_count[addr]++;
+    g_control_status[addr] = MBUS_CTRL_STATUS_PENDING;
+    taskEXIT_CRITICAL();
+    return MBUS_CTRL_ACCEPTED;
+}
+
+MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr)
+{
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES) return MBUS_CTRL_STATUS_IDLE;
+    return (MBusCtrlStatus)g_control_status[addr];
+}
+
+/* 手报自动控制也复用通用入口，避免另建一套声光控制状态机。 */
+static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
+{
+    uint8_t sound_light_addr;
+    MBusCtrlRequest request = {0};
+    if(manual_state != 1U && manual_state != 2U) return;
+    sound_light_addr = MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ);
+    if(sound_light_addr == 0U) return;
+    request.addr = sound_light_addr;
+    request.operation = MBUS_OPERATION_SET_OUTPUT;
+    request.target_mask = MBUS_OUTPUT_SOUND_LIGHT;
+    request.target_value = manual_state == 2U ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
+    (void)MBusCtrl_Request(&request);
 }
 
 /* ============================================================
@@ -234,6 +357,14 @@ static uint8_t MBusCtrl_ServiceSoundLightControl(void)
 
 void MBusCtrl_Init(void)
 {
+    /* 通用控制状态全部使用静态RAM，上电初始化时统一清零。 */
+    g_control_queue_head = 0U;
+    g_control_queue_tail = 0U;
+    g_control_queue_count = 0U;
+    g_active_control_valid = 0U;
+    g_control_wait_response = 0U;
+    g_control_wait_ticks = 0U;
+    g_control_retry_count = 0U;
     for (uint8_t i = 0; i < MBUS_CONTROL_MAX_DEVICES; i++)
     {
         g_mbus_ctrl_devices[i].online = 0;
@@ -248,6 +379,11 @@ void MBusCtrl_Init(void)
         g_mbus_ctrl_devices[i].identify_fail_count = 0U;
         g_mbus_ctrl_devices[i].identify_request_pending = 0U;
         g_mbus_ctrl_devices[i].last_identify_tick = 0U;
+        g_control_target_outputs[i] = 0U;
+        g_control_confirmed_outputs[i] = 0U;
+        g_control_confirmed_valid[i] = 0U;
+        g_control_pending_count[i] = 0U;
+        g_control_status[i] = MBUS_CTRL_STATUS_IDLE;
     }
     MBusCtrl_LoadOnlineState();
 }
@@ -274,6 +410,11 @@ void MBusCtrl_SetOnline(uint8_t addr, uint8_t state)
         g_mbus_ctrl_devices[addr].identify_stage = MBUS2_STAGE_NATIONAL;
         g_mbus_ctrl_devices[addr].identify_fail_count = 0U;
         g_mbus_ctrl_devices[addr].identify_request_pending = 0U;
+        g_control_target_outputs[addr] = 0U;
+        g_control_confirmed_outputs[addr] = 0U;
+        g_control_confirmed_valid[addr] = 0U;
+        g_control_pending_count[addr] = 0U;
+        g_control_status[addr] = MBUS_CTRL_STATUS_IDLE;
         DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP2, addr, 0U);
     }
 }
@@ -569,7 +710,10 @@ static void MBus2ReceiveSlaveDataDeal(void)
                     g_mbus_ctrl_devices[dev_addr].sensor_state = (uint8_t)data;
                     if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_XR2200) MBusCtrl_UpdateManualSoundLightTarget((uint8_t)data);
                     else if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_SGBJQ && data <= 1U)
-                    { g_sound_light_confirmed_valid = 1U; g_sound_light_confirmed_state = (uint8_t)data; }
+                    {
+                        g_control_confirmed_valid[dev_addr] = 1U;
+                        g_control_confirmed_outputs[dev_addr] = data != 0U ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
+                    }
                 }
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x84U && g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U)
@@ -579,22 +723,27 @@ static void MBus2ReceiveSlaveDataDeal(void)
                     g_mbus_ctrl_devices[dev_addr].identify_stage == MBUS2_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x05 &&
-                     g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_SGBJQ &&
-                     g_sound_light_wait_response != 0U &&
+                     g_active_control_valid != 0U &&
+                     g_control_wait_response != 0U &&
+                     dev_addr == g_active_control.request.addr &&
+                     g_active_control.driver_id == DEVICE_CONTROL_DRIVER_SGBJQ &&
                      uartbuff[MBUS2SITE].recepetion_len >= 8U &&
                      uartbuff[MBUS2SITE].recepetion_buff[2] == 0x00U &&
                      uartbuff[MBUS2SITE].recepetion_buff[3] == 0x00U &&
-                     uartbuff[MBUS2SITE].recepetion_buff[4] == (g_sound_light_target_state ? 0xFFU : 0x00U) &&
+                     uartbuff[MBUS2SITE].recepetion_buff[4] == ((g_active_control.final_outputs & MBUS_OUTPUT_SOUND_LIGHT) != 0U ? 0xFFU : 0x00U) &&
                      uartbuff[MBUS2SITE].recepetion_buff[5] == 0x00U)
             {
-                /* XR5000_MBUS2_MANUAL_SOUNDLIGHT_CHANGE_20260730: accept only the exact 0x05 coil echo. */
-                g_mbus_ctrl_devices[dev_addr].disconnect_count = 0;
-                g_sound_light_confirmed_valid = 1U;
-                g_sound_light_confirmed_state = g_sound_light_target_state;
-                g_sound_light_request_pending = 0U;
-                g_sound_light_wait_response = 0U;
-                g_sound_light_wait_ticks = 0U;
-                g_sound_light_retry_count = 0U;
+                /* 仅接受当前地址、当前目标值完全一致的05回显，避免把轮询或其他设备应答误认成功。 */
+                g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
+                g_control_confirmed_valid[dev_addr] = 1U;
+                g_control_confirmed_outputs[dev_addr] = g_active_control.final_outputs;
+                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_SUCCESS);
+            }
+            else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x85U &&
+                     g_active_control_valid != 0U && dev_addr == g_active_control.request.addr)
+            {
+                /* 当前05控制请求收到Modbus异常响应，立即结束事务并恢复普通轮询。 */
+                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x06)
             {
@@ -635,12 +784,12 @@ void MBusControlPollSlaveAndReceiveTask(void* parameter)
         uint8_t mbus2_control_busy = 0U;
 
         MBus2ReceiveSlaveDataDeal();
-        /* XR5000_MBUS2_MANUAL_SOUNDLIGHT_CHANGE_20260730: finish the active transaction before starting another. */
-        if (g_sound_light_wait_response != 0U)
-            mbus2_control_busy = MBusCtrl_ServiceSoundLightControl();
+        /* 已开始的事务优先完成；所有通用控制均在本任务串行执行。 */
+        if (g_active_control_valid != 0U)
+            mbus2_control_busy = MBusCtrl_ServiceControlRequest();
         else if (g_fire_display_wait_response != 0U)
             mbus2_control_busy = MBusCtrl_ServiceFireDisplayEvents();
-        else if (MBusCtrl_ServiceSoundLightControl())
+        else if (MBusCtrl_ServiceControlRequest())
             mbus2_control_busy = 1U;
         else if (MBusCtrl_ServiceFireDisplayEvents())
             mbus2_control_busy = 1U;
