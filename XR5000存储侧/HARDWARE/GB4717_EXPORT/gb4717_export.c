@@ -40,6 +40,15 @@
 #define GB4717_CONTROLLER_ADDR  0x01    /* 本控制器地址 */
 #define GB4717_CONTROLLER_TYPE  0x0001  /* 本控制器类型 */
 
+#define GB4717_CMD_READ_FAULT   5       /* 命令码: 读取故障记录(P1-5整改, 分区直读) */
+
+/* P0-3整改: 导出授权Token(8字节设备识别码).
+ * 请求帧的设备ID字段与本Token匹配才视为授权导出装置, 不匹配则静默丢弃.
+ * Token值可按需修改(须与上位机导出工具配置一致). */
+static const uint8_t GB4717_AUTH_TOKEN[8] = {
+    'X', 'R', '5', '0', '0', '0', '-', 'A'
+};
+
 /* 产品编号(20字节ASCII, 用于响应帧中的设备标识) */
 static const uint8_t s_product_no[20] = {
     'X','R','5','0','0','0','-','S','T','O',
@@ -69,12 +78,21 @@ static uint8_t  s_cmd_len = 0;         /* 当前请求的命令长度字段 */
 static uint8_t  s_cmd_data = 0;        /* 当前请求的命令数据(命令码) */
 static uint8_t  s_cmd_ready = 0;       /* 命令接收完成标志 */
 
-static uint32_t s_read_index_seq = 0;  /* 顺序读取游标(每次CMD_READ_DATA自增,到末尾归零) */
-static uint32_t s_read_index_first = 0;/* 首警读取游标(按event_code=2筛选) */
-static uint32_t s_read_index_fire = 0; /* 火警读取游标(按event_code=3筛选) */
+static uint32_t s_read_index_first = 0;/* 首警读取游标(分区直读) */
+static uint32_t s_read_index_fire = 0; /* 火警读取游标(分区直读) */
 
 static uint8_t  s_last_resp[64];       /* 上一次响应帧缓存(用于CMD_RESEND重发) */
 static uint16_t s_last_resp_len = 0;   /* 上一次响应帧长度 */
+
+/* P1-4整改: 请求帧校验缓存(设备ID/版本/地址/类型/CRC逐字段校验) */
+static uint8_t  s_devid[8];            /* 收到的设备识别码(与授权Token比对) */
+static uint8_t  s_frame[280];          /* CRC计算缓存(ID~命令数据) */
+static uint16_t s_frame_len = 0;       /* 缓存长度 */
+static uint16_t s_crc_recv = 0;        /* 收到的CRC16 */
+
+/* P1-5整改: 分区读取游标 */
+static uint32_t s_read_index_fault = 0;/* 故障读取游标(分区直读) */
+static uint32_t s_seq_cursor[STX_ZONE_COUNT];  /* 顺序读游标(4区时间归并) */
 
 /*==============================================================
  * 内部函数
@@ -126,7 +144,7 @@ static void GB4717_SendResponse(uint8_t cmd, const EventRecord_t *rec)
     uint8_t buf[64];
     uint16_t idx = 0;
     uint16_t crc;
-    uint32_t total = StorageRx_GetRecordCount();
+    uint32_t total = StorageRx_GetTotalCount();  /* P1-5整改: 4分区总条数 */
     uint8_t has_record = (rec != NULL) ? 1 : 0;
 
     buf[idx++] = GB4717_START_MARK;
@@ -158,32 +176,78 @@ static void GB4717_SendResponse(uint8_t cmd, const EventRecord_t *rec)
 }
 
 /**
- * @brief  按事件编码筛选记录(用于首警/火警查询)
- * @param  target_event_code: 目标事件编码(2=首警, 3=火警)
- * @param  search_from: 输入输出参数, 指向本次搜索起始索引; 命中后更新为命中索引+1
- * @param  rec: 输出命中的记录
- * @retval 0=找到匹配记录, 1=未找到(同时将*search_from归零)
- * @note   从*search_from开始顺序扫描全部已存记录, 命中第一个event_code匹配项即返回.
- *         游标机制保证每次调用继续向后搜索, 避免重复返回同一条.
+ * @brief  记录时间键(用于顺序读的4区时间归并, P1-5整改)
+ * @note   年月日时分秒打包为uint32, 数值大=时间晚
  */
-static uint8_t GB4717_FindRecord(uint16_t target_event_code, uint32_t *search_from, EventRecord_t *rec)
+static uint32_t GB4717_TimeKey(const EventRecord_t *rec)
 {
-    uint32_t total = StorageRx_GetRecordCount();
-    uint32_t i;
-    for (i = *search_from; i < total; i++)
+    return ((uint32_t)rec->year << 26) | ((uint32_t)rec->month << 22)
+         | ((uint32_t)rec->day << 17) | ((uint32_t)rec->hour << 12)
+         | ((uint32_t)rec->minute << 6) | (uint32_t)rec->second;
+}
+
+/**
+ * @brief  分区直读下一条记录(替代原全量扫描, P1-5整改)
+ * @param  zone: 分区索引(STX_ZONE_xxx)
+ * @param  cursor: 读取游标(输入输出, 命中后+1, 读完归零)
+ * @param  rec: 输出记录
+ * @retval 0=读到一条, 1=该区读完(游标已归零)
+ */
+static uint8_t GB4717_ReadZone(uint8_t zone, uint32_t *cursor, EventRecord_t *rec)
+{
+    if (*cursor < StorageRx_GetRecordCount(zone))
     {
-        if (StorageRx_ReadRecord(i, rec) == 0)
+        if (StorageRx_ReadRecord(zone, *cursor, rec) == 0)
         {
-            if (rec->event_code == target_event_code)
+            (*cursor)++;
+            return 0;
+        }
+    }
+    *cursor = 0;
+    return 1;
+}
+
+/**
+ * @brief  顺序读下一条(4区按时间戳归并, 全局时间升序, P1-5整改)
+ * @retval 0=读到一条, 1=全部读完(游标归零, 下轮从头)
+ */
+static uint8_t GB4717_SeqReadNext(EventRecord_t *rec)
+{
+    uint8_t  z;
+    uint8_t  best = 0xFF;
+    uint32_t best_time = 0;
+    EventRecord_t tmp;
+
+    /* 在4区当前游标位置中找时间戳最小(最早)的记录 */
+    for (z = 0; z < STX_ZONE_COUNT; z++)
+    {
+        if (s_seq_cursor[z] < StorageRx_GetRecordCount(z))
+        {
+            if (StorageRx_ReadRecord(z, s_seq_cursor[z], &tmp) == 0)
             {
-                *search_from = i + 1;
-                return 0;
+                uint32_t t = GB4717_TimeKey(&tmp);
+                if (best == 0xFF || t < best_time)
+                {
+                    best = z;
+                    best_time = t;
+                }
             }
         }
-        else break;
     }
-    *search_from = 0;
-    return 1;
+
+    if (best == 0xFF)
+    {
+        /* 4区全部读完: 游标归零 */
+        for (z = 0; z < STX_ZONE_COUNT; z++)
+        {
+            s_seq_cursor[z] = 0;
+        }
+        return 1;
+    }
+
+    StorageRx_ReadRecord(best, s_seq_cursor[best], rec);
+    s_seq_cursor[best]++;
+    return 0;
 }
 
 /**
@@ -201,26 +265,26 @@ static void GB4717_ProcessCommand(uint8_t cmd)
     EventRecord_t rec;
     switch (cmd)
     {
-        case GB4717_CMD_READ_DATA:
-            if (StorageRx_ReadRecord(s_read_index_seq, &rec) == 0)
-            {
-                s_read_index_seq++;
-                GB4717_SendResponse(cmd, &rec);
-            }
-            else
-            {
-                s_read_index_seq = 0;
-                GB4717_SendResponse(cmd, NULL);
-            }
-            break;
-        case GB4717_CMD_READ_FIRST:
-            if (GB4717_FindRecord(2, &s_read_index_first, &rec) == 0)
+        case GB4717_CMD_READ_DATA:      /* 顺序读: 4区时间归并(P1-5整改) */
+            if (GB4717_SeqReadNext(&rec) == 0)
                 GB4717_SendResponse(cmd, &rec);
             else
                 GB4717_SendResponse(cmd, NULL);
             break;
-        case GB4717_CMD_READ_FIRE:
-            if (GB4717_FindRecord(3, &s_read_index_fire, &rec) == 0)
+        case GB4717_CMD_READ_FIRST:     /* 首警: 分区直读(P1-5整改) */
+            if (GB4717_ReadZone(STX_ZONE_FIRST, &s_read_index_first, &rec) == 0)
+                GB4717_SendResponse(cmd, &rec);
+            else
+                GB4717_SendResponse(cmd, NULL);
+            break;
+        case GB4717_CMD_READ_FIRE:      /* 火警: 分区直读(P1-5整改) */
+            if (GB4717_ReadZone(STX_ZONE_FIRE, &s_read_index_fire, &rec) == 0)
+                GB4717_SendResponse(cmd, &rec);
+            else
+                GB4717_SendResponse(cmd, NULL);
+            break;
+        case GB4717_CMD_READ_FAULT:     /* 故障: 分区直读(P1-5整改新增) */
+            if (GB4717_ReadZone(STX_ZONE_FAULT, &s_read_index_fault, &rec) == 0)
                 GB4717_SendResponse(cmd, &rec);
             else
                 GB4717_SendResponse(cmd, NULL);
@@ -250,9 +314,12 @@ void GB4717_ExportInit(void)
     s_cmd_len = 0;
     s_cmd_data = 0;
     s_cmd_ready = 0;
-    s_read_index_seq = 0;
     s_read_index_first = 0;
     s_read_index_fire = 0;
+    s_read_index_fault = 0;
+    memset(s_seq_cursor, 0, sizeof(s_seq_cursor));
+    s_frame_len = 0;
+    s_crc_recv = 0;
     s_last_resp_len = 0;
 }
 
@@ -292,42 +359,84 @@ void GB4717_ExportProcess(void)
                 if ((uint8_t)byte == GB4717_START_MARK)
                 {
                     s_rx_idx = 0;
+                    s_frame_len = 0;
                     s_rx_state = RX_STATE_DEVICE_ID;
                 }
                 break;
             case RX_STATE_DEVICE_ID:
+                /* P0-3: 收集设备识别码(帧尾处与授权Token比对) */
+                s_devid[s_rx_idx] = (uint8_t)byte;
+                s_frame[s_frame_len++] = (uint8_t)byte;
                 s_rx_idx++;
                 if (s_rx_idx >= 8) s_rx_state = RX_STATE_VERSION;
                 break;
             case RX_STATE_VERSION:
+                /* P1-4整改: 版本号校验(固定0x02), 不符丢帧 */
+                if ((uint8_t)byte != GB4717_VERSION)
+                {
+                    s_rx_state = RX_STATE_WAIT_START;
+                    break;
+                }
+                s_frame[s_frame_len++] = (uint8_t)byte;
                 s_rx_state = RX_STATE_ADDR;
                 break;
             case RX_STATE_ADDR:
+                /* P1-4整改: 地址校验(固定0x7E), 不符丢帧 */
+                if ((uint8_t)byte != GB4717_TOOL_ADDR)
+                {
+                    s_rx_state = RX_STATE_WAIT_START;
+                    break;
+                }
+                s_frame[s_frame_len++] = (uint8_t)byte;
                 s_rx_state = RX_STATE_TYPE;
                 break;
             case RX_STATE_TYPE:
+                /* P1-4整改: 类型校验(固定0x7F), 不符丢帧 */
+                if ((uint8_t)byte != GB4717_TOOL_TYPE)
+                {
+                    s_rx_state = RX_STATE_WAIT_START;
+                    break;
+                }
+                s_frame[s_frame_len++] = (uint8_t)byte;
                 s_rx_state = RX_STATE_CMD_LEN;
                 break;
             case RX_STATE_CMD_LEN:
                 s_cmd_len = (uint8_t)byte;
+                s_frame[s_frame_len++] = (uint8_t)byte;
                 s_rx_idx = 0;
                 if (s_cmd_len == 0) s_rx_state = RX_STATE_CRC_LO;
                 else s_rx_state = RX_STATE_CMD_DATA;
                 break;
             case RX_STATE_CMD_DATA:
                 s_cmd_data = (uint8_t)byte;
+                s_frame[s_frame_len++] = (uint8_t)byte;
                 s_rx_idx++;
                 if (s_rx_idx >= s_cmd_len) s_rx_state = RX_STATE_CRC_LO;
                 break;
             case RX_STATE_CRC_LO:
+                /* P1-4整改: 收集CRC16低字节 */
+                s_crc_recv = (uint16_t)byte;
                 s_rx_state = RX_STATE_CRC_HI;
                 break;
             case RX_STATE_CRC_HI:
+                /* P1-4整改: 收集CRC16高字节 */
+                s_crc_recv |= (uint16_t)((uint16_t)byte << 8);
                 s_rx_state = RX_STATE_END_MARK;
                 break;
             case RX_STATE_END_MARK:
                 if ((uint8_t)byte == GB4717_START_MARK)
-                    s_cmd_ready = 1;
+                {
+                    /* P0-3整改: 设备ID须与授权Token一致 */
+                    uint8_t auth_ok = (memcmp(s_devid, GB4717_AUTH_TOKEN, 8) == 0) ? 1 : 0;
+                    /* P1-4整改: CRC16校验(范围: 设备ID~命令数据) */
+                    uint16_t crc_calc = GB4717_CRC16(s_frame, s_frame_len);
+
+                    if (auth_ok != 0 && (crc_calc == s_crc_recv))
+                    {
+                        s_cmd_ready = 1;
+                    }
+                    /* 授权不通过或CRC错: 静默丢弃(不响应未授权/损坏帧) */
+                }
                 s_rx_state = RX_STATE_WAIT_START;
                 break;
             default:

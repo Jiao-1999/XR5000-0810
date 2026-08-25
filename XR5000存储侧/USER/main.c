@@ -74,28 +74,33 @@ const uint8_t test_msg[] = "USB CDC Ready (ST???USB-FS-Device_Driver??????)\r\n"
             {
                 if (++dump_delay >= 100000)
                 {
-                    uint32_t cnt = StorageRx_GetRecordCount();
+                    uint32_t cnt = StorageRx_GetTotalCount();
                     uint32_t i;
+                    uint8_t z;
                     char msg[128];
                     dumped = 1;
-                    sprintf(msg, "[STX_DUMP] count=%lu\r\n", (unsigned long)cnt);
+                    sprintf(msg, "[STX_DUMP] total=%lu (Z0_first=%lu Z1_fire=%lu Z2_fault=%lu Z3_gen=%lu)\r\n",
+                        (unsigned long)cnt,
+                        (unsigned long)StorageRx_GetRecordCount(STX_ZONE_FIRST),
+                        (unsigned long)StorageRx_GetRecordCount(STX_ZONE_FIRE),
+                        (unsigned long)StorageRx_GetRecordCount(STX_ZONE_FAULT),
+                        (unsigned long)StorageRx_GetRecordCount(STX_ZONE_GENERAL));
                     USB_CDC_SendData((const uint8_t *)msg, (uint16_t)strlen(msg));
-                    for (i = 0; i < cnt; i++)
+                    for (z = 0; z < STX_ZONE_COUNT; z++)
                     {
-                        EventRecord_t rec;
-                        if (StorageRx_ReadRecord(i, &rec) == 0)
+                        uint32_t zcnt = StorageRx_GetRecordCount(z);
+                        for (i = 0; i < zcnt; i++)
                         {
-                            sprintf(msg, "[STX_REC#%lu] ctl=%u unit=%u dev=%u ch=%u type=%u evt=%u st=%u %02u-%02u-%02u %02u:%02u:%02u\r\n",
-                                (unsigned long)i,
-                                rec.controller_no, rec.unit_no, rec.device_no, rec.channel_no,
-                                rec.dev_type, rec.event_code, rec.state_code,
-                                rec.year, rec.month, rec.day, rec.hour, rec.minute, rec.second);
-                            USB_CDC_SendData((const uint8_t *)msg, (uint16_t)strlen(msg));
-                        }
-                        else
-                        {
-                            sprintf(msg, "[STX_REC#%lu] read fail\r\n", (unsigned long)i);
-                            USB_CDC_SendData((const uint8_t *)msg, (uint16_t)strlen(msg));
+                            EventRecord_t rec;
+                            if (StorageRx_ReadRecord(z, i, &rec) == 0)
+                            {
+                                sprintf(msg, "[STX_REC Z%u#%lu] ctl=%u unit=%u dev=%u ch=%u type=%u evt=%u st=%u %02u-%02u-%02u %02u:%02u:%02u\r\n",
+                                    (unsigned)z, (unsigned long)i,
+                                    rec.controller_no, rec.unit_no, rec.device_no, rec.channel_no,
+                                    rec.dev_type, rec.event_code, rec.state_code,
+                                    rec.year, rec.month, rec.day, rec.hour, rec.minute, rec.second);
+                                USB_CDC_SendData((const uint8_t *)msg, (uint16_t)strlen(msg));
+                            }
                         }
                     }
                     sprintf(msg, "[STX_DUMP] end (%lu records)\r\n", (unsigned long)cnt);
@@ -112,27 +117,32 @@ const uint8_t test_msg[] = "USB CDC Ready (ST???USB-FS-Device_Driver??????)\r\n"
             uint16_t cmd = USB_CDC_ReadByte();
             if (cmd == 'R')
             {
-                uint32_t count = StorageRx_GetRecordCount();
+                uint32_t count = StorageRx_GetTotalCount();
                 uint32_t i;
+                uint8_t z;
                 char msg[128];
-                sprintf(msg, "[STX_DUMP] count=%lu\r\n", (unsigned long)count);
+                sprintf(msg, "[STX_DUMP] total=%lu (Z0=%lu Z1=%lu Z2=%lu Z3=%lu)\r\n",
+                    (unsigned long)count,
+                    (unsigned long)StorageRx_GetRecordCount(STX_ZONE_FIRST),
+                    (unsigned long)StorageRx_GetRecordCount(STX_ZONE_FIRE),
+                    (unsigned long)StorageRx_GetRecordCount(STX_ZONE_FAULT),
+                    (unsigned long)StorageRx_GetRecordCount(STX_ZONE_GENERAL));
                 USB_CDC_SendData((const uint8_t *)msg, (uint16_t)strlen(msg));
-                for (i = 0; i < count; i++)
+                for (z = 0; z < STX_ZONE_COUNT; z++)
                 {
-                    EventRecord_t rec;
-                    if (StorageRx_ReadRecord(i, &rec) == 0)
+                    uint32_t zcnt = StorageRx_GetRecordCount(z);
+                    for (i = 0; i < zcnt; i++)
                     {
-                        sprintf(msg, "[STX_REC#%lu] ctl=%u unit=%u dev=%u ch=%u type=%u evt=%u st=%u %02u-%02u-%02u %02u:%02u:%02u\r\n",
-                            (unsigned long)i,
-                            rec.controller_no, rec.unit_no, rec.device_no, rec.channel_no,
-                            rec.dev_type, rec.event_code, rec.state_code,
-                            rec.year, rec.month, rec.day, rec.hour, rec.minute, rec.second);
-                        USB_CDC_SendData((const uint8_t *)msg, (uint16_t)strlen(msg));
-                    }
-                    else
-                    {
-                        sprintf(msg, "[STX_REC#%lu] read fail\r\n", (unsigned long)i);
-                        USB_CDC_SendData((const uint8_t *)msg, (uint16_t)strlen(msg));
+                        EventRecord_t rec;
+                        if (StorageRx_ReadRecord(z, i, &rec) == 0)
+                        {
+                            sprintf(msg, "[STX_REC Z%u#%lu] ctl=%u unit=%u dev=%u ch=%u type=%u evt=%u st=%u %02u-%02u-%02u %02u:%02u:%02u\r\n",
+                                (unsigned)z, (unsigned long)i,
+                                rec.controller_no, rec.unit_no, rec.device_no, rec.channel_no,
+                                rec.dev_type, rec.event_code, rec.state_code,
+                                rec.year, rec.month, rec.day, rec.hour, rec.minute, rec.second);
+                            USB_CDC_SendData((const uint8_t *)msg, (uint16_t)strlen(msg));
+                        }
                     }
                 }
                 sprintf(msg, "[STX_DUMP] end (%lu records)\r\n", (unsigned long)count);
@@ -140,8 +150,19 @@ const uint8_t test_msg[] = "USB CDC Ready (ST???USB-FS-Device_Driver??????)\r\n"
             }
             else if (cmd == 'C')
             {
-                StorageRx_EraseAll();
-                USB_CDC_SendData((const uint8_t *)"[STX_ERASE] done\r\n", 18);
+                /* 擦除需二次确认: 连续两次发送'C'才执行, 防误操作 */
+                static uint8_t erase_armed = 0;
+                if (erase_armed == 0)
+                {
+                    erase_armed = 1;
+                    USB_CDC_SendData((const uint8_t *)"[STX_ERASE] send 'C' again to confirm\r\n", 38);
+                }
+                else
+                {
+                    erase_armed = 0;
+                    StorageRx_EraseAll();
+                    USB_CDC_SendData((const uint8_t *)"[STX_ERASE] done\r\n", 18);
+                }
             }
         }
 

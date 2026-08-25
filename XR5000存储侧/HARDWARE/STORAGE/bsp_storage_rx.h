@@ -81,6 +81,19 @@ typedef struct {
  * @brief  ??????洢??????? (?????W25Q256, ??λд???)
  * @retval 0=???, 1=W25Q256????????
  */
+/*==============================================================
+ * 分区定义(P0-1/P0-2整改: 4类记录独立分区环形FIFO, 2026-08-24)
+ * W25Q256 32MB布局:
+ *   首警区 1MB(0x000000) + 火警区 2MB(0x100000) + 故障区 2MB(0x300000)
+ *   + 通用区 约27MB(0x500000) + 元数据区 64KB(0x1FF0000, A/B双库指针持久化)
+ * 各区写满后环形覆盖最旧记录, 互不侵占(GB4717 B.1.2.2)
+ *============================================================*/
+#define STX_ZONE_FIRST     0     /* 首警区(独立, 命令0x02) */
+#define STX_ZONE_FIRE      1     /* 火警区(独立, 命令0x03) */
+#define STX_ZONE_FAULT     2     /* 故障区(独立, 命令0x04) */
+#define STX_ZONE_GENERAL   3     /* 通用区(其他事件, 命令0x01) */
+#define STX_ZONE_COUNT     4     /* 分区总数 */
+
 uint8_t StorageRx_Init(void);
 
 /**
@@ -100,7 +113,8 @@ void StorageRx_Process(void);
  * @brief  ?????洢?????
  * @retval ??洢?????
  */
-uint32_t StorageRx_GetRecordCount(void);
+uint32_t StorageRx_GetRecordCount(uint8_t zone);   /* 查询指定分区现存条数(P1-5整改) */
+uint32_t StorageRx_GetTotalCount(void);            /* 查询全部分区总条数 */
 
 /**
  * @brief  ???????洢?????
@@ -114,7 +128,7 @@ uint32_t StorageRx_GetRemainingCount(void);
  * @param  rec: ??????????
  * @retval 0=???, 1=???
  */
-uint8_t StorageRx_ReadRecord(uint32_t index, EventRecord_t *rec);
+uint8_t StorageRx_ReadRecord(uint8_t zone, uint32_t index, EventRecord_t *rec);
 
 /**
  * @brief  ????????洢 (??λд???0)
