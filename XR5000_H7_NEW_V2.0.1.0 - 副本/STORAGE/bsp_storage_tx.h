@@ -180,6 +180,17 @@ uint8_t StorageTx_QueryCapacity(uint32_t *remaining);
 void StorageTx_FillTimestamp(EventRecord_t *rec);
 
 /**
+ * @brief  按事件代码自动填充状态位图(GB4717-2024表C.18)
+ * @param  rec: 待填充的记录(根据rec->event_code查表填rec->state_code)
+ * @note   P1-2整改: 位图映射(表C.18):
+ *         2/3火警=0x0008(bit3有报警), 80故障=0x0080(bit7有故障),
+ *         72屏蔽=0x0100(bit8有屏蔽), 121关机=0x0004(bit2电源故障),
+ *         128确认=0x0008(bit3有报警), 19/130启动=0x0010(bit4有启动),
+ *         26反馈=0x0020(bit5有反馈), 其余事件=0x0000
+ */
+void StorageTx_FillStateMask(EventRecord_t *rec);
+
+/**
  * @brief  构造完整事件记录结构
  * @param  rec: 待填充记录
  * @param  dev_no: 设备号

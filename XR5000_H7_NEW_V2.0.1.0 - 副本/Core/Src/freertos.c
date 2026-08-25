@@ -60,13 +60,13 @@
 #include "bsp_ctrl_bus.h"
 #include "bsp_rs485_detect.h"
 #include "bsp_fdcan1.h"
-#include "bsp_can_monitor.h" /* ???????FCP-1011??·????壻???2026-08-06 */
+#include "bsp_can_monitor.h" /* CAN状态监测, FCP-1011六路控制板; 新加2026-08-06 */
 #include "bsp_aht20.h"
 #include "iwdg.h"
-#include "bsp_storage_tx.h"  /* ?洢???: LPUART1(PB6/PB7) */
+#include "bsp_storage_tx.h"  /* 存储端通讯: LPUART1(PB6/PB7) */
 #include "bsp_storage_event.h" /* 黑匣子事件记录API: 开机等GB4717-2024事件 */
-#include "bsp_fecbus.h"      /* FECbus RS485 ???: USART3(PB10/PB11), GB4717 ???C */
-#include "bsp_test_inject.h" /* COM4??????????: UART4 RX?????, ??DMA?ж?????У?? */
+#include "bsp_test_inject.h" /* COM4串口注入调试: UART4 RX挂接, 由DMA中断填充供任务轮询 */
+#include "bsp_test_inject.h" /* COM4串口注入调试: UART4 RX挂接, 由DMA中断填充供任务轮询 */
 #include "bsp_logic_engine.h" /* Linkage logic engine task: rule eval + action exec, 100ms cycle */
 /* USER CODE END Includes */
 
@@ -88,48 +88,48 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
-// 01??????????
-osThreadId_t PackPollingTaskHandle; // ???
+// 01模块轮询任务
+osThreadId_t PackPollingTaskHandle; // 模块轮询任务句柄
 const osThreadAttr_t PackPollingTask_attributes = {
 	.name = "pack_pollingTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// PACK485 ???????
-osThreadId_t PackPollAndReceiveTaskHandle; // ???
+// PACK485 轮询接收任务
+osThreadId_t PackPollAndReceiveTaskHandle; // PACK485轮询接收任务句柄
 const osThreadAttr_t PackPollAndReceiveTask_attributes = {
 	.name = "PackPollAndReceiveTask",
 	.stack_size = 256 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// BSP485 PACK???????
-osThreadId_t BSP485PollTaskHandle; // ???
+// BSP485 PACK轮询任务
+osThreadId_t BSP485PollTaskHandle; // 任务句柄
 const osThreadAttr_t BSP485PollTask_attributes = {
 	.name = " BSP485_PollTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal2,
 };
 
-// 485??????????????
-osThreadId_t QueuePollingTaskHandle; // ???
+// 485队列模块轮询任务
+osThreadId_t QueuePollingTaskHandle; // 队列轮询任务句柄
 const osThreadAttr_t QueuePollingTask_attributes = {
 	.name = "pack_pollingTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// ?????????????
-osThreadId_t QueueRcevDealTaskHandle; // ???
+// 包接收处理函数
+osThreadId_t QueueRcevDealTaskHandle; // 包接收处理任务句柄
 const osThreadAttr_t QueueRcevDealTask_attributes = {
 	.name = "QueueRcevDealTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// ????
-osThreadId_t InternalScreenTaskHandle; // ???
+// 内屏
+osThreadId_t InternalScreenTaskHandle; // 内屏任务句柄
 const osThreadAttr_t InternalScreen_attributes = {
 	.name = "InternalScreenTask",
 	.stack_size = 384 * 4,  /* enlarged: NotifyButton ctx runs DebugPrintf vsnprintf frame */
@@ -143,73 +143,73 @@ const osThreadAttr_t DebugPrintTask_attributes = {
 	.stack_size = 1024,
 	.priority = (osPriority_t) osPriorityBelowNormal,
 };
-// ???????????
-osThreadId_t InterScreenUpdataTaskHandle; // ???
+// 内屏刷新任务
+osThreadId_t InterScreenUpdataTaskHandle; // 内屏刷新任务句柄
 const osThreadAttr_t InterScreenUpdataTask_attributes = {
 	.name = "InterScreenUpdataTask",
 	.stack_size = 384 * 4,
 	.priority = (osPriority_t) osPriorityNormal2,
 };
-// ?????豸???ж?
-osThreadId_t LinkageOnlineTaskHandle; // ???
+// 外联设备状态判断
+osThreadId_t LinkageOnlineTaskHandle; // 句柄
 const osThreadAttr_t LinkageOnlineTask_attributes = {
 	.name = "LinkageOnlineJudgeTask",
 	.stack_size = 256 * 4,
 	.priority = (osPriority_t) osPriorityNormal,
 };
-// ?????豸???ж?
-osThreadId_t KeyOnlineJudgeTaskHandle; // ???
+// 按键设备状态判断
+osThreadId_t KeyOnlineJudgeTaskHandle; // 句柄
 const osThreadAttr_t KeyOnlineJudgeTask_attributes = {
 	.name = "KeyOnlineJudgeTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal,
 };
-// ?????????ж? ?????????
-osThreadId_t MainStandbyPwrJudgeTaskHandle; // ???
+// 主备电状态判断 及电流监测
+osThreadId_t MainStandbyPwrJudgeTaskHandle; // 句柄
 const osThreadAttr_t MSPwrJudgeTask_attributes = {
 	.name = "MSPJudgeAndCurrTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityAboveNormal,
 };
-// BMS??????????
-osThreadId_t BMSRecvDealTaskHandle; // ???
+// BMS查询回复任务
+osThreadId_t BMSRecvDealTaskHandle; // 句柄
 const osThreadAttr_t BMSRecvDealTask_attributes = {
 	.name = "BMSRecvDeal",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal,
 };
 
-// ?????豸????????
-osThreadId_t LinkageCtrlTaskHandle; // ???
+// 外联设备控制任务
+osThreadId_t LinkageCtrlTaskHandle; // 句柄
 const osThreadAttr_t LinkageCtrlTask_attributes = {
 	.name = "LinkageCtrl",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal,
 };
 
-// ??????????????
-osThreadId_t HostUploadTaskHandle; // ???
+// 主机状态上行任务
+osThreadId_t HostUploadTaskHandle; // 句柄
 const osThreadAttr_t HostUploadTask_attributes = {
 	.name = "HostUploadCtrl",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal2,
 };
-// ????????????
-osThreadId_t InternalBoardRecvTaskHandle; // ???
+// 内屏板接收处理
+osThreadId_t InternalBoardRecvTaskHandle; // 句柄
 const osThreadAttr_t InternalBoardRecvTask_attributes = {
 	.name = "InternalBoardRecv",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal2,
 };
 //
-osThreadId_t StationResponseTaskHandle; // ???
+osThreadId_t StationResponseTaskHandle; // 句柄
 const osThreadAttr_t StationResponseTask_attributes = {
 	.name = "StationResponse",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// 2025/10/29 09:49 ????
+// 2025/10/29 09:49 创建
 //osThreadId_t CtrlBusPollingTaskHandle; // ctrl bus send task
 //const osThreadAttr_t CtrlBusPollingTask_attributes = {
 //	.name = "CtrlBusPolling",
@@ -224,7 +224,7 @@ const osThreadAttr_t StationResponseTask_attributes = {
 //	.priority = (osPriority_t) osPriorityNormal1,
 //};
 
-// 2025/11/19 18:35 ???? ????????? ??????????? ???????????
+// 2025/11/19 18:35 创建 优化任务处理 合并两个任务 减少栈区消耗
 osThreadId_t CtrlBusPollAndReceiveTaskHandle; // ctrl bus send task
 const osThreadAttr_t CtrlBusPollAndReceiveTask_attributes = {
 	.name = "CtrlBusPollAndReceiveTask",
@@ -232,7 +232,7 @@ const osThreadAttr_t CtrlBusPollAndReceiveTask_attributes = {
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// ??·3 RS485?????????? (XR805 + XR8303)
+// 回路3 RS485探测轮询任务 (XR805 + XR8303)
 osThreadId_t RS485DetectPollAndReceiveTaskHandle;
 const osThreadAttr_t RS485DetectPollAndReceiveTask_attributes = {
 	.name = "RS485DetectPollAndRecv",
@@ -240,7 +240,7 @@ const osThreadAttr_t RS485DetectPollAndReceiveTask_attributes = {
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// 2025/11/17 11:24 ????
+// 2025/11/17 11:24 创建
 //osThreadId_t MBusPollingTaskHandle; // Mbus send task
 //const osThreadAttr_t MBusPollingTask_attributes = {
 //	.name = "MBusPolling",
@@ -255,7 +255,7 @@ const osThreadAttr_t RS485DetectPollAndReceiveTask_attributes = {
 //	.priority = (osPriority_t) osPriorityNormal1,
 //};
 
-// 2025/11/19 18:24 ???? ????????? ??????????? ???????????
+// 2025/11/19 18:24 创建 优化任务处理 合并两个任务 减少栈区消耗
 osThreadId_t MBus1PollAndReceiveTaskHandle; // Mbus receive task
 const osThreadAttr_t MBus1PollAndReceiveTask_attributes = {
 	.name = "MBusPollAndReceiveTask",
@@ -270,43 +270,43 @@ const osThreadAttr_t MBus2PollAndReceiveTask_attributes = {
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// 2025/11/20 18:11 ???? ????????? ??????????? ???????????
-osThreadId_t CanMonitorTaskHandle; /* ???????FCP-1011??·????壻???2026-08-06 */
+// 2025/11/20 18:11 创建 优化任务处理 合并两个任务 减少栈区消耗
+osThreadId_t CanMonitorTaskHandle; /* CAN状态监测, FCP-1011六路控制板; 新加2026-08-06 */
 const osThreadAttr_t CanMonitorTask_attributes = {
 	.name = "CanMonitorTask",
 	.stack_size = 128 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-/* ?洢???????: ??LPUART1??洢??MCU???, ?????????????? */
+/* 存储端通讯任务: 通过LPUART1向存储端发送事件记录, 循环处理发送队列 */
 osThreadId_t StorageTxTaskHandle;
 const osThreadAttr_t StorageTxTask_attributes = {
 	.name = "StorageTxTask",
-	.stack_size = 512 * 4,  /* ?: DebugPrintf?400??? + StorageTx_SendFrame???buf[260] */
+	.stack_size = 512 * 4,  /* 栈: DebugPrintf需400字节 + StorageTx_SendFrame含buf[260] */
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-/* FECbus ??????????: ??USART3(PB10/PB11) RS485 ???????, GB4717 ???C */
+/* FECbus 发送接收任务: 走USART3(PB10/PB11) RS485 发送接收协议帧, GB4717 附录C */
 osThreadId_t FecbusTxTaskHandle;
 const osThreadAttr_t FecbusTxTask_attributes = {
 	.name = "FecbusTxTask",
-	.stack_size = 512 * 4,  /* ?: Fecbus_SendEvent???buf[270] + ???????? */
-	.priority = (osPriority_t) osPriorityBelowNormal1,  /* ????StorageTx, ????????洢??????? */
+	.stack_size = 512 * 4,  /* 栈: Fecbus_SendEvent含buf[270] + 任务调用栈 */
+	.priority = (osPriority_t) osPriorityBelowNormal1,  /* 低于StorageTx, 发送量较小优先级低 */
 };
 
-/* FECbus ???????????: 1s??????/5s????/10s???, ??USART3 */
+/* FECbus 周期广播任务: 1s同步心跳/5s心跳/10s时钟广播, 发送走USART3 */
 osThreadId_t FecbusPeriodicTaskHandle;
 const osThreadAttr_t FecbusPeriodicTask_attributes = {
 	.name = "FecbusPeriodicTask",
-	.stack_size = 256 * 4,  /* ?????????С: ????????payload[7] */
-	.priority = (osPriority_t) osPriorityLow,  /* ???????????????, ????????????? */
+	.stack_size = 256 * 4,  /* 周期广播数据量小: 单帧最大payload[7] */
+	.priority = (osPriority_t) osPriorityLow,  /* 周期广播优先级低, 不影响关键业务 */
 };
 
-/* COM4???????????: UART4 RX?????DMA????, ????ONL/TF/SF???????????????ж? */
+/* COM4串口注入调试任务: UART4 RX挂接DMA接收, 支持ONL/TF/SF命令触发报警判断 */
 osThreadId_t TestInjectTaskHandle;
 const osThreadAttr_t TestInjectTask_attributes = {
 	.name = "TestInjectTask",
-	.stack_size = 512 * 4,  /* ?: DebugPrintf?400??? + rx_buf[32] + ParseLine???? */
+	.stack_size = 512 * 4,  /* 栈: DebugPrintf需400字节 + rx_buf[32] + ParseLine解析 */
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
@@ -321,18 +321,18 @@ const osThreadAttr_t LogicEngineTask_attributes = {
 
 extern uint8_t timeout_led_ctrl;
 
-// ????485??????????????
+// 定义485总线发送消息队列
 QueueHandle_t xMyRs485QueueHandle;
 // XR5000_UART5_EXCLUSIVE_FIX_20260730: legacy fan traffic has its own disabled transport queue.
 QueueHandle_t xFanBusQueueHandle;
-// ????MBUS??????????????
+// 定义MBUS总线发送消息队列
 QueueHandle_t xMyMBusQueueHandle;
-// ????MBUS2?????????????У???·2 ??????????
+// 定义MBUS2总线发送消息队列（回路2 二总线控制）
 QueueHandle_t xMBus2QueueHandle;
 
 
 //StaticSemaphore_t xMutexBuffer;
-//SemaphoreHandle_t xMutex; // ???????????
+//SemaphoreHandle_t xMutex; // 初始化互斥锁
 
 
 /* USER CODE END Variables */
@@ -340,7 +340,7 @@ QueueHandle_t xMBus2QueueHandle;
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 512 * 4,  /* ???С: DebugPrintf?400??? + vsnprintf??????? */
+  .stack_size = 512 * 4,  /* 栈区大小: DebugPrintf需400字节 + vsnprintf临时缓冲 */
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for led_test */
@@ -370,16 +370,16 @@ void CreatUpdataUITask(void);
 void SuspendTask(uint8_t task_id);
 void ResumeTask(uint8_t task_id);
 
-/* ?洢????????????? */
+/* 存储端通讯任务函数声明 */
 void StorageTxTask(void *argument);
 
-/* FECbus ?????????????? (GB4717 ???C, USART3 RS485) */
+/* FECbus 发送任务函数声明 (GB4717 附录C, USART3 RS485) */
 void FecbusTxTask(void *argument);
 
-/* FECbus ???????????? (1s????/5s????/10s???) */
+/* FECbus 周期广播任务函数声明 (1s心跳/5s心跳/10s时钟) */
 void FecbusPeriodicTask(void *argument);
 
-/* COM4??????????????? */
+/* COM4串口注入调试任务 */
 void TestInjectTask(void *argument);
 
 /* USER CODE END FunctionPrototypes */
@@ -404,7 +404,7 @@ void MX_FREERTOS_Init(void) {
   HmiTxInit(); /* XR5000_HMI_UART_LOCK_FIX_20260729: create UART8 frame mutex before screen tasks. */
   BspSaveCtrlInit(); /* XR5000_W25Q_MUTEX_FIX_20260804: create the shared Flash mutex before tasks. */
   /* add mutexes, ... */
-//	xMutex = xSemaphoreCreateMutexStatic(&xMutexBuffer); // ???????????
+//	xMutex = xSemaphoreCreateMutexStatic(&xMutexBuffer); // 初始化互斥锁
 
   /* USER CODE END RTOS_MUTEX */
 
@@ -418,18 +418,18 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
-	osTimerStart(SecondTimerHandle, 1000);  // ????1??????
+	osTimerStart(SecondTimerHandle, 1000);  // 设置1秒周期
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
-	xMyRs485QueueHandle = xQueueCreate(10, sizeof(char[8])); // ??????????洢10?????????У?????????8????char????
+	xMyRs485QueueHandle = xQueueCreate(10, sizeof(char[8])); // 创建一个最多存储10条消息的队列，每条消息是8字节的char数组
 
 	xFanBusQueueHandle = xQueueCreate( 5, sizeof(char[8])); // XR5000_UART5_EXCLUSIVE_FIX_20260730: fan-only queue; UART5 is not its transport.
 
-	xMyMBusQueueHandle = xQueueCreate( 5, sizeof(char[8])); // ??????????洢5?????????У?????????8????char????
+	xMyMBusQueueHandle = xQueueCreate( 5, sizeof(char[8])); // 创建一个最多存储5条消息的队列，每条消息是8字节的char数组
 
-	xMBus2QueueHandle = xQueueCreate( 5, sizeof(char[8])); // ??????????洢5?????????У?????????8????char???飨??·2 ???????
+	xMBus2QueueHandle = xQueueCreate( 5, sizeof(char[8])); // 创建一个最多存储5条消息的队列，每条消息是8字节的char数组（回路2 二总线控制）
 
   /* USER CODE END RTOS_QUEUES */
 
@@ -443,43 +443,43 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
 
-	// ???????????????
+	// 内屏接收处理任务
 	InternalScreenTaskHandle = osThreadNew(InternalScreenRecvDealTask, NULL, &InternalScreen_attributes);
 	DebugPrintTaskHandle = osThreadNew(DebugPrintTask, NULL, &DebugPrintTask_attributes);  /* async log pump */
-//	// ???????????
+//	// 屏幕UI更新任务
 	InterScreenUpdataTaskHandle = osThreadNew(InterScreenFresh, NULL, &InterScreenUpdataTask_attributes);
 
 //	//BSP485 PACK POLL TASK
 //	PackPollingTaskHandle = osThreadNew(BSP_RS485_01_Poll, NULL, &BSP485PollTask_attributes);
-//	// ????????? ??????????
+//	// 消息队列轮询后 接收处理任务
 //	QueueRcevDealTaskHandle = osThreadNew(QueuePollRecvDealTask, NULL, &QueueRcevDealTask_attributes);
 
-	// 2025/11/25 11:03 ???? ??????????
+	// 2025/11/25 11:03 启用新功能
 	PackPollAndReceiveTaskHandle = osThreadNew(RS485_01_PollAndRecieve, NULL, &PackPollAndReceiveTask_attributes);
 
 
-	// 2025/11/17 17:22 ????MBUS
+	// 2025/11/17 17:22 启用MBUS
 //	//
 //	MBusPollingTaskHandle = osThreadNew(MBus1PollSlaveTsk, NULL, &MBusPollingTask_attributes);
 //	//
 //	MBusReceiveTaskHandle = osThreadNew(MBus1RecvDealTask, NULL, &MBusReceiveTask_attributes);
 
-	// // 2025/11/19 18:24 ???? ????????? ??????????? ???????????
+	// // 2025/11/19 18:24 创建 优化任务处理 合并两个任务 减少栈区消耗
 	MBus1PollAndReceiveTaskHandle = osThreadNew(MBus1PollSlaveAndReceiveTask, NULL, &MBus1PollAndReceiveTask_attributes);
 
 	MBus2PollAndReceiveTaskHandle = osThreadNew(MBusControlPollSlaveAndReceiveTask, NULL, &MBus2PollAndReceiveTask_attributes);
 
-	// ??????????????
+	// 主机状态上行
 	HostUploadTaskHandle = osThreadNew(HostUploadDataTask, NULL, &HostUploadTask_attributes);
 
-	// ?????豸???ж?????
+	// 外联设备在线掉线状态判断
 	LinkageOnlineTaskHandle = osThreadNew(LinkageOnlineJudgeTask, NULL, &LinkageOnlineTask_attributes);
-	// ?????豸???ж?????
+	// 按键设备在线掉线状态判断
 	KeyOnlineJudgeTaskHandle = osThreadNew(KeyStateJudgeTask, NULL, &KeyOnlineJudgeTask_attributes);
-	// ?????????? (FECbus ???? 20260818: USART1 ???? FECbus ???????, ??????????)
+	// 场站回复任务
 //	StationResponseTaskHandle = osThreadNew(StationResponseTesk, NULL, &StationResponseTask_attributes);
 
-	// ?????????ж?????
+	// 主备电及电流状态判断
 	MainStandbyPwrJudgeTaskHandle = osThreadNew(PowerOnlineJudgeTask, NULL, &MSPwrJudgeTask_attributes);
 
 	// CtrlBusPollingTask
@@ -487,35 +487,35 @@ void MX_FREERTOS_Init(void) {
 //	//
 //	CtrlBusReceiveTaskHandle = osThreadNew(CtrlBusReceiveDealTask, NULL, &CtrlBusReceiveTask_attributes);
 
-	// 2025/11/19 18:36 ???? ????????? ??????????? ???????????
+	// 2025/11/19 18:36 创建 优化任务处理 合并两个任务 减少栈区消耗
 //	CtrlBusPollAndReceiveTaskHandle = osThreadNew(CtrlBusPollAndReceiveTask, NULL, &CtrlBusPollAndReceiveTask_attributes);
-	// ???CtrlBusPollAndReceiveTask????: ????uart5????·3 RS485??????
+	// 注：原CtrlBusPollAndReceiveTask已停用，uart5由回路3 RS485探测任务接管
 
-	// ??·3 RS485?????????? (XR805 + XR8303)
+	// 回路3 RS485探测轮询任务 (XR805 + XR8303)
 	RS485DetectPollAndReceiveTaskHandle = osThreadNew(RS485DetectPollAndReceiveTask, NULL, &RS485DetectPollAndReceiveTask_attributes);
 
 	// 2025/11/20 18:12
-	CanMonitorTaskHandle = osThreadNew(CanMonitorTask, NULL, &CanMonitorTask_attributes); /* ???????FCP-1011??·????壻???2026-08-06 */
+	CanMonitorTaskHandle = osThreadNew(CanMonitorTask, NULL, &CanMonitorTask_attributes); /* CAN状态监测, FCP-1011六路控制板; 新加2026-08-06 */
 
-	// BMS?????????? 2025/11/28 11:49 ??????
-	// XR5000_FECBUS_TEST: BMS???USART3(PB10/PB11)????FECbus, ???????BMS????
+	// BMS查询回复任务 2025/11/28 11:49 启用该任务
+	// XR5000_FECBUS_TEST: BMS接收不再用USART3(PB10/PB11)让位FECbus总线, 无需创建BMS任务
  // BMSRecvDealTaskHandle = osThreadNew(BMSRecvDealTask, NULL, &BMSRecvDealTask_attributes);
-//	// ?????豸????????
+//	// 外联设备继电器控制
 //	LinkageCtrlTaskHandle = osThreadNew(LinkageRelayCtrlTask, NULL, &LinkageCtrlTask_attributes);
 
-	// ?洢????????
+	// 启动存储端通讯任务
 	StorageTxTaskHandle = osThreadNew(StorageTxTask, NULL, &StorageTxTask_attributes);
 	DebugPrintf("StorageTxTask create: %s\r\n", StorageTxTaskHandle ? "OK" : "FAIL");
 
-	// FECbus ???????????: GB4717 ???C, USART3 RS485 Э??
+	// FECbus 发送任务: GB4717 附录C, USART3 RS485 协议帧收发
 	FecbusTxTaskHandle = osThreadNew(FecbusTxTask, NULL, &FecbusTxTask_attributes);
 	DebugPrintf("FecbusTxTask create: %s\r\n", FecbusTxTaskHandle ? "OK" : "FAIL");
 
-	// FECbus ?????????: 1s??????/5s????/10s???
+	// FECbus 周期广播任务: 1s同步心跳/5s心跳/10s时钟广播
 	FecbusPeriodicTaskHandle = osThreadNew(FecbusPeriodicTask, NULL, &FecbusPeriodicTask_attributes);
 	DebugPrintf("FecbusPeriodicTask create: %s\r\n", FecbusPeriodicTaskHandle ? "OK" : "FAIL");
 
-	// COM4???????????: PC?·?ONL/TF/SF?????????/??????ж?
+	// COM4串口注入调试: PC发ONL/TF/SF命令触发报警/故障上报
 	TestInjectTaskHandle = osThreadNew(TestInjectTask, NULL, &TestInjectTask_attributes);
 	DebugPrintf("TestInjectTask create: %s\r\n", TestInjectTaskHandle ? "OK" : "FAIL");
 
@@ -549,10 +549,10 @@ void StartDefaultTask(void *argument)
 //	uint8_t test_data[8] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
 
 	osDelay(1000);
-	// ?洢????????
+	// 存储开机时间
 	BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_TURN_ON, LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID);
 
-	/* ??osDelay(2000)?ι??IWDG??????????λ */
+	/* 上电等待osDelay(2000)后刷新IWDG防止看门狗复位 */
 	HAL_IWDG_Refresh(&hiwdg1);
 	osDelay(2000);
 	SetInternalScreenRTCTime();
@@ -561,23 +561,23 @@ void StartDefaultTask(void *argument)
 	AHT20_Init();
 	(void)AHT20_Update();
 	MBusCtrl_Init();
-	// ????????????? ????????·??????
+	// 内屏板子接收处理函数 开机三秒后才创建该任务
 	InternalBoardRecvTaskHandle = osThreadNew(InternalScreenBoradRecvDealTask, NULL, &InternalBoardRecvTask_attributes);
 
-	/* ?洢?????: ?????LPUART1?????·, ????????ACK=0?????·???? */
+	/* 存储端初始化: 启动LPUART1发送通道, 等待接收端ACK=0确认链路正常 */
 	HAL_IWDG_Refresh(&hiwdg1);
 	StorageTx_Init();
 	StorageEvent_LogPowerOn();  /* GB4717-2024 B.1.1.1d: 控制器开机事件(EVT_POWER_ON=120)记录 */
 
   /* Infinite loop */
-	DebugPrintf("XR5000 Boot OK\r\n");  /* UART4????????? */
+	DebugPrintf("XR5000 Boot OK\r\n");  /* UART4调试串口输出 */
   for(;;)
   {
 		freeHeap = xPortGetFreeHeapSize();
 		HAL_IWDG_Refresh(&hiwdg1);
 		// XR5000_AHT20_CHANGE_20260727: refresh cached home-screen temperature/humidity.
 		(void)AHT20_Update();
-		DebugPrintf("maintain:%d\r\n", freeHeap);  /* ????????С, ????????? */
+		DebugPrintf("maintain:%d\r\n", freeHeap);  /* 输出剩余堆大小, 方便调试观察 */
 
 //		FDCAN1_SendStdDataFrame(0x123, test_data, 8);
 		osDelay(2000);
@@ -596,38 +596,38 @@ void LED_TEST(void *argument)
 {
   /* USER CODE BEGIN LED_TEST */
 	uint32_t last_tick = osKernelGetTickCount();
-	uint8_t led_state = 0; // 0:???, 1:??????, 2:??????
+	uint8_t led_state = 0; // 0:关闭, 1:红灯闪烁, 2:绿灯闪烁
 
   /* Infinite loop */
   for(;;)
   {
-		// ?????????????
-		if(timeout_led_ctrl == 1) { // ??????
+		// 处理外部控制信号
+		if(timeout_led_ctrl == 1) { // 故障状态
 				led_state = 1;
 				timeout_led_ctrl = 0;
-				HAL_GPIO_WritePin(PMLED_G_GPIO_Port, PMLED_G_Pin, GPIO_PIN_SET); // ????????
+				HAL_GPIO_WritePin(PMLED_G_GPIO_Port, PMLED_G_Pin, GPIO_PIN_SET); // 确保绿灯关闭
 		}
-		else if(timeout_led_ctrl == 2) { // ??????
+		else if(timeout_led_ctrl == 2) { // 正常状态
 				led_state = 2;
 				timeout_led_ctrl = 0;
-				HAL_GPIO_WritePin(PMLED_R_GPIO_Port, PMLED_R_Pin, GPIO_PIN_SET); // ????????
+				HAL_GPIO_WritePin(PMLED_R_GPIO_Port, PMLED_R_Pin, GPIO_PIN_SET); // 确保红灯关闭
 		}
 
-		// ????LED?????500ms?????
+		// 处理LED闪烁（500ms周期）
 		if(osKernelGetTickCount() - last_tick >= 500) {
 				last_tick = osKernelGetTickCount();
 
-				if(led_state == 1) { // ??????
+				if(led_state == 1) { // 红灯闪烁
 						HAL_GPIO_TogglePin(PMLED_R_GPIO_Port, PMLED_R_Pin);
 				}
-				else if(led_state == 2) { // ??????
+				else if(led_state == 2) { // 绿灯闪烁
 						HAL_GPIO_TogglePin(PMLED_G_GPIO_Port, PMLED_G_Pin);
 				}
 		}
 
-		// ?????????????LED??500ms?????
+		// 独立处理的屏幕LED（500ms周期）
 		HAL_GPIO_TogglePin(PWLED_G_GPIO_Port, PWLED_G_Pin);
-		osDelay(500); // ??????500ms
+		osDelay(500); // 直接延迟500ms
   }
   /* USER CODE END LED_TEST */
 }
@@ -713,7 +713,7 @@ void DeletUpdataUITask(void)
 }
 void CreatUpdataUITask(void)
 {
-	//	// ???UI????????
+	//	// 屏幕UI更新任务
 	InterScreenUpdataTaskHandle = osThreadNew(InterScreenFresh, NULL, &InterScreenUpdataTask_attributes);
 }
 
@@ -723,7 +723,7 @@ void SuspendTask(uint8_t task_id)
 	switch(task_id)
 	{
 		case 1:{
-			vTaskSuspend(MBus1PollAndReceiveTaskHandle); // ?????????1
+			vTaskSuspend(MBus1PollAndReceiveTaskHandle); // 挂起二总线1
 			break;
 		}
 		case 2:{
@@ -731,23 +731,23 @@ void SuspendTask(uint8_t task_id)
 			break;
 		}
 		case 3:{
-			vTaskSuspend(PackPollAndReceiveTaskHandle); // ????PACK 485????
+			vTaskSuspend(PackPollAndReceiveTaskHandle); // 挂起PACK 485总线
 			break;
 		}
 		case 4:{
-//                 vTaskSuspend(BMSRecvDealTaskHandle); // ????BMS???? (FECBUS_TEST: BMS????δ????, handle=NULL)
+//                 vTaskSuspend(BMSRecvDealTaskHandle); // 挂起BMS接收任务 (FECBUS_TEST: BMS任务未创建, handle=NULL)
 			break;
 		}
 		case 5:{
-//			vTaskSuspend(StationResponseTaskHandle); // ???? ??? ???? (FECbus ????: ???????δ???? 20260818)
+			vTaskSuspend(StationResponseTaskHandle); // 挂起 场站 总线
 			break;
 		}
 		case 6:{
-//			vTaskSuspend(CtrlBusPollAndReceiveTaskHandle); // ??????uart5???·3???
+//			vTaskSuspend(CtrlBusPollAndReceiveTaskHandle); // 已停用，uart5由回路3接管
 			break;
 		}
 		case 7:{
-			vTaskSuspend(RS485DetectPollAndReceiveTaskHandle); // ?????·3 RS485???
+			vTaskSuspend(RS485DetectPollAndReceiveTaskHandle); // 挂起回路3 RS485探测
 			break;
 		}
 		default:{
@@ -762,30 +762,30 @@ void ResumeTask(uint8_t task_id)
 	switch(task_id)
 	{
 		case 1:{
-			vTaskResume(MBus1PollAndReceiveTaskHandle); // ?????????1
+			vTaskResume(MBus1PollAndReceiveTaskHandle); // 挂起二总线1
 			break;
 		}
 		case 2:{
 			break;
 		}
 		case 3:{
-			vTaskResume(PackPollAndReceiveTaskHandle); // ???PACK 485????
+			vTaskResume(PackPollAndReceiveTaskHandle); // 挂起PACK 485总线
 			break;
 		}
 		case 4:{
-//                 vTaskResume(BMSRecvDealTaskHandle); // ???BMS???? (FECBUS_TEST: BMS????δ????, handle=NULL)
+//                 vTaskResume(BMSRecvDealTaskHandle); // 恢复BMS接收任务 (FECBUS_TEST: BMS任务未创建, handle=NULL)
 			break;
 		}
 		case 5:{
-//			vTaskResume(StationResponseTaskHandle); // ??? ??? ???? (FECbus ????: ???????δ???? 20260818)
+			vTaskResume(StationResponseTaskHandle); // 挂起 场站 总线
 			break;
 		}
 		case 6:{
-//			vTaskResume(CtrlBusPollAndReceiveTaskHandle); // ??????uart5???·3???
+//			vTaskResume(CtrlBusPollAndReceiveTaskHandle); // 已停用，uart5由回路3接管
 			break;
 		}
 		case 7:{
-			vTaskResume(RS485DetectPollAndReceiveTaskHandle); // ?????·3 RS485???
+			vTaskResume(RS485DetectPollAndReceiveTaskHandle); // 恢复回路3 RS485探测
 			break;
 		}
 		default:{
@@ -795,50 +795,50 @@ void ResumeTask(uint8_t task_id)
 }
 
 
-/* ?洢???????: ??LPUART1??洢??MCU???, ?????????????? */
+/* 存储端通讯任务: 通过LPUART1向存储端发送事件记录, 循环处理发送队列 */
 void StorageTxTask(void *argument)
 {
-	/* ??????洢??·(LPUART1 PB6/PB7 + ?ж????) */
+	/* 初始化存储端通讯(LPUART1 PB6/PB7 + 中断接收解析) */
 	StorageTx_Init();
 	DebugPrintf("StorageTxTask started\r\n");
 
 	for(;;)
 	{
-		/* ??????????????, ??????????(??3?????δ??????????) */
+		/* 循环处理发送队列, 等待接收端响应(最多3次重试等待ACK) */
 		StorageTx_TaskLoop();
 	}
 }
 
 
-/* FECbus ??????????: GB4717 ???C, ??USART3(PB10/PB11) RS485 Э??? */
+/* FECbus 发送任务: GB4717 附录C, 用USART3(PB10/PB11) RS485 收发协议帧 */
 void FecbusTxTask(void *argument)
 {
-	/* ?????FECbusЭ???: ?????????/???????? + ????USART3???IT?ж?
-	 * ?: Fecbus_Init ???????, ????????? */
+	/* 启动FECbus协议栈: 初始化发送队列/互斥锁 + 启动USART3逐字节IT接收
+	 * 注意: Fecbus_Init 只执行一次, 内部幂等保护 */
 	Fecbus_Init();
 	DebugPrintf("FecbusTxTask started\r\n");
 
 	for(;;)
 	{
-		/* ?????????????????, ????????(?1s???3??, ????9s)
-		 * ??????????????ιIWDG??????????λ */
+		/* 从队列取事件组帧发送, 单播等待应答(超时1s重试3次, 共约9s)
+		 * 发送期间内部喂IWDG防止看门狗复位 */
 		Fecbus_TxTaskLoop();
 	}
 }
 
 
-/* FECbus ???????????: 1s?????? + 5s???? + 10s???, ??USART3 */
+/* FECbus 周期广播任务: 1s同步心跳 + 5s心跳 + 10s时钟广播, 发送走USART3 */
 void FecbusPeriodicTask(void *argument)
 {
-	/* ?????FECbusЭ???(??FecbusTxTask???ó????, ???????) */
+	/* 启动FECbus协议栈(与FecbusTxTask重复调用, 内部幂等保护) */
 	Fecbus_Init();
 	DebugPrintf("FecbusPeriodicTask started\r\n");
 
-	/* ?: XR5000_FECBUS_TEST_EVENT ???????豸??·(???????????):
-	 * ?????·(TF/SF???->PointTypeDetectorDataDeal->FecbusReport->???->FecbusTxTask)
-	 * ????COM6???: ?????5/??·1/?豸2/???31/?豸????3 ?? 3???????? */
+	/* 注: XR5000_FECBUS_TEST_EVENT 事件上报链路(火灾报警流程):
+	 * 事件源链路(TF/SF按键->PointTypeDetectorDataDeal->FecbusReport->入队->FecbusTxTask)
+	 * 可抓COM6验证: 功能码5/回路1/设备2/类型31/状态码3组 3帧事件上报 */
 
-	/* ???????????(?????ιIWDG?????λ) */
+	/* 周期广播任务主循环(每周期喂IWDG防止复位) */
 	Fecbus_PeriodicTaskLoop();
 }
 

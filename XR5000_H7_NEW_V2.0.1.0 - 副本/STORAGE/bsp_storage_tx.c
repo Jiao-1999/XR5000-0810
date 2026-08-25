@@ -46,6 +46,8 @@
 static UART_HandleTypeDef s_hlpuart1;
 #define STX_UART             (&s_hlpuart1)
 static uint8_t s_initialized = 0;           /* 初始化标志 */
+static uint8_t s_boot_completed = 0;        /* P0-4: 启动后首次发送成功标志(未成功前不报存储故障) */
+static uint8_t s_fault_reported = 0;        /* P0-4: 存储故障已上报标志(去重,避免故障刷屏) */
 static QueueHandle_t s_tx_queue = NULL;     /* 发送消息队列句柄 */
 
 /* 队列项: 命令码 + 事件记录 */
@@ -471,6 +473,71 @@ void StorageTx_FillTimestamp(EventRecord_t *rec)
 }
 
 /**
+ * @brief  按事件代码自动填充状态位图(GB4717-2024表C.18)
+ * @param  rec: 待填充的记录(根据rec->event_code查表填rec->state_code)
+ * @note   P1-2整改: state_code位图定义(表C.18, bit0~bit10):
+ *           bit3(0x0008)=有报警   bit4(0x0010)=有启动   bit5(0x0020)=有反馈
+ *           bit7(0x0080)=有故障   bit8(0x0100)=有屏蔽   bit2(0x0004)=电源故障
+ *         映射: 火警类事件置bit3, 故障置bit7, 屏蔽置bit8,
+ *         关机置bit2, 启动类置bit4, 反馈置bit5, 其余事件清零.
+ */
+void StorageTx_FillStateMask(EventRecord_t *rec)
+{
+    uint16_t mask = 0;
+
+    if (rec == NULL) return;
+
+    switch (rec->event_code)
+    {
+    case EVT_FIRST_FIRE:            /* 2 首警 */
+    case EVT_FIRE:                  /* 3 火警 */
+    case EVT_CONFIRM_BUTTON:        /* 128 信息确认(确认时系统处于报警状态) */
+        mask = 0x0008;              /* bit3 有报警 */
+        break;
+
+    case EVT_START:                 /* 19 联动设备启动 */
+    case EVT_LINKAGE_START_BUTTON:  /* 130 联动启动按钮 */
+        mask = 0x0010;              /* bit4 有启动 */
+        break;
+
+    case EVT_FEEDBACK:              /* 26 反馈 */
+        mask = 0x0020;              /* bit5 有反馈 */
+        break;
+
+    case EVT_FAULT:                 /* 80 故障 */
+        mask = 0x0080;              /* bit7 有故障 */
+        break;
+
+    case EVT_SHIELD:                /* 72 屏蔽 */
+        mask = 0x0100;              /* bit8 有屏蔽 */
+        break;
+
+    case EVT_POWER_OFF:             /* 121 关机(掉电前记录) */
+        mask = 0x0004;              /* bit2 电源故障 */
+        break;
+
+    case EVT_NORMAL:                /* 1 正常 */
+    case EVT_FAULT_RECOVER:         /* 100 故障恢复 */
+    case EVT_SHIELD_RELEASE:        /* 73 解除屏蔽 */
+    case EVT_POWER_ON:              /* 120 开机 */
+    case EVT_RESET:                 /* 122 复位 */
+    case EVT_SELF_CHECK:            /* 123 自检 */
+    case EVT_SELF_CHECK_FAIL:       /* 124 自检失败 */
+    case EVT_CHECK_BUTTON:          /* 129 检查按钮 */
+    case EVT_CLOCK_ADJUST:          /* 131 时钟调整 */
+    case EVT_MANUAL:                /* 125 手动 */
+    case EVT_AUTO:                  /* 126 自动 */
+    case EVT_SUPERVISED:            /* 70 监管 */
+    case EVT_SUPERVISED_RELEASE:    /* 71 监管解除 */
+    default:
+        mask = 0x0000;              /* 其余事件不置状态位 */
+        break;
+    }
+
+    rec->state_code = mask;
+}
+
+/**
  * @brief   构建完整事件记录结构(含RTC时间戳)
  * @param   rec: 输出记录
  * @param   dev_no: 设备号
@@ -574,8 +641,44 @@ void StorageTx_TaskLoop(void)
 
     /* 阻塞等待队列消息 */
     if (xQueueReceive(s_tx_queue, &item, portMAX_DELAY) == pdTRUE) {
+        uint8_t send_ret;
+
         /* 发送记录(内含等待应答) */
-        StorageTx_SendRecord(item.cmd, &item.record);
+        send_ret = StorageTx_SendRecord(item.cmd, &item.record);
+
+        /* P0-4整改: 存储写入故障上报(失败码: 1超时/2CRC错/3满/4忙) */
+        if (send_ret == 0U)
+        {
+            /* 发送成功: 标记启动完成; 若此前报过存储故障, 清标志(故障恢复) */
+            s_boot_completed = 1;
+            if (s_fault_reported != 0U)
+            {
+                s_fault_reported = 0;
+                DebugPrintf("[STX-TX] storage fault recovered\r\n");
+            }
+        }
+        else
+        {
+            /* 发送失败: 首次成功后才上报(开机阶段存储侧未就绪属正常, 不误报) */
+            if ((s_boot_completed != 0U) && (s_fault_reported == 0U))
+            {
+                EventRecord_t fault_rec;
+
+                memset(&fault_rec, 0, sizeof(EventRecord_t));
+                fault_rec.controller_no = 1;                 /* 控制器号固定1 */
+                fault_rec.unit_no       = 1;
+                fault_rec.device_no     = 1;                 /* 存储单元设备号1 */
+                fault_rec.dev_type      = DEV_TYPE_STORAGE;  /* 18=运行数据存储单元(表C.16) */
+                fault_rec.event_code    = EVT_FAULT;         /* 80=故障 */
+                fault_rec.state_code    = 0x0080;            /* bit7有故障(表C.18) */
+                StorageTx_FillTimestamp(&fault_rec);         /* 填充RTC时间戳 */
+
+                /* 故障记录入队(只入队不发送, 无递归风险); 下轮发送若成功即清标志 */
+                (void)StorageTx_QueueRecord(STX_CMD_STORE_FAULT, &fault_rec);
+                s_fault_reported = 1;                        /* 去重: 故障期间只报一次 */
+                DebugPrintf("[STX-TX] storage fault reported (ret=%d evt=80 type=18)\r\n", send_ret);
+            }
+        }
 
         /* 让出CPU给其他任务 */
         vTaskDelay(10);

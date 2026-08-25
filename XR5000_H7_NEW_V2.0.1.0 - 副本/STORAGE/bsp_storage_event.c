@@ -125,6 +125,12 @@ static void StorageEvent_Enqueue(uint8_t cmd,
     rec.event_code    = event_code;
     rec.state_code    = state_code;
     StorageTx_FillTimestamp(&rec);  /* 填充RTC时间戳 */
+    if (state_code == 0U)
+    {
+        /* P1-2整改: 调用方未指定状态位图时, 按事件码自动填充(表C.18)
+         * (调用方显式传入非0值则保留, 如LogFeedback的外部state_code) */
+        StorageTx_FillStateMask(&rec);
+    }
 
     (void)StorageTx_QueueRecord(cmd, &rec);  /* 异步入队, 忽略返回值 */
 }
