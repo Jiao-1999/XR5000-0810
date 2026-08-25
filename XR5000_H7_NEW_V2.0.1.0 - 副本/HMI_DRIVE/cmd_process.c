@@ -2081,7 +2081,7 @@ void NotifyScreen(uint16 screen_id)
     //进到画面1刷新主机名称
     if(screen_id == 1)
     {
-			SetTextValue(1, 11, (uint8_t *)"FGS-XR5000.火气报警控制器");//刷新主机名称
+			SetTextValue(1, 11, (uint8_t *)"FGS-XR5000.火灾报警控制器");//刷新主机名称
 			
 			SetTextInt32(1, 30, SystemSaveInfo.slave_addr485_Station,0,1); // 30是场站的
 			

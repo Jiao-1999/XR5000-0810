@@ -7,24 +7,29 @@
 
 /*
  * 统一产品登记表，以下标无关的product_code作为查找键。
- * 字段顺序：内部产品码、名称、允许回路、解析器、正常读取数量、国标码、传感器掩码。
+ * 字段顺序：内部产品码、名称、允许回路、解析器、正常读取数量、国标码、传感器掩码、
+ *           通用能力、输出通道、控制驱动。
  * DLYGWG和GCM1002的national_type_code暂为0：仍读取0x000D，但识别出产品后跳过匹配。
  */
 static const DeviceProductDescriptor g_product_table[] =
 {
-    {DEVICE_PRODUCT_XR805_V20,    "XR805-V2.0", LOOP3_MASK, DEVICE_PARSER_XR805,  16U, 50U, 0x003FU},
-    {DEVICE_PRODUCT_XR805_EXD,    "XR805-EXD",  LOOP3_MASK, DEVICE_PARSER_XR805,  16U, 50U, 0x003FU},
-    {DEVICE_PRODUCT_XR805_EXI,    "XR805-EXi",  LOOP3_MASK, DEVICE_PARSER_XR805,  16U, 50U, 0x003FU},
-    {DEVICE_PRODUCT_DLYGWG,       "XR-DLYGWG",  LOOP3_MASK, DEVICE_PARSER_DLYGWG, 1U,  0U, 0U},
-    {DEVICE_PRODUCT_XR8001_SMOKE, "JTY-XR8001", LOOP1_MASK, DEVICE_PARSER_XR8001, 4U, 23U, 0U},
-    {DEVICE_PRODUCT_XR8002_TEMP,  "JTY-XR8002", LOOP1_MASK, DEVICE_PARSER_XR8002, 4U, 31U, 0U},
-    {DEVICE_PRODUCT_XR8303,       "XR8303",     LOOP3_MASK, DEVICE_PARSER_XR8303, 12U, 50U, 0x007FU},
-    {DEVICE_PRODUCT_XR8305,       "XR8305",     LOOP3_MASK, DEVICE_PARSER_XR8305, 12U, 50U, 0x007FU},
-    {DEVICE_PRODUCT_XR2200,       "XR-2200",    LOOP2_MASK, DEVICE_PARSER_XR2200,  1U, 61U, 0U},
-    {DEVICE_PRODUCT_SGBJQ,        "XR-SGBJQ",   LOOP2_MASK, DEVICE_PARSER_SGBJQ,   1U, 82U, 0U},
-    {DEVICE_PRODUCT_XR1503,       "XR1503",     LOOP2_MASK, DEVICE_PARSER_XR1503,  1U, 10U, 0U},
-    {DEVICE_PRODUCT_GCM1002,      "GCM-1002",   LOOP2_MASK, DEVICE_PARSER_GCM1002, 1U,  0U, 0U},
-    {DEVICE_PRODUCT_FIM1017,      "FIM-1017",   LOOP2_MASK, DEVICE_PARSER_FIM1017, 1U, 76U, 0U}
+    {DEVICE_PRODUCT_XR805_V20,    "XR805-V2.0", LOOP3_MASK, DEVICE_PARSER_XR805,  16U, 50U, 0x003FU, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    {DEVICE_PRODUCT_XR805_EXD,    "XR805-EXD",  LOOP3_MASK, DEVICE_PARSER_XR805,  16U, 50U, 0x003FU, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    {DEVICE_PRODUCT_XR805_EXI,    "XR805-EXi",  LOOP3_MASK, DEVICE_PARSER_XR805,  16U, 50U, 0x003FU, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    {DEVICE_PRODUCT_DLYGWG,       "XR-DLYGWG",  LOOP3_MASK, DEVICE_PARSER_DLYGWG, 1U,  0U, 0U, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    {DEVICE_PRODUCT_XR8001_SMOKE, "JTY-XR8001", LOOP1_MASK, DEVICE_PARSER_XR8001, 4U, 23U, 0U, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    {DEVICE_PRODUCT_XR8002_TEMP,  "JTY-XR8002", LOOP1_MASK, DEVICE_PARSER_XR8002, 4U, 31U, 0U, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    {DEVICE_PRODUCT_XR8303,       "XR8303",     LOOP3_MASK, DEVICE_PARSER_XR8303, 12U, 50U, 0x007FU, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    {DEVICE_PRODUCT_XR8305,       "XR8305",     LOOP3_MASK, DEVICE_PARSER_XR8305, 12U, 50U, 0x007FU, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    {DEVICE_PRODUCT_XR2200,       "XR-2200",    LOOP2_MASK, DEVICE_PARSER_XR2200,  1U, 61U, 0U,
+        DEVICE_CAP_STATUS_READ, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    /* 当前协议只支持声光整体启停，因此只登记一个组合输出通道；后续协议支持拆分时再扩展位。 */
+    {DEVICE_PRODUCT_SGBJQ,        "XR-SGBJQ",   LOOP2_MASK, DEVICE_PARSER_SGBJQ,   1U, 82U, 0U,
+        DEVICE_CAP_STATUS_READ | DEVICE_CAP_OUTPUT_CONTROL, DEVICE_OUTPUT_1, DEVICE_CONTROL_DRIVER_SGBJQ},
+    {DEVICE_PRODUCT_XR1503,       "XR1503",     LOOP2_MASK, DEVICE_PARSER_XR1503,  1U, 10U, 0U,
+        DEVICE_CAP_STATUS_READ | DEVICE_CAP_EVENT_RECEIVE, 0U, DEVICE_CONTROL_DRIVER_FIRE_DISPLAY},
+    {DEVICE_PRODUCT_GCM1002,      "GCM-1002",   LOOP2_MASK, DEVICE_PARSER_GCM1002, 1U,  0U, 0U, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE},
+    {DEVICE_PRODUCT_FIM1017,      "FIM-1017",   LOOP2_MASK, DEVICE_PARSER_FIM1017, 1U, 76U, 0U, 0U, 0U, DEVICE_CONTROL_DRIVER_NONE}
 };
 
 /* 运行时识别故障表：[回路][真实设备地址]，掉电清除且不写入外部Flash。 */
@@ -108,6 +113,24 @@ uint8_t DeviceRegistry_IsNationalProductMatch(uint16_t national_type_code, uint1
     if(descriptor == 0) return 0U;
     /* 表内国标码为0的产品按当前约定暂不做一致性校验。 */
     return descriptor->national_type_code == 0U || descriptor->national_type_code == national_type_code ? 1U : 0U;
+}
+
+uint32_t DeviceRegistry_GetCapabilities(uint16_t product_code)
+{
+    const DeviceProductDescriptor *descriptor = DeviceRegistry_Find(product_code);
+    return descriptor == 0 ? 0U : descriptor->capabilities;
+}
+
+uint32_t DeviceRegistry_GetSupportedOutputs(uint16_t product_code)
+{
+    const DeviceProductDescriptor *descriptor = DeviceRegistry_Find(product_code);
+    return descriptor == 0 ? 0U : descriptor->supported_outputs;
+}
+
+uint8_t DeviceRegistry_GetControlDriver(uint16_t product_code)
+{
+    const DeviceProductDescriptor *descriptor = DeviceRegistry_Find(product_code);
+    return descriptor == 0 ? DEVICE_CONTROL_DRIVER_NONE : descriptor->control_driver;
 }
 
 /* 国标设备类型码 → 屏幕显示中文名映射表（供联动逻辑规则显示使用）。
