@@ -1,14 +1,14 @@
 /* ============================================================================
- * Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: MBus/ï¿½ï¿½Â·2ï¿½è±¸ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ (MBus Control Module)
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: Êµï¿½Ö»ï¿½Â·2(UART2) MBusï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½È¡ï¿½Modbus RTUÍ¨ï¿½Å¡ï¿½
- *          ×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½ï¿½Ï±ï¿½ï¿½ï¿½Flashï¿½Ö¾Ã»ï¿½ï¿½ï¿½
- * Í¨ï¿½ï¿½Ð­ï¿½ï¿½: Modbus RTU, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½04(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½)/05(Ð´ï¿½ï¿½ï¿½ï¿½È¦)/10(Ð´ï¿½ï¿½Ä´ï¿½ï¿½ï¿½),
+ * Ä£¿éÃû³Æ: MBus/»ØÂ·2Éè±¸¿ØÖÆÄ£¿é (MBus Control Module)
+ * ¹¦ÄÜÃèÊö: ÊµÏÖ»ØÂ·2(UART2) MBus×ÜÏßÉè±¸µÄÂÖÑ¯µ÷¶È¡¢Modbus RTUÍ¨ÐÅ¡¢
+ *          ×´Ì¬¹ÜÀí¡¢Éù¹â±¨¾¯Æ÷¿ØÖÆ¡¢»ðÔÖÏÔÊ¾ÅÌÊÂ¼þÉÏ±¨¡¢Flash³Ö¾Ã»¯¡£
+ * Í¨ÐÅÐ­Òé: Modbus RTU, ¹¦ÄÜÂë04(¶ÁÊäÈë¼Ä´æÆ÷)/05(Ð´µ¥ÏßÈ¦)/10(Ð´¶à¼Ä´æÆ÷),
  *          UART2/115200/8N1, MBUS2SITE=1
- * ï¿½è±¸ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½(XR-SGBJQ,ï¿½ï¿½Ö·60)/ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(XR2200,ï¿½ï¿½Ö·61)/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½(XR1530,ï¿½ï¿½Ö·62)
- * ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½: Ã¿10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(200ms)ï¿½ï¿½Ñ¯Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸, ï¿½ï¿½ï¿½ï¿½04ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½
- * ï¿½ï¿½ï¿½Æ·ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½05ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Í¨ï¿½ï¿½10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï±ï¿½ï¿½Â¼ï¿½
- * ï¿½ï¿½ï¿½ß¼ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½10ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½
- * ï¿½ï¿½Â·ï¿½ï¿½Ê¶: ï¿½ï¿½Â·2, Flashï¿½æ´¢ï¿½ï¿½Ö·0x110000, ï¿½ï¿½ï¿½Ï´ï¿½ID=0x52(82ï¿½ï¿½)
+ * Éè±¸ÀàÐÍ: Éù¹â±¨¾¯Æ÷(XR-SGBJQ,µØÖ·60)/ÊÖ¶¯±¨¾¯Æ÷(XR2200,µØÖ·61)/»ðÔÖÏÔÊ¾ÅÌ(XR1530,µØÖ·62)
+ * ÂÖÑ¯Á÷³Ì: Ã¿10¸öÈÎÎñÖÜÆÚ(200ms)ÂÖÑ¯Ò»¸öÔÚÏßÉè±¸, ·¢ËÍ04¹¦ÄÜÂë¶Á1¸ö¼Ä´æÆ÷
+ * ¿ØÖÆ·þÎñ: Éù¹â±¨¾¯Æ÷Í¨¹ý05¹¦ÄÜÂë¿ØÖÆ, »ðÔÖÏÔÊ¾ÅÌÍ¨¹ý10¹¦ÄÜÂëÉÏ±¨ÊÂ¼þ
+ * µôÏß¼ì²â: ·¢ËÍÊ§°Ü(¶ÓÁÐÂú)»ò³¬Ê±ÎÞÏìÓ¦¾ù¼ÆµôÏß, Á¬Ðø10´ÎÅÐ¶¨µôÏß
+ * »ØÂ·±êÊ¶: »ØÂ·2, Flash´æ´¢µØÖ·0x110000, ¹ÊÕÏ´ØID=0x52(82´Ø)
  * ============================================================================ */
 
 #include "bsp_mbus_control.h"
@@ -20,48 +20,65 @@
 #include "cmsis_os.h"           
 
 /* ============================================================
- * ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý½á¹¹
+ * ÄÚ²¿³£Á¿ÓëÊý¾Ý½á¹¹
  * ============================================================ */
 
-static MBusCtrlDevice g_mbus_ctrl_devices[MBUS_CONTROL_MAX_DEVICES]; /* ï¿½è±¸Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½=ï¿½ï¿½Ö·) */
-static uint8_t g_mbus_ctrl_polling_addr = 1; /* ï¿½ï¿½Ç°ï¿½ï¿½Ñ¯ï¿½ï¿½Ö·(1~63Ñ­ï¿½ï¿½) */
+static MBusCtrlDevice g_mbus_ctrl_devices[MBUS_CONTROL_MAX_DEVICES]; /* Éè±¸ÊµÀýÊý×é(Ë÷Òý=µØÖ·) */
+static uint8_t g_mbus_ctrl_polling_addr = 1; /* µ±Ç°ÂÖÑ¯µØÖ·(1~63Ñ­»·) */
 
-#define MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN       16U  /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ó³¤¶ï¿½ */
-#define MBUS_FIRE_DISPLAY_RESPONSE_WAIT_TICKS   15U  /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½È´ï¿½ï¿½ï¿½Ê±(tick) */
-#define MBUS_FIRE_DISPLAY_MAX_RETRY             3U   /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ */
-#define MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS    15U  /* ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½È´ï¿½ï¿½ï¿½Ê±(tick) */
-#define MBUS_SOUND_LIGHT_MAX_RETRY              3U   /* ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ */
+#define MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN       16U  /* »ðÔÖÏÔÊ¾ÅÌÊÂ¼þ¶ÓÁÐ×î´ó³¤¶È */
+#define MBUS_FIRE_DISPLAY_RESPONSE_WAIT_TICKS   15U  /* »ðÔÖÏÔÊ¾ÅÌÏìÓ¦µÈ´ý³¬Ê±(tick) */
+#define MBUS_FIRE_DISPLAY_MAX_RETRY             3U   /* »ðÔÖÏÔÊ¾ÅÌ×î´óÖØÊÔ´ÎÊý */
+#define MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS    15U  /* Éù¹â±¨¾¯Æ÷ÏìÓ¦µÈ´ý³¬Ê±(tick) */
+#define MBUS_SOUND_LIGHT_MAX_RETRY              3U   /* Éù¹â±¨¾¯Æ÷×î´óÖØÊÔ´ÎÊý */
+#define MBUS_CONTROL_REQUEST_QUEUE_LEN           8U   /* Í¨ÓÃ¿ØÖÆÇëÇó¾²Ì¬¶ÓÁÐ³¤¶È */
 
-/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½Î¶ï¿½ï¿½ï¿½Ôªï¿½ï¿½) */
+/* »ðÔÖÏÔÊ¾ÅÌÊÂ¼þ¶¨Òå(»·ÐÎ¶ÓÁÐÔªËØ) */
 typedef struct
 {
-    uint8_t loop;          /* ï¿½ï¿½Â·ï¿½ï¿½ï¿½ */
-    uint8_t addr;          /* Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö· */
-    uint8_t detector_type; /* Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(MBUS_FIRE_DISPLAY_DETECT_*) */
-    uint8_t alarm_type;    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(MBUS_FIRE_DISPLAY_ALARM_*) */
+    uint8_t loop;          /* »ØÂ·±àºÅ */
+    uint8_t addr;          /* Ì½²âÆ÷µØÖ· */
+    uint8_t detector_type; /* Ì½²âÆ÷ÀàÐÍ(MBUS_FIRE_DISPLAY_DETECT_*) */
+    uint8_t alarm_type;    /* ±¨¾¯ÀàÐÍ(MBUS_FIRE_DISPLAY_ALARM_*) */
 } MBusFireDisplayEvent;
 
-/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Î¶ï¿½ï¿½ï¿½ */
+/* »ðÔÖÏÔÊ¾ÅÌÊÂ¼þ»·ÐÎ¶ÓÁÐ */
 static MBusFireDisplayEvent g_fire_display_event_queue[MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN];
-static uint8_t g_fire_display_event_head = 0;    /* ï¿½ï¿½ï¿½ï¿½Í·Ö¸ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½) */
-static uint8_t g_fire_display_event_tail = 0;    /* ï¿½ï¿½ï¿½ï¿½Î²Ö¸ï¿½ï¿½(ï¿½ï¿½ï¿½Î»ï¿½ï¿½) */
-static uint8_t g_fire_display_event_count = 0;   /* ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½Â¼ï¿½ï¿½ï¿½ */
-static uint8_t g_fire_display_wait_response = 0; /* ï¿½Ç·ï¿½È´ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ó¦ */
-static uint8_t g_fire_display_wait_ticks = 0;    /* ï¿½È´ï¿½ï¿½ï¿½Ó¦ï¿½Ñ¼ï¿½tickï¿½ï¿½ */
-static uint8_t g_fire_display_retry_count = 0;   /* ï¿½ï¿½Ç°ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ */
+static uint8_t g_fire_display_event_head = 0;    /* ¶ÓÁÐÍ·Ö¸Õë(³ö¶ÓÎ»ÖÃ) */
+static uint8_t g_fire_display_event_tail = 0;    /* ¶ÓÁÐÎ²Ö¸Õë(Èë¶ÓÎ»ÖÃ) */
+static uint8_t g_fire_display_event_count = 0;   /* µ±Ç°¶ÓÁÐÖÐµÄÊÂ¼þÊý */
+static uint8_t g_fire_display_wait_response = 0; /* ÊÇ·ñµÈ´ýÏÔÊ¾ÅÌÏìÓ¦ */
+static uint8_t g_fire_display_wait_ticks = 0;    /* µÈ´ýÏìÓ¦ÒÑ¼ÆtickÊý */
+static uint8_t g_fire_display_retry_count = 0;   /* µ±Ç°ÊÂ¼þÖØÊÔ¼ÆÊý */
 
-/* ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½×´Ì¬, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Öµ) */
-static uint8_t g_sound_light_target_valid = 0;   /* Ä¿ï¿½ï¿½Öµï¿½Ç·ï¿½ï¿½ï¿½Ð§ */
-static uint8_t g_sound_light_target_state = 0;   /* Ä¿ï¿½ï¿½×´Ì¬(0=ï¿½Ø±ï¿½, 1=ï¿½ï¿½ï¿½ï¿½) */
-static uint8_t g_sound_light_confirmed_valid = 0;/* È·ï¿½ï¿½Öµï¿½Ç·ï¿½ï¿½ï¿½Ð§ */
-static uint8_t g_sound_light_confirmed_state = 0;/* ï¿½ï¿½È·ï¿½ÏµÄµï¿½Ç°×´Ì¬ */
-static uint8_t g_sound_light_request_pending = 0;/* ï¿½Ç·ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ÍµÄ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
-static uint8_t g_sound_light_wait_response = 0;  /* ï¿½Ç·ï¿½È´ï¿½ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ */
-static uint8_t g_sound_light_wait_ticks = 0;     /* ï¿½È´ï¿½ï¿½ï¿½Ó¦ï¿½Ñ¼ï¿½tickï¿½ï¿½ */
-static uint8_t g_sound_light_retry_count = 0;    /* ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ */
+/* Í¨ÓÃ¿ØÖÆ¶ÓÁÐÔªËØ¡£final_outputsÊÇºÏ²¢update_maskºóµÄÍêÕûÄ¿±ê¿ìÕÕ¡£ */
+typedef struct
+{
+    MBusCtrlRequest request;
+    uint32_t final_outputs;
+    uint8_t driver_id;
+} MBusQueuedControl;
 
-/* ï¿½Ì¶ï¿½ï¿½ï¿½Ö·ï¿½è±¸ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½=ï¿½ï¿½Ö·, Öµ=MBusCtrlDevType) */
-/* ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½=MBusCtrlDevType) */
+/* ¹Ì¶¨RAM»·ÐÎ¶ÓÁÐ£¬²»Ê¹ÓÃ¶¯Ì¬ÄÚ´æ£¬Ò²²»ÔÚµ÷ÓÃÕßÕ»ÖÐ±£´æ´ýÖ´ÐÐÇëÇó¡£ */
+static MBusQueuedControl g_control_queue[MBUS_CONTROL_REQUEST_QUEUE_LEN];
+static uint8_t g_control_queue_head = 0U;
+static uint8_t g_control_queue_tail = 0U;
+static uint8_t g_control_queue_count = 0U;
+static MBusQueuedControl g_active_control;
+static uint8_t g_active_control_valid = 0U;
+static uint8_t g_control_wait_response = 0U;
+static uint8_t g_control_wait_ticks = 0U;
+static uint8_t g_control_retry_count = 0U;
+
+/* Ã¿¸öÎïÀíµØÖ·¶ÀÁ¢±£´æÄ¿±êÖµ¡¢È·ÈÏÖµºÍÒì²½½á¹û£¬±ãÓÚºóÐøÀ©Õ¹¸ü¶àÊä³öÉè±¸¡£ */
+static uint32_t g_control_target_outputs[MBUS_CONTROL_MAX_DEVICES];
+static uint32_t g_control_confirmed_outputs[MBUS_CONTROL_MAX_DEVICES];
+static uint8_t g_control_confirmed_valid[MBUS_CONTROL_MAX_DEVICES];
+static uint8_t g_control_pending_count[MBUS_CONTROL_MAX_DEVICES];
+static uint8_t g_control_status[MBUS_CONTROL_MAX_DEVICES];
+
+/* ¹Ì¶¨µØÖ·Éè±¸ÀàÐÍÓ³Éä±í(Ë÷Òý=µØÖ·, Öµ=MBusCtrlDevType) */
+/* Éè±¸ÖÐÎÄÃû³ÆÓ³Éä±í(Ë÷Òý=MBusCtrlDevType) */
 #define MBUS2_IDENTIFY_FAIL_THRESHOLD 3U
 #define MBUS2_IDENTIFY_RETRY_MS 1000U
 #define MBUS2_STAGE_NATIONAL 0U
@@ -102,10 +119,10 @@ static void MBusCtrl_MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error
         DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP2, addr, error);
 }
 /* ============================================================
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½: 10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½Ä´ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½Î¶ï¿½ï¿½ï¿½+ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ï¿½
+ * »ðÔÖÏÔÊ¾ÅÌÊÂ¼þ´¦Àí: 10¹¦ÄÜÂëÐ´¶à¼Ä´æÆ÷, »·ÐÎ¶ÓÁÐ+ÖØÊÔ»úÖÆ
  * ============================================================ */
 
-/* ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½Ö¡: 10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, Ð´2ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½8ï¿½Ö½ï¿½(ï¿½ï¿½Â·/ï¿½ï¿½Ö·/Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½) */
+/* ·¢ËÍÒ»Ìõ»ðÔÖÏÔÊ¾ÅÌÊÂ¼þÖ¡: 10¹¦ÄÜÂë, Ð´2¸ö¼Ä´æÆ÷¹²8×Ö½Ú(»ØÂ·/µØÖ·/Ì½²âÆ÷ÀàÐÍ/±¨¾¯ÀàÐÍ) */
 static void MBusCtrl_SendFireDisplayEvent(void)
 {
     uint8_t frame[17] = {0};
@@ -130,7 +147,7 @@ static void MBusCtrl_SendFireDisplayEvent(void)
     g_fire_display_wait_ticks = 0;
 }
 
-/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½È´ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ô¡ï¿½ï¿½ï¿½ï¿½ï¿½ */
+/* »ðÔÖÏÔÊ¾ÅÌÊÂ¼þ·þÎñ: ¼ì²é¶ÓÁÐ¡ú·¢ËÍÊÂ¼þ¡úµÈ´ýÏìÓ¦¡ú³¬Ê±ÖØÊÔ¡ú·ÅÆú */
 static uint8_t MBusCtrl_ServiceFireDisplayEvents(void)
 {
     if (g_fire_display_event_count == 0)
@@ -158,82 +175,196 @@ static uint8_t MBusCtrl_ServiceFireDisplayEvents(void)
 }
 
 /* ============================================================
- * ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: 05ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½È¦, ï¿½ï¿½XR2200ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½
+ * Í¨ÓÃÒì²½¿ØÖÆ: µ¥Ò»Íâ²¿Èë¿Ú¡¢¾²Ì¬¶ÓÁÐ¡¢²úÆ·Çý¶¯·ÖÅÉ
  * ============================================================ */
 
-/* ï¿½ï¿½ï¿½ï¿½XR2200ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Öµ: state=2(ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, state=1(ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ï¿½Ø±ï¿½ */
-static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
+/* Íê³Éµ±Ç°ÊÂÎñ²¢¸üÐÂ¸ÃµØÖ·µÄ×îÖÕ×´Ì¬£»ÈôÍ¬µØÖ·ÈÔÓÐÅÅ¶ÓÇëÇóÔò¼ÌÐøÏÔÊ¾µÈ´ý¡£ */
+static void MBusCtrl_FinishActiveControl(MBusCtrlStatus result)
 {
-    uint8_t target_state;
-
-    if (manual_state == 2U)
-        target_state = 1U;
-    else if (manual_state == 1U)
-        target_state = 0U;
-    else
-        return;
-
-    /* XR5000_MBUS2_MANUAL_SOUNDLIGHT_CHANGE_20260730: only valid XR2200 states change the retained target. */
-    g_sound_light_target_valid = 1U;
-    g_sound_light_target_state = target_state;
-    if (g_sound_light_confirmed_valid == 0U || g_sound_light_confirmed_state != target_state)
-        g_sound_light_request_pending = 1U;
+    uint8_t addr = g_active_control.request.addr;
+    if(addr > 0U && addr < MBUS_CONTROL_MAX_DEVICES)
+    {
+        if(g_control_pending_count[addr] > 0U) g_control_pending_count[addr]--;
+        g_control_status[addr] = g_control_pending_count[addr] > 0U ?
+                                 MBUS_CTRL_STATUS_PENDING : (uint8_t)result;
+    }
+    g_active_control_valid = 0U;
+    g_control_wait_response = 0U;
+    g_control_wait_ticks = 0U;
+    g_control_retry_count = 0U;
 }
 
-/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¡: 05ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½È¦Öµ0xFF00(ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½0x0000(ï¿½Ø±ï¿½) */
-static void MBusCtrl_SendSoundLightControl(void)
+/* ÇëÇóÖ´ÐÐÇ°ÔÙ´Î¼ì²éÉè±¸£¬·ÀÖ¹ÅÅ¶ÓÆÚ¼äÉè±¸±»ÏÂÏß»òÖØÐÂÊ¶±ð¡£ */
+static uint8_t MBusCtrl_CanExecute(const MBusQueuedControl *control)
 {
-    uint8_t frame[8] = {0};
+    uint8_t addr = control->request.addr;
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES) return 0U;
+    if(g_mbus_ctrl_devices[addr].online == 0U || g_mbus_ctrl_devices[addr].type_confirmed == 0U) return 0U;
+    if(g_mbus_ctrl_devices[addr].disconnect_count >= MBUS_CONTROL_DISCONNECT_THRESHOLD) return 0U;
+    return DeviceRegistry_GetControlDriver(g_mbus_ctrl_devices[addr].product_code) == control->driver_id ? 1U : 0U;
+}
+
+/* µ±Ç°Ö»µÇ¼ÇXR-SGBJQÇý¶¯£º05¹¦ÄÜÂëÐ´ÏßÈ¦0£¬Êä³ö1±íÊ¾Éù¹âÕûÌå×´Ì¬¡£ */
+static uint8_t MBusCtrl_BuildControlFrame(const MBusQueuedControl *control, uint8_t *frame, uint8_t *length)
+{
     uint16_t crc16;
+    if(control == 0 || frame == 0 || length == 0) return 0U;
+    if(control->driver_id != DEVICE_CONTROL_DRIVER_SGBJQ ||
+       control->request.operation != MBUS_OPERATION_SET_OUTPUT) return 0U;
 
-    frame[0] = MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ);
-    if(frame[0] == 0U) return;
-    frame[1] = 0x05;
-    frame[4] = g_sound_light_target_state ? 0xFF : 0x00;
-    crc16 = CalcCrc16(frame, 6);
-    frame[6] = crc16 & 0xFF;
-    frame[7] = crc16 >> 8;
-    MBus2SendString(frame, sizeof(frame));
-    g_sound_light_wait_response = 1U;
-    g_sound_light_wait_ticks = 0U;
-}
-
-/* ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ·ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¿ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½ï¿½È´ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ô¡ï¿½ï¿½ï¿½ï¿½ï¿½ */
-static uint8_t MBusCtrl_ServiceSoundLightControl(void)
-{
-    if (g_sound_light_target_valid == 0U || g_sound_light_request_pending == 0U)
-        return 0U;
-    if (MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ) == 0U)
-        return 0U;
-
-    if (g_sound_light_wait_response == 0U)
-    {
-        MBusCtrl_SendSoundLightControl();
-    }
-    else if (++g_sound_light_wait_ticks >= MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS)
-    {
-        if (g_sound_light_retry_count++ < MBUS_SOUND_LIGHT_MAX_RETRY)
-        {
-            MBusCtrl_SendSoundLightControl();
-        }
-        else
-        {
-            /* XR5000_MBUS2_MANUAL_SOUNDLIGHT_CHANGE_20260730: abandon this cycle so polling cannot be blocked forever. */
-            g_sound_light_request_pending = 0U;
-            g_sound_light_wait_response = 0U;
-            g_sound_light_wait_ticks = 0U;
-            g_sound_light_retry_count = 0U;
-        }
-    }
+    frame[0] = control->request.addr;
+    frame[1] = 0x05U;
+    frame[2] = 0x00U;
+    frame[3] = 0x00U;
+    frame[4] = (control->final_outputs & MBUS_OUTPUT_SOUND_LIGHT) != 0U ? 0xFFU : 0x00U;
+    frame[5] = 0x00U;
+    crc16 = CalcCrc16(frame, 6U);
+    frame[6] = (uint8_t)(crc16 & 0xFFU);
+    frame[7] = (uint8_t)(crc16 >> 8);
+    *length = 8U;
     return 1U;
 }
 
+/* ·¢ËÍµ±Ç°¿ØÖÆÊÂÎñ£»ËùÓÐUART2¿ØÖÆ±¨ÎÄÖ»ÄÜÓÉ»ØÂ·2ÈÎÎñµ÷ÓÃÕâÀï·¢ËÍ¡£ */
+static uint8_t MBusCtrl_SendActiveControl(void)
+{
+    uint8_t frame[8] = {0};
+    uint8_t length = 0U;
+    if(MBusCtrl_BuildControlFrame(&g_active_control, frame, &length) == 0U) return 0U;
+    MBus2SendString(frame, length);
+    g_control_wait_response = 1U;
+    g_control_wait_ticks = 0U;
+    g_control_status[g_active_control.request.addr] = MBUS_CTRL_STATUS_SENDING;
+    return 1U;
+}
+
+/* È¡³öÒ»ÌõÇëÇó²¢Ö´ÐÐ£»¿ØÖÆÊÂÎñÆÚ¼äÔÝÍ£ÆÕÍ¨ÂÖÑ¯£¬³¬Ê±ºó×Ô¶¯ÊÍ·Å×ÜÏß¡£ */
+static uint8_t MBusCtrl_ServiceControlRequest(void)
+{
+    if(g_active_control_valid == 0U)
+    {
+        taskENTER_CRITICAL();
+        if(g_control_queue_count == 0U)
+        {
+            taskEXIT_CRITICAL();
+            return 0U;
+        }
+        g_active_control = g_control_queue[g_control_queue_head];
+        g_control_queue_head = (uint8_t)((g_control_queue_head + 1U) % MBUS_CONTROL_REQUEST_QUEUE_LEN);
+        g_control_queue_count--;
+        taskEXIT_CRITICAL();
+        g_active_control_valid = 1U;
+
+        if(MBusCtrl_CanExecute(&g_active_control) == 0U || MBusCtrl_SendActiveControl() == 0U)
+        {
+            MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
+            return 0U;
+        }
+    }
+    else if(g_control_wait_response != 0U && ++g_control_wait_ticks >= MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS)
+    {
+        if(g_control_retry_count++ < MBUS_SOUND_LIGHT_MAX_RETRY)
+        {
+            if(MBusCtrl_SendActiveControl() == 0U)
+                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
+        }
+        else
+        {
+            MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_TIMEOUT);
+        }
+    }
+    return g_active_control_valid != 0U ? 1U : 0U;
+}
+
+/* Î¨Ò»ÕýÊ½Íâ²¿¿ØÖÆÈë¿Ú£ºÐ£ÑéÄÜÁ¦²¢Èë¶Ó£¬²»ÔÚµ÷ÓÃÈÎÎñÖÐÖ±½Ó·ÃÎÊUART2¡£ */
+MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request)
+{
+    uint8_t addr;
+    uint8_t driver_id;
+    uint32_t capabilities;
+    uint32_t supported_outputs;
+    uint32_t final_outputs;
+
+    if(request == 0) return MBUS_CTRL_INVALID_PARAMETER;
+    addr = request->addr;
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES) return MBUS_CTRL_INVALID_ADDR;
+    if(g_mbus_ctrl_devices[addr].online == 0U) return MBUS_CTRL_NOT_CONFIGURED;
+    if(g_mbus_ctrl_devices[addr].type_confirmed == 0U) return MBUS_CTRL_UNIDENTIFIED;
+    if(g_mbus_ctrl_devices[addr].disconnect_count >= MBUS_CONTROL_DISCONNECT_THRESHOLD) return MBUS_CTRL_DISCONNECTED;
+    if(request->operation != MBUS_OPERATION_SET_OUTPUT) return MBUS_CTRL_UNSUPPORTED;
+
+    capabilities = DeviceRegistry_GetCapabilities(g_mbus_ctrl_devices[addr].product_code);
+    supported_outputs = DeviceRegistry_GetSupportedOutputs(g_mbus_ctrl_devices[addr].product_code);
+    driver_id = DeviceRegistry_GetControlDriver(g_mbus_ctrl_devices[addr].product_code);
+    if((capabilities & DEVICE_CAP_OUTPUT_CONTROL) == 0U || driver_id == DEVICE_CONTROL_DRIVER_NONE)
+        return MBUS_CTRL_UNSUPPORTED;
+    if(request->target_mask == 0U || (request->target_mask & ~supported_outputs) != 0U ||
+       (request->target_value & ~request->target_mask) != 0U)
+        return MBUS_CTRL_INVALID_PARAMETER;
+
+    taskENTER_CRITICAL();
+    final_outputs = (g_control_target_outputs[addr] & ~request->target_mask) |
+                    (request->target_value & request->target_mask);
+    /* ÏàÍ¬Ä¿±êÒÑ¾­È·ÈÏ£¬»òÏàÍ¬Ä¿±êÕýÔÚÅÅ¶ÓÊ±£¬²»ÖØ¸´Õ¼ÓÃ¶ÓÁÐ¡£ */
+    if(final_outputs == g_control_target_outputs[addr] &&
+       ((g_control_pending_count[addr] > 0U) ||
+        (g_control_confirmed_valid[addr] != 0U && g_control_confirmed_outputs[addr] == final_outputs)))
+    {
+        taskEXIT_CRITICAL();
+        return MBUS_CTRL_ACCEPTED;
+    }
+    if(g_control_queue_count >= MBUS_CONTROL_REQUEST_QUEUE_LEN)
+    {
+        taskEXIT_CRITICAL();
+        return MBUS_CTRL_QUEUE_FULL;
+    }
+    g_control_target_outputs[addr] = final_outputs;
+    g_control_queue[g_control_queue_tail].request = *request;
+    g_control_queue[g_control_queue_tail].final_outputs = final_outputs;
+    g_control_queue[g_control_queue_tail].driver_id = driver_id;
+    g_control_queue_tail = (uint8_t)((g_control_queue_tail + 1U) % MBUS_CONTROL_REQUEST_QUEUE_LEN);
+    g_control_queue_count++;
+    if(g_control_pending_count[addr] < 0xFFU) g_control_pending_count[addr]++;
+    g_control_status[addr] = MBUS_CTRL_STATUS_PENDING;
+    taskEXIT_CRITICAL();
+    return MBUS_CTRL_ACCEPTED;
+}
+
+MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr)
+{
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES) return MBUS_CTRL_STATUS_IDLE;
+    return (MBusCtrlStatus)g_control_status[addr];
+}
+
+/* ÊÖ±¨×Ô¶¯¿ØÖÆÒ²¸´ÓÃÍ¨ÓÃÈë¿Ú£¬±ÜÃâÁí½¨Ò»Ì×Éù¹â¿ØÖÆ×´Ì¬»ú¡£ */
+static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
+{
+    uint8_t sound_light_addr;
+    MBusCtrlRequest request = {0};
+    if(manual_state != 1U && manual_state != 2U) return;
+    sound_light_addr = MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ);
+    if(sound_light_addr == 0U) return;
+    request.addr = sound_light_addr;
+    request.operation = MBUS_OPERATION_SET_OUTPUT;
+    request.target_mask = MBUS_OUTPUT_SOUND_LIGHT;
+    request.target_value = manual_state == 2U ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
+    (void)MBusCtrl_Request(&request);
+}
+
 /* ============================================================
- * ï¿½ï¿½Ê¼ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½, ï¿½ï¿½Flashï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+ * ³õÊ¼»¯: ÇåÁãÉè±¸±í, ´ÓFlash»Ö¸´ÔÚÏß×´Ì¬
  * ============================================================ */
 
 void MBusCtrl_Init(void)
 {
+    /* Í¨ÓÃ¿ØÖÆ×´Ì¬È«²¿Ê¹ÓÃ¾²Ì¬RAM£¬ÉÏµç³õÊ¼»¯Ê±Í³Ò»ÇåÁã¡£ */
+    g_control_queue_head = 0U;
+    g_control_queue_tail = 0U;
+    g_control_queue_count = 0U;
+    g_active_control_valid = 0U;
+    g_control_wait_response = 0U;
+    g_control_wait_ticks = 0U;
+    g_control_retry_count = 0U;
     for (uint8_t i = 0; i < MBUS_CONTROL_MAX_DEVICES; i++)
     {
         g_mbus_ctrl_devices[i].online = 0;
@@ -248,15 +379,20 @@ void MBusCtrl_Init(void)
         g_mbus_ctrl_devices[i].identify_fail_count = 0U;
         g_mbus_ctrl_devices[i].identify_request_pending = 0U;
         g_mbus_ctrl_devices[i].last_identify_tick = 0U;
+        g_control_target_outputs[i] = 0U;
+        g_control_confirmed_outputs[i] = 0U;
+        g_control_confirmed_valid[i] = 0U;
+        g_control_pending_count[i] = 0U;
+        g_control_status[i] = MBUS_CTRL_STATUS_IDLE;
     }
     MBusCtrl_LoadOnlineState();
 }
 
 /* ============================================================
- * ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½Ä»ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+ * ÔÚÏß×´Ì¬¹ÜÀí: ÆÁÄ»ÏÂ·¢ÉèÖÃ/Çå³ýÉè±¸ÔÚÏß
  * ============================================================ */
 
-/* ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½×´Ì¬: ï¿½ï¿½ï¿½ï¿½Ê±Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬/ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ */
+/* ÉèÖÃµ¥¸öÉè±¸ÔÚÏß×´Ì¬: ÏÂÏßÊ±Í¬Ê±ÇåÁãµôÏß¼ÆÊý/´«¸ÐÆ÷×´Ì¬/µôÏß¼ÇÒä */
 void MBusCtrl_SetOnline(uint8_t addr, uint8_t state)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
@@ -274,11 +410,16 @@ void MBusCtrl_SetOnline(uint8_t addr, uint8_t state)
         g_mbus_ctrl_devices[addr].identify_stage = MBUS2_STAGE_NATIONAL;
         g_mbus_ctrl_devices[addr].identify_fail_count = 0U;
         g_mbus_ctrl_devices[addr].identify_request_pending = 0U;
+        g_control_target_outputs[addr] = 0U;
+        g_control_confirmed_outputs[addr] = 0U;
+        g_control_confirmed_valid[addr] = 0U;
+        g_control_pending_count[addr] = 0U;
+        g_control_status[addr] = MBUS_CTRL_STATUS_IDLE;
         DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP2, addr, 0U);
     }
 }
 
-/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬(start~endï¿½ï¿½Ö·ï¿½ï¿½Î§) */
+/* ÅúÁ¿ÉèÖÃÔÚÏß×´Ì¬(start~endµØÖ··¶Î§) */
 void MBusCtrl_SetOnlineRange(uint8_t start, uint8_t end, uint8_t state)
 {
     for (uint8_t addr = start; addr <= end; addr++)
@@ -288,10 +429,10 @@ void MBusCtrl_SetOnlineRange(uint8_t start, uint8_t end, uint8_t state)
 }
 
 /* ============================================================
- * ×´Ì¬ï¿½ï¿½Ñ¯ï¿½Ó¿ï¿½
+ * ×´Ì¬²éÑ¯½Ó¿Ú
  * ============================================================ */
 
-/* ï¿½ï¿½È¡ï¿½ï¿½ï¿½ß±ï¿½Ö¾(ï¿½ï¿½Ä»ï¿½Â·ï¿½Öµ, ï¿½ï¿½ÊµÊ±ï¿½ï¿½ï¿½ï¿½×´Ì¬) */
+/* »ñÈ¡ÔÚÏß±êÖ¾(ÆÁÄ»ÏÂ·¢Öµ, ·ÇÊµÊ±ÔÚÏß×´Ì¬) */
 uint8_t MBusCtrl_GetOnline(uint8_t addr)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
@@ -299,7 +440,7 @@ uint8_t MBusCtrl_GetOnline(uint8_t addr)
     return g_mbus_ctrl_devices[addr].online;
 }
 
-/* ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½>=ï¿½ï¿½Öµ) */
+/* ÅÐ¶ÏÊÇ·ñµôÏß(Á¬ÐøÎÞÏìÓ¦´ÎÊý>=ãÐÖµ) */
 uint8_t MBusCtrl_IsDisconnected(uint8_t addr)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
@@ -307,7 +448,7 @@ uint8_t MBusCtrl_IsDisconnected(uint8_t addr)
     return g_mbus_ctrl_devices[addr].disconnect_count >= MBUS_CONTROL_DISCONNECT_THRESHOLD ? 1 : 0;
 }
 
-/* ï¿½ï¿½È¡ï¿½ï¿½Â·2ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ */
+/* »ñÈ¡»ØÂ·2ÔÚÏßÉè±¸×ÜÊý */
 uint8_t MBusCtrl_GetOnlineCount(void)
 {
     uint8_t count = 0;
@@ -354,7 +495,7 @@ uint8_t MBusCtrl_GetActiveCount(void)
     return count;
 }
 
-/* Í³ï¿½Æ»ï¿½Â·2ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½>=ï¿½ï¿½Öµ) */
+/* Í³¼Æ»ØÂ·2µôÏßÉè±¸ÊýÁ¿(ÉÏÏßµ«µôÏß¼ÆÊý>=ãÐÖµ) */
 uint8_t MBusCtrl_GetDisconnectCount(void)
 {
     uint8_t count = 0;
@@ -367,7 +508,7 @@ uint8_t MBusCtrl_GetDisconnectCount(void)
     return count;
 }
 
-/* Í³ï¿½Æ»ï¿½Â·2ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½Ò´ï¿½ï¿½Ú±ï¿½ï¿½ï¿½×´Ì¬) */
+/* Í³¼Æ»ØÂ·2±¨¾¯Éè±¸Êý(ÔÚÏßÇÒÎ´µôÏßÇÒ´¦ÓÚ±¨¾¯×´Ì¬) */
 uint8_t MBusCtrl_GetAlarmCount(void)
 {
     uint8_t count = 0;
@@ -381,14 +522,14 @@ uint8_t MBusCtrl_GetAlarmCount(void)
     return count;
 }
 
-/* ï¿½ï¿½ï¿½Ýµï¿½Ö·ï¿½ï¿½È¡ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(XR-SGBJQ/XR2200/FireDisplay) */
+/* ¸ù¾ÝµØÖ·»ñÈ¡Éè±¸ÖÐÎÄÃû³Æ(XR-SGBJQ/XR2200/FireDisplay) */
 const char* MBusCtrl_GetDeviceName(uint8_t addr)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES || g_mbus_ctrl_devices[addr].type_confirmed == 0U) return NULL;
     return DeviceRegistry_GetName(g_mbus_ctrl_devices[addr].product_code);
 }
 
-/* ï¿½ï¿½È¡ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬Öµ(04ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½Ä¼Ä´ï¿½ï¿½ï¿½Öµ) */
+/* »ñÈ¡Éè±¸´«¸ÐÆ÷×´Ì¬Öµ(04¹¦ÄÜÂë¶ÁÈ¡µÄ¼Ä´æÆ÷Öµ) */
 uint8_t MBusCtrl_GetDeviceState(uint8_t addr)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
@@ -396,7 +537,7 @@ uint8_t MBusCtrl_GetDeviceState(uint8_t addr)
     return g_mbus_ctrl_devices[addr].sensor_state;
 }
 
-/* ï¿½ï¿½È¡ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½), ï¿½ï¿½Ö·ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½0 */
+/* »ñÈ¡Éè±¸¹ú±êÉè±¸ÀàÐÍÂë(¹©Áª¶¯Âß¼­ÏÔÊ¾ÓÃ), µØÖ·ÎÞÐ§·µ»Ø0 */
 uint16_t MBusCtrl_GetNationalCode(uint8_t addr)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
@@ -404,7 +545,7 @@ uint16_t MBusCtrl_GetNationalCode(uint8_t addr)
     return g_mbus_ctrl_devices[addr].national_type_code;
 }
 
-/* ï¿½ï¿½È¡ï¿½è±¸ï¿½ï¿½ï¿½ï¿½(MBusCtrlDevType) */
+/* »ñÈ¡Éè±¸ÀàÐÍ(MBusCtrlDevType) */
 uint8_t MBusCtrl_GetDeviceType(uint8_t addr)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
@@ -412,7 +553,7 @@ uint8_t MBusCtrl_GetDeviceType(uint8_t addr)
     return g_mbus_ctrl_devices[addr].dev_type;
 }
 
-/* ï¿½Ð¶ï¿½ï¿½è±¸ï¿½Ç·ï¿½ï¿½Ú±ï¿½ï¿½ï¿½×´Ì¬: SGBJQ(state=1)/XR2200(state=2)/FireDisplay(state=1) */
+/* ÅÐ¶ÏÉè±¸ÊÇ·ñ´¦ÓÚ±¨¾¯×´Ì¬: SGBJQ(state=1)/XR2200(state=2)/FireDisplay(state=1) */
 uint8_t MBusCtrl_IsAlarmState(uint8_t addr)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)
@@ -428,10 +569,10 @@ uint8_t MBusCtrl_IsAlarmState(uint8_t addr)
 }
 
 /* ============================================================
- * Flashï¿½Ö¾Ã»ï¿½: ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½
+ * Flash³Ö¾Ã»¯: ÔÚÏß×´Ì¬±í´æ´¢Óë¼ÓÔØ
  * ============================================================ */
 
-/* ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½æµ½Flash(ï¿½ï¿½Ö·0x110000) */
+/* ½«µ±Ç°ÔÚÏß×´Ì¬±í±£´æµ½Flash(µØÖ·0x110000) */
 void MBusCtrl_SaveOnlineState(void)
 {
     uint8_t online_state[MBUS_CONTROL_MAX_DEVICES];
@@ -442,7 +583,7 @@ void MBusCtrl_SaveOnlineState(void)
     W25QXX_Write(online_state, MBUS_CONTROL_FLASH_ADDR, sizeof(online_state));
 }
 
-/* ï¿½ï¿½Flashï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½(0xFFï¿½ï¿½ÎªÎ´ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½) */
+/* ´ÓFlash¼ÓÔØÔÚÏß×´Ì¬±í(0xFFÊÓÎªÎ´ÅäÖÃ, ÉèÎªÀëÏß) */
 void MBusCtrl_LoadOnlineState(void)
 {
     uint8_t online_state[MBUS_CONTROL_MAX_DEVICES];
@@ -461,10 +602,10 @@ void MBusCtrl_LoadOnlineState(void)
 }
 
 /* ============================================================
- * ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½: 04ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½è±¸×´Ì¬ï¿½Ä´ï¿½ï¿½ï¿½
+ * ÂÖÑ¯¹ÜÀí: 04¹¦ÄÜÂë¶ÁÈ¡Éè±¸×´Ì¬¼Ä´æÆ÷
  * ============================================================ */
 
-/* ï¿½ï¿½Ñ¯ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸: ï¿½ï¿½ï¿½ï¿½04ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½ï¿½ï¿½ï¿½Íµï¿½MBus2ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ */
+/* ÂÖÑ¯ÏÂÒ»¸öÔÚÏßÉè±¸: ¹¹½¨04¹¦ÄÜÂëÖ¡¡ú·¢ËÍµ½MBus2¶ÓÁÐ¡ú·¢ËÍÊ§°ÜÔò¼ÆµôÏß */
 static void MBusControlPollingManage(void)
 {
     uint8_t modbus_buff[8]; uint16_t crc16; uint8_t found = 0U; uint32_t now = osKernelGetTickCount();
@@ -508,10 +649,10 @@ static void MBusControlPollingManage(void)
 }
 
 /* ============================================================
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½: Ð£ï¿½ï¿½CRCï¿½ï¿½ï¿½ï¿½ï¿½ï¿½04/05/10/06/03ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦
+ * ½ÓÊÕÊý¾Ý´¦Àí: Ð£ÑéCRC¡ú½âÎö04/05/10/06/03¹¦ÄÜÂëÏìÓ¦
  * ============================================================ */
 
-/* ï¿½ï¿½ï¿½ï¿½MBus2ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½: 04ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬, 05ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, 10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½ */
+/* ´¦ÀíMBus2´ÓÉè±¸ÏìÓ¦Êý¾Ý: 04¹¦ÄÜÂë¸üÐÂ´«¸ÐÆ÷×´Ì¬, 05¹¦ÄÜÂëÈ·ÈÏÉù¹â¿ØÖÆ, 10¹¦ÄÜÂëÈ·ÈÏÏÔÊ¾ÅÌÊÂ¼þ */
 static void MBus2ReceiveSlaveDataDeal(void)
 {
     uint16_t crc16 = 0x0000;
@@ -569,7 +710,10 @@ static void MBus2ReceiveSlaveDataDeal(void)
                     g_mbus_ctrl_devices[dev_addr].sensor_state = (uint8_t)data;
                     if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_XR2200) MBusCtrl_UpdateManualSoundLightTarget((uint8_t)data);
                     else if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_SGBJQ && data <= 1U)
-                    { g_sound_light_confirmed_valid = 1U; g_sound_light_confirmed_state = (uint8_t)data; }
+                    {
+                        g_control_confirmed_valid[dev_addr] = 1U;
+                        g_control_confirmed_outputs[dev_addr] = data != 0U ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
+                    }
                 }
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x84U && g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U)
@@ -579,22 +723,27 @@ static void MBus2ReceiveSlaveDataDeal(void)
                     g_mbus_ctrl_devices[dev_addr].identify_stage == MBUS2_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x05 &&
-                     g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_SGBJQ &&
-                     g_sound_light_wait_response != 0U &&
+                     g_active_control_valid != 0U &&
+                     g_control_wait_response != 0U &&
+                     dev_addr == g_active_control.request.addr &&
+                     g_active_control.driver_id == DEVICE_CONTROL_DRIVER_SGBJQ &&
                      uartbuff[MBUS2SITE].recepetion_len >= 8U &&
                      uartbuff[MBUS2SITE].recepetion_buff[2] == 0x00U &&
                      uartbuff[MBUS2SITE].recepetion_buff[3] == 0x00U &&
-                     uartbuff[MBUS2SITE].recepetion_buff[4] == (g_sound_light_target_state ? 0xFFU : 0x00U) &&
+                     uartbuff[MBUS2SITE].recepetion_buff[4] == ((g_active_control.final_outputs & MBUS_OUTPUT_SOUND_LIGHT) != 0U ? 0xFFU : 0x00U) &&
                      uartbuff[MBUS2SITE].recepetion_buff[5] == 0x00U)
             {
-                /* XR5000_MBUS2_MANUAL_SOUNDLIGHT_CHANGE_20260730: accept only the exact 0x05 coil echo. */
-                g_mbus_ctrl_devices[dev_addr].disconnect_count = 0;
-                g_sound_light_confirmed_valid = 1U;
-                g_sound_light_confirmed_state = g_sound_light_target_state;
-                g_sound_light_request_pending = 0U;
-                g_sound_light_wait_response = 0U;
-                g_sound_light_wait_ticks = 0U;
-                g_sound_light_retry_count = 0U;
+                /* ½ö½ÓÊÜµ±Ç°µØÖ·¡¢µ±Ç°Ä¿±êÖµÍêÈ«Ò»ÖÂµÄ05»ØÏÔ£¬±ÜÃâ°ÑÂÖÑ¯»òÆäËûÉè±¸Ó¦´ðÎóÈÏ³É¹¦¡£ */
+                g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
+                g_control_confirmed_valid[dev_addr] = 1U;
+                g_control_confirmed_outputs[dev_addr] = g_active_control.final_outputs;
+                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_SUCCESS);
+            }
+            else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x85U &&
+                     g_active_control_valid != 0U && dev_addr == g_active_control.request.addr)
+            {
+                /* µ±Ç°05¿ØÖÆÇëÇóÊÕµ½ModbusÒì³£ÏìÓ¦£¬Á¢¼´½áÊøÊÂÎñ²¢»Ö¸´ÆÕÍ¨ÂÖÑ¯¡£ */
+                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x06)
             {
@@ -620,9 +769,9 @@ static void MBus2ReceiveSlaveDataDeal(void)
 }
 
 /* ============================================================
- * RTOSï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ·ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½Ê¾ï¿½ï¿½)ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½20ms
- * ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½: Ã¿10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(200ms)ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ñ¯
- * ï¿½ï¿½ï¿½Æ·ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú»ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½, ï¿½Ð¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Í£ï¿½ï¿½Ñ¯
+ * RTOSÂÖÑ¯ÈÎÎñ: Ö÷Ñ­»·¡ú½ÓÊÕ´¦Àí¡ú¿ØÖÆ·þÎñ(Éù¹â/ÏÔÊ¾ÅÌ)¡úÂÖÑ¯µ÷¶È, ¼ä¸ô20ms
+ * ÂÖÑ¯¼ä¸ô: Ã¿10¸öÖÜÆÚ(200ms)·¢ÆðÒ»´ÎÉè±¸ÂÖÑ¯
+ * ¿ØÖÆ·þÎñ: Éù¹â±¨¾¯Æ÷ÓÅÏÈÓÚ»ðÔÖÏÔÊ¾ÅÌ, ÓÐ¿ØÖÆÊÂÎñÊ±ÔÝÍ£ÂÖÑ¯
  * ============================================================ */
 
 void MBusControlPollSlaveAndReceiveTask(void* parameter)
@@ -635,12 +784,12 @@ void MBusControlPollSlaveAndReceiveTask(void* parameter)
         uint8_t mbus2_control_busy = 0U;
 
         MBus2ReceiveSlaveDataDeal();
-        /* XR5000_MBUS2_MANUAL_SOUNDLIGHT_CHANGE_20260730: finish the active transaction before starting another. */
-        if (g_sound_light_wait_response != 0U)
-            mbus2_control_busy = MBusCtrl_ServiceSoundLightControl();
+        /* ÒÑ¿ªÊ¼µÄÊÂÎñÓÅÏÈÍê³É£»ËùÓÐÍ¨ÓÃ¿ØÖÆ¾ùÔÚ±¾ÈÎÎñ´®ÐÐÖ´ÐÐ¡£ */
+        if (g_active_control_valid != 0U)
+            mbus2_control_busy = MBusCtrl_ServiceControlRequest();
         else if (g_fire_display_wait_response != 0U)
             mbus2_control_busy = MBusCtrl_ServiceFireDisplayEvents();
-        else if (MBusCtrl_ServiceSoundLightControl())
+        else if (MBusCtrl_ServiceControlRequest())
             mbus2_control_busy = 1U;
         else if (MBusCtrl_ServiceFireDisplayEvents())
             mbus2_control_busy = 1U;
@@ -668,10 +817,10 @@ void MBusControlPollSlaveAndReceiveTask(void* parameter)
 }
 
 /* ============================================================
- * FreeRTOSï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ð½Ó¿ï¿½: MBus2ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½Ý¶ï¿½ï¿½Ð²ï¿½ï¿½ï¿½
+ * FreeRTOSÏûÏ¢¶ÓÁÐ½Ó¿Ú: MBus2ÂÖÑ¯Êý¾Ý¶ÓÁÐ²Ù×÷
  * ============================================================ */
 
-/* ï¿½ï¿½ModbusÖ¡ï¿½ï¿½ï¿½Íµï¿½MBus2ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0) */
+/* ½«ModbusÖ¡·¢ËÍµ½MBus2¶ÓÁÐ(·Ç×èÈû, ¶ÓÁÐÂú·µ»Ø0) */
 int8_t SendDataToMBus2Queue(uint8_t *buf, uint8_t buf_len)
 {
     if (xMBus2QueueHandle == NULL)
@@ -681,7 +830,7 @@ int8_t SendDataToMBus2Queue(uint8_t *buf, uint8_t buf_len)
     return 1;
 }
 
-/* ï¿½ï¿½MBus2ï¿½ï¿½ï¿½Ð½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½Ð¿Õ·ï¿½ï¿½ï¿½0) */
+/* ´ÓMBus2¶ÓÁÐ½ÓÊÕÊý¾Ý(·Ç×èÈû, ¶ÓÁÐ¿Õ·µ»Ø0) */
 int8_t ReceiveDataFromMBus2Queue(uint8_t *buf)
 {
     if (xMBus2QueueHandle == NULL)
@@ -692,10 +841,10 @@ int8_t ReceiveDataFromMBus2Queue(uint8_t *buf)
 }
 
 /* ============================================================
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î¶ï¿½ï¿½ï¿½
+ * »ðÔÖÏÔÊ¾ÅÌÊÂ¼þ·¢²¼: Èë¶ÓÊÂ¼þµ½»·ÐÎ¶ÓÁÐ
  * ============================================================ */
 
-/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Â¼ï¿½(ï¿½ï¿½Â·/ï¿½ï¿½Ö·/Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½) */
+/* Ïò»ðÔÖÏÔÊ¾ÅÌÊÂ¼þ¶ÓÁÐÍÆËÍÒ»ÌõÊÂ¼þ(»ØÂ·/µØÖ·/Ì½²âÆ÷ÀàÐÍ/±¨¾¯ÀàÐÍ) */
 uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type)
 {
     if (loop == 0 || addr == 0 || detector_type < MBUS_FIRE_DISPLAY_DETECT_TEMP ||
@@ -719,7 +868,7 @@ uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detect
 }
 
 
-/* ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½MBus2ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬(bsp_test_injectï¿½ï¿½ï¿½ï¿½) */
+/* ²âÊÔ×¢Èë: ÉèÖÃMBus2¿ØÖÆÉè±¸´«¸ÐÆ÷×´Ì¬(bsp_test_injectµ÷ÓÃ) */
 void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)

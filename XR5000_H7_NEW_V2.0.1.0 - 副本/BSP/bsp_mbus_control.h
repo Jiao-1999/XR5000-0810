@@ -4,6 +4,7 @@
 #include "main.h"
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "bsp_device_registry.h"
 
 /* ============================================================================
  * Ä£¿éÃû³Æ: MBus/»ØÂ·2Éè±¸¿ØÖÆÄ£¿é (MBus Control Module)
@@ -46,6 +47,47 @@ typedef enum {
     MBUS_CONTROL_DEV_GCM1002 = 4,
     MBUS_CONTROL_DEV_FIM1017 = 5,   /* XR1530 »ğÔÖÏÔÊ¾ÅÌ */
 } MBusCtrlDevType;
+
+/* µ±Ç°XR-SGBJQĞ­Òé°ÑÉùÒôºÍµÆ¹â×÷ÎªÒ»¸öÕûÌåÏßÈ¦¿ØÖÆ¡£ */
+#define MBUS_OUTPUT_SOUND_LIGHT       DEVICE_OUTPUT_1
+
+/* Í¨ÓÃ¿ØÖÆ²Ù×÷¡£ÔİÎ´ÊµÏÖµÄ²Ù×÷»á·µ»ØMBUS_CTRL_UNSUPPORTED£¬²»·¢ËÍÈÎºÎ±¨ÎÄ¡£ */
+typedef enum {
+    MBUS_OPERATION_SET_OUTPUT = 0,
+    MBUS_OPERATION_RESET,
+    MBUS_OPERATION_SET_PARAMETER
+} MBusCtrlOperation;
+
+/* Ìá½»ÇëÇóµÄÍ¬²½·µ»ØÖµ£¬½ö±íÊ¾ÊÇ·ñ½øÈëÒì²½¿ØÖÆÁ÷³Ì¡£ */
+typedef enum {
+    MBUS_CTRL_ACCEPTED = 0,
+    MBUS_CTRL_INVALID_ADDR,
+    MBUS_CTRL_NOT_CONFIGURED,
+    MBUS_CTRL_DISCONNECTED,
+    MBUS_CTRL_UNIDENTIFIED,
+    MBUS_CTRL_UNSUPPORTED,
+    MBUS_CTRL_INVALID_PARAMETER,
+    MBUS_CTRL_QUEUE_FULL
+} MBusCtrlResult;
+
+/* Ã¿¸öµØÖ·×î½üÒ»´Î¿ØÖÆÇëÇóµÄÒì²½Ö´ĞĞ×´Ì¬¡£ */
+typedef enum {
+    MBUS_CTRL_STATUS_IDLE = 0,
+    MBUS_CTRL_STATUS_PENDING,
+    MBUS_CTRL_STATUS_SENDING,
+    MBUS_CTRL_STATUS_SUCCESS,
+    MBUS_CTRL_STATUS_TIMEOUT,
+    MBUS_CTRL_STATUS_RESPONSE_ERROR
+} MBusCtrlStatus;
+
+typedef struct {
+    uint8_t addr;                  /* »ØÂ·2ÕæÊµÎïÀíµØÖ· */
+    uint8_t operation;             /* MBusCtrlOperation */
+    uint32_t target_mask;          /* ±¾´ÎĞèÒªĞŞ¸ÄµÄÊä³öÍ¨µÀ */
+    uint32_t target_value;         /* Ä¿±êÖµ£¬½ötarget_mask¸²¸ÇµÄÎ»ÓĞĞ§ */
+    uint16_t parameter_id;         /* ÎªºóĞø¸´Î»/²ÎÊı²Ù×÷Ô¤Áô */
+    uint16_t parameter_value;      /* ÎªºóĞø¸´Î»/²ÎÊı²Ù×÷Ô¤Áô */
+} MBusCtrlRequest;
 
 /* -------------------- Éè±¸ÊµÀı(Ã¿¸öµØÖ·Î¬»¤Ò»·İ) -------------------- */
 typedef struct {
@@ -94,6 +136,10 @@ uint16_t MBusCtrl_GetNationalCode(uint8_t addr);     /* »ñÈ¡Éè±¸¹ú±êÉè±¸ÀàĞÍÂë(¹
 
 /* ---- »ğÔÖÏÔÊ¾ÅÌÊÂ¼şÉÏ±¨(10¹¦ÄÜÂëĞ´¶à¼Ä´æÆ÷) ---- */
 uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type);
+
+/* ---- Í¨ÓÃÒì²½¿ØÖÆ ---- */
+MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request); /* Î¨Ò»ÕıÊ½¿ØÖÆÈë¿Ú£ºÖ»Èë¶Ó£¬²»×èÈûµÈ´ıÉè±¸ */
+MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr);                 /* ²éÑ¯Ö¸¶¨µØÖ·×î½üÒ»´Î¿ØÖÆÖ´ĞĞ×´Ì¬ */
 
 /* ---- Flash³Ö¾Ã»¯ ---- */
 void MBusCtrl_SaveOnlineState(void);                 /* ½«ÔÚÏß×´Ì¬±í±£´æµ½Flash(0x110000) */

@@ -59,6 +59,24 @@ typedef enum
     DEVICE_IDENTIFY_SENSOR_TYPE_UNKNOWN
 } DeviceIdentifyError;
 
+/* Éè±¸Í¨ÓÃÄÜÁ¦¡£ÕâÀïÖ»ÃèÊö¡°Éè±¸ÄÜ×öÊ²Ã´¡±£¬¾ßÌåModbus±¨ÎÄÈÔÓÉËùÊô»ØÂ·Çý¶¯ÊµÏÖ¡£ */
+#define DEVICE_CAP_STATUS_READ       (1UL << 0) /* Ö§³Ö×´Ì¬¶ÁÈ¡ */
+#define DEVICE_CAP_OUTPUT_CONTROL    (1UL << 1) /* Ö§³ÖÊä³ö¿ØÖÆ */
+#define DEVICE_CAP_EVENT_RECEIVE     (1UL << 2) /* Ö§³Ö½ÓÊÕ»ð¾¯/¹ÊÕÏÊÂ¼þ */
+
+/* Í¨ÓÃÊä³öÍ¨µÀÎ»¡£²úÆ·Çý¶¯¸ºÔð½âÊÍÃ¿Ò»Î»¶ÔÓ¦µÄÊµ¼ÊÊä³ö¡£ */
+#define DEVICE_OUTPUT_1              (1UL << 0)
+#define DEVICE_OUTPUT_2              (1UL << 1)
+#define DEVICE_OUTPUT_3              (1UL << 2)
+#define DEVICE_OUTPUT_4              (1UL << 3)
+
+typedef enum
+{
+    DEVICE_CONTROL_DRIVER_NONE = 0,          /* ÊäÈëÉè±¸»òÉÐÎ´ÊµÏÖ¿ØÖÆÐ­Òé */
+    DEVICE_CONTROL_DRIVER_SGBJQ,             /* XR-SGBJQÉù¹â±¨¾¯Æ÷05¹¦ÄÜÂëÇý¶¯ */
+    DEVICE_CONTROL_DRIVER_FIRE_DISPLAY       /* »ðÔÖÏÔÊ¾ÅÌ10¹¦ÄÜÂëÊÂ¼þÇý¶¯ */
+} DeviceControlDriver;
+
 typedef struct
 {
     uint16_t product_code;         /* 0x000EÄÚ²¿²úÆ·Âë£¬Ò²ÊÇ±¾±íµÄ²éÕÒ¼ü */
@@ -68,6 +86,9 @@ typedef struct
     uint8_t register_count;        /* Õý³£ÂÖÑ¯´Ó0x0000¿ªÊ¼¶ÁÈ¡µÄ¼Ä´æÆ÷ÊýÁ¿ */
     uint16_t national_type_code;   /* 0x000DÆÚÍûÖµ£»0±íÊ¾¸Ã²úÆ·ÔÝ²»Ð£Ñé¹ú±êÂë */
     uint16_t sensor_mask_allowed;  /* 0x000FÔÊÐí³öÏÖµÄÎ»£»0±íÊ¾ÎÞÐè¶ÁÈ¡0x000F */
+    uint32_t capabilities;         /* Í¨ÓÃÄÜÁ¦Î»£¬¾É²úÆ·Ê¡ÂÔ³õÊ¼»¯Ê±×Ô¶¯Îª0 */
+    uint32_t supported_outputs;    /* Ö§³ÖµÄÊä³öÍ¨µÀÎ»£»·ÇÊä³öÉè±¸Îª0 */
+    uint8_t control_driver;        /* DeviceControlDriver£»²»ÔÚ²úÆ·±í±£´æ¾ßÌåÐ­ÒéÏ¸½Ú */
 } DeviceProductDescriptor;
 
 /* ²úÆ·±í²éÑ¯¼°²úÆ·ÊôÐÔ¶ÁÈ¡½Ó¿Ú¡£ÕÒ²»µ½²úÆ·Ê±·µ»Ø¿ÕÖ¸Õë»ò°²È«Ä¬ÈÏÖµ¡£ */
@@ -81,6 +102,9 @@ uint8_t DeviceRegistry_RequiresSensorMask(uint16_t product_code); /* ÅÐ¶ÏÊÇ·ñÐèÒ
 uint8_t DeviceRegistry_IsSensorMaskValid(uint16_t product_code, uint16_t sensor_mask); /* Ð£Ñé0x000F´«¸ÐÆ÷Î»ÊÇ·ñºÏ·¨ */
 uint8_t DeviceRegistry_IsNationalTypeKnown(uint16_t national_type_code); /* ÅÐ¶Ï¹ú±êÉè±¸ÀàÐÍÂëÊÇ·ñÒÑµÇ¼Ç */
 uint8_t DeviceRegistry_IsNationalProductMatch(uint16_t national_type_code, uint16_t product_code); /* ¼ì²é¹ú±êÂëÓëÄÚ²¿²úÆ·ÂëÊÇ·ñÆ¥Åä */
+uint32_t DeviceRegistry_GetCapabilities(uint16_t product_code); /* »ñÈ¡Éè±¸Í¨ÓÃÄÜÁ¦Î» */
+uint32_t DeviceRegistry_GetSupportedOutputs(uint16_t product_code); /* »ñÈ¡Éè±¸Ö§³ÖµÄÊä³öÍ¨µÀÎ» */
+uint8_t DeviceRegistry_GetControlDriver(uint16_t product_code); /* »ñÈ¡Éè±¸¿ØÖÆÇý¶¯±àºÅ */
 const char *DeviceRegistry_GetNameByNationalCode(uint16_t national_type_code); /* °´0x000D¹ú±êÉè±¸ÀàÐÍÂë·µ»ØÖÐÎÄÏÔÊ¾Ãû£¬Î´Öª·µ»Ø"Î´ÖªÉè±¸" */
 
 /* °´¡°»ØÂ·+Éè±¸µØÖ·¡±±£´æ¡¢²éÑ¯ºÍÃ¶¾Ùµ±Ç°Ê¶±ð¹ÊÕÏ¡£ */

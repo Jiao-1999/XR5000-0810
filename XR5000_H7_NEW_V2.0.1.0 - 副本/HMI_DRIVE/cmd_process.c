@@ -8,7 +8,7 @@
 #include "bsp_adc.h"
 
 #include "bsp_logic_set.h"
-#include "bsp_logic_screen.h" /* ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾/ï¿½à¼­ï¿½ï¿½ï¿½ï¿½ */
+#include "bsp_logic_screen.h" /* Áª¶¯Âß¼­½çÃæÏÔÊ¾/±à¼­¹¦ÄÜ */
 
 #include "bsp_debug.h"
 
@@ -41,8 +41,8 @@
 
 #include "bsp_password.h"
 
-#include "bsp_storage_event.h"  /* ï¿½ï¿½Ï»ï¿½Ó´æ´¢ï¿½Â¼ï¿½ï¿½ï¿½Â¼(GB4717-2024ï¿½ï¿½Â¼B) */
-#include "bsp_fecbus_report.h" /* FECbus RS485 ï¿½Â¼ï¿½ï¿½Ï±ï¿½Ä£ï¿½ï¿½ (GB4717 ï¿½ï¿½Â¼C) */
+#include "bsp_storage_event.h"  /* ºÚÏ»×Ó´æ´¢ÊÂ¼þ¼ÇÂ¼(GB4717-2024¸½Â¼B) */
+#include "bsp_fecbus_report.h" /* FECbus RS485 ÊÂ¼þÉÏ±¨Ä£¿é (GB4717 ¸½Â¼C) */
 
 #include <time.h>
 
@@ -75,10 +75,10 @@ void SystemCheckRequestRecord(void)
 #define Out_Fire_Show_Zone 7
 
 uint8_t secs,years,months,weeks,days,hours,minutes;
-uint8  cmd_buffer[CMD_MAX_SIZE];                                    //Ö¸ï¿½î»ºï¿½ï¿½
-uint16 current_screen_id = 0;                                       //ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ID
-uint32_t yonghumima=0,yonghumm1=0,yonghumm2=0,yonghumm3=0,mmsdSTA=0;//ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
-uint32_t chaojimima=68686668;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+uint8  cmd_buffer[CMD_MAX_SIZE];                                    //Ö¸Áî»º´æ
+uint16 current_screen_id = 0;                                       //µ±Ç°»­ÃæID
+uint32_t yonghumima=0,yonghumm1=0,yonghumm2=0,yonghumm3=0,mmsdSTA=0;//ÓÃ»§ÃÜÂë
+uint32_t chaojimima=68686668;//³¬¼¶ÃÜÂë
 
 uint8_t mimajiyi=0;
 uint8_t miehuoqidong=0;
@@ -86,15 +86,15 @@ uint8_t miehuoqidong=0;
 // new
 typedef struct
 {
-	uint16_t years;    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint16_t years;    // ±¨¾¯Äê
 	
-	uint8_t  months;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	uint8_t  days;     // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t  months;   // ±¨¾¯ÔÂ
+	uint8_t  days;     // ±¨¾¯ÈÕ
 	
-	uint8_t  hours;    // ï¿½ï¿½ï¿½ï¿½Ê±
-	uint8_t  minute;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t  hours;    // ±¨¾¯Ê±
+	uint8_t  minute;   // ±¨¾¯·Ö
 	
-	uint8_t  second;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t  second;   // ±¨¾¯Ãë
 }AlarmTimeRecord;
 
 typedef enum
@@ -102,15 +102,15 @@ typedef enum
 	PackClassID  = 1,
 	CabinClassID = 2, 
 	LinkageClassID = 3,
-}PackCabinClassID; // ï¿½ï¿½ï¿½ï¿½Ê¶ï¿½ï¿½
+}PackCabinClassID; // Àà±ð±êÊ¶ºÅ
 
 typedef enum
 {
-	Temperature = 1,  // ï¿½Â¶ï¿½
-	Smoke       = 2,  // ï¿½ï¿½ï¿½ï¿½
-	HandAlarm   = 3,  // ï¿½Ö±ï¿½
-	Hydrogen    = 4,  // ï¿½ï¿½ï¿½ï¿½
-	Carbon      = 5,  // Ò»ï¿½ï¿½ï¿½ï¿½Ì¼
+	Temperature = 1,  // ÎÂ¶È
+	Smoke       = 2,  // ÑÌÎí
+	HandAlarm   = 3,  // ÊÖ±¨
+	Hydrogen    = 4,  // ÇâÆø
+	Carbon      = 5,  // Ò»Ñõ»¯Ì¼
 	
 	// XR5000_LOOP3_CHANGE_20260727: VOC and CH4 use separate forewarn record types.
 	Voc         = 9,
@@ -120,51 +120,51 @@ typedef enum
 	Loop3HydrogenFire = 13,
 	Loop1TempWarning = 14,
 	Loop1SmokeWarning = 15,
-	AlarmCtrlKey = 6, // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	AlarmCtrlKey = 6, // ±¨¾¯Æ÷
 	
 	FeedBack1Press = 7,
 	
 	SysFlashFault = 8,
 
-}DetectorAlarmType; //Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+}DetectorAlarmType; //Ì½²âÆ÷±¨¾¯ÀàÐÍ
 
 typedef enum
 {
-	OUT_FIRE_NO_START  = 1,  // ï¿½ï¿½ï¿½×°ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½
-	OUT_FIRE_SUSPEND   = 2,  // ï¿½ï¿½ï¿½×°ï¿½ï¿½Í£Ö¹ï¿½ï¿½ï¿½ï¿½
+	OUT_FIRE_NO_START  = 1,  // Ãð»ð×°ÖÃÎ´Æô¶¯
+	OUT_FIRE_SUSPEND   = 2,  // Ãð»ð×°ÖÃÍ£Ö¹Æô¶¯
 
-	SPRAY_START_DELAY  = 3,  // ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±
-	SPRAY_INTERVAL_T1  = 4,  // ï¿½ï¿½ï¿½ ï¿½È´ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½
-	SPRAY_SECOND_DELAY = 5,  // ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±×´Ì¬
-	SPRAY_INTERVAL_T2  = 6,  // ï¿½ï¿½ï¿½ ï¿½È´ï¿½ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½
-	SPRAY_THIRD_DELAY  = 7,  // ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±×´Ì¬
-}OutFireDeviceState; // ï¿½ï¿½ï¿½×°ï¿½ï¿½×´Ì¬
+	SPRAY_START_DELAY  = 3,  // Åç·Åµ¹¼ÆÊ±
+	SPRAY_INTERVAL_T1  = 4,  // ¼ä¸ô µÈ´ýµÚ2´ÎÅç·Å
+	SPRAY_SECOND_DELAY = 5,  // µÚ2´ÎÅç·Åµ¹¼ÆÊ±×´Ì¬
+	SPRAY_INTERVAL_T2  = 6,  // ¼ä¸ô µÈ´ýµÚ3´ÎÅç·Å
+	SPRAY_THIRD_DELAY  = 7,  // µÚ3´ÎÅç·Åµ¹¼ÆÊ±×´Ì¬
+}OutFireDeviceState; // Ãð»ð×°ÖÃ×´Ì¬
 
 
 typedef struct
 {
-	uint8_t cluster_id; // ï¿½ï¿½id
-	uint8_t pack_id;    // ï¿½ï¿½ï¿½Ú¶ï¿½Ó¦ï¿½ï¿½ï¿½Âµï¿½pack id
+	uint8_t cluster_id; // ´Øid
+	uint8_t pack_id;    // ¹ÒÔÚ¶ÔÓ¦´ØÏÂµÄpack id
 	
-	uint8_t cabin_id;   // ï¿½ï¿½id
+	uint8_t cabin_id;   // ²Õid
 
-	int8_t lunch_state; // ï¿½ï¿½Îªï¿½Ð·ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ -1:ï¿½ï¿½Ö¹ -2:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹ 0:Î´ï¿½ï¿½ï¿½ï¿½ 99:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ú¼ï¿½ï¿½ï¿½Ö¹
+	int8_t lunch_state; // ¸ÄÎªÓÐ·ûºÅÐÍ ÓÃÀ´¼ÇÂ¼ÖÕÖ¹Çé¿ö -1:ÖÕÖ¹ -2:ÖØÆôºóÖÕÖ¹ 0:Î´Æô¶¯ 99:Æô¶¯µ¹¼ÆÊ±ÆÚ¼äÖÕÖ¹
 
 	AlarmTimeRecord atr;
 
-}PackAlarmStorage;    // ï¿½ï¿½ï¿½Ú¸Ã½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½Ê¾
+}PackAlarmStorage;    // ÏÖÔÚ¸Ã½á¹¹ÌåÓÃÀ´×ö¶à¸ö±¨¾¯Ñ­»·ÏÔÊ¾
 
 PackAlarmStorage pas[224] = { 0 };
 
 uint8_t pas_pointer = 0;
 uint8_t last_pas_len = 0;
-uint8_t pas_fresh_point = 0;// ï¿½ï¿½Ä»ï¿½ï¿½Ê¾Ë¢ï¿½ï¿½Ö¸ï¿½ï¿½
+uint8_t pas_fresh_point = 0;// ÆÁÄ»ÏÔÊ¾Ë¢ÐÂÖ¸Õë
 
 uint8_t multiple_alarm_fresh_flag = 0;
 uint8_t pas_traverse_pointer = 1;
 
-uint8_t alarm_number = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-uint8_t last_alarm_num = 255; // Ä¬ï¿½ï¿½Ö´ï¿½ï¿½Ò»ï¿½ï¿½
+uint8_t alarm_number = 0; // ±¨¾¯×ÜÊý
+uint8_t last_alarm_num = 255; // Ä¬ÈÏÖ´ÐÐÒ»´Î
 
 uint8_t last_online_detector_num = 255;
 uint8_t last_disconnect_detector_num = 255;
@@ -172,53 +172,53 @@ uint8_t home_statistics_force_refresh = 1;
 
 typedef struct
 {
-	uint8_t cabin_id;       // ï¿½ï¿½ID
+	uint8_t cabin_id;       // ²ÖID
 	
-	uint8_t cluster_id;     // ï¿½ï¿½ID
-	uint8_t pack_id;        // ï¿½ï¿½ID
-}DetectorAddrAttribute;   // Ô­Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½Ö²Ö£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t cluster_id;     // ´ØID
+	uint8_t pack_id;        // °üID
+}DetectorAddrAttribute;   // Ô­Ê¼Êý¾ÝÀàÐÍ£¬Çø·Ö²Ö£¬°ü£¬´Ø
 
 typedef struct
 {
-	uint8_t temperature_type; // ï¿½Â¶ï¿½
-	uint8_t carbon_type;      // Ò»ï¿½ï¿½ï¿½ï¿½Ì¼
-	uint8_t smoke_type;       // ï¿½ï¿½ï¿½ï¿½
-}CabinAlarmType;     //ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t temperature_type; // ÎÂ¶È
+	uint8_t carbon_type;      // Ò»Ñõ»¯Ì¼
+	uint8_t smoke_type;       // ÑÌÎí
+}CabinAlarmType;     //²ÖÌ½²âÆ÷µÄ±¨¾¯ÀàÐÍ
 
 typedef struct
 {
-	uint8_t temperature_type; // ï¿½Â¶ï¿½
-	uint8_t carbon_type;      // Ò»ï¿½ï¿½ï¿½ï¿½Ì¼
-	uint8_t smoke_type;       // ï¿½ï¿½ï¿½ï¿½
-}PackAlarmType;       ///ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t temperature_type; // ÎÂ¶È
+	uint8_t carbon_type;      // Ò»Ñõ»¯Ì¼
+	uint8_t smoke_type;       // ÑÌÎí
+}PackAlarmType;       ///°ü±¨¾¯Æ÷µÄ±¨¾¯ÀàÐÍ
 
 uint8_t fore_alarm_start_index = 0;
-uint8_t fire_alarm_start_index = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
+uint8_t fire_alarm_start_index = 0; // ±¨¾¯ÐÅÏ¢¹ö¶¯Êý¾ÝµÄÆðÊ¼Ë÷Òý
 uint8_t fire_alarm_check_new_flag = 0;
 uint8_t force_alarm_check_new_flag = 0;
 #define getFireAlarmCheckNewKey() fire_alarm_check_new_flag
 #define getForceAlarmCheckNewKey() force_alarm_check_new_flag
 
-/* Ô¤ï¿½ï¿½ ï¿½ð¾¯·Ö¿ï¿½ï¿½æ´¢
- * 2025/07/08ï¿½Õ¸ï¿½ï¿½ï¿½
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½Ö¿ï¿½ï¿½æ´¢
+/* Ô¤¾¯ »ð¾¯·Ö¿ª´æ´¢
+ * 2025/07/08ÈÕ¸üÐÂ
+ * ¼ì²âÖÐÐÄÒªÇó»ð¾¯Ô¤¾¯·Ö¿ª´æ´¢
  */
-// Ô¤ï¿½ï¿½ï¿½æ´¢ ï¿½ï¿½Ô¤ï¿½ï¿½Ö¸ ï¿½ï¿½ï¿½Ð¿ï¿½È¼ï¿½ï¿½ï¿½ï¿½
+// Ô¤¾¯´æ´¢ ´ËÔ¤¾¯Ö¸ ËùÓÐ¿ÉÈ¼ÆøÌå
 typedef struct {
-	uint8_t self_bottom_point;       // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½Ö¸ï¿½ï¿½
+	uint8_t self_bottom_point;       // ËùÓÐÊý×éµÄµ×Ö¸Õë
 	
-	uint8_t point_history_len;       // ï¿½ï¿½Â¼ï¿½ï¿½Ê·Ö¸ï¿½ë³¤ï¿½ï¿½
+	uint8_t point_history_len;       // ¼ÇÂ¼ÀúÊ·Ö¸Õë³¤¶È
 
-	uint8_t detector_class[224];     // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t detector_class[224];     // Ì½²âÆ÷ÀàÐÍ
 	
-	uint8_t alarm_type[224];				 // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t alarm_type[224];				 // °ü±¨¾¯ÀàÐÍ
 	
-	DetectorAddrAttribute da[224];   // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	DetectorAddrAttribute da[224];   // Ì½²âÆ÷ÊôÐÔ
 
-	AlarmTimeRecord atr[224];        // ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Â¼
+	AlarmTimeRecord atr[224];        // ±¨¾¯Ê±¼ä¼ÇÂ¼
 	
-	uint16_t fresh_time_count;        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½Ê¾
-}PackCabinForeWarnStorage;  // ï¿½Ö°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½æ´¢
+	uint16_t fresh_time_count;        // ÓÃÀ´ÂÖÑ¯ÏÔÊ¾
+}PackCabinForeWarnStorage;  // ²Ö°ü±¨¾¯Æ÷µÄÔ¤¾¯´æ´¢
 
 PackCabinForeWarnStorage pcfws = {
 	.self_bottom_point = 0,
@@ -229,21 +229,21 @@ PackCabinForeWarnStorage pcfws = {
 	.atr        = {0}
 };
 
-// ï¿½ð¾¯´æ´¢ ï¿½Ë»ï¿½Ö¸ ï¿½ï¿½ï¿½ï¿½ ï¿½Â¶ï¿½
+// »ð¾¯´æ´¢ ´Ë»ð¾¯Ö¸ ÑÌÎí ÎÂ¶È
 typedef struct {
-	uint8_t self_bottom_point;       // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½Ö¸ï¿½ï¿½
+	uint8_t self_bottom_point;       // ËùÓÐÊý×éµÄµ×Ö¸Õë
 	
-	uint8_t point_history_len;       // ï¿½ï¿½Â¼ï¿½ï¿½Ê·Ö¸ï¿½ë³¤ï¿½ï¿½
+	uint8_t point_history_len;       // ¼ÇÂ¼ÀúÊ·Ö¸Õë³¤¶È
 	
-	uint8_t detector_class[224];     // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t detector_class[224];     // Ì½²âÆ÷ÀàÐÍ
 	
-	uint8_t alarm_type[224];				 // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t alarm_type[224];				 // °ü±¨¾¯ÀàÐÍ
 	
-	DetectorAddrAttribute da[224];   // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	DetectorAddrAttribute da[224];   // Ì½²âÆ÷ÊôÐÔ
 	
-	AlarmTimeRecord atr[224];        // ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Â¼
+	AlarmTimeRecord atr[224];        // ±¨¾¯Ê±¼ä¼ÇÂ¼
 	
-	uint16_t fresh_time_count;       // ï¿½ï¿½Ñ¯ï¿½ï¿½Ê¾ï¿½ï¿½Ê±
+	uint16_t fresh_time_count;       // ÂÖÑ¯ÏÔÊ¾¼ÆÊ±
 }PackCabinFireAlarmStorage;
 
 PackCabinFireAlarmStorage pcfas = {
@@ -258,17 +258,17 @@ PackCabinFireAlarmStorage pcfas = {
 
 typedef struct
 {
-	uint8_t detector_class; // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t detector_class; // Ì½²âÆ÷ÀàÐÍ
 	
-	DetectorAddrAttribute da;   // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	DetectorAddrAttribute da;   // Ì½²âÆ÷ÊôÐÔ
 	
-	AlarmTimeRecord atr;        // ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Â¼
+	AlarmTimeRecord atr;        // ±¨¾¯Ê±¼ä¼ÇÂ¼
 	uint8_t fault_type;
 	
-}PackCabinFaultStorage;   // ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢	
-uint8_t pcfs_fresh_ctrl = 255;    // Ë¢ï¿½Â¿ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ ï¿½ï¿½Ê¼ï¿½ï¿½ÖµÎªï¿½ï¿½ï¿½Öµ
-uint8_t pcfs_buttom_point = 0;  // Î²Ö¸ï¿½ï¿½ ï¿½ï¿½Â¼ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½
-PackCabinFaultStorage pcfs[224] = {0}; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+}PackCabinFaultStorage;   // ÓÃÀ´´æ´¢µôÏß ¹ÊÕÏÐÅÏ¢	
+uint8_t pcfs_fresh_ctrl = 255;    // Ë¢ÐÂ¿ØÖÆÖ¸Õë ³õÊ¼¸³ÖµÎª×î´óÖµ
+uint8_t pcfs_buttom_point = 0;  // Î²Ö¸Õë ¼ÇÂ¼Êý¾Ý³¤¶È
+PackCabinFaultStorage pcfs[224] = {0}; // ´¢´æËùÓÐ¹ÊÕÏÐÅÏ¢
 
 uint8_t fault_check_new_flag = 0;
 uint8_t fault_current_page = 0;
@@ -276,93 +276,93 @@ uint8_t fault_current_page = 0;
 // end
 
 // new
-// ï¿½ï¿½ï¿½ï¿½É¸Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ð¾¯µÄ±ï¿½ï¿½
+// ÓÃÀ´É¸Ñ¡³ö±¨»ð¾¯µÄ±àºÅ
 typedef struct
 {
 	uint8_t cabin_alarm_state  ; 
 	uint8_t cluster_alarm_state;
 
 }FireAlarmStorage;
-FireAlarmStorage fire_alarm_flag = {0}; // È«ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Îª0
+FireAlarmStorage fire_alarm_flag = {0}; // È«²¿³õÊ¼»¯Îª0
 
 typedef struct
 {
-	uint8_t fire_alarm_id_buff[300]; // ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	uint8_t faib_buttom_point;      // fire_alarm_id_buffï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
-	uint8_t storage_pas_len;        // ï¿½æ´¢ï¿½ð¾¯¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½È²ï¿½Ò»ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-}FireAlarmNumRecord; // ï¿½Ñ»ð¾¯±ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½É¸Ñ¡ï¿½ï¿½ï¿½ï¿½
+	uint8_t fire_alarm_id_buff[300]; // ´æ´¢±¨¾¯±àºÅ
+	uint8_t faib_buttom_point;      // fire_alarm_id_buff³¤¶ÈÖ¸Õë
+	uint8_t storage_pas_len;        // ´æ´¢»ð¾¯¼ÇÂ¼³¤¶È ³¤¶È²»Ò»ÖÂÊ±¸üÐÂÊý¾Ý
+}FireAlarmNumRecord; // °Ñ»ð¾¯±¨¾¯µÄ±àºÅÉ¸Ñ¡³öÀ´
 FireAlarmNumRecord fanr = {0};
 
 /*********
-* ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/×´Ì¬
-*  1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± ï¿½ï¿½Ê±xxï¿½ï¿½
-*  2 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
-*  3 ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Å¿ï¿½Ê¼ ï¿½ï¿½ï¿½ï¿½xxï¿½ï¿½
-*  4 ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½
-*  5 ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± ï¿½ï¿½Ê±xxï¿½ï¿½
-*  6 ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
-*  7 ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Å¿ï¿½Ê¼ ï¿½ï¿½ï¿½ï¿½xxï¿½ï¿½
-*  8 ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½
-*  9 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± ï¿½ï¿½Ê±xxï¿½ï¿½
-* 10 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
-* 11 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¿ï¿½Ê¼ ï¿½ï¿½ï¿½ï¿½xxï¿½ï¿½
-* 12 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-* 13 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ú¼ï¿½Ç¿ï¿½Æ½ï¿½ï¿½ï¿½ ×´Ì¬Îª-1
-* 14 ï¿½ï¿½ï¿½Ù´Î´ï¿½ï¿½ï¿½×´Ì¬Îª-2 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Â¿ï¿½Ê¼
+* Ãð»ð×°ÖÃÆô¶¯Á÷³Ì/×´Ì¬
+*  1 Æô¶¯ÑÓÊ± ÑÓÊ±xxÃë
+*  2 Æô¶¯ÑÓÊ±½áÊø
+*  3 µÚÒ»´ÎÅç·Å¿ªÊ¼ ³ÖÐøxxÃë
+*  4 µÚÒ»´ÎÅç·Å³ÖÐøÊ±¼ä½áÊø
+*  5 µÚ¶þ´ÎÅç·ÅÆô¶¯ÑÓÊ± ÑÓÊ±xxÃë
+*  6 µÚ¶þ´ÎÅç·ÅÆô¶¯ÑÓÊ±½áÊø
+*  7 µÚ¶þ´ÎÅç·Å¿ªÊ¼ ³ÖÐøxxÃë
+*  8 µÚ¶þ´ÎÅç·Å³ÖÐøÊ±¼ä½áÊø
+*  9 µÚÈý´ÎÅç·ÅÆô¶¯ÑÓÊ± ÑÓÊ±xxÃë
+* 10 µÚÈý´ÎÅç·ÅÆô¶¯ÑÓÊ±½áÊø
+* 11 µÚÈý´ÎÅç·Å¿ªÊ¼ ³ÖÐøxxÃë
+* 12 Åç·ÅÍê³É
+* 13 ÈôÔÚÆô¶¯ÑÓÊ±ÆÚ¼äÇ¿ÖÆ½áÊø ×´Ì¬Îª-1
+* 14 ÈôÔÙ´Î´¥·¢×´Ì¬Îª-2 ²¢´ÓÆô¶¯ÑÓÊ±ÖØÐÂ¿ªÊ¼
 */
 typedef enum
 {
-	FIRE_EXTINGUISH_FORCE_START    = -4,    // ï¿½Ö¶ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	FIRE_EXTINGUISH_RESTART_FINISH = -3,    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÖµÎªï¿½ï¿½×´Ì¬ ï¿½ï¿½ï¿½ï¿½ï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½
-	FIRE_EXTINGUISH_CAN_RESTART    = -2,    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
-	FIRE_EXTINGUISH_FORCE_STOP     = -1,    // Ç¿ï¿½Æ½ï¿½ï¿½ï¿½
+	FIRE_EXTINGUISH_FORCE_START    = -4,    // ÊÖ¶¯Ç¿ÖÆÆô¶¯
+	FIRE_EXTINGUISH_RESTART_FINISH = -3,    // ÖØÐÂÆô¶¯ºó¸³ÖµÎª¸Ã×´Ì¬ ±ÜÃâÏÂ´ÎÆô¶¯
+	FIRE_EXTINGUISH_CAN_RESTART    = -2,    // ¿ÉÒÔÖØÐÂÆô¶¯µÄ×´Ì¬
+	FIRE_EXTINGUISH_FORCE_STOP     = -1,    // Ç¿ÖÆ½áÊø
 	
-	FIRE_EXTINGUISH_MODE_JUDGEMENT       = 0,      // ï¿½Ð¶Ïµï¿½Ç°×´Ì¬
-	FIRE_EXTINGUISH_START_SPRAY_DELAY    = 1,      // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
-	FED_START_SPRAY_DELAY_FINISH_FLAG    = 2,      // ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾
-	FIRE_EXTINGUISH_FIRST_SPRAY_START    = 3,      // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Å¿ï¿½Ê¼
-	FIRE_EXTINGUISH_FIRST_SPRAY_FINISH   = 4,      // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	FIRE_EXTINGUISH_SECOND_SPRAY_DELAY   = 5,      // ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
-	FED_SECOND_SPRAY_DELAY_FINISH_FLAG   = 6,      // ï¿½ï¿½ï¿½×°ï¿½ÃµÚ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾
-	FIRE_EXTINGUISH_SECOND_SPRAY_START   = 7,      // ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Å¿ï¿½Ê¼
-	FIRE_EXTINGUISH_SECOND_SPRAY_FINISH  = 8,      // ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	FIRE_EXTINGUISH_THIRD_SPRAY_DELAY    = 9,      // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
-	FED_THIRD_SPRAY_DELAY_FINISH_FLAG    = 10,     // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾
-	FIRE_EXTINGUISH_THIRD_SPRAY_START    = 11,     // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¿ï¿½Ê¼
-	FIRE_EXTINGUISH_THIRD_SPRAY_FINISH   = 12,     // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE   = 13,     // È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	FIRE_EXTINGUISH_MODE_JUDGEMENT       = 0,      // ÅÐ¶Ïµ±Ç°×´Ì¬
+	FIRE_EXTINGUISH_START_SPRAY_DELAY    = 1,      // Æô¶¯ÑÓÊ±
+	FED_START_SPRAY_DELAY_FINISH_FLAG    = 2,      // Ãð»ð×°ÖÃÆô¶¯µ¹¼ÆÊ± ½áÊø±êÖ¾
+	FIRE_EXTINGUISH_FIRST_SPRAY_START    = 3,      // µÚÒ»´ÎÅç·Å¿ªÊ¼
+	FIRE_EXTINGUISH_FIRST_SPRAY_FINISH   = 4,      // µÚÒ»´ÎÅç·ÅÍê³É
+	FIRE_EXTINGUISH_SECOND_SPRAY_DELAY   = 5,      // µÚ¶þ´ÎÅç·ÅÆô¶¯ÑÓÊ±
+	FED_SECOND_SPRAY_DELAY_FINISH_FLAG   = 6,      // Ãð»ð×°ÖÃµÚ¶þ´ÎÆô¶¯µ¹¼ÆÊ± ½áÊø±êÖ¾
+	FIRE_EXTINGUISH_SECOND_SPRAY_START   = 7,      // µÚ¶þ´ÎÅç·Å¿ªÊ¼
+	FIRE_EXTINGUISH_SECOND_SPRAY_FINISH  = 8,      // µÚ¶þ´ÎÅç·ÅÍê³É
+	FIRE_EXTINGUISH_THIRD_SPRAY_DELAY    = 9,      // µÚÈý´ÎÅç·ÅÆô¶¯ÑÓÊ±
+	FED_THIRD_SPRAY_DELAY_FINISH_FLAG    = 10,     // µÚÈý´ÎÅç·Åµ¹¼ÆÊ±½áÊø±êÖ¾
+	FIRE_EXTINGUISH_THIRD_SPRAY_START    = 11,     // µÚÈý´ÎÅç·Å¿ªÊ¼
+	FIRE_EXTINGUISH_THIRD_SPRAY_FINISH   = 12,     // µÚÈý´ÎÅç·ÅÍê³É
+	FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE   = 13,     // È«²¿Åç·ÅÍê³É
 
-	FIRE_EXTINGUISH_CLUSTER_VALVE_OPEN   = 14, // ï¿½Øµï¿½Å·ï¿½ï¿½ï¿½
-	FIRE_EXTINGUISH_CABIN_VALVE_OPEN     = 15, // ï¿½Öµï¿½Å·ï¿½ï¿½ï¿½
-	FIRE_EXTINGUISH_CYLINDEF_1_OPENED    = 16, // ï¿½ï¿½Æ¿1ï¿½ï¿½Å·ï¿½ï¿½ï¿½
-	FIRE_EXTINGUISH_CYLINDEF_2_OPENED    = 17, // ï¿½ï¿½Æ¿2ï¿½ï¿½Å·ï¿½ï¿½ï¿½
+	FIRE_EXTINGUISH_CLUSTER_VALVE_OPEN   = 14, // ´Øµç´Å·§´ò¿ª
+	FIRE_EXTINGUISH_CABIN_VALVE_OPEN     = 15, // ²Öµç´Å·§´ò¿ª
+	FIRE_EXTINGUISH_CYLINDEF_1_OPENED    = 16, // ¸ÖÆ¿1µç´Å·§´ò¿ª
+	FIRE_EXTINGUISH_CYLINDEF_2_OPENED    = 17, // ¸ÖÆ¿2µç´Å·§´ò¿ª
 	
-	FIRE_EXTINGUISH_STARYUP_FINISH_FLAG  = 18, // ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ëµ¹ï¿½ï¿½Ê±
+	FIRE_EXTINGUISH_STARYUP_FINISH_FLAG  = 18, // Ãð»ð×°ÖÃÆô¶¯½øÈëµ¹¼ÆÊ±
 	
 	FEEDBACK_1_PRESS = 19,
 	FEEDBACK_2_PRESS = 20,
 	
-}FireExtinguishDeviceActionType; // ï¿½ï¿½ï¿½×°ï¿½Ã¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+}FireExtinguishDeviceActionType; // Ãð»ð×°ÖÃ¶¯×÷ÀàÐÍ
 
-// ï¿½ï¿½ï¿½ï¿½×°ï¿½Ã¼ï¿½Â¼
+// ÆøÃð×°ÖÃ¼ÇÂ¼
 typedef struct
 {
-	uint8_t cluster_id[224];   // ï¿½ï¿½id
-	uint8_t pack_id[224];      // ï¿½ï¿½ï¿½Ú¶ï¿½Ó¦ï¿½ï¿½ï¿½Âµï¿½pack id
+	uint8_t cluster_id[224];   // ´Øid
+	uint8_t pack_id[224];      // ¹ÒÔÚ¶ÔÓ¦´ØÏÂµÄpack id
 	
-	uint8_t cabin_id[224];     // ï¿½ï¿½id
+	uint8_t cabin_id[224];     // ²Õid
 	
-	AlarmTimeRecord atr[224];  // ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Â¼
+	AlarmTimeRecord atr[224];  // ¶¯×÷Ê±¼ä¼ÇÂ¼
 	
-	int8_t fed_action[224];   // ï¿½ï¿½ï¿½×°ï¿½Ã¶ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
+	int8_t fed_action[224];   // Ãð»ð×°ÖÃ¶¯×÷¼ÇÂ¼
 	
 	uint8_t self_point_len;    // 
-	uint8_t last_point_len;    // ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
+	uint8_t last_point_len;    // ±éÀúÖ¸Õë
 	
-	uint16_t countdown_val[224];    // ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Öµ 
-	uint16_t start_cntd_time[224];  // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ê±ï¿½ï¿½ï¿½
-	uint16_t curr_cntd_time[224];   // ï¿½ï¿½Ç°ÏµÍ³Ê±ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ê±
-}FireExtinguishDeviceActionSave; // ï¿½ï¿½ï¿½×°ï¿½Ã¶ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
+	uint16_t countdown_val[224];    // µ¹¼ÆÊ±µÄÖµ 
+	uint16_t start_cntd_time[224];  // ¿ªÊ¼µ¹¼ÆÊ±µÄÊ±¼ä´Á
+	uint16_t curr_cntd_time[224];   // µ±Ç°ÏµÍ³Ê±ÖÓ ÓÃÀ´ÏÔÊ¾µ¹¼ÆÊ±
+}FireExtinguishDeviceActionSave; // Ãð»ð×°ÖÃ¶¯×÷¼ÇÂ¼
 
 FireExtinguishDeviceActionSave fedas = {
 	.cluster_id = {0},
@@ -380,24 +380,24 @@ uint8_t fed_fresh_flag = 0;
 uint8_t fedas_fresh_point = 0;
 // end
 
-// new ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ ï¿½ï¿½ï¿½Æ±ï¿½ï¿½ï¿½
+// new °üÊý¾ÝÏÔÊ¾ ¿ØÖÆ±äÁ¿
 typedef struct
 {
-	uint8_t  curr_detector_page; // ï¿½ï¿½Ç°ï¿½ï¿½Ê¾Ò³
-	uint8_t  last_detector_page; // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ê¾Ò³
+	uint8_t  curr_detector_page; // µ±Ç°ÏÔÊ¾Ò³
+	uint8_t  last_detector_page; // ÉÏÒ»´ÎÏÔÊ¾Ò³
 	
 	uint8_t  detector_offline_fresh_flag[11];
 	
-	uint8_t  detect_online_state[21][11];   // ï¿½ï¿½ï¿½ï¿½×´Ì¬
-	uint8_t  detect_shield_state[21][11];   // ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	uint8_t  detect_online_state[21][11];   // ÔÚÏß×´Ì¬
+	uint8_t  detect_shield_state[21][11];   // ÆÁ±Î×´Ì¬
 	
-	uint8_t  last_temperat_state[21][11]; // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Â¶ï¿½×´Ì¬
-	uint8_t  last_temperature[21][11];   // ï¿½ï¿½Ò»ï¿½Îµï¿½ï¿½Â¶ï¿½
+	uint8_t  last_temperat_state[21][11]; // ÉÏÒ»´ÎÎÂ¶È×´Ì¬
+	uint8_t  last_temperature[21][11];   // ÉÏÒ»´ÎµÄÎÂ¶È
 	
-	uint8_t  last_smoke_state[21][11];   // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	uint8_t  last_smoke_state[21][11];   // ÉÏÒ»´ÎÑÌÎí×´Ì¬
 	
 	uint8_t  last_co_state[21][11];      // 
-	uint16_t last_co_concentrat[21][11]; // ï¿½ï¿½Ò»ï¿½Î¿ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½
+	uint16_t last_co_concentrat[21][11]; // ÉÏÒ»´Î¿ÉÈ¼ÆøÌåµÄÅ¨¶È
 
 }DetectorDataShowCtrl;
 
@@ -405,25 +405,25 @@ DetectorDataShowCtrl ddsc;
 
 typedef struct
 {
-	uint8_t force_fresh_flag;    // Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
+	uint8_t force_fresh_flag;    // Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
 	
-	uint8_t curr_detector_page;  // ï¿½ï¿½Ç°Ò³
+	uint8_t curr_detector_page;  // µ±Ç°Ò³
 	uint8_t last_detector_page;  // Ö®Ç°Ò³
 	
 	uint8_t curr_pack_id;
 	
-	uint8_t last_temperat_state; // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Â¶ï¿½×´Ì¬
-	uint8_t last_temperature;    // ï¿½ï¿½Ò»ï¿½Îµï¿½ï¿½Â¶ï¿½
+	uint8_t last_temperat_state; // ÉÏÒ»´ÎÎÂ¶È×´Ì¬
+	uint8_t last_temperature;    // ÉÏÒ»´ÎµÄÎÂ¶È
 	
-	uint8_t last_smoke_state;   // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	uint8_t last_smoke_state;   // ÉÏÒ»´ÎÑÌÎí×´Ì¬
 	
 	uint8_t last_co_state;      // 
 	
-	uint8_t lat_detector_online_num[4]; // ï¿½ï¿½Ê·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
+	uint8_t lat_detector_online_num[4]; // ÀúÊ·ÉÏÏßÊýÁ¿ 
 	
 	uint8_t last_derector_state[3][32];
 	
-	uint16_t last_co_concentrat; // ï¿½ï¿½Ò»ï¿½Î¿ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½
+	uint16_t last_co_concentrat; // ÉÏÒ»´Î¿ÉÈ¼ÆøÌåµÄÅ¨¶È
 }DetectorDataShowCtrl_32Pack;
 
 DetectorDataShowCtrl_32Pack ddsc_32p;
@@ -434,10 +434,10 @@ typedef struct
 	
 	uint8_t curr_cabin_id;
 	
-	uint8_t last_temperat_state; // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Â¶ï¿½×´Ì¬
-	uint8_t last_temperat_value; // ï¿½ï¿½Ò»ï¿½Îµï¿½ï¿½Â¶ï¿½
+	uint8_t last_temperat_state; // ÉÏÒ»´ÎÎÂ¶È×´Ì¬
+	uint8_t last_temperat_value; // ÉÏÒ»´ÎµÄÎÂ¶È
 
-	uint8_t last_smoke_state;   // ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	uint8_t last_smoke_state;   // ÉÏÒ»´ÎÑÌÎí×´Ì¬
 	
 	uint8_t last_co_state;      // 
 	uint8_t last_hh_state;
@@ -463,26 +463,26 @@ typedef enum{
 
 typedef enum
 {
-	OutMenu = 0, // ï¿½ï¿½Ê¼×´Ì¬ ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½Ð´ï¿½ï¿½ï¿½
-	InMenu = 1,  // ï¿½ï¿½ï¿½ï¿½Ëµï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½
+	OutMenu = 0, // ³õÊ¼×´Ì¬ ÔÚÖ÷²Ëµ¥ÖÐ´ý»ú
+	InMenu = 1,  // ½øÈë²Ëµ¥ ¶þ¼¶²Ëµ¥
 	
 	InitMenu = 0xFF,
 }BspMenuState;
 
 #define POINT_SITE_MAX 3U
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä»Ó²ï¿½ï¿½ï¿½ï¿½ï¿½Â°ï¿½ï¿½ï¿½
+// °´¼ü¿ØÖÆ ÆÁÄ»Ó²¼þ²éÐÂ°´¼ü
 typedef struct
 {
-	uint8_t curr_partition; // ï¿½ï¿½Ç°ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½
-	uint8_t last_partition; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	uint8_t curr_point_site[4]; // ï¿½ï¿½Ç°ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
-	uint8_t last_point_site[4]; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t curr_partition; // µ±Ç°ÊÇÄÄ¸ö·ÖÇø
+	uint8_t last_partition; // ¸üÐÂÒÖÖÆ
+	uint8_t curr_point_site[4]; // µ±Ç°¼ýÍ·ÔÚÄÄÒ»À¸
+	uint8_t last_point_site[4]; // ¸üÐÂÒÖÖÆ
 	
-	uint8_t last_show_len[4]; // ï¿½æ´¢ï¿½ï¿½Ò»ï¿½ï¿½Ë¢ï¿½Âµï¿½Î»ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ú¿É»Ö¸ï¿½ï¿½ÄµØ·ï¿½Ë¢ï¿½Â¼ï¿½Í·Î»ï¿½ï¿½
+	uint8_t last_show_len[4]; // ´æ´¢ÉÏÒ»´ÎË¢ÐÂµÄÎ»ÖÃ ÓÃÀ´ÔÚ¿É»Ö¸´µÄµØ·½Ë¢ÐÂ¼ýÍ·Î»ÖÃ
 	
-	uint8_t curr_menu_state; // ï¿½ï¿½Ç°ï¿½Ëµï¿½×´Ì¬
-	uint8_t last_menu_state; // ï¿½ï¿½Ò»ï¿½Î²Ëµï¿½×´Ì¬
+	uint8_t curr_menu_state; // µ±Ç°²Ëµ¥×´Ì¬
+	uint8_t last_menu_state; // ÉÏÒ»´Î²Ëµ¥×´Ì¬
 }BspKeyCheckNewCtrl_t;
 
 BspKeyCheckNewCtrl_t bkcnc = {
@@ -493,10 +493,10 @@ BspKeyCheckNewCtrl_t bkcnc = {
 	.curr_menu_state = InitMenu, 
 };
 
-// ï¿½Ð¹ï¿½ï¿½ï¿½ Ô¤ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ½á¹¹ï¿½ï¿½
+// ÓÐ¹ÊÕÏ Ô¤¾¯ »ð¾¯ »ØÖ÷½çÃæ¿ØÖÆ½á¹¹Ìå
 typedef struct 
 {
-	// Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ó¶¨µï¿½Ö· ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½Æ¸ï¿½ï¿½ï¿½
+	// Ö¸ÕëÓÃÀ´°ó¶¨µØÖ· ±äÁ¿ÓÃÀ´´¢´æÖµ ÒÖÖÆ¸üÐÂ
 	uint8_t *curr_pack_alarm_len;
 	uint8_t *curr_pc_fire_alarm_len;
 	uint8_t *curr_pc_fore_alarm_len;
@@ -512,15 +512,15 @@ typedef struct
 	uint8_t last_pc_fault_len;
 	uint8_t last_pc_outfire_len;
 }SwitchInterfaceCtrl;
-// ï¿½ï¿½Ö¸ï¿½ï¿½ó¶¨µï¿½Ö· Ö»ï¿½ï¿½Ê¼ï¿½ï¿½Ò»ï¿½Î¼ï¿½ï¿½É²ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½
+// ÓÃÖ¸Õë°ó¶¨µØÖ· Ö»³õÊ¼»¯Ò»´Î¼´¿É²»ÓÃÖØ¸´°ó¶¨
 SwitchInterfaceCtrl switch_ui_ctrl;
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ÓµÄ±ï¿½ï¿½ï¿½
+// ÐÂÔö¼ÓµÄ±äÁ¿
 extern uint8_t screen_show_siren_information;
 extern uint8_t shielding_state;
 extern uint8_t self_check_state;
 
-// ï¿½ï¿½ï¿½ï¿½1 ×´Ì¬ï¿½ï¿½ï¿½Æ±ï¿½ï¿½ï¿½
+// ·ÖÇø1 ×´Ì¬¿ØÖÆ±äÁ¿
 extern uint8_t part_1_start_state;
 extern uint8_t part_1_start_delay;
 extern uint8_t part_1_spray_state;
@@ -572,11 +572,11 @@ typedef enum
 	General_Output_Beep_7 = 16,
 	General_Output_Beep_8 = 17,
 
-}eGeneralIoBeepBit; // Í¨ï¿½ï¿½IOï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½
+}eGeneralIoBeepBit; // Í¨ÓÃIO·äÃùÆ÷Î»¶¨Òå
 
 
 
-// [7:4] ï¿½ï¿½ï¿½ï¿½ [3:0] ï¿½ï¿½ï¿½ï¿½
+// [7:4] Ö÷µç [3:0] ±¸µç
 uint8_t beep_fire_ctrl = 0;
 uint8_t beep_fault_ctrl = 0;
 
@@ -588,7 +588,7 @@ uint32_t beep_general_io_ctrl = 0;
 uint8_t zhu_state=1,bei_state=1;
 
 
-// ï¿½ï¿½Â¼ï¿½ï¿½Ê¾È¥ï¿½ï¿½ï¿½ï¿½ Ã¿Ò³ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
+// ¼ÇÂ¼ÏÔÊ¾È¥ÖØÇø Ã¿Ò³ÏÔÊ¾ÊýÁ¿
 #define RECORD_SHOW_ZONE 10
 
 typedef enum
@@ -603,13 +603,13 @@ typedef enum
 
 typedef struct
 {
-	uint8_t curr_page[4]; // ï¿½ï¿½Ç°Ò³ 
+	uint8_t curr_page[4]; // µ±Ç°Ò³ 
 	
-	uint16_t record_sum[4]; // ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½
+	uint16_t record_sum[4]; // ¸÷ÀàÐÍ¼ÇÂ¼×ÜÊý
 	
-	uint8_t force_fresh_flag; // Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾
+	uint8_t force_fresh_flag; // Ç¿ÖÆË¢ÐÂ±êÖ¾
 	
-	uint8_t curr_show_type; // ï¿½ï¿½Ç°ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
+	uint8_t curr_show_type; // µ±Ç°ÏÔÊ¾ÀàÐÍ
 }BspScreenReadRecord_t;
 
 BspScreenReadRecord_t bsrr = {
@@ -617,7 +617,7 @@ BspScreenReadRecord_t bsrr = {
 	.force_fresh_flag = 0,
 	.curr_show_type = RECORD_INIT,
 };
-// ï¿½ï¿½Â¼ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½
+// ¼ÇÂ¼¶ÁÈ¡»º´æ
 FlashReadCache_t read_data[5];
 //
 
@@ -652,27 +652,27 @@ uint8_t BMS_Temp[12]={0,0,0,0,0,0,0,0,0,0,0,0};
 
 // end
 
-uint8_t PCAC_zxwz_buf[12]={0,4,16,28,40,52,64,76,88,100,112,0};//ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½Ø¼ï¿½ID
-uint8_t PCAC_wdwz_buf[12]={0,9,21,33,45,57,69,81,93,105,117,0};//ï¿½Â¶È¿Ø¼ï¿½ID
-uint8_t PCAC_ywtb_buf[12]={0,12,24,36,48,60,72,84,96,108,120,0};//ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½Ø¼ï¿½ID
-uint8_t PCAC_cotb_buf[12]={0,11,23,35,47,59,71,83,95,107,119,0};//CO×´Ì¬ï¿½Ø¼ï¿½ID
-uint8_t PCAC_ch4yb_buf[12]={0,13,25,37,49,61,73,85,97,109,121,0};//CH4×´Ì¬ï¿½Ø¼ï¿½ID
+uint8_t PCAC_zxwz_buf[12]={0,4,16,28,40,52,64,76,88,100,112,0};//ÔÚÏß×´Ì¬¿Ø¼þID
+uint8_t PCAC_wdwz_buf[12]={0,9,21,33,45,57,69,81,93,105,117,0};//ÎÂ¶È¿Ø¼þID
+uint8_t PCAC_ywtb_buf[12]={0,12,24,36,48,60,72,84,96,108,120,0};//ÑÌÎí×´Ì¬¿Ø¼þID
+uint8_t PCAC_cotb_buf[12]={0,11,23,35,47,59,71,83,95,107,119,0};//CO×´Ì¬¿Ø¼þID
+uint8_t PCAC_ch4yb_buf[12]={0,13,25,37,49,61,73,85,97,109,121,0};//CH4×´Ì¬¿Ø¼þID
 
-uint8_t cang_zxwz_buf[8]={0,16,20,36,52,72,88,0};//ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½Ø¼ï¿½ID
+uint8_t cang_zxwz_buf[8]={0,16,20,36,52,72,88,0};//ÔÚÏß×´Ì¬¿Ø¼þID
 
-uint8_t cang_wdwz_buf[8]={0,10,17,41,49,77,111,0};//ï¿½Â¶È¿Ø¼ï¿½ID
-//uint8_t cang_ywtb_buf[8]={0,12,19,35,51,71,87,0};//ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½Ø¼ï¿½ID
-//uint8_t cang_cotb_buf[8]={0,13,25,41,61,77,93,0};//CO×´Ì¬ï¿½Ø¼ï¿½ID
-//uint8_t cang_ch4yb_buf[8]={0,14,26,42,62,78,94,0};//CH4×´Ì¬ï¿½Ø¼ï¿½ID
-//uint8_t cang_vocyb_buf[8]={0,15,27,43,63,79,95,0};//VOC×´Ì¬ï¿½Ø¼ï¿½ID
+uint8_t cang_wdwz_buf[8]={0,10,17,41,49,77,111,0};//ÎÂ¶È¿Ø¼þID
+//uint8_t cang_ywtb_buf[8]={0,12,19,35,51,71,87,0};//ÑÌÎí×´Ì¬¿Ø¼þID
+//uint8_t cang_cotb_buf[8]={0,13,25,41,61,77,93,0};//CO×´Ì¬¿Ø¼þID
+//uint8_t cang_ch4yb_buf[8]={0,14,26,42,62,78,94,0};//CH4×´Ì¬¿Ø¼þID
+//uint8_t cang_vocyb_buf[8]={0,15,27,43,63,79,95,0};//VOC×´Ì¬¿Ø¼þID
 
-uint8_t cang_cowb_buf[8]={0,117,25,122,61,89,138,0};//CO×´Ì¬ï¿½Ø¼ï¿½ID
-uint8_t cang_h2wb_buf[8]={0,118,26,124,62,90,139,0};//H2×´Ì¬ï¿½Ø¼ï¿½ID
-uint8_t cang_ch4wb_buf[8]={0,12,33,127,69,93,142,0};//CH4×´Ì¬ï¿½Ø¼ï¿½ID
-uint8_t cang_ywwb_buf[8]={0,120,35,129,71,95,144,0};//YW×´Ì¬ï¿½Ø¼ï¿½ID
-uint8_t cang_vocwb_buf[8]={0,15,34,128,70,94,143,0};//VOC×´Ì¬ï¿½Ø¼ï¿½ID
+uint8_t cang_cowb_buf[8]={0,117,25,122,61,89,138,0};//CO×´Ì¬¿Ø¼þID
+uint8_t cang_h2wb_buf[8]={0,118,26,124,62,90,139,0};//H2×´Ì¬¿Ø¼þID
+uint8_t cang_ch4wb_buf[8]={0,12,33,127,69,93,142,0};//CH4×´Ì¬¿Ø¼þID
+uint8_t cang_ywwb_buf[8]={0,120,35,129,71,95,144,0};//YW×´Ì¬¿Ø¼þID
+uint8_t cang_vocwb_buf[8]={0,15,34,128,70,94,143,0};//VOC×´Ì¬¿Ø¼þID
 
-uint8_t cang_XH_buf[8]={0,149,150,151,152,153,154,0};//ï¿½ÍºÅ¿Ø¼ï¿½ID
+uint8_t cang_XH_buf[8]={0,149,150,151,152,153,154,0};//ÐÍºÅ¿Ø¼þID
 
 
 uint8_t kaijiyanshi=0;
@@ -687,9 +687,9 @@ uint8_t BJ_cangjiyibuf_voc[30];
 uint8_t BJ_cangjiyibuf_h2[30];
 
 uint8_t BJ_packjiyibuf_wd[30][PACK_NUM_BACKUP];
-uint8_t BJ_packjiyibuf_yw[30][PACK_NUM_BACKUP];//2024-03-09ï¿½ï¿½ï¿½Ó£ï¿½ï¿½ï¿½Ö¹ï¿½Â¶ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½Â¼
-uint8_t BJ_packjiyibuf_co[30][PACK_NUM_BACKUP];//2024-03-09ï¿½ï¿½ï¿½Ó£ï¿½ï¿½ï¿½Ö¹ï¿½Â¶ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½Â¼
-uint8_t BJ_packjiyibuf_ch4[30][PACK_NUM_BACKUP];//2024-03-09ï¿½ï¿½ï¿½Ó£ï¿½ï¿½ï¿½Ö¹ï¿½Â¶ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½Â¼
+uint8_t BJ_packjiyibuf_yw[30][PACK_NUM_BACKUP];//2024-03-09Ôö¼Ó£¬·ÀÖ¹ÎÂ¶ÈÑÌÎíÔ¤¾¯²¢ÐÐÊ±ºòÖØ¸´¼ÇÂ¼
+uint8_t BJ_packjiyibuf_co[30][PACK_NUM_BACKUP];//2024-03-09Ôö¼Ó£¬·ÀÖ¹ÎÂ¶ÈÑÌÎíÔ¤¾¯²¢ÐÐÊ±ºòÖØ¸´¼ÇÂ¼
+uint8_t BJ_packjiyibuf_ch4[30][PACK_NUM_BACKUP];//2024-03-09Ôö¼Ó£¬·ÀÖ¹ÎÂ¶ÈÑÌÎíÔ¤¾¯²¢ÐÐÊ±ºòÖØ¸´¼ÇÂ¼
 // XR5000_LOOP3_CHANGE_20260726: HMI-layer memories for loop 3 one-shot records.
 static uint8_t rs485_detect_disconnect_memory[RS485_DETECT_MAX_DEVICES] = {0};
 static uint8_t rs485_detect_alarm_memory[RS485_DETECT_MAX_DEVICES][RS485_SENSOR_COUNT] = {0};
@@ -719,7 +719,7 @@ uint8_t BMS_BJ[12]={0,0,0,0,0,0,0,0,0,0,0,0};
 
 uint8_t zhu_min;
 
-// ï¿½Ø·ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+// ´Ø·§¿ªÆô×´Ì¬
 uint8_t cluster_solenoid_valve_start_state = 0;
 
 static uint8_t screen_fresh_num = 0;
@@ -776,59 +776,59 @@ typedef struct
 
 uint8_t creatNewFaultRecordToCache(uint8_t cluster_id, uint8_t pack_id, uint8_t cabin_id);
 
-// 2025/11/17 18:10 ï¿½ï¿½ï¿½ï¿½ Ñ­ï¿½ï¿½ï¿½ï¿½Ê¾Ã¿Ò»ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯ ï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½Ò³ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð²ï¿½ Í³Ò»ï¿½ï¿½Îª xxï¿½ï¿½Â·xxIDÌ½ï¿½ï¿½ï¿½ï¿½
+// 2025/11/17 18:10 ÐÂÔö Ñ­»·ÏÔÊ¾Ã¿Ò»²ÖÌ½²âÆ÷µÄ×´Ì¬ ¿ÉÖ÷¶¯²éÑ¯ ¿ÉÉÏÏÂ·­Ò³ ºóÐø²»½Ð²Ö Í³Ò»¸ÄÎª xx»ØÂ·xxIDÌ½²âÆ÷
 
 typedef struct
 {
-	uint8_t poll_circuits_id; // ï¿½ï¿½Â·ID
-	uint8_t poll_detector_id; // Ì½ï¿½ï¿½ï¿½ï¿½ID
+	uint8_t poll_circuits_id; // »ØÂ·ID
+	uint8_t poll_detector_id; // Ì½²âÆ÷ID
 	
-	// ï¿½Ë´ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½Æ¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Ö»ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ßµï¿½Ì½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½É¸Ñ¡ID
-	uint8_t last_circuits_id; // ï¿½Ï´Î»ï¿½Â·ID
-	uint8_t last_detector_id; // ï¿½Ï´ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ID
+	// ´Ë´¦²»ÊÇÎªÁËÒÖÖÆ¸üÐÂ ¶øÊÇÎªÁËÖ»ÏÔÊ¾ÉÏÏßµÄÌ½²âÆ÷ ÓÃÀ´É¸Ñ¡ID
+	uint8_t last_circuits_id; // ÉÏ´Î»ØÂ·ID
+	uint8_t last_detector_id; // ÉÏ´ÎÌ½²âÆ÷ID
 	
-	uint8_t poll_temper_value; // ï¿½ï¿½Ñ¯ï¿½Â¶ï¿½Öµ
-	uint8_t poll_smokes_state; // ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	uint8_t poll_temper_value; // ÂÖÑ¯ÎÂ¶ÈÖµ
+	uint8_t poll_smokes_state; // ÂÖÑ¯ÑÌÎí×´Ì¬
 	
-	uint16_t poll_carbon_value; // ï¿½ï¿½Ñ¯Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Öµ
+	uint16_t poll_carbon_value; // ÂÖÑ¯Ò»Ñõ»¯Ì¼Öµ
 	
-	uint16_t poll_hydrog_value; // ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½Öµ Ê¡ï¿½ï¿½en
+	uint16_t poll_hydrog_value; // ÂÖÑ¯ÇâÆøÖµ Ê¡ÂÔen
 	
-	uint8_t poll_detect_name;  // ï¿½ï¿½Ñ¯ Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t poll_detect_name;  // ÂÖÑ¯ Ì½²âÆ÷Ãû³Æ
 	
-	uint8_t poll_sensor_state; // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	uint8_t poll_sensor_state; // Ì½²âÆ÷ÆôÓÃ×´Ì¬
 	
-	uint8_t key_perss_fresh; // 'n'ï¿½ï¿½Ò»ï¿½ï¿½ 'p'ï¿½ï¿½Ò»ï¿½ï¿½
-}PollingShowBase_t; // ï¿½ï¿½Ñ¯ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½
+	uint8_t key_perss_fresh; // 'n'ÏÂÒ»¸ö 'p'ÉÏÒ»¸ö
+}PollingShowBase_t; // ÂÖÑ¯ÏÔÊ¾»ù½á¹¹Ìå
 
 typedef struct
 {
-	// ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½ï¿½ï¿½
-	uint8_t verb_circuits_id; // ï¿½ï¿½Â·ID
-	uint8_t verb_detector_id; // Ì½ï¿½ï¿½ï¿½ï¿½ID
-	uint8_t last_detector_id; // ï¿½ï¿½Ò»ï¿½Î²ï¿½Ñ¯ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ID ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¸ï¿½ï¿½ï¿½
+	// »ù´¡ID¿ØÖÆ
+	uint8_t verb_circuits_id; // »ØÂ·ID
+	uint8_t verb_detector_id; // Ì½²âÆ÷ID
+	uint8_t last_detector_id; // ÉÏÒ»´Î²éÑ¯µÄÌ½²âÆ÷ID ÓÃÀ´ÒÖÖÆ¸üÐÂ
 	
-	uint8_t force_fresh_ctrl; // ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+	uint8_t force_fresh_ctrl; // ÊäÈëIDºóÇ¿ÖÆË¢ÐÂÒ»´Î
 	
-	uint8_t verb_temper_value; // ï¿½Â¶ï¿½Öµ
-	uint8_t last_temper_value; // ï¿½Â¶ï¿½Öµ
+	uint8_t verb_temper_value; // ÎÂ¶ÈÖµ
+	uint8_t last_temper_value; // ÎÂ¶ÈÖµ
 	
-	uint8_t verb_smokes_state; // ï¿½ï¿½ï¿½ï¿½×´Ì¬
-	uint8_t last_smokes_state; // ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	uint8_t verb_smokes_state; // ÑÌÎí×´Ì¬
+	uint8_t last_smokes_state; // ÑÌÎí×´Ì¬
 	
-	uint16_t verb_carbon_value; // Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Öµ
-	uint16_t last_carbon_value; // Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Öµ
+	uint16_t verb_carbon_value; // Ò»Ñõ»¯Ì¼Öµ
+	uint16_t last_carbon_value; // Ò»Ñõ»¯Ì¼Öµ
 	
-	uint16_t verb_hydrog_value; // ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½Öµ Ê¡ï¿½ï¿½en
-	uint16_t lsat_hydrog_value; // ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½Öµ Ê¡ï¿½ï¿½en
+	uint16_t verb_hydrog_value; // ÂÖÑ¯ÇâÆøÖµ Ê¡ÂÔen
+	uint16_t lsat_hydrog_value; // ÂÖÑ¯ÇâÆøÖµ Ê¡ÂÔen
 	
-	uint8_t verb_detect_name;  // ï¿½ï¿½Ñ¯ Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	uint8_t lsat_detect_name;  // ï¿½ï¿½Ñ¯ Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t verb_detect_name;  // ÂÖÑ¯ Ì½²âÆ÷Ãû³Æ
+	uint8_t lsat_detect_name;  // ÂÖÑ¯ Ì½²âÆ÷Ãû³Æ
 	
-	uint8_t verb_sensor_state; // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
-	uint8_t last_sensor_state; // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	uint8_t verb_sensor_state; // Ì½²âÆ÷ÆôÓÃ×´Ì¬
+	uint8_t last_sensor_state; // Ì½²âÆ÷ÆôÓÃ×´Ì¬
 	
-}InqueryShowBase_t; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½
+}InqueryShowBase_t; // Ö÷¶¯²éÑ¯»ù½á¹¹Ìå
 
 typedef struct
 {
@@ -855,7 +855,7 @@ typedef struct
 
 PointTypeShowCtrl_t ptsc = {0};
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+// µãÐÍÏÔÊ¾
 static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry);
 static void PointTypeDetectorButtonCtrlApp(PointTypeShowCtrl_t *ptsc_entry, uint16 control_id, uint8  state);
 static void PointTypeDetectorTextInputCtrlApp(PointTypeShowCtrl_t *ptsc_entry, uint16 control_id, uint8 *str);
@@ -863,31 +863,31 @@ static void PointTypeDetectorScreenSwitchShowApp(PointTypeShowCtrl_t *ptsc_entry
 
 
 CompositeShowCtrl_t cpsc = {0};
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+// ¸´ºÏÏÔÊ¾
 static void CompositeDetectorShowApp(CompositeShowCtrl_t *cpsc_entry);
 static void CompositeDetectorButtonCtrlApp(CompositeShowCtrl_t *cpsc_entry, uint16 control_id, uint8  state);
 static void CompositeDetectorTextInputCtrlApp(CompositeShowCtrl_t *cpsc_entry, uint16 control_id, uint8 *str);
 static void CompositeDetectorScreenSwitchShowApp(CompositeShowCtrl_t *cpsc_entry);
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼IOï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ 2025/11/21 13:49
+// ÐÂÔö¼ÇÂ¼IO°åµÄËùÓÐ¹ÊÕÏÐÅÏ¢ 2025/11/21 13:49
 
-// ï¿½ï¿½ï¿½ï¿½Ä£ï¿½â´®ï¿½ï¿½ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ÐÂÔöÄ£Äâ´®¿ÚÖúÊÖ½çÃæ¿ØÖÆ
 typedef struct
 {
-	uint8_t serial_port_state; // ï¿½ï¿½ï¿½Ú´ï¿½×´Ì¬
+	uint8_t serial_port_state; // ´®¿Ú´ò¿ª×´Ì¬
 	
-	uint8_t serial_port_comid; // ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½Ë¿ï¿½ID Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½
+	uint8_t serial_port_comid; // ÓÃÀ´Ñ¡Ôñ¶Ë¿ÚID Ñ¡Ôñ¹ÒÆðÄÄ¸öÈÎÎñÀ´¿ÕÏÐ´®¿Ú
 	
-	uint8_t serial_port_send_mode; // 0:ï¿½Ö·ï¿½ï¿½ï¿½ 1:16ï¿½ï¿½ï¿½ï¿½
+	uint8_t serial_port_send_mode; // 0:×Ö·û´® 1:16½øÖÆ
 	uint8_t serial_port_show_offset;
 	
-	uint8_t serial_port_show_mode; // 0:ï¿½Ö·ï¿½ï¿½ï¿½ 1:16ï¿½ï¿½ï¿½ï¿½    
+	uint8_t serial_port_show_mode; // 0:×Ö·û´® 1:16½øÖÆ    
 	
-	uint8_t serial_port_send_len; // ï¿½Ó·ï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½È¡ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t serial_port_send_len; // ´Ó·¢ËÍ»º³åÇøÖÐ»ñÈ¡µÄ×Ö·û³¤¶È
 	
-	uint8_t serial_port_send_new_row; // 0:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t serial_port_send_new_row; // 0:²»·¢ËÍÐÂÐÐ 1:·¢ËÍÐÂÐÐ
 	
-	uint8_t serial_port_send_buff[256]; // ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t serial_port_send_buff[256]; // ·¢ËÍ»º³åÇø
 
 }SimulationSerialPortAssistant_t;
 
@@ -910,29 +910,29 @@ static void SimulationSerialPortTextCtrl(SimulationSerialPortAssistant_t *sspa_e
 
 static void SimulationSerialPortScreenShowApp(SimulationSerialPortAssistant_t *sspa_entry);
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï´æ´¢ï¿½ï¿½ï¿½ï¿½
+// Çå¿ÕÕû¸ö¹ÊÕÏ´æ´¢Êý×é
 void FaultDataInit(PackCabinFaultStorage *pcfs_entry)
 {
 	memset(pcfs_entry, 0, sizeof(PackCabinFaultStorage) * 224);
-	pcfs_fresh_ctrl = 255;    // Ë¢ï¿½Â¿ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ ï¿½ï¿½Ê¼ï¿½ï¿½ÖµÎªï¿½ï¿½ï¿½Öµ
-	pcfs_buttom_point = 0;  // Î²Ö¸ï¿½ï¿½ ï¿½ï¿½Â¼ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½
+	pcfs_fresh_ctrl = 255;    // Ë¢ÐÂ¿ØÖÆÖ¸Õë ³õÊ¼¸³ÖµÎª×î´óÖµ
+	pcfs_buttom_point = 0;  // Î²Ö¸Õë ¼ÇÂ¼Êý¾Ý³¤¶È
 }
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// Çå¿ÕÕû¸öÔ¤¾¯Êý×é
 void ForeAlarmDataInit(PackCabinForeWarnStorage *pcfws_entry)
 {
 	memset(pcfws_entry, 0, sizeof(PackCabinForeWarnStorage));
 	pcfws_entry->point_history_len = 255;
 }
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// Çå¿ÕÕû¸ö»ð¾¯Êý×é
 void FireAlarmDataInit(PackCabinFireAlarmStorage *pcfas_entry)
 {
 	memset(pcfas_entry, 0, sizeof(PackCabinFireAlarmStorage));
 	pcfas_entry->point_history_len = 255;
 }
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½
+// Çå¿ÕÕû¸öÆøÃð´æ´¢Êý×é
 void FireExtinguishDataInit(FireExtinguishDeviceActionSave *fedas_entry)
 {
 	memset(fedas_entry, 0, sizeof(FireExtinguishDeviceActionSave));
@@ -944,7 +944,7 @@ void PackAndCabinHistoryAlarmInit(PackAlarmStorage *pas_entry)
 	memset(pas_entry, 0, sizeof(PackAlarmStorage));
 	pas_pointer = 0;
 	last_pas_len = 0;
-	pas_fresh_point = 0;// ï¿½ï¿½Ä»ï¿½ï¿½Ê¾Ë¢ï¿½ï¿½Ö¸ï¿½ï¿½
+	pas_fresh_point = 0;// ÆÁÄ»ÏÔÊ¾Ë¢ÐÂÖ¸Õë
 }
 
 static void PointTypeDetectorAllStateInit(void);
@@ -956,7 +956,7 @@ static uint8_t getPointDetectorAlarmCount(void);
 
 void ClearDetectorHistoryData(void)
 {
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê·ï¿½ï¿½ï¿½ï¿½
+	// Çå³ý°üµÄÀúÊ·Êý¾Ý
 	memset(BJ_packjiyibuf_wd,  0, 30*PACK_NUM_BACKUP);
 	memset(BJ_packjiyibuf_yw,  0, 30*PACK_NUM_BACKUP);
 	memset(BJ_packjiyibuf_co,  0, 30*PACK_NUM_BACKUP);
@@ -975,7 +975,7 @@ void ClearDetectorHistoryData(void)
 	memset(PACK_COZT_buf, 0, 30*PACK_NUM_BACKUP);
 	memset(PACK_CH4ZT_buf, 0, 30*PACK_NUM_BACKUP);
 	
-	// ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½Ê·ï¿½ï¿½ï¿½ï¿½
+	// Çå³ý²ÖµÄÀúÊ·Êý¾Ý
 	memset(Cang_WDZT_buf, 0, 30);
 	memset(Cang_YWZT_buf, 0, 30);
 	memset(Cang_COZT_buf, 0, 30);
@@ -991,7 +991,7 @@ void ClearDetectorHistoryData(void)
 	memset(Cang_H2zhi_buf, 0, 30);
 	memset(Cang_COzhi_buf, 0, 30);
 	
-	// ï¿½ï¿½ï¿½ï¿½ï¿½Ê·ï¿½ï¿½Â¼
+	// Çå³ýÀúÊ·¼ÇÂ¼
 	memset(BJ_cangjiyibuf_wd, 0, 30);
 	memset(BJ_cangjiyibuf_yw, 0, 30);
 	memset(BJ_cangjiyibuf_co, 0, 30);
@@ -999,10 +999,10 @@ void ClearDetectorHistoryData(void)
 	memset(BJ_cangjiyibuf_voc, 0, 30);
 	memset(BJ_cangjiyibuf_h2, 0, 30);
 	
-	// ï¿½ï¿½Õ´Ø·ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	// Çå¿Õ´Ø·§¿ªÆô×´Ì¬
 	cluster_solenoid_valve_start_state = 0;
 	
-	// ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	// »Ö¸´µãÐÍÌ½²âÆ÷×´Ì¬
 	PointTypeDetectorAllStateInit();
 }
 	
@@ -1022,14 +1022,14 @@ typedef struct
 DetectorSum ds = {
 	.curr_num = 0,
 	.last_num = 255
-}; // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½Îª0
+}; // ³õÊ¼»¯Éè±¸×ÜÊýÎª0
 
 void ScreenFreshInhibitionInit(void)
 {
-	alarm_number = 0; // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	last_alarm_num = 255; // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	last_online_detector_num = 255; // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	last_disconnect_detector_num = 255;	 // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	alarm_number = 0; // ³õÊ¼»¯±¨¾¯×ÜÊý
+	last_alarm_num = 255; // ³õÊ¼»¯±¨¾¯×ÜÊý¸üÐÂÒÖÖÆ
+	last_online_detector_num = 255; // ³õÊ¼»¯ÔÚÏßÌ½²âÆ÷ÊýÁ¿¸üÐÂÒÖÖÆ
+	last_disconnect_detector_num = 255;	 // ³õÊ¼»¯µôÏßÌ½²âÆ÷ÊýÁ¿¸üÐÂÒÖÖÆ
 	ds.last_num = 255;
 	ds.curr_num = 0;
 }
@@ -1044,7 +1044,7 @@ void BspBeepStateClear(void)
 	beep_spray_feedback_ctrl = 0;
 	beep_general_io_ctrl = 0; // 
 }
-// ï¿½ï¿½Î»ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Í·Î»ï¿½ï¿½
+// ¸´Î»ºó³õÊ¼»¯¼ýÍ·Î»ÖÃ
 void BspScreenArrowSite(BspKeyCheckNewCtrl_t *bkcnc_entry)
 {
 	bkcnc_entry->curr_menu_state = InitMenu;
@@ -1057,15 +1057,15 @@ void BspScreenArrowSite(BspKeyCheckNewCtrl_t *bkcnc_entry)
 // 
 void BspCmdProcessInit(void)
 {
-	FaultDataInit(pcfs); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¼ï¿½Â¼
-	ForeAlarmDataInit(&pcfws); // ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½Â¼
-	FireAlarmDataInit(&pcfas); // ï¿½ï¿½ï¿½ï¿½ð¾¯¼ï¿½Â¼
-	FireExtinguishDataInit(&fedas); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
+	FaultDataInit(pcfs); // Çå³ý¹ÊÕÏ¼ÇÂ¼
+	ForeAlarmDataInit(&pcfws); // Çå³ýÔ¤¾¯¼ÇÂ¼
+	FireAlarmDataInit(&pcfas); // Çå³ý»ð¾¯¼ÇÂ¼
+	FireExtinguishDataInit(&fedas); // Çå³ýÆøÃð·ÖÇø¼ÇÂ¼
 	PackAndCabinHistoryAlarmInit(pas);
-	ClearDetectorHistoryData(); // ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê·ï¿½ï¿½Â¼
-	ScreenFreshInhibitionInit(); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	ClearDetectorHistoryData(); // Çå³ýÌ½²âÆ÷ÀúÊ·¼ÇÂ¼
+	ScreenFreshInhibitionInit(); // Çå³ýÉÏÏß×ÜÊý
 	
-	// ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½Ê·Öµ È·ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// Çå³ýÊÖ±¨ ·´À¡Ò»·´À¡2µÄÀúÊ·Öµ È·±£¸´Î»ºóÏÂÒ»´Î¿ÉÒÔÕý³£Æô¶¯
 	clearHandPaperState();
 	cleareedBack1State();
 	cleareedBack2State();
@@ -1076,7 +1076,7 @@ uint8_t getCurrentSystemRunState(void)
 	uint8_t temp_state = 0;
 	if(pas_pointer != 0)
 	{
-		temp_state = 2; // ï¿½ï¿½
+		temp_state = 2; // »ð¾¯
 	}
 	else if(pcfws.self_bottom_point != 0 || pcfas.self_bottom_point != 0)
 	{
@@ -1142,7 +1142,7 @@ void StorageCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cabin_i
 
 void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cluster_id, uint8_t pack_id, uint8_t alarm_type);
 
-// Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// Ô¤¾¯¿ÉÒÔÇå³ý
 void DeletPackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cluster_id, uint8_t pack_id, uint8_t alarm_type);
 
 void StorageCabinFireAlarm(PackCabinFireAlarmStorage *pcfas_entry, 
@@ -1190,28 +1190,28 @@ void StartupLinkageDevice(void)
 	linkage_start_key_press_flag = 1;
 }
 
-// ï¿½ï¿½È¡ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+// »ñÈ¡²Ö ´ØËùÓÐÌ½²âÆ÷ÉÏÏß×´Ì¬
 static void getDetectorSetUpLiveSum(DetectorSum *ds_entry, uint8_t cabin_setup[], uint8_t cluster_setup[]);
 
 
 //new
-//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½2026.7.19 ï¿½ï¿½ï¿½ï¿½
+//»ñÈ¡µãÐÍÌ½²âÆ÷µÄÉÏÏß×ÜÊýÁ¿£¬2026.7.19 ÐÂÔö
 static uint8_t getPointDetectorSetUpLive(void);
-// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// »ñÈ¡µãÐÍÌ½²âÆ÷µÄ±¨¾¯×ÜÊýÁ¿
 static uint8_t getPointDetectorAlarmCount(void);
-// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// »ñÈ¡µãÐÍÌ½²âÆ÷µÄ¹ÊÕÏ×ÜÊýÁ¿
 static uint8_t getPointDetectorFaultCount(void);
 //end
 
 
-// ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ·µ»ØÖµ °üµôÏßÊýÁ¿
 static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
-// 2025/12/10 15:51 ï¿½ï¿½ï¿½ï¿½
+// 2025/12/10 15:51 ÐÂÔö
 static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ·µ»Ø×ø±êË÷Òý
 uint8_t findRecoveryDevice(uint8_t cluster_id, uint8_t pack_id, uint8_t cabin_id);
-// É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// É¾³ýË÷ÒýÖµµÄÊý¾Ý
 void deletRecoveryRecord(uint8_t recovery_index); 
 
 static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
@@ -1221,72 +1221,72 @@ static void FaultRelayCtrlAppFun(uint8_t disconnect_num);
 static void ForeWarmRelayCtrlAppFun(PackCabinForeWarnStorage *pcfws_entry);
 
 static void FireAlarmRelayCtrlAppFun(uint8_t pas_alarm_num);
-// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+// ÏÔÊ¾ËùÓÐ¹ÊÕÏÐÅÏ¢
 static void InternalScreenShowAllFault(uint8_t fresh_page_flag);
-// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½Ï¢ ï¿½ï¿½ï¿½Ô»Ö¸ï¿½
+// ÏÔÊ¾ËùÓÐÔ¤¾¯ÐÅÏ¢ ¿É×Ô»Ö¸´
 static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry, uint8_t fresh_page_flag);
 
 static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_entry, uint8_t fresh_page_flag);
-// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½Ï¢ ï¿½ï¿½ï¿½ï¿½ï¿½Ô»Ö¸ï¿½
+// ÏÔÊ¾ËùÓÐ»ð¾¯ÐÅÏ¢ ²»¿É×Ô»Ö¸´
 static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entry, uint8_t fresh_page_flag);
 
 static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas_entry, uint8_t fresh_page_flag);
-// ï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
+// ´´½¨ÐÂµÄÆøÃð¶¯×÷¼ÇÂ¼
 static void CreatNewFireExtinguishRecord(
-	FireExtinguishDeviceActionSave *fedas_entry, // Ä¬ï¿½Ï¸ï¿½Öµï¿½Ä½á¹¹ï¿½ï¿½
-	FireExtinguishDeviceActionSave *copy_fedas,  // Ä¬ï¿½Ï¸ï¿½Öµï¿½Ä½á¹¹ï¿½ï¿½
+	FireExtinguishDeviceActionSave *fedas_entry, // Ä¬ÈÏ¸³ÖµµÄ½á¹¹Ìå
+	FireExtinguishDeviceActionSave *copy_fedas,  // Ä¬ÈÏ¸³ÖµµÄ½á¹¹Ìå
 	uint8_t copy_dedas_offset,
 	FireExtinguishDeviceActionType state, 
-	uint16_t state_switch_delay             // ×´Ì¬ï¿½Ð»ï¿½ï¿½ï¿½Ê± 
+	uint16_t state_switch_delay             // ×´Ì¬ÇÐ»»ÑÓÊ± 
 );
 
 
 static void FireExtinguishDevice1HandStart(FireExtinguishDeviceActionSave *fedas_entry);
 static void FireExtinguishDevice2HandStart(FireExtinguishDeviceActionSave *fedas_entry);
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½
+// ÆøÃð¶¯×÷×´Ì¬¸üÐÂ
 static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *fedas_entry, PackAlarmStorage *pas_entry);
-// ï¿½ï¿½ï¿½×°ï¿½Ã·ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
+// Ãð»ð×°ÖÃ·ÖÇøÏÔÊ¾¿ØÖÆ
 static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *fedas_entry, uint8_t fresh_page_flag);
 
 static void InternalScreenShowClusterData(DetectorDataShowCtrl *ddsc_entry);
-// 1ï¿½ï¿½32packï¿½æ±¾ PACK×´Ì¬Ë¢ï¿½ï¿½
+// 1´Ø32pack°æ±¾ PACK×´Ì¬Ë¢ÐÂ
 static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, DetectorDataShowCtrl_32Pack *ddsc_32p_entry);
-// 2025/12/10 17:22 ï¿½ï¿½ï¿½ï¿½
+// 2025/12/10 17:22 Ìí¼Ó
 static void InternalScreenShowClusterData_32Pack_Plus(uint16_t screen_id_entry, DetectorDataShowCtrl_32Pack *ddsc_32p_entry);
 
-// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 2025/10/27 11:27ï¿½ï¿½ï¿½ï¿½
+// ÏÔÊ¾²ÖÊý¾Ý 2025/10/27 11:27Ìí¼Ó
 static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry);
 
 static void DetectorDataFreshMenuCtrl(DetectorDataShowCtrl *ddsc_entry, uint16_t ctrl_id, uint8_t item, uint8_t state);
-// 1ï¿½ï¿½32packï¿½æ±¾ ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½
+// 1´Ø32pack°æ±¾ µ¯³ö²Ëµ¥¿ØÖÆ
 static void DetectorDataFreshMenuCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry, uint16_t ctrl_id, uint8_t item, uint8_t state);
 // 
 static void DetectorFreshPageButtonCtrl(DetectorDataShowCtrl *ddsc_entry, uint16_t ctrl_id, uint8_t state);
-// 1ï¿½ï¿½32packï¿½æ±¾ PACKï¿½ï¿½Ñ¯ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½
+// 1´Ø32pack°æ±¾ PACK²éÑ¯·­Ò³°´¼ü
 static void DetectorFreshPageButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry, uint16_t ctrl_id, uint8_t state);
-// 1ï¿½ï¿½32packï¿½æ±¾ ï¿½ï¿½Ñ¯PACKï¿½ï¿½Å¥
+// 1´Ø32pack°æ±¾ ²éÑ¯PACK°´Å¥
 static void DetectorMonitorButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry, uint16_t ctrl_id, uint8_t state);
-// ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 2025/10/27 11:27ï¿½ï¿½ï¿½ï¿½
+// ²éÑ¯²ÖÊý¾Ý 2025/10/27 11:27Ìí¼Ó
 static void CabinFreshPageButtonCtrl(CabinDataShowCtrl_t *cabin_dsc_entry, uint16_t ctrl_id, uint8_t state);
 
-// ï¿½ï¿½Ê¾ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½
+// ÏÔÊ¾¿ÉÈ¼ÆøÌå×î¸ßÅ¨¶È
 static void RefreshGasConcentrationSummary(void);
 
-// ï¿½ï¿½é°´ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½Ï²ï¿½ï¿½ï¿½
+// ¼ì²é°´¼ü ²¢´¦ÀíÆÁÄ»ÉÏ²éÐÂ
 static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry);
-// ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»
+// ÇÐ»»µ½Ö÷½çÃæ ²¢µãÁÁÆÁÄ»
 static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry);
 static void SyncMonitorSwitchSnapshot(void);
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½æ°´Å¥ï¿½ï¿½ï¿½ï¿½
+// ±¨¾¯ÄÚÈÝÏÔÊ¾½çÃæ°´Å¥¿ØÖÆ
 static void InternalScreenRecordShiftButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t ctrl_id, uint8_t state);
-// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½ï¿½ï¿½Ä»ï¿½ï¿½
+// ÏÔÊ¾±¨¾¯ÄÚÈÝµ½ÆÁÄ»ÉÏ
 static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry);
-// ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½
+// ²éÑ¯±¨¾¯ÇÐ»»½çÃæ
 static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t ctrl_id, uint8_t state);
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ ï¿½æ´¢
+// Ö÷±¸µç¹ÊÕÏÅÐ¶Ï ´æ´¢
 static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state);
-// ï¿½Ö¶ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½
+// ÊÖ¶¯Ç¿ÖÆÆô¶¯Ñ¡Ôñ´Ø
 static void HandForceStartAnyCluster(FireExtinguishDeviceActionSave *fedas_entry, uint16_t ctrl_id, uint8_t state);
 // 
 static void BspAlarmDataSaveApp(FlashReadCtrlId addr_type, FlashSaveType save_type, uint8_t cluster_id, uint8_t pack_or_cabin, uint16_t val);
@@ -1295,7 +1295,7 @@ static void BspFanOnlineJudgeFaultRecord(PackCabinFaultStorage *pcfs_entry, uint
 //
 static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t fire_alarm_num);
 
-// 2025/11/15 11:07 ï¿½ï¿½ï¿½Ó¶ï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½Í¸ï¿½ï¿½Â¸ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½Æºï¿½ï¿½ï¿½
+// 2025/11/15 11:07 Ìí¼Ó¶þ×ÜÏßµãÐÍ¸ÐÎÂ¸ÐÑÌÌ½²âÆ÷ÂÖÑ¯¿ØÖÆº¯Êý
 static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
 // XR5000_LOOP3_CHANGE_20260726: Loop 3 uses RS485Detect data with original alarm logic.
 static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
@@ -1304,8 +1304,8 @@ static void Loop1ClearCurrentState(uint8_t addr);
 static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
 static void PointTypeDetectorOnlineButtonCtrl(uint16_t ctrl_id, uint8_t state);
 
-//uint8_t license_allow_use_state = 0; // Ä¬ï¿½Ï½ï¿½ï¿½ï¿½
-uint8_t license_allow_use_state = 1; // Ê¼ï¿½Õ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//uint8_t license_allow_use_state = 0; // Ä¬ÈÏ½ûÓÃ
+uint8_t license_allow_use_state = 1; // Ê¼ÖÕ¿ªÆô£¬½â³ýËø¶¨
 static uint32_t remain_use_time = 0;
 static void LicenseVerificationCtrl(void);
 
@@ -1322,7 +1322,7 @@ static void PointTypeDetectorOnlineStateShowInit(void);
 
 typedef struct 
 {
-	uint8_t last_screen_id; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½
+	uint8_t last_screen_id; // ÓÃÀ´ÒÖÖÆÆÁÄ»¸üÐÂ
 	
 	uint8_t warn_fresh_flag;
 	
@@ -1338,19 +1338,19 @@ static void FirstAlarmInformationShowCtrl(
 	PackCabinFireAlarmStorage *pcfas_entry
 );
 
-// 2025/11/26 08:50 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½
+// 2025/11/26 08:50 ÐÂÔöÈÎÎñ¹ÒÆð»Ö¸´
 extern void SuspendTask(uint8_t task_id);
 extern void ResumeTask(uint8_t task_id);
 // end
 
 
 
-//2026/7/22ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//2026/7/22ÐÂÔöÈÎÎñ
 static uint8_t g_screen69_page = 0;
 static uint8_t g_screen69_force_redraw = 0;
 static uint8_t g_screen69_transition_pending = 0;
 static uint8_t screen69_circuit = 1; /* XR5000_SCREEN69_NAVIGATION_FIX_20260729: fixed circuit snapshot for one detail session. */
-/* ï¿½ï¿½È¡Ö¸ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ö·ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+/* »ñÈ¡Ö¸¶¨»ØÂ·µÄÔÚÏßÉè±¸µØÖ·ÁÐ±í£¬·µ»ØÔÚÏßÊýÁ¿ */
 static uint8_t GetCircuitOnlineList(uint8_t circuit, uint8_t *list, uint8_t max)
 {
     uint8_t count = 0;
@@ -1383,7 +1383,7 @@ static uint8_t GetCircuitOnlineList(uint8_t circuit, uint8_t *list, uint8_t max)
     return count;
 }
 
-/* ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½Ä±ï¿½ï¿½ï¿½buf */
+/* ¸ñÊ½»¯µ¥¸öÌ½²âÆ÷µÄÏÔÊ¾ÎÄ±¾µ½buf */
 static void FormatDetectorText(uint8_t circuit, uint8_t addr, uint8_t *buf)
 {
     switch (circuit)
@@ -1391,22 +1391,22 @@ static void FormatDetectorText(uint8_t circuit, uint8_t addr, uint8_t *buf)
 	case 1:
 	{
 		uint8_t sensor_bits = getPointTypeMixtureDetectType(addr);
-		if (sensor_bits & 0x20) /* ï¿½Â¶È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+		if (sensor_bits & 0x20) /* ÎÂ¶È´«¸ÐÆ÷ÆôÓÃ */
 		{
 			uint8_t val = getPointTypeMixtureReceiveData(PointTypeData_Temper, addr);
 			uint8_t mem = getPointTypeMixtureDetectTempertureMemory(addr);
-			sprintf((char *)buf, "ï¿½ï¿½%dï¿½ï¿½Â·  ï¿½Â¶ï¿½Ì½ï¿½ï¿½ï¿½ï¿½%dï¿½ï¿½  ï¿½Â¶ï¿½Öµï¿½ï¿½%dï¿½ï¿½  %s",
-					circuit, addr, val, mem ? "ï¿½ï¿½ï¿½ï¿½" : "ï¿½ï¿½ï¿½ï¿½");
+			sprintf((char *)buf, "µÚ%d»ØÂ·  ÎÂ¶ÈÌ½²âÆ÷%dºÅ  ÎÂ¶ÈÖµ£º%d¡æ  %s",
+					circuit, addr, val, mem ? "±¨¾¯" : "Õý³£");
 		}
-		else if (sensor_bits & 0x01) /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+		else if (sensor_bits & 0x01) /* ÑÌÎí´«¸ÐÆ÷ÆôÓÃ */
 		{
 			uint8_t mem = getPointTypeMixtureDetectSmokeMemory(addr);
-			sprintf((char *)buf, "ï¿½ï¿½%dï¿½ï¿½Â·  ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½%dï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½%s",
-					circuit, addr, mem ? "ï¿½ï¿½ï¿½ï¿½" : "ï¿½ï¿½ï¿½ï¿½");
+			sprintf((char *)buf, "µÚ%d»ØÂ·  ÑÌÎíÌ½²âÆ÷%dºÅ  ÑÌÎí×´Ì¬£º%s",
+					circuit, addr, mem ? "±¨¾¯" : "Õý³£");
 		}
 		else
 		{
-			sprintf((char *)buf, "ï¿½ï¿½%dï¿½ï¿½Â·  Ì½ï¿½ï¿½ï¿½ï¿½%dï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½", circuit, addr);
+			sprintf((char *)buf, "µÚ%d»ØÂ·  Ì½²âÆ÷%dºÅ  ´«¸ÐÆ÷Î´ÆôÓÃ", circuit, addr);
 		}
 		break;
 	}
@@ -1415,42 +1415,42 @@ static void FormatDetectorText(uint8_t circuit, uint8_t addr, uint8_t *buf)
 		uint16_t enable = RS485Detect_GetSensorEnable(addr);
 		char *p = (char *)buf;
 
-		p += sprintf(p, "ï¿½ï¿½%dï¿½ï¿½Â·  ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½%dï¿½ï¿½  ", circuit, addr);
+		p += sprintf(p, "µÚ%d»ØÂ·  ¸´ºÏÌ½²âÆ÷%dºÅ  ", circuit, addr);
 
 		if (enable & (1 << 5))
 		{
 			int16_t temp = RS485Detect_GetTemperature(addr);
-			p += sprintf(p, "ï¿½Â¶È£ï¿½%dï¿½ï¿½  ", temp);
+			p += sprintf(p, "ÎÂ¶È£º%d¡æ  ", temp);
 		}
 		if (enable & (1 << 0))
 		{
 			uint8_t smoke = RS485Detect_GetSensorState(addr, RS485_SENSOR_SMOKE);
-			p += sprintf(p, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½%s  ", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "ï¿½ï¿½ï¿½ï¿½" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "ï¿½ï¿½ï¿½ï¿½" : "ï¿½ï¿½ï¿½ï¿½"));
+			p += sprintf(p, "ÑÌÎí£º%s  ", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "¹ÊÕÏ" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "±¨¾¯" : "Õý³£"));
 		}
 		if (enable & (1 << 4))
 		{
 			uint16_t co = RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO);
-			p += sprintf(p, "COï¿½ï¿½%dppm  ", co);
+			p += sprintf(p, "CO£º%dppm  ", co);
 		}
 		if (enable & (1 << 2))
 		{
 			uint16_t h2 = RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2);
-			p += sprintf(p, "H2ï¿½ï¿½%dppm  ", h2);
+			p += sprintf(p, "H2£º%dppm  ", h2);
 		}
 		if (enable & (1 << 3))
 		{
 			uint16_t voc = RS485Detect_GetSensorValue(addr, RS485_SENSOR_VOC);
-			p += sprintf(p, "VOCï¿½ï¿½%dppm  ", voc);
+			p += sprintf(p, "VOC£º%dppm  ", voc);
 		}
 		if (enable & (1 << 1))
 		{
 			uint16_t ch4 = RS485Detect_GetSensorValue(addr, RS485_SENSOR_CH4);
-			p += sprintf(p, "CH4ï¿½ï¿½%dppm  ", ch4);
+			p += sprintf(p, "CH4£º%dppm  ", ch4);
 		}
 		if (enable & (1 << 6))
 		{
 			uint16_t pressure = RS485Detect_GetSensorValue(addr, RS485_SENSOR_PRESSURE);
-			p += sprintf(p, "Ñ¹ï¿½ï¿½ï¿½ï¿½%dhPa  ", pressure);
+			p += sprintf(p, "Ñ¹Á¦£º%dhPa  ", pressure);
 		}
 
 		break;
@@ -1518,7 +1518,7 @@ static uint8_t FormatRS485DetectFlashDeviceName(uint8_t cluster_id, uint8_t addr
 	{
 		return 0;
 	}
-	sprintf((char *)buf, "ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½", addr);
+	sprintf((char *)buf, "µÚ3»ØÂ· %dºÅ", addr);
 	return 1;
 }
 
@@ -1549,7 +1549,7 @@ static const char *RS485DetectAlarmName(uint8_t alarm_type)
 }
 static void FormatRS485DetectForeWarnLine(uint8_t *buf, uint8_t sequence, PackCabinForeWarnStorage *pcfws_entry, uint8_t data_index)
 {
-	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ %s", sequence,
+	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ %s", sequence,
 		pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 		pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 		pcfws_entry->da[data_index].pack_id, RS485DetectAlarmName(pcfws_entry->alarm_type[data_index]));
@@ -1557,7 +1557,7 @@ static void FormatRS485DetectForeWarnLine(uint8_t *buf, uint8_t sequence, PackCa
 
 static void FormatRS485DetectFireAlarmLine(uint8_t *buf, uint8_t sequence, PackCabinFireAlarmStorage *pcfas_entry, uint8_t data_index)
 {
-	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ %s", sequence,
+	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ %s", sequence,
 		pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 		pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 		pcfas_entry->da[data_index].pack_id, RS485DetectAlarmName(pcfas_entry->alarm_type[data_index]));
@@ -1574,11 +1574,11 @@ static uint8_t FormatRS485DetectFaultLine(uint8_t *buf, uint8_t sequence, PackCa
 	{
 		case RS485_LOOP3_FAULT_TEMPERATURE: fault_name = "\xCE\xC2\xB6\xC8\xB9\xCA\xD5\xCF"; break;
 		case RS485_LOOP3_FAULT_SMOKE: fault_name = "\xD1\xCC\xCE\xED\xCE\xDB\xC8\xBE\xB9\xCA\xD5\xCF"; break;
-		case RS485_LOOP3_FAULT_CO: fault_name = "COï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; break;
-		case RS485_LOOP3_FAULT_H2: fault_name = "H2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; break;
-		case RS485_LOOP3_FAULT_VOC: fault_name = "VOCï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; break;
-        case RS485_LOOP3_FAULT_CH4: fault_name = "CH4ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; break;
-        case RS485_LOOP3_FAULT_SMOKE_SENSOR: fault_name = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"; break;
+		case RS485_LOOP3_FAULT_CO: fault_name = "CO´«¸ÐÆ÷¹ÊÕÏ"; break;
+		case RS485_LOOP3_FAULT_H2: fault_name = "H2´«¸ÐÆ÷¹ÊÕÏ"; break;
+		case RS485_LOOP3_FAULT_VOC: fault_name = "VOC´«¸ÐÆ÷¹ÊÕÏ"; break;
+        case RS485_LOOP3_FAULT_CH4: fault_name = "CH4´«¸ÐÆ÷¹ÊÕÏ"; break;
+        case RS485_LOOP3_FAULT_SMOKE_SENSOR: fault_name = "ÑÌÎí´«¸ÐÆ÷¹ÊÕÏ"; break;
 		default: fault_name = "\xB5\xF4\xCF\xDF"; break;
 	}
 	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d \xB5\xDA\x33\xBB\xD8\xC2\xB7 %d\xBA\xC5 %s", sequence,
@@ -1592,10 +1592,10 @@ static const char* GetMBusDeviceChineseName(uint8_t addr)
 	uint8_t type = MBusCtrl_GetDeviceType(addr);
 	switch (type)
 	{
-		case MBUS_CONTROL_DEV_SGBJQ:  return "ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½";
-		case MBUS_CONTROL_DEV_XR2200: return "ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½";
-		case MBUS_CONTROL_DEV_FIRE_DISPLAY: return "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½";
-		default: return "Î´Öªï¿½è±¸";
+		case MBUS_CONTROL_DEV_SGBJQ:  return "Éù¹â±¨¾¯Æ÷";
+		case MBUS_CONTROL_DEV_XR2200: return "ÊÖ¶¯±¨¾¯Æ÷";
+		case MBUS_CONTROL_DEV_FIRE_DISPLAY: return "»ðÔÖÏÔÊ¾ÅÌ";
+		default: return "Î´ÖªÉè±¸";
 	}
 }
 
@@ -1606,7 +1606,7 @@ static uint8_t FormatMBus2FaultLine(uint8_t *buf, uint8_t sequence, PackCabinFau
 		return 0;
 	}
 	const char *name = GetMBusDeviceChineseName(pcfs_entry[data_index].da.pack_id);
-	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½2ï¿½ï¿½Â· %sï¿½ï¿½ï¿½ï¿½", sequence,
+	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ2»ØÂ· %sµôÏß", sequence,
 		pcfs_entry[data_index].atr.years, pcfs_entry[data_index].atr.months, pcfs_entry[data_index].atr.days,
 		pcfs_entry[data_index].atr.hours, pcfs_entry[data_index].atr.minute, pcfs_entry[data_index].atr.second,
 		name);
@@ -1625,7 +1625,7 @@ static uint8_t FormatRS485DetectFireExtinguisherLine(uint8_t *buf, uint8_t seque
 		case FIRE_EXTINGUISH_MODE_JUDGEMENT:
 			if(getPart1HandAutoState() == KEY_MANUAL)
 			{
-				sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½", sequence,
+				sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ ÇëÊÖ¶¯Æô¶¯Ãð»ð×°ÖÃ", sequence,
 					fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 					fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 					fedas_entry->pack_id[data_index]);
@@ -1636,13 +1636,13 @@ static uint8_t FormatRS485DetectFireExtinguisherLine(uint8_t *buf, uint8_t seque
 			}
 			break;
 		case FIRE_EXTINGUISH_START_SPRAY_DELAY:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±%d", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÆô¶¯µ¹¼ÆÊ±%d", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 			break;
 		case FED_START_SPRAY_DELAY_FINISH_FLAG:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ1´ÎÅç·ÅÆô¶¯", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
@@ -1650,86 +1650,86 @@ static uint8_t FormatRS485DetectFireExtinguisherLine(uint8_t *buf, uint8_t seque
 		case FIRE_EXTINGUISH_FIRST_SPRAY_START:
 		case FIRE_EXTINGUISH_SECOND_SPRAY_START:
 		case FIRE_EXTINGUISH_THIRD_SPRAY_START:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ê±ï¿½ï¿½%d", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÅç·ÅÊ£ÓàÊ±¼ä%d", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 			break;
 		case FIRE_EXTINGUISH_FIRST_SPRAY_FINISH:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ1´ÎÅç·ÅÍê±Ï", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_SECOND_SPRAY_DELAY:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±%d", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ2´ÎÆô¶¯µ¹¼ÆÊ±%d", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 			break;
 		case FED_SECOND_SPRAY_DELAY_FINISH_FLAG:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ2´ÎÅç·ÅÆô¶¯", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_SECOND_SPRAY_FINISH:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ2´ÎÅç·ÅÍê±Ï", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_THIRD_SPRAY_DELAY:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±%d", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ3´ÎÆô¶¯µ¹¼ÆÊ±%d", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 			break;
 		case FED_THIRD_SPRAY_DELAY_FINISH_FLAG:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ3´ÎÅç·ÅÆô¶¯", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_THIRD_SPRAY_FINISH:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ3´ÎÅç·ÅÍê±Ï", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÅç·ÅÍê±Ï", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_STARYUP_FINISH_FLAG:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÕýÔÚÆô¶¯", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_CYLINDEF_1_OPENED:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃ1Æô¶¯", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_CYLINDEF_2_OPENED:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃ2Æô¶¯", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_FORCE_STOP:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±--", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÆô¶¯µ¹¼ÆÊ±--", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
 			break;
 		case FIRE_EXTINGUISH_CAN_RESTART:
 		case FIRE_EXTINGUISH_RESTART_FINISH:
-			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½3ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½Ö¶ï¿½Í£Ö¹ï¿½ï¿½ï¿½ï¿½", sequence,
+			sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ3»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÊÖ¶¯Í£Ö¹Æô¶¯", sequence,
 				fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 				fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 				fedas_entry->pack_id[data_index]);
@@ -1780,21 +1780,21 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 		{
 			uint16_t enable = RS485Detect_GetSensorEnable(addr);
 
-			n = snprintf(p, remain, "%02d%03d ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½", circuit, addr);
+			n = snprintf(p, remain, "%02d%03d ¸´ºÏÌ½²âÆ÷", circuit, addr);
 			p += n;
 			remain -= n;
 
 			if ((enable & (1 << 5)) && remain > 0)
 			{
 				int16_t temp = RS485Detect_GetTemperature(addr);
-				n = snprintf(p, remain, " ï¿½Â¶ï¿½:%dï¿½ï¿½", temp);
+				n = snprintf(p, remain, " ÎÂ¶È:%d¡æ", temp);
 				p += n;
 				remain -= n;
 			}
 			if ((enable & (1 << 0)) && remain > 0)
 			{
 				uint8_t smoke = RS485Detect_GetSensorState(addr, RS485_SENSOR_SMOKE);
-				n = snprintf(p, remain, " ï¿½ï¿½ï¿½ï¿½:%s", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "ï¿½ï¿½ï¿½ï¿½" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "ï¿½ï¿½ï¿½ï¿½" : "ï¿½ï¿½ï¿½ï¿½"));
+				n = snprintf(p, remain, " ÑÌÎí:%s", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "¹ÊÕÏ" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "±¨¾¯" : "Õý³£"));
 				p += n;
 				remain -= n;
 			}
@@ -1829,7 +1829,7 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 			if ((enable & (1 << 6)) && remain > 0)
 			{
 				uint16_t pressure = RS485Detect_GetSensorValue(addr, RS485_SENSOR_PRESSURE);
-				snprintf(p, remain, " Ñ¹ï¿½ï¿½:%dhPa", pressure);
+				snprintf(p, remain, " Ñ¹Á¦:%dhPa", pressure);
 			}
 			{
 				int cur = (int)(p - (char *)buf);
@@ -1842,7 +1842,7 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 		case 2:
 		{
 			const char *name = GetMBusDeviceChineseName(addr);
-			const char *status_str = MBusCtrl_IsAlarmState(addr) ? "ï¿½ï¿½ï¿½ï¿½" : "ï¿½ï¿½ï¿½ï¿½";
+			const char *status_str = MBusCtrl_IsAlarmState(addr) ? "±¨¾¯" : "Õý³£";
 			n = snprintf(p, remain, "%02d-%03d %s %s", circuit, addr, name, status_str);
 			p += n;
 			remain -= n;
@@ -1855,83 +1855,83 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 			break;
 		}
 		default:
-			snprintf((char *)buf, 128, "%02d%03d Ì½ï¿½ï¿½ï¿½ï¿½", circuit, addr);
+			snprintf((char *)buf, 128, "%02d%03d Ì½²âÆ÷", circuit, addr);
 			break;
 	}
 }
 
 
 /*! 
-*  \brief  ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-*  \param msg ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
-*  \param size ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½
+*  \brief  ÏûÏ¢´¦ÀíÁ÷³Ì
+*  \param msg ´ý´¦ÀíÏûÏ¢
+*  \param size ÏûÏ¢³¤¶È
 */
 void ProcessMessage( PCTRL_MSG msg, uint16 size )
 {
-    uint8 cmd_type = msg->cmd_type;                                                  //Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-    uint8 ctrl_msg = msg->ctrl_msg;                                                  //ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-    uint8 control_type = msg->control_type;                                          //ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½
-    uint16 screen_id = PTR2U16(&msg->screen_id);                                     //ï¿½ï¿½ï¿½ï¿½ID
-    uint16 control_id = PTR2U16(&msg->control_id);                                   //ï¿½Ø¼ï¿½ID
-    uint32 value = PTR2U32(msg->param);                                              //ï¿½ï¿½Öµ
+    uint8 cmd_type = msg->cmd_type;                                                  //Ö¸ÁîÀàÐÍ
+    uint8 ctrl_msg = msg->ctrl_msg;                                                  //ÏûÏ¢µÄÀàÐÍ
+    uint8 control_type = msg->control_type;                                          //¿Ø¼þÀàÐÍ
+    uint16 screen_id = PTR2U16(&msg->screen_id);                                     //»­ÃæID
+    uint16 control_id = PTR2U16(&msg->control_id);                                   //¿Ø¼þID
+    uint32 value = PTR2U32(msg->param);                                              //ÊýÖµ
 
     switch(cmd_type)
     {  
-    case NOTIFY_TOUCH_PRESS:                                                        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-    case NOTIFY_TOUCH_RELEASE:                                                      //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¿ï¿½
+    case NOTIFY_TOUCH_PRESS:                                                        //´¥ÃþÆÁ°´ÏÂ
+    case NOTIFY_TOUCH_RELEASE:                                                      //´¥ÃþÆÁËÉ¿ª
         NotifyTouchXY(cmd_buffer[1],PTR2U16(cmd_buffer+2),PTR2U16(cmd_buffer+4)); 
         break;                                                                    
-    case NOTIFY_WRITE_FLASH_OK:                                                     //Ð´FLASHï¿½É¹ï¿½
+    case NOTIFY_WRITE_FLASH_OK:                                                     //Ð´FLASH³É¹¦
         NotifyWriteFlash(1);                                                      
         break;                                                                    
-    case NOTIFY_WRITE_FLASH_FAILD:                                                  //Ð´FLASHÊ§ï¿½ï¿½
+    case NOTIFY_WRITE_FLASH_FAILD:                                                  //Ð´FLASHÊ§°Ü
         NotifyWriteFlash(0);                                                      
         break;                                                                    
-    case NOTIFY_READ_FLASH_OK:                                                      //ï¿½ï¿½È¡FLASHï¿½É¹ï¿½
-        NotifyReadFlash(1,cmd_buffer+2,size-6);                                     //È¥ï¿½ï¿½Ö¡Í·Ö¡Î²
+    case NOTIFY_READ_FLASH_OK:                                                      //¶ÁÈ¡FLASH³É¹¦
+        NotifyReadFlash(1,cmd_buffer+2,size-6);                                     //È¥³ýÖ¡Í·Ö¡Î²
         break;                                                                    
-    case NOTIFY_READ_FLASH_FAILD:                                                   //ï¿½ï¿½È¡FLASHÊ§ï¿½ï¿½
+    case NOTIFY_READ_FLASH_FAILD:                                                   //¶ÁÈ¡FLASHÊ§°Ü
         NotifyReadFlash(0,0,0);                                                   
         break;                                                                    
-    case NOTIFY_READ_RTC:                                                           //ï¿½ï¿½È¡RTCÊ±ï¿½ï¿½
+    case NOTIFY_READ_RTC:                                                           //¶ÁÈ¡RTCÊ±¼ä
         NotifyReadRTC(cmd_buffer[2],cmd_buffer[3],cmd_buffer[4],cmd_buffer[5],cmd_buffer[6],cmd_buffer[7],cmd_buffer[8]);
         break;
     case NOTIFY_CONTROL:
         {
-            if(ctrl_msg==MSG_GET_CURRENT_SCREEN)                                    //ï¿½ï¿½ï¿½ï¿½IDï¿½ä»¯Í¨Öª
+            if(ctrl_msg==MSG_GET_CURRENT_SCREEN)                                    //»­ÃæID±ä»¯Í¨Öª
             {
-                NotifyScreen(screen_id);                                            //ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äºï¿½ï¿½ï¿½
+                NotifyScreen(screen_id);                                            //»­ÃæÇÐ»»µ÷¶¯µÄº¯Êý
             }else
-						if(ctrl_msg==TUBIAO_shangchuan)                                    //ï¿½ï¿½ï¿½ï¿½IDï¿½ä»¯Í¨Öª
+						if(ctrl_msg==TUBIAO_shangchuan)                                    //»­ÃæID±ä»¯Í¨Öª
             {
-               TB_sahngchuan(screen_id,control_id,control_type,msg->param[0]);                      //Í¼ï¿½ï¿½Ø¼ï¿½ï¿½Ï´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äºï¿½ï¿½ï¿½
+               TB_sahngchuan(screen_id,control_id,control_type,msg->param[0]);                      //Í¼±ê¿Ø¼þÉÏ´«µ÷¶¯µÄº¯Êý
             }else
             {
                 switch(control_type)
                 {
-                case kCtrlButton:                                                   //ï¿½ï¿½Å¥ï¿½Ø¼ï¿½
+                case kCtrlButton:                                                   //°´Å¥¿Ø¼þ
                     NotifyButton(screen_id,control_id,msg->param[1]);  
-										zhu_min=0;//ï¿½Ð´ï¿½ï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ãµ¹ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Þ²ï¿½ï¿½ï¿½5ï¿½ï¿½ï¿½Óºï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½               
+										zhu_min=0;//ÓÐ´¥¿Ø²Ù×÷ÇåÁãµ¹¼ÆÊ±£¬ÎÞ²Ù×÷5·ÖÖÓºó×Ô¶¯·µ»Ø Ö÷½çÃæ               
                     break;                                                             
-                case kCtrlText:                                                     //ï¿½Ä±ï¿½ï¿½Ø¼ï¿½
+                case kCtrlText:                                                     //ÎÄ±¾¿Ø¼þ
                     NotifyText(screen_id,control_id,msg->param);                       
                     break;                                                             
-                case kCtrlProgress:                                                 //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¼ï¿½
+                case kCtrlProgress:                                                 //½ø¶ÈÌõ¿Ø¼þ
                     NotifyProgress(screen_id,control_id,value);                        
                     break;                                                             
-                case kCtrlSlider:                                                   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¼ï¿½
+                case kCtrlSlider:                                                   //»¬¶¯Ìõ¿Ø¼þ
                     NotifySlider(screen_id,control_id,value);                          
                     break;                                                             
-                case kCtrlMeter:                                                    //ï¿½Ç±ï¿½ï¿½Ø¼ï¿½
+                case kCtrlMeter:                                                    //ÒÇ±í¿Ø¼þ
                     NotifyMeter(screen_id,control_id,value);                           
                     break;                                                             
-                case kCtrlMenu:                                                     //ï¿½Ëµï¿½ï¿½Ø¼ï¿½
+                case kCtrlMenu:                                                     //²Ëµ¥¿Ø¼þ
                     NotifyMenu(screen_id,control_id,msg->param[0],msg->param[1]);      
                     break;                                                              
-                case kCtrlSelector:                                                 //Ñ¡ï¿½ï¿½Ø¼ï¿½
+                case kCtrlSelector:                                                 //Ñ¡Ôñ¿Ø¼þ
                     NotifySelector(screen_id,control_id,msg->param[0]);                
                     break;                                                              
-                case kCtrlRTC:                                                      //ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ø¼ï¿½
+                case kCtrlRTC:                                                      //µ¹¼ÆÊ±¿Ø¼þ
                     NotifyTimer(screen_id,control_id);
                     break;
                 default:
@@ -1940,7 +1940,7 @@ void ProcessMessage( PCTRL_MSG msg, uint16 size )
             } 
             break;  
         } 
-    case NOTIFY_HandShake:                                                          //ï¿½ï¿½ï¿½ï¿½Í¨Öª                                                     
+    case NOTIFY_HandShake:                                                          //ÎÕÊÖÍ¨Öª                                                     
 //        NOTIFYHandShake();
         break;
     default:
@@ -1948,7 +1948,7 @@ void ProcessMessage( PCTRL_MSG msg, uint16 size )
     }
 }
 /*! 
-*  \brief  ï¿½ï¿½ï¿½ï¿½Í¨Öª
+*  \brief  ÎÕÊÖÍ¨Öª
 */
 //void NOTIFYHandShake()
 //{
@@ -2031,16 +2031,16 @@ const uint8_t point_type_detect_button_online_ctrl_val_map[] = {
 // static uint8_t g_screen69_page = 0;
 
 /*! 
-*  \brief  ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½Í¨Öª
-*  \details  ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½Ä±ï¿½Ê±(ï¿½ï¿½ï¿½ï¿½ï¿½GetScreen)ï¿½ï¿½Ö´ï¿½Ð´Ëºï¿½ï¿½ï¿½
-*  \param screen_id ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ID
+*  \brief  »­ÃæÇÐ»»Í¨Öª
+*  \details  µ±Ç°»­Ãæ¸Ä±äÊ±(»òµ÷ÓÃGetScreen)£¬Ö´ÐÐ´Ëº¯Êý
+*  \param screen_id µ±Ç°»­ÃæID
 */
 void NotifyScreen(uint16 screen_id)
 {
 	uint16_t prev_screen_id = current_screen_id; /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
-    //TODO: ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
+    //TODO: Ìí¼ÓÓÃ»§´úÂë
     current_screen_id = screen_id;
-    DeviceThreshold_NotifyScreen(screen_id); //ï¿½Ú¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½Í¨Öªï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ID
+    DeviceThreshold_NotifyScreen(screen_id); //ÔÚ¹¤³ÌÅäÖÃÖÐ¿ªÆô»­ÃæÇÐ»»Í¨Öª£¬¼ÇÂ¼µ±Ç°»­ÃæID
 	if(screen_id == MONITOR_PAGE_SCREEN_ID)
 	{
 		if(monitor_page_return_target == 0U)
@@ -2058,7 +2058,7 @@ void NotifyScreen(uint16 screen_id)
 			if(bsp_screen_switch_ctrl.target_screen != current_screen_id)
 			{
 				SwitchCurrentScreenId(bsp_screen_switch_ctrl.target_screen);
-				return; // ï¿½ï¿½ï¿½Ù½ï¿½ï¿½ï¿½
+				return; // ¿ìËÙ½áÊø
 			}
 			else
 			{
@@ -2078,18 +2078,18 @@ void NotifyScreen(uint16 screen_id)
 			self_check_state = 0U;
 		}
 		
-    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    //½øµ½»­Ãæ1Ë¢ÐÂÖ÷»úÃû³Æ
     if(screen_id == 1)
     {
-			SetTextValue(1, 11, (uint8_t *)"FGS-XR5000.ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");//Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextValue(1, 11, (uint8_t *)"FGS-XR5000.»ðÔÖ±¨¾¯¿ØÖÆÆ÷");//Ë¢ÐÂÖ÷»úÃû³Æ
 			
-			SetTextInt32(1, 30, SystemSaveInfo.slave_addr485_Station,0,1); // 30ï¿½Ç³ï¿½Õ¾ï¿½ï¿½
+			SetTextInt32(1, 30, SystemSaveInfo.slave_addr485_Station,0,1); // 30ÊÇ³¡Õ¾µÄ
 			
-			SetTextInt32(1, 22, SystemSaveInfo.slave_addr485_EMS,0,1); // 22ï¿½ï¿½EMSï¿½ï¿½
+			SetTextInt32(1, 22, SystemSaveInfo.slave_addr485_EMS,0,1); // 22ÊÇEMSµÄ
 			
-			SetTextInt32(1, 25, SystemSaveInfo.slave_addr485_EMS,0,1); // 25ï¿½ï¿½CAN2ï¿½ï¿½ID
+			SetTextInt32(1, 25, SystemSaveInfo.slave_addr485_EMS,0,1); // 25ÊÇCAN2µÄID
 			
-			SetTextInt32(1, 8, alarm_number,0,1);  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+			SetTextInt32(1, 8, alarm_number,0,1);  //±¨¾¯×ÜÊýÏÔÊ¾
 			home_statistics_force_refresh = 1;
     }
 		else if(screen_id == 3)
@@ -2105,14 +2105,14 @@ void NotifyScreen(uint16 screen_id)
 			
 			uint8_t temp_buff[8] = {0};
 			
-			sprintf((char *)temp_buff, "ï¿½ï¿½Â·%d", pack_circuit);
-			SetTextValue(4, 57, temp_buff); // Ë¢ï¿½Â»ï¿½Â·ï¿½ï¿½ï¿½ï¿½
+			sprintf((char *)temp_buff, "»ØÂ·%d", pack_circuit);
+			SetTextValue(4, 57, temp_buff); // Ë¢ÐÂ»ØÂ·Ãû³Æ
 			
 			for(uint8_t i = 0; i < 32; i++)
 			{
 				temp_buff[0] = pack_online_buff[pack_circuit][i + 1] ? 1 : 0;
 				
-				// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½×´Ì¬
+				// ÏÔÊ¾ÆôÓÃ×´Ì¬
 				setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i], temp_buff[0]);
 			}
 		}
@@ -2123,44 +2123,44 @@ void NotifyScreen(uint16 screen_id)
 		else if(screen_id == 6) // 
 		{
 			uint8_t temp_buff[32] = {0};
-			// ï¿½ï¿½Â·1
-			sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:%d", getPointDetectorSetUpCount());
+			// »ØÂ·1
+			sprintf((char *)temp_buff, "ÉèÖÃÉÏÏß:%d", getPointDetectorSetUpCount());
 			SetTextValue(screen_id, 7, temp_buff); 
-			sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", getPointDetectorSetUpLive());
+			sprintf((char *)temp_buff, "Éè±¸ÔÚÏß:%d", getPointDetectorSetUpLive());
 			SetTextValue(screen_id, 8, temp_buff); 
-			sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
+			sprintf((char *)temp_buff, "Éè±¸¹ÊÕÏ:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
 			SetTextValue(screen_id, 9, temp_buff); 
-			sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:%d", getPointDetectorAlarmCount());
+			sprintf((char *)temp_buff, "±¨¾¯Éè±¸:%d", getPointDetectorAlarmCount());
 			SetTextValue(screen_id, 10, temp_buff); 
-			sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:0");
+			sprintf((char *)temp_buff, "ÆÁ±ÎÉè±¸:0");
 			SetTextValue(screen_id, 11, temp_buff); 
-			// ï¿½ï¿½Â·2
+			// »ØÂ·2
 			{
 				uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
 				uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
-				sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", mbus2_online);
+				sprintf((char *)temp_buff, "Éè±¸ÉÏÏß:%d", mbus2_online);
 				SetTextValue(screen_id, 13, temp_buff);
-				sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", MBusCtrl_GetActiveCount());
+				sprintf((char *)temp_buff, "Éè±¸ÔÚÏß:%d", MBusCtrl_GetActiveCount());
 				SetTextValue(screen_id, 14, temp_buff);
-				sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
+				sprintf((char *)temp_buff, "Éè±¸¹ÊÕÏ:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
 				SetTextValue(screen_id, 15, temp_buff);
-				sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:%d", MBusCtrl_GetAlarmCount());
+				sprintf((char *)temp_buff, "±¨¾¯Éè±¸:%d", MBusCtrl_GetAlarmCount());
 				SetTextValue(screen_id, 16, temp_buff);
-				sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:0");
+				sprintf((char *)temp_buff, "ÆÁ±ÎÉè±¸:0");
 				SetTextValue(screen_id, 17, temp_buff);
 			}
-			// ï¿½ï¿½Â·3
+			// »ØÂ·3
 			uint8_t online = RS485Detect_GetOnlineCount();
 			uint8_t disconnect = RS485Detect_GetDisconnectCount();
-			sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:%d", online);
+			sprintf((char *)temp_buff, "ÉèÖÃÉÏÏß:%d", online);
 			SetTextValue(screen_id, 19, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", RS485Detect_GetActiveCount());
+			sprintf((char *)temp_buff, "Éè±¸ÔÚÏß:%d", RS485Detect_GetActiveCount());
 			SetTextValue(screen_id, 20, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
+			sprintf((char *)temp_buff, "Éè±¸¹ÊÕÏ:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
 			SetTextValue(screen_id, 21, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:%d", RS485Detect_GetAlarmCount());
+			sprintf((char *)temp_buff, "±¨¾¯Éè±¸:%d", RS485Detect_GetAlarmCount());
 			SetTextValue(screen_id, 22, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:0");
+			sprintf((char *)temp_buff, "ÆÁ±ÎÉè±¸:0");
 			SetTextValue(screen_id, 24, temp_buff); 
 		}
 		else if(screen_id == 7) // 
@@ -2170,8 +2170,8 @@ void NotifyScreen(uint16 screen_id)
 				pack_circuit = 1;
 			}
 			uint8_t temp_buff[8] = {0};
-			sprintf((char *)temp_buff, "ï¿½ï¿½Â·%d", pack_circuit);
-			SetTextValue(7, 231, temp_buff); // Ë¢ï¿½Â»ï¿½Â·ï¿½ï¿½ï¿½ï¿½
+			sprintf((char *)temp_buff, "»ØÂ·%d", pack_circuit);
+			SetTextValue(7, 231, temp_buff); // Ë¢ÐÂ»ØÂ·Ãû³Æ
 			switch(pack_circuit)
 			{
 				case 1:
@@ -2179,15 +2179,15 @@ void NotifyScreen(uint16 screen_id)
 					{
 						if (getPointTypeMixtureDetectOnlineState(i) == 0)
 						{
-							temp_buff[0] = 0; // ï¿½ï¿½É«ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½
+							temp_buff[0] = 0; // ºìÉ«£ºÎ´ÉÏÏß
 						}
 						else if (getPointTypeMixtureDisconnectCount(i) >= MIXTURE_DEVICE_DISCONNECT_SUM)
 						{
-							temp_buff[0] = 2; // ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½
+							temp_buff[0] = 2; // »ÆÉ«£ºÉÏÏßµ«µôÏß
 						}
 						else
 						{
-							temp_buff[0] = 1; // ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+							temp_buff[0] = 1; // ÂÌÉ«£ºÔÚÏßÕý³£
 						}
 						AnimationPlayFrame(7, i, temp_buff[0]);
 					}
@@ -2198,7 +2198,7 @@ void NotifyScreen(uint16 screen_id)
 			// for(uint8_t i = 1; i < 33; i++)
 			// {
 			// 	temp_buff[0] = pack_online_buff[pack_circuit][i + 1] ? 1 : 0;
-			// 	AnimationPlayFrame(7, i, temp_buff[0]);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID,Ö¡ID) 0ï¿½ì£¬1ï¿½ï¿½
+			// 	AnimationPlayFrame(7, i, temp_buff[0]);//(»­ÃæID,¿Ø¼þID,Ö¡ID) 0ºì£¬1ÂÌ
 			// }
 		}
 		else if(current_screen_id == 10)
@@ -2207,7 +2207,7 @@ void NotifyScreen(uint16 screen_id)
 			uint8_t buff[48] = {0};
 			if(strlen((char *)SystemSaveInfo.pref_license_store) != 0)
 			{
-				len = sprintf((char *)buff, "ï¿½ï¿½Ç°Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤:");
+				len = sprintf((char *)buff, "µ±Ç°Ô¤ÖÃÐí¿ÉÖ¤:");
 				for(uint8_t i = 0; i < 10; i++)
 				{
 					buff[len + i] = SystemSaveInfo.pref_license_store[i];
@@ -2216,14 +2216,14 @@ void NotifyScreen(uint16 screen_id)
 			}
 			else
 			{
-				SetTextValue(10, 9, "ï¿½ï¿½Ç°Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤:ï¿½ï¿½");
+				SetTextValue(10, 9, "µ±Ç°Ô¤ÖÃÐí¿ÉÖ¤:ÎÞ");
 			}
 			clearTextValue(10, 7);
 			
-			SetTextValue(10, 17, "ï¿½Ï´ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½Ö¤:");
+			SetTextValue(10, 17, "ÉÏ´ÎÉúÐ§Ðí¿ÉÖ¤:");
 			SetTextValue(10, 18, SystemSaveInfo.last_license_store);
 			
-			SetTextValue(10, 1, "ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤:");
+			SetTextValue(10, 1, "µ±Ç°ÊäÈëÐí¿ÉÖ¤:");
 			SetTextValue(10, 10, SystemSaveInfo.curr_license_store);
 			
 			char slicense_buff[10] = {0};
@@ -2233,11 +2233,11 @@ void NotifyScreen(uint16 screen_id)
 				SetTextValue(10, 11 + i, (uint8_t *)slicense_buff);
 			}
 			
-			sprintf((char *)buff, "ï¿½ï¿½Ð§Ê±ï¿½ï¿½:%d/%d/%d %d:%d:%d", SystemSaveInfo.license_year, SystemSaveInfo.license_month, SystemSaveInfo.license_days, 
+			sprintf((char *)buff, "ÉúÐ§Ê±¼ä:%d/%d/%d %d:%d:%d", SystemSaveInfo.license_year, SystemSaveInfo.license_month, SystemSaveInfo.license_days, 
 				SystemSaveInfo.license_hour, SystemSaveInfo.license_minute, SystemSaveInfo.license_second);
 			SetTextValue(10, 20, buff);
 			
-			sprintf((char *)buff, "Ê£ï¿½ï¿½Ê±ï¿½ï¿½:%d", remain_use_time);
+			sprintf((char *)buff, "Ê£ÓàÊ±¼ä:%d", remain_use_time);
 			SetTextValue(10, 21, buff);
 		}
 		else if(screen_id == 15)
@@ -2254,9 +2254,9 @@ void NotifyScreen(uint16 screen_id)
 			for(uint8_t i = 1; i < 21; i++)
 			{
 				value = cu_sxzt[i] ? 1 : 0;
-				// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½×´Ì¬
+				// ÏÔÊ¾ÆôÓÃ×´Ì¬
 				setkey_Value(17, pack_online_ctrl_button_id[i], value);
-				// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ÏÔÊ¾ÔÚÏßÊýÁ¿
 				SetTextInt32(17, pack_online_ctrl_button_id[i] + 1, cu_tcq_sxzt[i], 0, 1);
 			}
 		}
@@ -2271,8 +2271,8 @@ void NotifyScreen(uint16 screen_id)
 		}
 		else if(screen_id == 19)
     {
-			clearTextValue(19,2);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½	
-			SetTextValue(19,2,"ï¿½ï¿½Î»ÏµÍ³ï¿½ï¿½");
+			clearTextValue(19,2);//(»­ÃæID,¿Ø¼þID£©	
+			SetTextValue(19,2,"¸´Î»ÏµÍ³£¡");
 		}
 		else if(screen_id == 21)
     {
@@ -2284,26 +2284,26 @@ void NotifyScreen(uint16 screen_id)
 		}
 		else if(screen_id == 23)
 		{
-			clearTextValue(23,2);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+			clearTextValue(23,2);//(»­ÃæID,¿Ø¼þID£©
 		}
 		else if(screen_id == 24)
 		{
-			clearTextValue(24,2);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½	
-			clearTextValue(24,5);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(24,6);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(24,7);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+			clearTextValue(24,2);//(»­ÃæID,¿Ø¼þID£©	
+			clearTextValue(24,5);//(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(24,6);//(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(24,7);//(»­ÃæID,¿Ø¼þID£©
 		}
 		else if(current_screen_id == 25)
     {
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ÃµÄ¿Ø¼ï¿½IDï¿½ï¿½ï¿½ï¿½
+			// ¶¨ÒåËùÓÐÐèÒªÉèÖÃµÄ¿Ø¼þIDÊý×é
 			const uint8_t setkey_controls[] = {5,8,11,14,17,20,25,28,31,34,37,40,50,53,56,59,62,65,68,71};
 			const uint8_t clearText_controls[] = {6,9,12,15,18,21,26,29,32,35,38,41,49,52,55,58,61,64,67,70};
-			// Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½setkey_Value
+			// Ñ­»·ÉèÖÃsetkey_Value
 			for (int i = 0; i < sizeof(setkey_controls)/sizeof(setkey_controls[0]); i++) {
 					setkey_Value(current_screen_id, setkey_controls[i], 0);
 			}
 
-			// Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½Öµ
+			// Ñ­»·Çå³ýÎÄ±¾Öµ
 			for (int i = 0; i < sizeof(clearText_controls)/sizeof(clearText_controls[0]); i++) {
 					clearTextValue(current_screen_id, clearText_controls[i]);
 			}
@@ -2319,16 +2319,16 @@ void NotifyScreen(uint16 screen_id)
 		}
 		else if(current_screen_id == 27)
     {
-			SetTextInt32(current_screen_id,2,SystemSaveInfo.factory_release_year + 2000,0,1);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextInt32(current_screen_id,3,SystemSaveInfo.factory_release_month,0,1);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextInt32(current_screen_id,4,SystemSaveInfo.factory_release_days,0,1);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextInt32(current_screen_id,2,SystemSaveInfo.factory_release_year + 2000,0,1);//³ö³§Äê
+			SetTextInt32(current_screen_id,3,SystemSaveInfo.factory_release_month,0,1);//³ö³§ÔÂ
+			SetTextInt32(current_screen_id,4,SystemSaveInfo.factory_release_days,0,1);//³ö³§ÈÕ
 			SetTextValue(current_screen_id,5,(unsigned char*)banben);
 			
 			if(strlen((char *)SystemSaveInfo.curr_license_store) != 0)
 			{
 				uint8_t len = 0;
 				uint8_t buff[32] = {0};
-				len = sprintf((char *)buff, "ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½:");
+				len = sprintf((char *)buff, "Ðí¿ÉÖ¤Êé:");
 				for(uint8_t i = 0; i < 10; i++)
 				{
 					buff[len + i] = SystemSaveInfo.curr_license_store[i];
@@ -2337,58 +2337,58 @@ void NotifyScreen(uint16 screen_id)
 			}
 			else
 			{
-				SetTextValue(27, 6, "ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½:ï¿½ï¿½");
+				SetTextValue(27, 6, "Ðí¿ÉÖ¤Êé:ÎÞ");
 			}
 			
 			if(SystemSaveInfo.license_remain_day == 6666)
 			{
-				SetTextValue(27, 7, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+				SetTextValue(27, 7, "Ðí¿É×´Ì¬:ÔÝÎÞÐí¿É");
 			}
 			else if(SystemSaveInfo.license_remain_day != 999)
 			{
 				uint8_t slicense_buff[32] = {0};
-				sprintf((char *)slicense_buff, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:Ê£ï¿½ï¿½%dï¿½ï¿½", remain_use_time);
+				sprintf((char *)slicense_buff, "Ðí¿É×´Ì¬:Ê£Óà%dÌì", remain_use_time);
 				SetTextValue(27, 7, slicense_buff);
 			}
 			else
 			{
-				SetTextValue(27, 7, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§");
+				SetTextValue(27, 7, "Ðí¿É×´Ì¬:ÓÀ¾ÃÓÐÐ§");
 			}
 			
 		}
 		else if(screen_id == 41)
 		{
-			// ï¿½ï¿½ï¿½Ö®Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// Çå¿ÕÖ®Ç°ÊäÈëµÄÄÚÈÝ
 			clearTextValue(screen_id, 16);
 			clearTextValue(screen_id, 17);
 			clearTextValue(screen_id, 18);
 			clearTextValue(screen_id, 19);
 			clearTextValue(screen_id, 20);
 			clearTextValue(screen_id, 21);
-			// ï¿½ï¿½È¡Ò»ï¿½ï¿½Ê±ï¿½ï¿½
-			BM8563_Soft_I2C_GetTime(&SystemTime); // ï¿½ï¿½Ò»ï¿½ï¿½Ê±ï¿½ï¿½ ï¿½ï¿½Åµï¿½È«ï¿½Ö½á¹¹ï¿½ï¿½ï¿½ï¿½
+			// »ñÈ¡Ò»´ÎÊ±¼ä
+			BM8563_Soft_I2C_GetTime(&SystemTime); // ¶ÁÒ»´ÎÊ±¼ä ´æ·Åµ½È«¾Ö½á¹¹ÌåÖÐ
 			
-			SetTextInt32(screen_id,  9, SystemTime.year + 2000, 0, 4);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextInt32(screen_id, 10, SystemTime.month      , 0, 2);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextInt32(screen_id, 11, SystemTime.day        , 0, 2);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextInt32(screen_id,  9, SystemTime.year + 2000, 0, 4);//³ö³§Äê
+			SetTextInt32(screen_id, 10, SystemTime.month      , 0, 2);//³ö³§ÔÂ
+			SetTextInt32(screen_id, 11, SystemTime.day        , 0, 2);//³ö³§ÈÕ
 			
-			SetTextInt32(screen_id, 12, SystemTime.hours      , 0, 2);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextInt32(screen_id, 13, SystemTime.minutes    , 0, 2);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextInt32(screen_id, 14, SystemTime.seconds    , 0, 2);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextInt32(screen_id, 12, SystemTime.hours      , 0, 2);//³ö³§Äê
+			SetTextInt32(screen_id, 13, SystemTime.minutes    , 0, 2);//³ö³§ÔÂ
+			SetTextInt32(screen_id, 14, SystemTime.seconds    , 0, 2);//³ö³§ÈÕ
 		}
 		else if(screen_id == 50)
 		{
-			SetTextInt32(50, 10, SystemSaveInfo.factory_release_year + 2000, 0, 4);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextInt32(50, 11, SystemSaveInfo.factory_release_month      , 0, 2);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextInt32(50, 12, SystemSaveInfo.factory_release_days       , 0, 2);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextInt32(50, 10, SystemSaveInfo.factory_release_year + 2000, 0, 4);//³ö³§Äê
+			SetTextInt32(50, 11, SystemSaveInfo.factory_release_month      , 0, 2);//³ö³§ÔÂ
+			SetTextInt32(50, 12, SystemSaveInfo.factory_release_days       , 0, 2);//³ö³§ÈÕ
 		}
 		else if(screen_id == 59)
 		{
 			for(uint8_t i = 9 ;i<24;i++)
 			{
-				clearTextValue(59 , i);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+				clearTextValue(59 , i);//(»­ÃæID,¿Ø¼þID)
 			}
-			clearTextValue(59 , 2);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+			clearTextValue(59 , 2);//(»­ÃæID,¿Ø¼þID)
 		}
 		else if(screen_id == 66)
 		{
@@ -2396,7 +2396,7 @@ void NotifyScreen(uint16 screen_id)
 			for(uint8_t i = 1; i < 33; i++)
 			{
 				temp_value = getPointTypeMixtureDetectOnlineState(i) ? 1 : 0;
-				// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½×´Ì¬
+				// ÏÔÊ¾ÆôÓÃ×´Ì¬
 				setkey_Value(66, point_type_detect_button_online_ctrl_val_map[i - 1], temp_value);
 			}
 		}
@@ -2412,20 +2412,20 @@ void NotifyScreen(uint16 screen_id)
 			uint8_t online_count;
 			HmiTxBatchBegin();
 			SetScreenUpdateEnable(0);
-			sprintf((char *)temp_buff, "ï¿½ï¿½Ç°ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ %d ï¿½ï¿½Â·", screen69_circuit);
+			sprintf((char *)temp_buff, "µ±Ç°ÏÔÊ¾£ºµÚ %d »ØÂ·", screen69_circuit);
 			SetTextValue(current_screen_id, 200, temp_buff);
-			sprintf((char *)temp_buff, "×¢:ï¿½Ë½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ß²ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½");
+			sprintf((char *)temp_buff, "×¢:´Ë½çÃæ½öÏÔÊ¾ÒÑÉÏÏß²¢ÔÚÏßÌ½²âÆ÷");
 			SetTextValue(69, 400, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½ï¿½Ò»Ò³");
+			sprintf((char *)temp_buff, "ÉÏÒ»Ò³");
 			SetTextValue(69, 500, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½ï¿½Ò»Ò³");
+			sprintf((char *)temp_buff, "ÏÂÒ»Ò³");
 			SetTextValue(69, 501, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½");
+			sprintf((char *)temp_buff, "·µ»Ø");
 			SetTextValue(69, 502, temp_buff);
 			/* XR5000_SCREEN69_RESIDUAL_FIX_20260729: clear text controls reused by screen 6 summary. */
 			for(uint8_t i = 1;i<25;i++)
 			{
-				clearTextValue(69 , i);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+				clearTextValue(69 , i);//(»­ÃæID,¿Ø¼þID)
 			}
 			online_count = GetCircuitOnlineList(screen69_circuit, online_list, MIXTURE_DEVICE_MAX_ADDR);
 			for(uint8_t i = 0; i < online_count && i < 20; i++)
@@ -2442,22 +2442,22 @@ void NotifyScreen(uint16 screen_id)
 
 
 /*! 
-*  \brief  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½Ó¦
-*  \param press 1ï¿½ï¿½ï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½3ï¿½É¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-*  \param x xï¿½ï¿½ï¿½ï¿½
-*  \param y yï¿½ï¿½ï¿½ï¿½
+*  \brief  ´¥Ãþ×ø±êÊÂ¼þÏìÓ¦
+*  \param press 1°´ÏÂ´¥ÃþÆÁ£¬3ËÉ¿ª´¥ÃþÆÁ
+*  \param x x×ø±ê
+*  \param y y×ø±ê
 */
 void NotifyTouchXY(uint8 press,uint16 x,uint16 y)
 { 
-    //TODO: ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
+    //TODO: Ìí¼ÓÓÃ»§´úÂë
 }
 
 uint8_t debug_flag = 0;
-uint32_t last_time_stamp = -3600000; // ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ê£ï¿½ï¿½Ê±ï¿½ï¿½Ê±ï¿½ï¿½
+uint32_t last_time_stamp = -3600000; // ÉÏµçºó¸üÐÂÒ»´ÎÊ£ÓàÊ±¼äÊ±¼ä
 /*! 
-*  \brief  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+*  \brief  ¸üÐÂÊý¾Ý
 */ 
-/* XR5000_SCREEN69_FLICKER_FIX_20260727: ï¿½ï¿½ï¿½ï¿½69ï¿½ï¿½ï¿½ï¿½á¹¹ï¿½å£¬ï¿½ï¿½Ô­Ê¼ï¿½ï¿½ï¿½ï¿½Öµï¿½È½ï¿½ï¿½ï¿½ï¿½strcmpï¿½Ö·ï¿½ï¿½ï¿½ï¿½È½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ */
+/* XR5000_SCREEN69_FLICKER_FIX_20260727: »­Ãæ69»º´æ½á¹¹Ìå£¬ÓÃÔ­Ê¼Êý¾ÝÖµ±È½ÏÌæ´ústrcmp×Ö·û´®±È½Ï£¬±ÜÃâÆµÉÁ */
 typedef struct {
 	uint16_t temper_val;
 	uint16_t co_val;
@@ -2623,7 +2623,7 @@ void UpdateUI(void)
 	uint8_t point_type_disconnect_sum = 0;
 	uint8_t rs485_detect_disconnect_sum = 0;
 	uint8_t mbus2_disconnect_sum = 0;
-	uint8_t shield_sum = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	uint8_t shield_sum = 0; // ÆÁ±Î×ÜÊý
 	uint8_t combustible_gas_alarm_active = 0U;
 	uint32_t curr_time_stamp = osKernelGetTickCount(); /* system tick */
 
@@ -2632,7 +2632,7 @@ void UpdateUI(void)
 	{
 		check_record_pending = 0U;
 		BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_CHECK, LINKAGE_CLUSTER_ID, SYS_CHECK_Package_ID);
-		StorageEvent_LogCheckButton(); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½ï¿½é¹¦ï¿½Ü°ï¿½Å¥ï¿½ï¿½ï¿½ï¿½(EVT_CHECK_BUTTON=129), ï¿½ï¿½ï¿½ï¿½È¥ï¿½Ø»ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ò»ï¿½ï¿½ */
+		StorageEvent_LogCheckButton(); /* ºÚÏ»×Ó:¼ì²é¹¦ÄÜ°´Å¥¶¯×÷(EVT_CHECK_BUTTON=129), ¸´ÓÃÈ¥ÖØ»úÖÆÖ»¼ÇÒ»Ìõ */
 	}
 
 	/* XR5000_CHECK_CHANGE_20260804: refresh screen 72 and enforce non-blocking inactivity exit. */
@@ -2645,7 +2645,7 @@ void UpdateUI(void)
 		}
 		CheckScreenRefresh();
 	}
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// ÐÂÔö¼ÓÄÚÈÝ
 	tim_get++;
 	if(tim_get == 10)
 	{
@@ -2657,8 +2657,8 @@ void UpdateUI(void)
 		{
 			mimajiyi++;
 		}
-		multiple_alarm_fresh_flag = 1; // Ë¢ï¿½Â±ï¿½Ö¾Î»ï¿½ï¿½Ò»
-		fed_fresh_flag = 1; // Ã¿ï¿½ï¿½Ò»Ë¢
+		multiple_alarm_fresh_flag = 1; // Ë¢ÐÂ±êÖ¾Î»ÖÃÒ»
+		fed_fresh_flag = 1; // Ã¿ÃëÒ»Ë¢
 		
 		max_combustible_gas_fresh_flag = 1;
 		gas_concentration_summary_fresh_flag = 1; /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
@@ -2682,7 +2682,7 @@ void UpdateUI(void)
 			
 			uint32_t total_use_time = 0;
 			
-			getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+			getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 			
 			register_data.tm_year = SystemSaveInfo.license_year + 100;
 			register_data.tm_mon  = SystemSaveInfo.license_month - 1;
@@ -2712,14 +2712,14 @@ void UpdateUI(void)
 			}
 			else
 			{
-//				license_allow_use_state = 0; //ï¿½ï¿½Ä¬ï¿½ï¿½ÖµÎª1ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½Íµï¿½
+//				license_allow_use_state = 0; //µ±Ä¬ÈÏÖµÎª1µÄÊ±ºò½«ÕâÀï×¢ÊÍµô
 				remain_use_time = 0;
 			}
 				
 			if(remain_use_time < 4) // 
 			{
 				uint8_t slicense_buff[64] = {0};
-				sprintf((char *)slicense_buff, "ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»Ê£ï¿½ï¿½%dï¿½ï¿½,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï½ï¿½Í¼ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢", remain_use_time);
+				sprintf((char *)slicense_buff, "¾´¸æ:ÄúµÄÊ£ÓàÊ¹ÓÃÌìÊýÖ»Ê£Óà%dÌì,Çëµã»÷×óÉÏ½ÇÍ¼±ê»ñÈ¡¸ü¶àÐÅÏ¢", remain_use_time);
 				SetTextValue(1, 3, slicense_buff);
 			}
 			else
@@ -2729,36 +2729,36 @@ void UpdateUI(void)
 		}
 	}
 	
-	// ï¿½ï¿½È¡ï¿½è±¸ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¹¹ï¿½å¸³Öµ
+	// »ñÈ¡Éè±¸ÉèÖÃÎªÉÏÏßµÄÊýÁ¿£¬¸ø½á¹¹Ìå¸³Öµ
 	getDetectorSetUpLiveSum(&ds, cang_sxzt, cu_tcq_sxzt);
 		
-	screen_fresh_num++;				// ï¿½ï¿½Ä»Ë¢ï¿½Â¿ï¿½ï¿½ï¿½
+	screen_fresh_num++;				// ÆÁÄ»Ë¢ÐÂ¿ØÖÆ
 	if(screen_fresh_num > 60)
 	{
 		screen_fresh_num = 0;
 	}
 
-	if(kaijiyanshi >= ONLINE_TIMEOUT)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ONLINE_TIMEOUTï¿½ï¿½ï¿½Å¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	if(kaijiyanshi >= ONLINE_TIMEOUT)//¿ª»úÑÓÊ±ONLINE_TIMEOUTÃëºó²Å¼ÆËãµôÏßÊýÁ¿
 	{
-		// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½á¹¹ï¿½å¸³Öµ
+		// »ñÈ¡°üµôÏßÊý ²¢´¦Àí°ü±¨¾¯Êý¾Ý ¸ø½á¹¹Ìå¸³Öµ
 		pack_disconnect_sum = ClusterPackDataDeal_Plus(pcfs, &pcfs_buttom_point); 
-		// ï¿½ï¿½È¡ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ Ä¿Ç°ï¿½ï¿½Ã»ï¿½ï¿½ï¿½Í¼ï¿½ Ã»ï¿½ï¿½ï¿½ï¿½ï¿½Ó±ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ 2025/07/09
+		// »ñÈ¡²ÖµôÏßÊý ²¢´¦Àí²Ö±¨¾¯Êý¾Ý ´æ´¢µ½±¨¾¯ÐÅÏ¢ÖÐ Ä¿Ç°²ÖÃ»ÓÐËÍ¼ì Ã»ÓÐÌí¼Ó±¨¾¯ÐÅÏ¢ 2025/07/09
 		cabin_disconnect_sum = CabinDataDeal(pcfs, &pcfs_buttom_point); 
 		//
-		point_type_disconnect_sum = PointTypeDetectorDataDeal(pcfs, &pcfs_buttom_point); // 2025/11/17 10:27 ï¿½ï¿½ï¿½Óµï¿½ï¿½Í¶ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½
+		point_type_disconnect_sum = PointTypeDetectorDataDeal(pcfs, &pcfs_buttom_point); // 2025/11/17 10:27 Ìí¼ÓµãÐÍ¶þ×ÜÏßÌ½²âÆ÷
 		// XR5000_LOOP3_CHANGE_20260726: Loop 3 realtime fault/alarm bridge.
 		rs485_detect_disconnect_sum = RS485DetectDataDeal(pcfs, &pcfs_buttom_point);
 		mbus2_disconnect_sum = MBus2DataDeal(pcfs, &pcfs_buttom_point);
 		combustible_gas_alarm_active = RefreshCombustibleGasAlarmLed();
-		/* ï¿½ï¿½ï¿½Üµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½IG3306ï¿½ï¿½4Â·ï¿½ï¿½ï¿½ï¿½24Vï¿½ï¿½ï¿½ï¿½ï¿½â£»Ê±ï¿½ä£º2026-08-06 */
-		// ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½Ðµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï¹ï¿½ï¿½Ï¼Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¶Ô»ï¿½Â·ï¿½ï¿½ï¿½ï¿½485Ì½ï¿½ï¿½ï¿½Â·ï¿½Ä¹ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+		/* ¹¦ÄÜµ÷Õû£º·ÏÆúIG3306¼°4Â·¶ÀÁ¢24VÊä³ö¼à²â£»Ê±¼ä£º2026-08-06 */
+		// ÅÐ¶ÏÊÇ·ñÓÐµôÏß ÎüºÏ¹ÊÕÏ¼ÌµçÆ÷£¬ÐÂÔö¼Ó¶Ô»ØÂ·Èý£¬485Ì½²â»ØÂ·µÄ¹ÊÕÏÅÐ¶Ï
 		FaultRelayCtrlAppFun(pack_disconnect_sum + cabin_disconnect_sum + point_type_disconnect_sum + rs485_detect_disconnect_sum + mbus2_disconnect_sum);
-		// ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½
+		// ÅÐ¶ÏÊÇ·ñÓÐÔ¤¾¯ ÎüºÏÔ¤¾¯¼ÌµçÆ÷
 		ForeWarmRelayCtrlAppFun(&pcfws);
-		// ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½Ð»ï¿½ ï¿½ï¿½ï¿½Ï»ð¾¯¼Ìµï¿½ï¿½ï¿½
+		// ÅÐ¶ÏÊÇ·ñÓÐ»ð¾¯ ÎüºÏ»ð¾¯¼ÌµçÆ÷
 		FireAlarmRelayCtrlAppFun(pas_pointer);
 		
-		// ï¿½ï¿½ï¿½ï¿½Øµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½01Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ¼ÆËã´ØµôÏßÊýÁ¿	±¾ÖÊÊÇ01Ä£¿éµôÏßÁË
 		for(uint8_t sum = 1; sum < PACK_USER_NUM + 1; sum++)
 		{
 			if(CU_zx_buf[sum] == PackDisconnectCount)
@@ -2767,32 +2767,32 @@ void UpdateUI(void)
 			}
 		}
 
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ÐÂÔöÄÚÈÝ
 //		uint8_t fire_alarm_state;
 //		fire_alarm_state = FireAlarmCompoundLogicJudgement(fire_alarm_logic_ctrl, fire_alarm_judge,cabin_detector_state_buff);
 //		if(fire_alarm_state == fire_alarm)
 //		{
-//			SetTextValue(40, 62, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//			SetTextValue(40, 62, "²ÕÄÚÆð»ð");//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 //		}
 //		else if(fire_alarm_state == normal)
 //		{
-//			SetTextValue(40, 62, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//			SetTextValue(40, 62, "²ÕÄÚÕý³£");//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 //		}
 
 		// end
 			
-		alarm_number = pcfas.self_bottom_point + pcfws.self_bottom_point; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+		alarm_number = pcfas.self_bottom_point + pcfws.self_bottom_point; // ½«»ð¾¯ÊýÁ¿¸³Öµ
 
 		/*
-		// Ä¿Ç°ï¿½ï¿½ï¿½ï¿½Ê¾Ô¤ï¿½ï¿½ ï¿½ï¿½ Í³Ò»ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ ï¿½Ë´ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ð¾¯±ï¿½ï¿½ Ö´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
-		if(pas_pointer != 0) { // ï¿½ï¿½ï¿½ï¿½ð¾¯¼ï¿½Â¼ï¿½ï¿½Îªï¿½ï¿½
-			fire_alarm_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½
+		// Ä¿Ç°²»ÏÔÊ¾Ô¤¾¯ »ð¾¯ Í³Ò»ÏÔÊ¾±¨¾¯ ´Ë´¦Ö»ÓÃÀ´×ö»ð¾¯±ê¼Ç Ö´ÐÐÍâÁªÉè±¸¶¯×÷
+		if(pas_pointer != 0) { // Èç¹û»ð¾¯¼ÇÂ¼²»ÎªÁã
+			fire_alarm_state = 1; // µãÁÁ»ð¾¯Ö¸Ê¾µÆ
 			fire_alarm_flag.cluster_alarm_state = 1;
 			
 			if (fanr.storage_pas_len != pas_pointer) {
 				fanr.storage_pas_len = pas_pointer;
 				
-				// ï¿½ï¿½Î»Í¼ï¿½Å»ï¿½È¥ï¿½Ø£ï¿½ï¿½ï¿½ï¿½ï¿½ ID ï¿½ï¿½Î§ï¿½ï¿½ 0~255ï¿½ï¿½
+				// ÓÃÎ»Í¼ÓÅ»¯È¥ÖØ£¨¼ÙÉè ID ·¶Î§ÊÇ 0~255£©
 				uint8_t seen[32] = {0};
 				
 				for (uint8_t i = 0; i < pas_pointer && fanr.faib_buttom_point < 300; i++) {
@@ -2800,8 +2800,8 @@ void UpdateUI(void)
 					uint8_t idx = id / 8;
 					uint8_t bit = id % 8;
 						
-					if (!(seen[idx] & (1 << bit))) { // ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½Ö¹ï¿½
-						seen[idx] |= (1 << bit);     // ï¿½ï¿½ï¿½Îªï¿½Ñ³ï¿½ï¿½ï¿½
+					if (!(seen[idx] & (1 << bit))) { // Èç¹ûÎ´³öÏÖ¹ý
+						seen[idx] |= (1 << bit);     // ±ê¼ÇÎªÒÑ³öÏÖ
 						fanr.fire_alarm_id_buff[fanr.faib_buttom_point++] = id;
 					}
 				}
@@ -2814,13 +2814,13 @@ void UpdateUI(void)
 		{
 			if(BMS_Temp[i]>=3 && BMS_BJ[i]==0)
 			{
-				BMS_BJ[i]=1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				beiguangkai();//ï¿½ï¿½ï¿½â¿ª
+				BMS_BJ[i]=1; // ½«·ûºÏÒªÇóµÄ±¨¾¯Æô¶¯
+				beiguangkai();//±³¹â¿ª
 				SetControlForeColor(1,4,0xf800);
-				SetTextValue(1,4,"BMSï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½1ï¿½Øµï¿½Ø¸ï¿½ï¿½Â£ï¿½");//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				SaveSensor(0,32,0,0,0,0,0,0,0); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ BMSï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
+				SetTextValue(1,4,"BMS¸ßÎÂ×´Ì¬£ºµÚ1´Øµç³Ø¸ßÎÂ£¡");//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+				SaveSensor(0,32,0,0,0,0,0,0,0); // ´¢´æÏÂÀ´ BMS±¨¾¯¼ÇÂ¼
 				
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ÆäËûÄÚÈÝ´ý²¹³ä
 			}
 			else if(BMS_Temp[i] < 3 && BMS_BJ[i] == 1)
 			{
@@ -2828,57 +2828,57 @@ void UpdateUI(void)
 			}
 		}
 		*/
-//		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ß¼ï¿½Â¼
+//		// ·ç»úÔÚÏß/µôÏß¼ÇÂ¼
 //		BspFanOnlineJudgeFaultRecord(NULL, NULL);
-//		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê±Ã»ï¿½Ð¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£Ö¹Ê±ï¿½ï¿½
+//		// ·ç»úÆô¶¯¿ØÖÆ ÔÝÊ±Ã»ÓÐ¼ÇÂ¼·ç»úÆô¶¯Í£Ö¹Ê±¼ä
 
 		BspFanStartCrtlApp(fan_state1, combustible_gas_alarm_active, fedas.self_point_len);
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// Ö÷±¸µç¹ÜÀí¿ØÖÆ
 		PowerManageCtrl(zhu_state, bei_state);
 
 		
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ°ï¿½ï¿½ï¿½ ï¿½ï¿½Îªï¿½ï¿½Ô¤ï¿½ï¿½
+		// Ö÷Ãæ°åÉÏ±¨¾¯Æ÷¿ØÖÆ°´¼ü ÈÏÎªÊÇÔ¤¾¯
 		if((screen_show_siren_information&0x0F) == 0x0F && (screen_show_siren_information&0xF0) != 0xF0)
 		{
-			screen_show_siren_information |= 0xF0; // ï¿½ï¿½ï¿½Ö´ï¿½Ð¹ï¿½ 
-			// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ð¾¯·ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½FLASHï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î»ï¿½È¡RTCï¿½ï¿½ï¿½ï¿½
+			screen_show_siren_information |= 0xF0; // ±ê¼ÇÖ´ÐÐ¹ý 
+			// ¼ÇÂ¼µ½»ð¾¯·ÖÇøÖÐ °´¼ü°´ÏÂ ´æÈëFLASHÔÚÇ°¿ÉÒÔÉÙÒ»´Î»ñÈ¡RTC²Ù×÷
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, 0xFFFF);
-//			// ï¿½ï¿½ï¿½ï¿½cacheï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//			// ´æÈëcache»º³åÇø
 //			StoragePackCabinForeWarn(&pcfws, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey);
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
-			StoragePackFireAlarm(&pcfas, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey); // ï¿½ï¿½Â¼ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ´æÈë»ðÔÖ±¨¾¯ÇøÓò 
+			StoragePackFireAlarm(&pcfas, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey); // ¼ÇÂ¼ÊÖ±¨°´ÏÂ
 			
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// µãÁÁÉù¹â
 			SoundLightRelayCtrl(JDQ_ON);
 			
 			SysSirenStartLedCtrl(LED_ON);
 			
-			silencers_state  = 0;  // ï¿½ï¿½ï¿½ÂµÄ±ï¿½ï¿½ï¿½ ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½
+			silencers_state  = 0;  // ÓÐÐÂµÄ±¨¾¯ ¹Ø±ÕÏûÒôÖ¸Ê¾µÆ
 		}
 		
-		if(getHandPaperState() == 0x0F) // ï¿½Ö±ï¿½ï¿½ï¿½Îªï¿½Ç»ï¿½
+		if(getHandPaperState() == 0x0F) // ÊÖ±¨ÈÏÎªÊÇ»ð¾¯
 		{
-			// È·ï¿½ï¿½Ö»Ö´ï¿½ï¿½Ò»ï¿½ï¿½
+			// È·±£Ö»Ö´ÐÐÒ»´Î
 			setDealHandPaperState();
-			// ï¿½ï¿½ï¿½ï¿½FLASH
+			// ´æÈëFLASH
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, HANDPOT_Package_ID, 0xFFFF);
 			//
 		}
 		
-		// ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä» 
+		// ÓÐ±¨¾¯ºóÇÐ»»Ö÷½çÃæ µãÁÁÆÁÄ» 
 		InternalScreenMainInterfaceCtrl(&switch_ui_ctrl);
 	}
-	//ï¿½ï¿½ï¿½ï¿½ï¿½Ó±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½RS485Detect_GetAlarmCount();
+	//ÐÂÔö¼Ó±¨¾¯×ÜÊýµÄÅÐ¶ÏRS485Detect_GetAlarmCount();
 	uint8_t total_alarm = alarm_number;
 	if(last_alarm_num != total_alarm)
 	{
 		last_alarm_num = total_alarm;
-		SetTextInt32(1, 8, total_alarm,0,1);  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+		SetTextInt32(1, 8, total_alarm,0,1);  //±¨¾¯×ÜÊýÏÔÊ¾
 		if(total_alarm != 0)
 		{
-			beep_fire_ctrl |= 0xF0;  // ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
-			silencers_state = 0; // ï¿½ï¿½ï¿½ÂµÄ±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			beep_fire_ctrl |= 0xF0;  // Õæ »ð¾¯ ³¤Ãù
+			silencers_state = 0; // ÓÐÐÂµÄ±¨¾¯ ·äÃùÆ÷¿ª Çå³ýÏûÒô±êÖ¾Î»
+			// µãÁÁÉù¹â
 			SoundLightRelayCtrl(JDQ_ON);
 			
 			ForeWarmRelayCtrl(JDQ_ON);
@@ -2889,21 +2889,21 @@ void UpdateUI(void)
 
 	FireExtinguishDeviceStateUpdate(&fedas, pas); 
 	
-	//ï¿½ï¿½Ò³ï¿½ï¿½Ë¢ï¿½ï¿½
+	//¸÷Ò³ÃæË¢ÐÂ
 	if(current_screen_id==1)                                              
 	{
-		if(getControllorSelfCheckState() == 1) // ï¿½ï¿½ï¿½ï¿½Ô¼ì°´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ //ï¿½ï¿½Ê¾ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½
+		if(getControllorSelfCheckState() == 1) // Èç¹û×Ô¼ì°´¼ü°´ÏÂ //ÏÔÊ¾×Ô¼ìÄÚÈÝ
 		{
-			// ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½
+			// ´ò¿ª×Ô¼ìµÆ
 			SpecialSelfCheckLedCtrl(LED_ON);
 			switch(screen_fresh_num)
 			{
-				case 1:SetTextValue(1,4,"ÏµÍ³ï¿½Ô¼ï¿½ï¿½ï¿½.     ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				case 2:SetTextValue(1,4,"ÏµÍ³ï¿½Ô¼ï¿½ï¿½ï¿½..    ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				case 3:SetTextValue(1,4,"ÏµÍ³ï¿½Ô¼ï¿½ï¿½ï¿½...   ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				case 4:SetTextValue(1,4,"ÏµÍ³ï¿½Ô¼ï¿½ï¿½ï¿½....  ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				case 5:SetTextValue(1,4,"ÏµÍ³ï¿½Ô¼ï¿½ï¿½ï¿½..... ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				case 6:SetTextValue(1,4,"ÏµÍ³ï¿½Ô¼ï¿½ï¿½ï¿½......");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				case 1:SetTextValue(1,4,"ÏµÍ³×Ô¼ìÖÐ.     ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+				case 2:SetTextValue(1,4,"ÏµÍ³×Ô¼ìÖÐ..    ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+				case 3:SetTextValue(1,4,"ÏµÍ³×Ô¼ìÖÐ...   ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+				case 4:SetTextValue(1,4,"ÏµÍ³×Ô¼ìÖÐ....  ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+				case 5:SetTextValue(1,4,"ÏµÍ³×Ô¼ìÖÐ..... ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+				case 6:SetTextValue(1,4,"ÏµÍ³×Ô¼ìÖÐ......");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 			}
 			screen_fresh_num++;
 			if(screen_fresh_num >= 7)
@@ -2923,41 +2923,41 @@ void UpdateUI(void)
 				}else if(self_check_show_content == 4) {
 					self_check_show_content = 5;
 				}
-				show_content_delay = 0; // Ä¿Ç°Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½×´Ì¬ï¿½ï¿½×ª 
+				show_content_delay = 0; // Ä¿Ç°Ö»ÓÃÀ´ÑÓÊ±×ö×´Ì¬Ìø×ª 
 			}
 			
 			switch(self_check_show_content)
 			{
 				case 0: {
 					uint16_t temp_flash_read_id = W25QXX_ReadID();
-					if(temp_flash_read_id != W25Q512) // ï¿½ï¿½ï¿½ï¿½FLASH ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					if(temp_flash_read_id != W25Q512) // ±íÃ÷FLASH ³öÏÖÎÊÌâ
 					{
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ï¼ï¿½Â¼
+						// ´ý´´½¨Ò»Ìõ¹ÊÕÏ¼ÇÂ¼
 						creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_FLASH_FAULT_ID, DISCONNECT);
 					}						
-					SetTextValue(1, 12, "Æ¬ï¿½Ï´æ´¢ÏµÍ³ï¿½Ô¼ï¿½ï¿½ï¿½");//
+					SetTextValue(1, 12, "Æ¬ÉÏ´æ´¢ÏµÍ³×Ô¼ìÖÐ");//
 					break;
 				}
 				case 1:
-					SetTextValue(1, 12, "Ö¸Ê¾ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½");//
+					SetTextValue(1, 12, "Ö¸Ê¾µÆ×Ô¼ìÖÐ");//
 					break;
 				case 2:
-					SetTextValue(1, 12, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½");//
+					SetTextValue(1, 12, "·äÃùÆ÷×Ô¼ìÖÐ");//
 					break;
 				case 3:
-					SetTextValue(1, 12, "ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½");//
+					SetTextValue(1, 12, "Éù¹â×Ô¼ìÖÐ");//
 					SoundLightRelayCtrl(JDQ_ON);
 					DefauleRelayCtrl(JDQ_ON);
 					break;
 				case 4:
-					SetTextValue(1, 12, "ÏµÍ³ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½");//
+					SetTextValue(1, 12, "ÏµÍ³×Ô¼ìÍê³É");//
 					SoundLightRelayCtrl(JDQ_OFF);
 					DefauleRelayCtrl(JDQ_OFF);
-					clearTextValue(1 , 12);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+					clearTextValue(1 , 12);//(»­ÃæID,¿Ø¼þID)
 					break;
 				default:
-					self_check_show_content = 0; // ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ý¸ï¿½Î»
-					show_content_delay = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Ê± Îªï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½×¼ï¿½ï¿½
+					self_check_show_content = 0; // ÏÔÊ¾ÄÚÈÝ¸´Î»
+					show_content_delay = 0; // Çå¿ÕÑÓÊ± ÎªÏÂÒ»´Î×ö×¼±¸
 					SpecialSelfCheckLedCtrl(LED_OFF);
 					break;
 			}
@@ -2968,27 +2968,27 @@ void UpdateUI(void)
 			{
 				switch(screen_fresh_num)
 				{
-					case 10:SetTextValue(1, 4, "ÏµÍ³ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½.     ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 20:SetTextValue(1, 4, "ÏµÍ³ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½..    ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 30:SetTextValue(1, 4, "ÏµÍ³ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½...   ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 40:SetTextValue(1, 4, "ÏµÍ³ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½....  ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 50:SetTextValue(1, 4, "ÏµÍ³ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½..... ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 60:SetTextValue(1, 4, "ÏµÍ³ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½......");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					case 10:SetTextValue(1, 4, "ÏµÍ³³õÊ¼»¯ÖÐ.     ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 20:SetTextValue(1, 4, "ÏµÍ³³õÊ¼»¯ÖÐ..    ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 30:SetTextValue(1, 4, "ÏµÍ³³õÊ¼»¯ÖÐ...   ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 40:SetTextValue(1, 4, "ÏµÍ³³õÊ¼»¯ÖÐ....  ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 50:SetTextValue(1, 4, "ÏµÍ³³õÊ¼»¯ÖÐ..... ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 60:SetTextValue(1, 4, "ÏµÍ³³õÊ¼»¯ÖÐ......");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 				}
 			}
 			else
 			{
 				switch(screen_fresh_num)
 				{
-					case 10:SetTextValue(1, 4, "ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.     ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 20:SetTextValue(1, 4, "ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..    ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 30:SetTextValue(1, 4, "ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...   ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 40:SetTextValue(1, 4, "ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½....  ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 50:SetTextValue(1, 4, "ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..... ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					case 60:SetTextValue(1, 4, "ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½......");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					case 10:SetTextValue(1, 4, "±¨¾¯ÏµÍ³ÔËÐÐÖÐ.     ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 20:SetTextValue(1, 4, "±¨¾¯ÏµÍ³ÔËÐÐÖÐ..    ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 30:SetTextValue(1, 4, "±¨¾¯ÏµÍ³ÔËÐÐÖÐ...   ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 40:SetTextValue(1, 4, "±¨¾¯ÏµÍ³ÔËÐÐÖÐ....  ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 50:SetTextValue(1, 4, "±¨¾¯ÏµÍ³ÔËÐÐÖÐ..... ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+					case 60:SetTextValue(1, 4, "±¨¾¯ÏµÍ³ÔËÐÐÖÐ......");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 				}
 			}
-			//  ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½Ê¾
+			//  ÐÂÔöÉè±¸×ÜÊý/ÔÚÏß/¹ÊÕÏµÄÏÔÊ¾
 			uint8_t rs485_online = RS485Detect_GetOnlineCount();
 			uint8_t rs485_disconnect = RS485Detect_GetDisconnectCount();
 			uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
@@ -3012,7 +3012,7 @@ void UpdateUI(void)
 				last_disconnect_detector_num = total_fault;
 				SetTextInt32(current_screen_id, 7, total_fault, 0, 1);
 			}
-			//ï¿½ï¿½ï¿½ï¿½AHT20ï¿½Â¶ï¿½Êªï¿½ï¿½ï¿½ï¿½Ê¾
+			//ÐÂÔöAHT20ÎÂ¶ÈÊª¶ÈÏÔÊ¾
 			// XR5000_AHT20_CHANGE_20260727: display cached AHT20 temperature/humidity on home screen.
 			{
 				static int16_t last_aht20_temp = 32767;
@@ -3028,30 +3028,30 @@ void UpdateUI(void)
 					if(temp != last_aht20_temp || aht20_valid != last_aht20_valid || home_statistics_force_refresh)
 					{
 						last_aht20_temp = temp;
-						sprintf((char *)aht20_buff, "ï¿½Â¶È£ï¿½%dï¿½ï¿½", temp);
+						sprintf((char *)aht20_buff, "ÎÂ¶È£º%d¡æ", temp);
 						SetTextValue(current_screen_id, 39, aht20_buff);
 					}
 					if(humi != last_aht20_humi || aht20_valid != last_aht20_valid || home_statistics_force_refresh)
 					{
 						last_aht20_humi = humi;
-						sprintf((char *)aht20_buff, "Êªï¿½È£ï¿½%d%%", humi);
+						sprintf((char *)aht20_buff, "Êª¶È£º%d%%", humi);
 						SetTextValue(current_screen_id, 40, aht20_buff);
 					}
 				}
 				else if(aht20_valid != last_aht20_valid || home_statistics_force_refresh)
 				{
-					SetTextValue(current_screen_id, 39, "ï¿½Â¶È£ï¿½--ï¿½ï¿½");
-					SetTextValue(current_screen_id, 40, "Êªï¿½È£ï¿½--%");
+					SetTextValue(current_screen_id, 39, "ÎÂ¶È£º--¡æ");
+					SetTextValue(current_screen_id, 40, "Êª¶È£º--%");
 				}
 				last_aht20_valid = aht20_valid;
 			}
 			home_statistics_force_refresh = 0;
 		}
 		
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ï¿½Â¼ï¿½
-		zhu_min=0;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ã£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ£¬5ï¿½ï¿½ï¿½Óºï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½
+		//´¦ÀíÆäËûÒ³ÃæÊÂ¼þ
+		zhu_min=0;//·µ»ØÖ÷½çÃæÊ±¼äÇåÁã£¬Èç¹û²»ÔÚÖ÷½çÃæ£¬5·ÖÖÓºó×Ô¶¯·µ»Ø
 	
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ÐÂÔöÄÚÈÝ
 		FansStateUpdataUI(current_screen_id, fan_disconnect_count, fan_state1, fan_state2, fan_mode);
 		
 		OutfirePressureUpdataUI(current_screen_id, outfire1_pressure, outfire2_pressure, fire_alarm_threshold);
@@ -3067,49 +3067,49 @@ void UpdateUI(void)
 	else if (current_screen_id == 6 && !g_screen69_transition_pending)
 	/* XR5000_SCREEN59_RESIDUAL_FIX_20260729: page-6 statistics must not follow asynchronous page changes. */
 	{
-		// ï¿½ï¿½Â·1
+		// »ØÂ·1
 		uint8_t temp_buff[32] = {0};
-		sprintf((char *)temp_buff, "ï¿½ï¿½ 1 ï¿½ï¿½Â·ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½");
+		sprintf((char *)temp_buff, "µÚ 1 »ØÂ·ÐÅÏ¢»ã×Ü");
 		SetTextValue(6, 6, temp_buff);
-		sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:%d", getPointDetectorSetUpCount());
+		sprintf((char *)temp_buff, "ÉèÖÃÉÏÏß:%d", getPointDetectorSetUpCount());
 		SetTextValue(6, 7, temp_buff);
-		sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", getPointDetectorSetUpLive());
+		sprintf((char *)temp_buff, "Éè±¸ÔÚÏß:%d", getPointDetectorSetUpLive());
 		SetTextValue(6, 8, temp_buff);
-		sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
+		sprintf((char *)temp_buff, "Éè±¸¹ÊÕÏ:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
 		SetTextValue(6, 9, temp_buff);
-		sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:%d", getPointDetectorAlarmCount());
+		sprintf((char *)temp_buff, "±¨¾¯Éè±¸:%d", getPointDetectorAlarmCount());
 		SetTextValue(6, 10, temp_buff);
-		sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:0"); 
+		sprintf((char *)temp_buff, "ÆÁ±ÎÉè±¸:0"); 
 		SetTextValue(6, 11, temp_buff);
 
-		// ï¿½ï¿½Â·2
+		// »ØÂ·2
 		{
 			uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
 			uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
-			sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", mbus2_online);
+			sprintf((char *)temp_buff, "Éè±¸ÉÏÏß:%d", mbus2_online);
 			SetTextValue(6, 13, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", MBusCtrl_GetActiveCount());
+			sprintf((char *)temp_buff, "Éè±¸ÔÚÏß:%d", MBusCtrl_GetActiveCount());
 			SetTextValue(6, 14, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
+			sprintf((char *)temp_buff, "Éè±¸¹ÊÕÏ:%d", (mbus2_disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP2)));
 			SetTextValue(6, 15, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:%d", MBusCtrl_GetAlarmCount());
+			sprintf((char *)temp_buff, "±¨¾¯Éè±¸:%d", MBusCtrl_GetAlarmCount());
 			SetTextValue(6, 16, temp_buff);
-			sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:0");
+			sprintf((char *)temp_buff, "ÆÁ±ÎÉè±¸:0");
 			SetTextValue(6, 17, temp_buff);
 		}
 
-		// ï¿½ï¿½Â·3
+		// »ØÂ·3
 		uint8_t online = RS485Detect_GetOnlineCount();
         uint8_t disconnect = RS485Detect_GetDisconnectCount();
-        sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:%d", online);
+        sprintf((char *)temp_buff, "ÉèÖÃÉÏÏß:%d", online);
         SetTextValue(6, 19, temp_buff);
-        sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", RS485Detect_GetActiveCount());
+        sprintf((char *)temp_buff, "Éè±¸ÔÚÏß:%d", RS485Detect_GetActiveCount());
         SetTextValue(6, 20, temp_buff);
-        sprintf((char *)temp_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
+        sprintf((char *)temp_buff, "Éè±¸¹ÊÕÏ:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
         SetTextValue(6, 21, temp_buff); 
-        sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:%d", RS485Detect_GetAlarmCount());
+        sprintf((char *)temp_buff, "±¨¾¯Éè±¸:%d", RS485Detect_GetAlarmCount());
         SetTextValue(6, 22, temp_buff); 
-		sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½è±¸:0"); 
+		sprintf((char *)temp_buff, "ÆÁ±ÎÉè±¸:0"); 
 		SetTextValue(6, 24, temp_buff);
 	}
 	else if(current_screen_id == 7)
@@ -3122,15 +3122,15 @@ void UpdateUI(void)
 			{
 				if (getPointTypeMixtureDetectOnlineState(i) == 0)
 				{
-					temp_buff[0] = 0; // ï¿½ï¿½É«ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½
+					temp_buff[0] = 0; // ºìÉ«£ºÎ´ÉÏÏß
 				}
 				else if (getPointTypeMixtureDisconnectCount(i) >= MIXTURE_DEVICE_DISCONNECT_SUM)
 				{
-					temp_buff[0] = 2; // ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½
+					temp_buff[0] = 2; // »ÆÉ«£ºÉÏÏßµ«µôÏß
 				}
 				else
 				{
-					temp_buff[0] = 1; // ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					temp_buff[0] = 1; // ÂÌÉ«£ºÔÚÏßÕý³£
 				}
 				AnimationPlayFrame(7, i, temp_buff[0]);
 			}
@@ -3141,36 +3141,36 @@ void UpdateUI(void)
 	}
 	else if(current_screen_id==20)                                              
 	{
-//			char* str = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½";
+//			char* str = "¸´ºÏÐÍÌ½²âÆ÷";
 //			uint8_t baojingneirong[50];
-////			sprintf((char*)baojingneirong,"ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ ï¿½è±¸ï¿½ï¿½ï¿½:%s ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½:%d",str,shebeizongshu);
-//			SetTextValue(52,2,baojingneirong);//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+////			sprintf((char*)baojingneirong,"Éè±¸×ÜÊý Éè±¸Àà±ð:%s µØÖ·×ÜÊý:%d",str,shebeizongshu);
+//			SetTextValue(52,2,baojingneirong);//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 //			
-//			sprintf((char*)baojingneirong,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½è±¸ï¿½ï¿½ï¿½:%s ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½:%d",str,zaixianzongshu);
-//			SetTextValue(52, 5, baojingneirong);//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//			sprintf((char*)baojingneirong,"ÔÚÏß×ÜÊý Éè±¸Àà±ð:%s µØÖ·×ÜÊý:%d",str,zaixianzongshu);
+//			SetTextValue(52, 5, baojingneirong);//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 //			
-//			sprintf((char*)baojingneirong,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½è±¸ï¿½ï¿½ï¿½:%s ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½:%d",str,diaoxianzongshu);
-//			SetTextValue(52, 6, baojingneirong);//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//			sprintf((char*)baojingneirong,"¹ÊÕÏ×ÜÊý Éè±¸Àà±ð:%s µØÖ·×ÜÊý:%d",str,diaoxianzongshu);
+//			SetTextValue(52, 6, baojingneirong);//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 //			
-//			sprintf((char*)baojingneirong,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½è±¸ï¿½ï¿½ï¿½:%s ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½:%d",str,shield_sum);
-//			SetTextValue(52, 7, baojingneirong);//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//			sprintf((char*)baojingneirong,"ÆÁ±Î×ÜÊý Éè±¸Àà±ð:%s µØÖ·×ÜÊý:%d",str,shield_sum);
+//			SetTextValue(52, 7, baojingneirong);//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 	}
 	if(current_screen_id==52)                                              
 	{
 		uint8_t baojingneirong[50];
-		char* str = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½";
-		sprintf((char*)baojingneirong,"ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ ï¿½è±¸ï¿½ï¿½ï¿½:%s ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½:%d",str, ds.curr_num);
-		SetTextValue(52,2,baojingneirong);//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		char* str = "¸´ºÏÐÍÌ½²âÆ÷";
+		sprintf((char*)baojingneirong,"Éè±¸×ÜÊý Éè±¸Àà±ð:%s µØÖ·×ÜÊý:%d",str, ds.curr_num);
+		SetTextValue(52,2,baojingneirong);//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		
-		sprintf((char*)baojingneirong,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½è±¸ï¿½ï¿½ï¿½:%s ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½:%d",str, ds.curr_num - ( pack_disconnect_sum + cabin_disconnect_sum ));
-		SetTextValue(52, 5, baojingneirong);//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		sprintf((char*)baojingneirong,"ÔÚÏß×ÜÊý Éè±¸Àà±ð:%s µØÖ·×ÜÊý:%d",str, ds.curr_num - ( pack_disconnect_sum + cabin_disconnect_sum ));
+		SetTextValue(52, 5, baojingneirong);//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		
-		sprintf((char*)baojingneirong,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½è±¸ï¿½ï¿½ï¿½:%s ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½:%d",str, ( pack_disconnect_sum + cabin_disconnect_sum ));
-		SetTextValue(52, 6, baojingneirong);//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		sprintf((char*)baojingneirong,"¹ÊÕÏ×ÜÊý Éè±¸Àà±ð:%s µØÖ·×ÜÊý:%d",str, ( pack_disconnect_sum + cabin_disconnect_sum ));
+		SetTextValue(52, 6, baojingneirong);//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		
 		shield_sum = getShieldDetectorSum(pack_pbzt, cang_pbzt);
-		sprintf((char*)baojingneirong,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½è±¸ï¿½ï¿½ï¿½:%s ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½:%d",str, shield_sum);
-		SetTextValue(52, 7, baojingneirong);//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		sprintf((char*)baojingneirong,"ÆÁ±Î×ÜÊý Éè±¸Àà±ð:%s µØÖ·×ÜÊý:%d",str, shield_sum);
+		SetTextValue(52, 7, baojingneirong);//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		
 	}
 	else if(current_screen_id==24)    //                                          
@@ -3191,9 +3191,9 @@ void UpdateUI(void)
 
 		if(qingchujilu==1)
 		{
-			SetTextValue(current_screen_id, 7, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼... ï¿½ï¿½È´ï¿½ï¿½ï¿½");
+			SetTextValue(current_screen_id, 7, "ÕýÔÚÇå³ý¼ÇÂ¼... ÇëµÈ´ý£¡");
 			BspClearFlashData();
-			SetTextValue(current_screen_id, 7, "ï¿½ï¿½ï¿½ï¿½ï¿½É£ï¿½");
+			SetTextValue(current_screen_id, 7, "Çå³ýÍê³É£¡");
 			qingchujilu=0;
 		}
 	}
@@ -3203,12 +3203,12 @@ void UpdateUI(void)
 	}
 	else if(current_screen_id == 56 || current_screen_id == 57)
 	{
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+		// ¸üÐÂÏÔÊ¾
 		InternalScreenShowRecord(&bsrr);
 	}
 	else if(current_screen_id == 59)
 	{
-		// new ï¿½ï¿½ï¿½Ï½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½
+		// new ¹ÊÕÏ½çÃæË¢ÐÂ
 		InternalScreenShowAllFault(getFaultCheckNewKey());
 		if(getFaultCheckNewKey() == 1)
 		{
@@ -3217,13 +3217,13 @@ void UpdateUI(void)
 		// end
 		
 		// NEW 
-		// 2025/12/09 10:22 ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½Ê¾
-		if(pcfws.self_bottom_point > Alarm_Show_Zone) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ 
+		// 2025/12/09 10:22 ÐÂÔöÑ­ÐòÏÔÊ¾
+		if(pcfws.self_bottom_point > Alarm_Show_Zone) // Èç¹û±¨¾¯ÊýÁ¿³¬¹ýÁËÏÔÊ¾ÇøÓò 
 		{
 			if(baojingjishi - pcfws.fresh_time_count >= 5)
 			{
 				pcfws.fresh_time_count = baojingjishi;
-				// ï¿½ï¿½Ò³ï¿½ß¼ï¿½ // ï¿½ï¿½Ç°Ò³+ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ò³¤¶ï¿½ Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ·­Ò³Âß¼­ // µ±Ç°Ò³+ÏÔÊ¾ÇøÓò³¤¶È Ð¡ÓÚ×ÜÊý Ôò¿ÉÒÔÍùºó¹ö¶¯
 				if (fore_alarm_start_index + Alarm_Show_Zone < pcfws.self_bottom_point) 
 				{
 					fore_alarm_start_index++;
@@ -3236,15 +3236,15 @@ void UpdateUI(void)
 				}
 			}
 		}
-		// Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½
+		// Ô¤¾¯½çÃæË¢ÐÂ
 		InternalScreenShowAllForceWorn_Plus(&pcfws, getForceAlarmCheckNewKey());
 		if(getForceAlarmCheckNewKey() == 1)
 			force_alarm_check_new_flag = 0;
 		//END
 		
 		// NEW 
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½
-		// 2025/12/09 10:41 ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½Ê¾
+		// ±¨¾¯½çÃæË¢ÐÂ
+		// 2025/12/09 10:41 ÐÂÔöÑ­ÐòÏÔÊ¾
 		if(pcfas.self_bottom_point > Alarm_Show_Zone)
 		{
 			if(baojingjishi - pcfas.fresh_time_count >= 5)
@@ -3263,7 +3263,7 @@ void UpdateUI(void)
 			}
 			
 		}
-		// ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½Ê¾
+		// ±¨¾¯Ë¢ÐÂÏÔÊ¾
 		InternalScreenShowAllFireAlarm_Plus(&pcfas, getFireAlarmCheckNewKey());
 		if(getFireAlarmCheckNewKey() == 1)
 			fire_alarm_check_new_flag = 0;
@@ -3275,16 +3275,16 @@ void UpdateUI(void)
 			fed_fresh_flag = 0;
 		}
 		
-		// ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½
+		// ¼ýÍ·¿ØÖÆ
 		BspCheckNewKeyPressDeal(&bkcnc);
 		
 		RefreshGasConcentrationSummary(); /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
 	}		
-	else if(current_screen_id == 61 || current_screen_id == 62) // Ë¢ï¿½Â²ï¿½Ò»ï¿½ï¿½
+	else if(current_screen_id == 61 || current_screen_id == 62) // Ë¢ÐÂ²»Ò»Ñù
 	{
-		// ï¿½ï¿½ï¿½ï¿½PACKï¿½ï¿½Ê¾
+		// ¸üÐÂPACKÏÔÊ¾
 //		InternalScreenShowClusterData_32Pack(current_screen_id, &ddsc_32p);
-		// ï¿½ï¿½ï¿½ï¿½PACKï¿½ï¿½Ê¾
+		// ¸üÐÂPACKÏÔÊ¾
 		InternalScreenShowClusterData_32Pack_Plus(current_screen_id, &ddsc_32p);
 	}		
 	else if(current_screen_id == 64)
@@ -3302,7 +3302,7 @@ void UpdateUI(void)
 	// {
 	// 	static uint8_t last_screen = 0;
 
-	// 	/* ï¿½Õ½ï¿½ï¿½ë»­ï¿½ï¿½69Ê±ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ */
+	// 	/* ¸Õ½øÈë»­Ãæ69Ê±£¬Ò³Âë¹éÁã */
 	// 	if (last_screen != 69)
 	// 	{
 	// 		g_screen69_page = 0;
@@ -3316,21 +3316,21 @@ void UpdateUI(void)
 	// 	uint8_t start, end;
 	// 	uint8_t ctrl_idx, list_idx;
 
-	// 	/* ï¿½Ø¼ï¿½200ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ */
-	// 	sprintf((char *)temp_buff, "ï¿½ï¿½Ç°ï¿½ï¿½Ê¾ï¿½ï¿½Â·ï¿½ï¿½%d ï¿½ï¿½Â·", pack_circuit);
+	// 	/* ¿Ø¼þ200£º»ØÂ·±êÌâ */
+	// 	sprintf((char *)temp_buff, "µ±Ç°ÏÔÊ¾»ØÂ·£º%d »ØÂ·", pack_circuit);
 	// 	SetTextValue(current_screen_id, 200, temp_buff);
 
-	// 	/* ï¿½Õ¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ */
+	// 	/* ÊÕ¼¯ÔÚÏßÉè±¸ */
 	// 	online_count = GetCircuitOnlineList(pack_circuit, online_list, 64);
 
-	// 	/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ */
+	// 	/* ¼ÆËã×ÜÒ³Êý£¬ÐÞÕýÒ³Âë */
 	// 	total_pages = (online_count + 19) / 20;
 	// 	if (total_pages == 0)
 	// 		total_pages = 1;
 	// 	if (g_screen69_page >= total_pages)
 	// 		g_screen69_page = total_pages - 1;
 
-	// 	/* ï¿½ï¿½Ç°Ò³ï¿½ï¿½Î§ */
+	// 	/* µ±Ç°Ò³·¶Î§ */
 	// 	start = g_screen69_page * 20;
 	// 	end = start + 20;
 	// 	if (end > online_count)
@@ -3348,7 +3348,7 @@ void UpdateUI(void)
 	// 		}
 	// 	}
 
-	// 	/* ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ø¼ï¿½Ê±Ò²Òªï¿½å»ºï¿½ï¿½ */
+	// 	/* Çå¿ÕÊ£Óà¿Ø¼þÊ±Ò²ÒªÇå»º´æ */
 	// 	for (; ctrl_idx < 20; ctrl_idx++)
 	// 	{
 	// 		if (g_screen69_prev[ctrl_idx][0] != '\0')
@@ -3358,14 +3358,14 @@ void UpdateUI(void)
 	// 		}
 	// 	}
 
-	// 	// /* ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ */ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½
+	// 	// /* Öð¸öÏÔÊ¾ */ÒòÎ´»áÔì³ÉÆµÉÁËùÒÔÉ¾³ý
 	// 	// for (ctrl_idx = 0, list_idx = start; list_idx < end; ctrl_idx++, list_idx++)
 	// 	// {
 	// 	// 	FormatScreen69DetectorText(pack_circuit, online_list[list_idx], temp_buff);
 	// 	// 	SetTextValue(current_screen_id, ctrl_idx + 1, temp_buff);
 	// 	// }
 
-	// 	/* ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ø¼ï¿½ */
+	// 	/* Çå¿ÕÊ£Óà¿Ø¼þ */
 	// 	for (; ctrl_idx < 20; ctrl_idx++)
 	// 	{
 	// 		SetTextValue(current_screen_id, ctrl_idx + 1, (uint8_t *)"");
@@ -3415,7 +3415,7 @@ void UpdateUI(void)
 				cache->active = 0U;
 			}
 
-			/* XR5000_SCREEN69_FLICKER_FIX_20260727: ï¿½ï¿½ï¿½ï¿½Ô­Ê¼ï¿½ï¿½ï¿½ï¿½Öµï¿½È½Ï£ï¿½ï¿½ï¿½ï¿½strcmpï¿½Ö·ï¿½ï¿½ï¿½ï¿½È½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ */
+			/* XR5000_SCREEN69_FLICKER_FIX_20260727: ¸ÄÓÃÔ­Ê¼Êý¾ÝÖµ±È½Ï£¬Ìæ´ústrcmp×Ö·û´®±È½Ï£¬±ÜÃâÆµÉÁ */
 			if (screen69_circuit == 1)
 			{
                 uint8_t type = getPointTypeMixtureDetectName(addr);
@@ -3501,26 +3501,26 @@ void UpdateUI(void)
 			}
 		}
 	}
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// ÐÂÔö¼ÓÄÚÈÝ
 	InternalScreenLinkageMonitorUpdataUI(current_screen_id);
 	
 	OutFireDeviceInternalScreenUpdataUI(current_screen_id, out_fire_start_ctrl);
 	
 	FireAlarmTriggerLogicUpdataUI(current_screen_id, fire_alarm_logic_ctrl, fire_alarm_judge);
-	LogicScreen_UpdateUI(current_screen_id); /* Ë¢ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ */
+	LogicScreen_UpdateUI(current_screen_id); /* Ë¢ÐÂÂß¼­ÆÁÄ»µ±Ç°»­Ãæ */
 	
 	FireAlarmThresholdUpdataUI(current_screen_id, fire_alarm_threshold);
-	/* ï¿½Â¼Ó¹ï¿½ï¿½Ü£ï¿½FCP-1011ï¿½ï¿½Â·ï¿½ï¿½ï¿½Æ°å£»Ê±ï¿½ä£º2026-08-06 */
+	/* ÐÂ¼Ó¹¦ÄÜ£ºFCP-1011ÁùÂ·¿ØÖÆ°å£»Ê±¼ä£º2026-08-06 */
 	CanMonitorRefreshDisplay(current_screen_id);
 	DeviceThreshold_UpdateUI(current_screen_id, getCurrentSystemRunState() == 2U);
 }
 /*! 
-*  \brief  Í¼ï¿½ê°´Å¥ï¿½Ø¼ï¿½Í¨Öª
-*  \details  ï¿½ï¿½ï¿½ï¿½Å¥×´Ì¬ï¿½Ä±ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½GetControlValue)Ê±ï¿½ï¿½Ö´ï¿½Ð´Ëºï¿½ï¿½ï¿½
-*  \param screen_id ï¿½ï¿½ï¿½ï¿½ID
-*  \param control_id ï¿½Ø¼ï¿½ID
-*  \param state ï¿½ï¿½Å¥×´Ì¬ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½
-*  \param tubiaobh Í¼ï¿½ï¿½Ö¡ï¿½ï¿½Å£ï¿½0ï¿½ï¿½0Ö¡ï¿½ï¿½1ï¿½ï¿½1Ö¡ï¿½ï¿½2ï¿½ï¿½2Ö¡...
+*  \brief  Í¼±ê°´Å¥¿Ø¼þÍ¨Öª
+*  \details  µ±°´Å¥×´Ì¬¸Ä±ä(»òµ÷ÓÃGetControlValue)Ê±£¬Ö´ÐÐ´Ëº¯Êý
+*  \param screen_id »­ÃæID
+*  \param control_id ¿Ø¼þID
+*  \param state °´Å¥×´Ì¬£º0µ¯Æð£¬1°´ÏÂ
+*  \param tubiaobh Í¼±êÖ¡±àºÅ£º0µÚ0Ö¡£¬1µÚ1Ö¡£¬2µÚ2Ö¡...
 */
 void TB_sahngchuan(uint16 screen_id, uint16 control_id, uint8  state, uint8  tubiaobh)
 { 
@@ -3535,11 +3535,11 @@ void TB_sahngchuan(uint16 screen_id, uint16 control_id, uint8  state, uint8  tub
 	}
 }
 /*! 
-*  \brief  ï¿½ï¿½Å¥ï¿½Ø¼ï¿½Í¨Öª
-*  \details  ï¿½ï¿½ï¿½ï¿½Å¥×´Ì¬ï¿½Ä±ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½GetControlValue)Ê±ï¿½ï¿½Ö´ï¿½Ð´Ëºï¿½ï¿½ï¿½
-*  \param screen_id ï¿½ï¿½ï¿½ï¿½ID
-*  \param control_id ï¿½Ø¼ï¿½ID
-*  \param state ï¿½ï¿½Å¥×´Ì¬ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½
+*  \brief  °´Å¥¿Ø¼þÍ¨Öª
+*  \details  µ±°´Å¥×´Ì¬¸Ä±ä(»òµ÷ÓÃGetControlValue)Ê±£¬Ö´ÐÐ´Ëº¯Êý
+*  \param screen_id »­ÃæID
+*  \param control_id ¿Ø¼þID
+*  \param state °´Å¥×´Ì¬£º0µ¯Æð£¬1°´ÏÂ
 */
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 {
@@ -3557,7 +3557,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					beep_general_io_ctrl     != 0
 			) 
 			{
-				silencers_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾
+				silencers_state = 1; // ÏûÒô±êÖ¾
 			}
 			// end
 			beep_fire_ctrl = 0;
@@ -3568,7 +3568,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			beep_spray_feedback_ctrl = 0;
 			beep_general_io_ctrl = 0; // 
 		}
-		else if(control_id==3 && state == 1)  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		else if(control_id==3 && state == 1)  // Èç¹û°´µÄÊÇÉèÖÃ
 		{
 			if(mimajiyi == 0)
 			{
@@ -3583,7 +3583,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				bsp_screen_switch_ctrl.switch_flag = 1;
 			}
 		}
-		else if(control_id == 32 && state == 1)  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+		else if(control_id == 32 && state == 1)  // Èç¹û°´µÄÊÇµ÷ÕûÊ±¼ä
 		{
 			EnterTimeDateSettingWithPassword(); /* XR5000_TIME_DATE_ENTRY_REUSE_20260802 */
 		}
@@ -3591,7 +3591,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		{
 			if(license_allow_use_state == 1)
 			{
-				setKeyValue(DEVICE_CTRL_KEY); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½ï¿½ï¿½Ä»ï¿½Ä°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				setKeyValue(DEVICE_CTRL_KEY); // ¸ø°´¼ü¸³Öµ ±íÃ÷ÊÇÐÞ¸ÄÆÁÄ»µÄ°´¼ü°´ÏÂ
 				SwitchCurrentScreenId(53);
 				bsp_screen_switch_ctrl.target_screen = 53;
 				bsp_screen_switch_ctrl.switch_flag = 1;
@@ -3604,16 +3604,16 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				SwitchToMonitorPageFrom(current_screen_id); /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
 			}
 		}
-		else if(control_id == 1 && state == 1) // ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½
+		else if(control_id == 1 && state == 1) // Èç¹û²Ëµ¥°´ÏÂ
 		{
 			if(license_allow_use_state == 1)
 			{
-				//Ô­Ê¼ï¿½ï¿½ï¿½æ£¬ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½Ä»ID8
+				//Ô­Ê¼½çÃæ£¬ÇÐµ½ÁËÆÁÄ»ID8
 				// SwitchCurrentScreenId(8);
 				// bsp_screen_switch_ctrl.target_screen = 8;
 				// bsp_screen_switch_ctrl.switch_flag = 1;
 
-				//ï¿½Â½ï¿½ï¿½ï¿½
+				//ÐÂ½çÃæ
 				SwitchCurrentScreenId(68);
 				bsp_screen_switch_ctrl.target_screen = 68;
 				bsp_screen_switch_ctrl.switch_flag = 1;
@@ -3624,9 +3624,9 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		SimulationSerialPortButtonCtrl(&sspa, control_id, state);
 	}
-	else if(screen_id == 4) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ß½ï¿½ï¿½ï¿½
+	else if(screen_id == 4) // Èç¹ûÊÇÐÂµÄÉè±¸ÉÏÏÂÏß½çÃæ
 	{
-		if(control_id == 45 && state == 1) // Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ß°ï¿½ï¿½ï¿½
+		if(control_id == 45 && state == 1) // Ò»¼üÉÏÏß°´ÏÂ
 		{
 			uint8_t modify_flag = 0;
 			for(uint8_t i = 0; i < 32; i++)
@@ -3636,7 +3636,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					pack_online_buff[pack_circuit][i + 1] = 1;
 					modify_flag = 1;
 				}
-				// ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
+				// ½«×´Ì¬±ä¸üÎª¿ªÆô
 				setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i], 1);
 			}
 			if(modify_flag == 1)
@@ -3644,7 +3644,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				Save_Pack_Set_Online_State();
 			}
 		}
-		else if(control_id == 55 && state == 1) // Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ß°ï¿½ï¿½ï¿½
+		else if(control_id == 55 && state == 1) // Ò»¼üÏÂÏß°´ÏÂ
 		{
 			uint8_t modify_flag = 0;
 			for(uint8_t i = 0; i < 32; i++)
@@ -3655,7 +3655,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					modify_flag = 1;
 				}
 				
-				// ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
+				// ½«×´Ì¬±ä¸üÎª¿ªÆô
 				setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i], 0);
 			}
 			if(modify_flag == 1)
@@ -3792,7 +3792,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		{
 			if(control_id == 5)
 			{
-				setKeyValue(DEVICE_CTRL_KEY); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½ï¿½ï¿½Ä»ï¿½Ä°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				setKeyValue(DEVICE_CTRL_KEY); // ¸ø°´¼ü¸³Öµ ±íÃ÷ÊÇÐÞ¸ÄÆÁÄ»µÄ°´¼ü°´ÏÂ
 			
 				SwitchCurrentScreenId(53);
 				bsp_screen_switch_ctrl.target_screen = 53;
@@ -3804,7 +3804,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			}
 			else if(control_id == 23)
 			{
-				setKeyValue(SIMU_SERIAL_PORT); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½ï¿½ï¿½Ä»ï¿½Ä°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				setKeyValue(SIMU_SERIAL_PORT); // ¸ø°´¼ü¸³Öµ ±íÃ÷ÊÇÐÞ¸ÄÆÁÄ»µÄ°´¼ü°´ÏÂ
 			
 				SwitchCurrentScreenId(53);
 				bsp_screen_switch_ctrl.target_screen = 53;
@@ -3812,7 +3812,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			}
 			else if(control_id == 24)
 			{
-				setKeyValue(LINKAGE_PROGREM); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½ï¿½ï¿½Ä»ï¿½Ä°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				setKeyValue(LINKAGE_PROGREM); // ¸ø°´¼ü¸³Öµ ±íÃ÷ÊÇÐÞ¸ÄÆÁÄ»µÄ°´¼ü°´ÏÂ
 			
 				SwitchCurrentScreenId(53);
 				bsp_screen_switch_ctrl.target_screen = 53;
@@ -3821,13 +3821,13 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		}
 		RecordSwitchButtonCtrl(&bsrr, control_id, state);
 	}
-	else if(screen_id ==17)//ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ß´Ø¼ï¿½Ò³ï¿½ï¿½
+	else if(screen_id ==17)//Éè±¸ÉÏÏÂÏß´Ø¼¶Ò³Ãæ
   {
-			if(state==0)//ï¿½ï¿½ï¿½ï¿½
+			if(state==0)//µ¯Æð
 			{
 				switch(control_id)
 				{
-					case 5: cu_sxzt[1]=0;cu_tcq_sxzt[1]=0;CU_zx_buf[1]=0;break;//20240202ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½CU_zx_buf[1]=0;ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½Øµï¿½ï¿½ßºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß£ï¿½ï¿½ï¿½Ä´ï¿½ï¿½Ù±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Å²ï¿½ï¿½ï¿½
+					case 5: cu_sxzt[1]=0;cu_tcq_sxzt[1]=0;CU_zx_buf[1]=0;break;//20240202Ôö¼ÓÁËCU_zx_buf[1]=0;·ÀÖ¹Õû´ØµôÏßºó£¬ÉèÖÃÏÂÏß£¬±ðµÄ´ØÔÙ±¨µôÏßÏÔÊ¾±àºÅ²»¶Ô
 					case 8: cu_sxzt[2]=0;cu_tcq_sxzt[2]=0;CU_zx_buf[2]=0;break;
 					case 11: cu_sxzt[3]=0;cu_tcq_sxzt[3]=0;CU_zx_buf[3]=0;break;
 					case 14: cu_sxzt[4]=0;cu_tcq_sxzt[4]=0;CU_zx_buf[4]=0;break;
@@ -3849,10 +3849,10 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					case 68: cu_sxzt[19]=0;cu_tcq_sxzt[19]=0;CU_zx_buf[19]=0;break;
 					case 71: cu_sxzt[20]=0;cu_tcq_sxzt[20]=0;CU_zx_buf[20]=0;break;
 				}
-				Save_cu_sxzt();//ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+				Save_cu_sxzt();//´æ´¢´ØÉÏÏß×´Ì¬
 				Save_cutcq_sxzt();
 				
-				SetTextInt32(17,6,cu_tcq_sxzt[1],0,1);//ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½æ£¬ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½0-ï¿½Þ·ï¿½ï¿½Å¡ï¿½1-ï¿½Ð·ï¿½ï¿½Å£ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½à²¹ï¿½ã£©
+				SetTextInt32(17,6,cu_tcq_sxzt[1],0,1);//ÉèÖÃÎÄ±¾ÎªÕûÊý£¬£¨Ò³Ãæ£¬¿Ø¼þ£¬ÊýÖµ£¬0-ÎÞ·ûºÅ¡¢1-ÓÐ·ûºÅ£¬Êý×ÖÎ»Êý£¬²»×ãÊ±×ó²à²¹Áã£©
 				SetTextInt32(17,9,cu_tcq_sxzt[2],0,1);
 				SetTextInt32(17,12,cu_tcq_sxzt[3],0,1);
 				SetTextInt32(17,15,cu_tcq_sxzt[4],0,1);
@@ -3874,7 +3874,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				SetTextInt32(17,67,cu_tcq_sxzt[19],0,1);
 				SetTextInt32(17,70,cu_tcq_sxzt[20],0,1);
 			}
-			else if(state==1)//ï¿½ï¿½ï¿½ï¿½
+			else if(state==1)//°´ÏÂ
 			{
 				switch(control_id)
 				{
@@ -3900,12 +3900,12 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					case 68: cu_sxzt[19]=1;break;
 					case 71: cu_sxzt[20]=1;break;
 				}
-				Save_cu_sxzt();//ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+				Save_cu_sxzt();//´æ´¢´ØÉÏÏß×´Ì¬
 			}
 	}
-	else if(screen_id ==18)//ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ß²Ö¼ï¿½Ò³ï¿½ï¿½
+	else if(screen_id ==18)//Éè±¸ÉÏÏÂÏß²Ö¼¶Ò³Ãæ
   {
-		if(state==0)//ï¿½ï¿½ï¿½ï¿½
+		if(state==0)//µ¯Æð
 		{
 			switch(control_id)
 			{
@@ -3930,15 +3930,15 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				case 40: cang_sxzt[18]=0;Cang_zx_buf[18]=0;break;
 				case 43: cang_sxzt[19]=0;Cang_zx_buf[19]=0;break;
 				case 46: cang_sxzt[20]=0;Cang_zx_buf[20]=0;break;
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ÐÂÔö¼ÓÄÚÈÝ
 				case 51: cang_sxzt[21]=0;Cang_zx_buf[21]=0;break;
 				case 52: cang_sxzt[22]=0;Cang_zx_buf[22]=0;break;
 				case 53: cang_sxzt[23]=0;Cang_zx_buf[23]=0;break;
 				case 54: cang_sxzt[24]=0;Cang_zx_buf[24]=0;break;
 			}
-			Save_cang_sxzt();//ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+			Save_cang_sxzt();//´æ´¢²ÖÉÏÏß×´Ì¬
 		}
-		else if(state==1)//ï¿½ï¿½ï¿½ï¿½
+		else if(state==1)//°´ÏÂ
 		{
 			switch(control_id)
 			{
@@ -3963,20 +3963,20 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				case 40: cang_sxzt[18]=1;break;
 				case 43: cang_sxzt[19]=1;break;
 				case 46: cang_sxzt[20]=1;break;
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ÐÂÔö¼ÓÄÚÈÝ
 				case 51: cang_sxzt[21]=1;break;
 				case 52: cang_sxzt[22]=1;break;
 				case 53: cang_sxzt[23]=1;break;
 				case 54: cang_sxzt[24]=1;break;
 			}
-			Save_cang_sxzt();//ï¿½ï¿½Ö´ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+			Save_cang_sxzt();//´æ²Ö´ØÉÏÏß×´Ì¬
 		}
 	}
 	else if(screen_id == 19)
   {
 		if(control_id==4 && state == 1)                                            
 		{
-			SetTextValue(1, 4, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½...ï¿½ï¿½ï¿½Ôºï¿½...");
+			SetTextValue(1, 4, "¿ØÖÆÆ÷¸´Î»ÖÐ...ÇëÉÔºò...");
 			if(ONLINE_TIMEOUT > 6)
 			{
 				kaijiyanshi = ONLINE_TIMEOUT - 6;
@@ -3999,7 +3999,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	}
 	else if(screen_id == 23)
 	{
-		if(mimajiyi == 0) // ï¿½Ã»ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ 4.25ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		if(mimajiyi == 0) // ÓÃ»§Î´ÊäÈëÃÜÂë »òÕß 4.25·ÖÖÓÒÑ¹ý ÐèÒªÖØÐÂÊäÈëÃÜÂë
 		{
 			if(control_id==4 && state == 1)                                            
 			{
@@ -4007,20 +4007,20 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				{ 
 					yonghumima=0;
 					mimajiyi++;
-					clearTextValue(23,2);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					SetScreen(2);	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½æµ½ï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½
+					clearTextValue(23,2);//(»­ÃæID,¿Ø¼þID£©
+					SetScreen(2);	//£¨»­ÃæID£©ÇÐ»»»­Ãæµ½ÉèÖÃ½çÃæ
 					osDelay(10);
 					GetScreen();
 					current_screen_id=2;
 				}else
 				{
-					clearTextValue(23,2);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					SetTextValue(23, 2, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+					clearTextValue(23,2);//(»­ÃæID,¿Ø¼þID£©
+					SetTextValue(23, 2, "ÃÜÂë´íÎó£¡");
 				}
 			}
 		}
 	}
-	//ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
+	//ÉèÖÃÓÃ»§ÃÜÂë
 	else if(screen_id == 24)
 	{
 		if(control_id==4 && state == 1)                                                            //
@@ -4032,23 +4032,23 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					SystemSaveInfo.user_password = yonghumm3;
 					SystemInfoSave();
 					SystemInfoLoad();
-					SetTextValue(24,7,"ï¿½ï¿½ï¿½Ã³É¹ï¿½ï¿½ï¿½");
+					SetTextValue(24,7,"ÉèÖÃ³É¹¦£¡");
 					mmsdSTA=4;
 				}
 				else if(yonghumm2 != yonghumm3)
 				{
-					SetTextValue(24,7,"ï¿½ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î²ï¿½Ò»ï¿½ï¿½ï¿½ï¿½");
+					SetTextValue(24,7,"ÉèÖÃÊ§°Ü£¬ÐÂÃÜÂëÁ½´Î²»Ò»Ñù£¡");
 				}
 			}
 			else if(yonghumm1!=SystemSaveInfo.user_password)
 			{
-				SetTextValue(24,7,"ï¿½ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½Ô­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+				SetTextValue(24,7,"ÉèÖÃÊ§°Ü£¬Ô­ÃÜÂë´íÎó£¡");
 			}				
 		}
 	}
 	else if(screen_id ==26)//
 	{
-		if(state==0)//ï¿½ï¿½ï¿½ï¿½
+		if(state==0)//µ¯Æð
 		{
 			switch(control_id)
 			{
@@ -4073,15 +4073,15 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				case 40: cang_pbzt[18]=0;break;
 				case 43: cang_pbzt[19]=0;break;
 				case 46: cang_pbzt[20]=0;break;
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ÐÂÔö¼ÓÄÚÈÝ
 				case 51: cang_pbzt[21]=0;break;
 				case 52: cang_pbzt[22]=0;break;
 				case 53: cang_pbzt[23]=0;break;
 				case 54: cang_pbzt[24]=0;break;
 			}
-			Save_cang_pbzt();//ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+			Save_cang_pbzt();//´æ´¢²ÖÆÁ±Î×´Ì¬
 		}else
-		if(state==1)//ï¿½ï¿½ï¿½ï¿½
+		if(state==1)//°´ÏÂ
 		{
 			switch(control_id)
 			{
@@ -4106,13 +4106,13 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				case 40: cang_pbzt[18]=1;break;
 				case 43: cang_pbzt[19]=1;break;
 				case 46: cang_pbzt[20]=1;break;
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ÐÂÔö¼ÓÄÚÈÝ
 				case 51: cang_pbzt[21]=1;break;
 				case 52: cang_pbzt[22]=1;break;
 				case 53: cang_pbzt[23]=1;break;
 				case 54: cang_pbzt[24]=1;break;
 			}
-			Save_cang_pbzt();//ï¿½ï¿½Ö´ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ pack_bianhaobuf
+			Save_cang_pbzt();//´æ²Ö´ØÆÁ±Î×´Ì¬ pack_bianhaobuf
 		}
 	}
 	else if(screen_id == 46) 
@@ -4126,14 +4126,14 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		if(control_id == 1 && state == 1)                                            
 		{
-			SystemInfoSave(); // ï¿½ï¿½ï¿½ï¿½ï¿½Ã³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½ï¿½Ë³ï¿½ï¿½Ù±ï¿½ï¿½ï¿½ï¿½EEPROM
+			SystemInfoSave(); // ´ÓÉèÖÃ³ö³§ÈÕÆÚ½çÃæÍË³öÔÙ±£´æ½øEEPROM
 		}
 	}
 	else if(screen_id == 71U)
 	{
 		if(control_id == 300U && state == 1U)
 		{
-			/* ï¿½Â¼Ó¹ï¿½ï¿½Ü£ï¿½FCP-1011ï¿½ï¿½Â·ï¿½ï¿½ï¿½Æ°å£»Ê±ï¿½ä£º2026-08-06 */
+			/* ÐÂ¼Ó¹¦ÄÜ£ºFCP-1011ÁùÂ·¿ØÖÆ°å£»Ê±¼ä£º2026-08-06 */
 			bsp_screen_switch_ctrl.target_screen = 68U;
 			bsp_screen_switch_ctrl.switch_flag = 1U;
 			SwitchCurrentScreenId(68U);
@@ -4157,25 +4157,25 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			{
 				switch(getKeyPressValue())
 				{
-					case SELFCHECK_KEY: { // ï¿½Ô¼ï¿½
-						SetScreen(1);	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È· ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					case SELFCHECK_KEY: { // ×Ô¼ì
+						SetScreen(1);	// ÃÜÂëÕýÈ· »ØÖ÷½çÃæ
 						osDelay(5);
 						GetScreen();
-						SetTextValue(1, 4, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½...ï¿½ï¿½ï¿½Ôºï¿½...");
+						SetTextValue(1, 4, "¿ØÖÆÆ÷¸´Î»ÖÐ...ÇëÉÔºò...");
 						BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_SELF_CHECK, LINKAGE_CLUSTER_ID, SYS_SELFCHECK_Package_ID);
-						StorageEvent_LogSelfCheck(0U); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½Ô¼ï¿½ï¿½Â¼ï¿½(EVT_SELF_CHECK=123) */
+						StorageEvent_LogSelfCheck(0U); /* ºÚÏ»×Ó:×Ô¼ìÊÂ¼þ(EVT_SELF_CHECK=123) */
 						SpecialSelfCheckLedCtrl(LED_ON);
 
 						break;
 					}
-					case SILENSE_KEY: // ï¿½ï¿½ï¿½ï¿½
+					case SILENSE_KEY: // ÏûÒô
 						break;
-					case RESET_KEY: {  // ï¿½ï¿½Î» 
-						// ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤Í¨ï¿½ï¿½
-						SetScreen(1);	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È· ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					case RESET_KEY: {  // ¸´Î» 
+						// ¸´Î»ÃÜÂëÑéÖ¤Í¨¹ý
+						SetScreen(1);	// ÃÜÂëÕýÈ· »ØÖ÷½çÃæ
 						osDelay(5);
 						GetScreen();
-						SetTextValue(1, 4, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½...ï¿½ï¿½ï¿½Ôºï¿½...");
+						SetTextValue(1, 4, "¿ØÖÆÆ÷¸´Î»ÖÐ...ÇëÉÔºò...");
 						BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_RESET, LINKAGE_CLUSTER_ID, SYS_RESET_Package_ID);
 						if(ONLINE_TIMEOUT > 6)
 						{
@@ -4192,8 +4192,8 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						/* XR5000_CHECK_CHANGE_20260804: legacy password entry is intentionally retired. */
 						setKeyValue(NONE_KEY);
 						break;
-					case MODIFY_TIME_KEY:  // ï¿½Þ¸ï¿½Ê±ï¿½ä°´ï¿½ï¿½
-						SetScreen(41);	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³
+					case MODIFY_TIME_KEY:  // ÐÞ¸ÄÊ±¼ä°´¼ü
+						SetScreen(41);	// ½øÈë¶þ¼¶ÃÜÂëÒ³
 						osDelay(5);
 						GetScreen();
 						break;
@@ -4203,7 +4203,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						GetScreen();
 						break;
 					}
-					case DEVICE_SHIELD_KEY: { // XR5000_DEVICE_SHIELD_ENTRY_20260802: ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+					case DEVICE_SHIELD_KEY: { // XR5000_DEVICE_SHIELD_ENTRY_20260802: Éè±¸ÆÁ±Î
 						SetScreen(70);
 						osDelay(5);
 						GetScreen();
@@ -4223,10 +4223,10 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						
 						break;
 					}
-					case SIREN_KEY:    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-						screen_show_siren_information ^= 0x0F; // ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½Î»×´Ì¬
+					case SIREN_KEY:    // ±¨¾¯Æ÷Æô¶¯
+						screen_show_siren_information ^= 0x0F; // ·­×ªµÍËÄÎ»×´Ì¬
 						break;
-					case LINKAGE_START_KEY: // ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+					case LINKAGE_START_KEY: // ÍâÁªÉè±¸Æô¶¯
 						linkage_start_key_press_flag = 1;
 						break;
 					case PART1_SPRY_START:
@@ -4236,7 +4236,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						FireExtinguishDevice2HandStart(&fedas);
 						break;
 					default:
-						SetScreen(1);	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³
+						SetScreen(1);	// ½øÈë¶þ¼¶ÃÜÂëÒ³
 						osDelay(5);
 						GetScreen();
 						break;
@@ -4245,7 +4245,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			}
 			else if(yonghumima == 114514)
 			{
-				SetScreen(3);	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³
+				SetScreen(3);	// ½øÈë¶þ¼¶ÃÜÂëÒ³
 				osDelay(5);
 				GetScreen();
 			}
@@ -4264,7 +4264,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		InternalScreenRecordShiftButtonCtrl(&bsrr, control_id, state);
 	}
-	else if(screen_id == 58) // ï¿½Ö¶ï¿½Ç¿ï¿½ï¿½Ä³Ò»ï¿½ï¿½
+	else if(screen_id == 58) // ÊÖ¶¯Ç¿ÆôÄ³Ò»´Ø
 	{
 		HandForceStartAnyCluster(&fedas, control_id, state);
 	}
@@ -4295,7 +4295,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		CompositeDetectorButtonCtrlApp(&cpsc, control_id, state);
 	}
 
-	//2026/7/22ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	//2026/7/22ÐÂÔöÄÚÈÝ
 	else if (screen_id == 69)
 	{
 		if (state == 1)
@@ -4323,7 +4323,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	}
 	InternalLinkageMonitorButtonDeal(screen_id, control_id, state);
 	FireAlarmTriggerLogicButtonSet(screen_id, control_id, state, &fire_alarm_logic_ctrl);
-	LogicScreen_OnButton(screen_id, control_id, state); /* ï¿½ß¼ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Å¥ï¿½ï¿½ï¿½ï¿½ */
+	LogicScreen_OnButton(screen_id, control_id, state); /* Âß¼­ÆÁÄ»°´Å¥´¦Àí */
 	SuperAdminButtonCtrl(screen_id, control_id, state, &button_ctrl);
 	SuperAdminPasswordButtonCtrl(screen_id, control_id, state, &super_admin_password);
 	
@@ -4331,30 +4331,30 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 
 
 /*! 
-*  \brief  ï¿½Ä±ï¿½ï¿½Ø¼ï¿½Í¨Öª
-*  \details  ï¿½ï¿½ï¿½Ä±ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½Ì¸ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½GetControlValue)Ê±ï¿½ï¿½Ö´ï¿½Ð´Ëºï¿½ï¿½ï¿½
-*  \details  ï¿½Ä±ï¿½ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½Â·ï¿½ï¿½ï¿½MCUï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¸ï¿½ï¿½ï¿½Öµï¿½ï¿½
-*  \details  ï¿½ï¿½ï¿½ï¿½Òªï¿½Ú´Ëºï¿½ï¿½ï¿½ï¿½Ð½ï¿½ï¿½Â·ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½Ø¸ï¿½ï¿½ï¿½Öµï¿½ï¿½
-*  \param screen_id ï¿½ï¿½ï¿½ï¿½ID
-*  \param control_id ï¿½Ø¼ï¿½ID
-*  \param str ï¿½Ä±ï¿½ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½
+*  \brief  ÎÄ±¾¿Ø¼þÍ¨Öª
+*  \details  µ±ÎÄ±¾Í¨¹ý¼üÅÌ¸üÐÂ(»òµ÷ÓÃGetControlValue)Ê±£¬Ö´ÐÐ´Ëº¯Êý
+*  \details  ÎÄ±¾¿Ø¼þµÄÄÚÈÝÒÔ×Ö·û´®ÐÎÊ½ÏÂ·¢µ½MCU£¬Èç¹ûÎÄ±¾¿Ø¼þÄÚÈÝÊÇ¸¡µãÖµ£¬
+*  \details  ÔòÐèÒªÔÚ´Ëº¯ÊýÖÐ½«ÏÂ·¢×Ö·û´®ÖØÐÂ×ª»Ø¸¡µãÖµ¡£
+*  \param screen_id »­ÃæID
+*  \param control_id ¿Ø¼þID
+*  \param str ÎÄ±¾¿Ø¼þÄÚÈÝ
 */
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
    { 
-			if(control_id == 25) // ï¿½Þ¸ï¿½CAN2IDï¿½ï¿½Ö·
+			if(control_id == 25) // ÐÞ¸ÄCAN2IDµØÖ·
       {
 				int32 value=0;  			
 				sscanf((const char*)(char*)str,"%ld",&value); 
-				SystemSaveInfo.can2_slave_addr = value;//MODBUSï¿½ï¿½Ö·
+				SystemSaveInfo.can2_slave_addr = value;//MODBUSµØÖ·
 				SystemInfoSave();
 				SystemInfoLoad();
 			}
-			else if(control_id == 30) // ï¿½Þ¸Ä³ï¿½Õ¾485ï¿½ï¿½Ö·
+			else if(control_id == 30) // ÐÞ¸Ä³¡Õ¾485µØÖ·
       {
 				int32 value=0;  			
 				sscanf((const char*)(char*)str,"%ld",&value); 
-				SystemSaveInfo.slave_addr485_Station = value;//MODBUSï¿½ï¿½Ö·
+				SystemSaveInfo.slave_addr485_Station = value;//MODBUSµØÖ·
 				SystemInfoSave();
 				SystemInfoLoad();
 			}
@@ -4362,12 +4362,12 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 			{
 				int32 value=0;  			
 				sscanf((const char*)(char*)str,"%ld",&value); 
-				SystemSaveInfo.slave_addr485_EMS = value;//MODBUSï¿½ï¿½Ö·
+				SystemSaveInfo.slave_addr485_EMS = value;//MODBUSµØÖ·
 				SystemInfoSave();
 				SystemInfoLoad();
 			}
 		}
-    if(screen_id==2)                                                                 //ï¿½ï¿½ï¿½ï¿½ID2ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½Ãºï¿½ï¿½ï¿½Ê¾
+    if(screen_id==2)                                                                 //»­ÃæID2£ºÎÄ±¾ÉèÖÃºÍÏÔÊ¾
     {                                                                            
 			
     }
@@ -4385,7 +4385,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 					int8_t success_len;
 					int32_t x,y;
 					success_len = sscanf((const char*)str, "%d.%d", &x, &y);  
-					if(success_len == 2 && x >0 && y > 0) // ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½ ï¿½ï¿½ï¿½ï¿½x yï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					if(success_len == 2 && x >0 && y > 0) // ½âÎö³É¹¦ ²¢ÇÒx y´óÓÚÁã
 					{
 						uint8_t modify_flag = 0;
 						if (x > y)
@@ -4401,16 +4401,16 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 								pack_online_buff[pack_circuit][i] = 1;
 								modify_flag = 1;	
 							}
-							// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½×´Ì¬
+							// ÏÔÊ¾ÆôÓÃ×´Ì¬
 							setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i - 1], 1);
 						}
 						if(modify_flag == 1)
 						{
-							Save_Pack_Set_Online_State(); // ï¿½ï¿½ï¿½ï¿½ï¿½Î²ï¿½Ð´FLASH
+							Save_Pack_Set_Online_State(); // ±ÜÃâ¶à´Î²ÁÐ´FLASH
 						}
 					}
 				}
-				SetTextValue(4, 2, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+				SetTextValue(4, 2, "ÅúÁ¿ÉÏÏß");
 			}
 		}
 		else if(screen_id == 5)
@@ -4427,7 +4427,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 					int8_t success_len;
 					int32_t x,y;
 					success_len = sscanf((const char*)str, "%d.%d", &x, &y);  
-					if(success_len == 2 && x >0 && y > 0) // ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½ ï¿½ï¿½ï¿½ï¿½x yï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					if(success_len == 2 && x >0 && y > 0) // ½âÎö³É¹¦ ²¢ÇÒx y´óÓÚÁã
 					{
 						switch(pack_circuit)
 						{
@@ -4448,11 +4448,11 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 										PointTypeMixtureOnlieStateSingleSetting(i, 1);  
 										modify_flag = 1;
 									}
-									// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½×´Ì¬
+									// ÏÔÊ¾ÆôÓÃ×´Ì¬
 								}
 								if (modify_flag == 1)
 								{
-									SavePointTypeSetOnlieState();  // ï¿½ï¿½ï¿½ï¿½ï¿½Î²ï¿½Ð´FLASH
+									SavePointTypeSetOnlieState();  // ±ÜÃâ¶à´Î²ÁÐ´FLASH
 								}
 							}
 								break;
@@ -4513,7 +4513,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 					}
 				}
 			}
-			SetTextValue(6, 2, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+			SetTextValue(6, 2, "ÅúÁ¿ÉÏÏß");
 		}
 		else if(screen_id == 10)
 		{
@@ -4521,7 +4521,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 			{
 				uint8_t len = strlen((char *)str);
 				
-				SetTextValue(10, 8, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ID");
+				SetTextValue(10, 8, "ÇëÊäÈëÔ¤ÖÃÐí¿ÉÖ¤ID");
 				if(len != 10)
 				{
 					return;
@@ -4538,7 +4538,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				{
 					uint8_t len = 0;
 					uint8_t buff[32] = {0};
-					len = sprintf((char *)buff, "ï¿½ï¿½Ç°Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤:");
+					len = sprintf((char *)buff, "µ±Ç°Ô¤ÖÃÐí¿ÉÖ¤:");
 					for(uint8_t i = 0; i < 10; i++)
 					{
 						buff[len + i] = SystemSaveInfo.pref_license_store[i];
@@ -4547,7 +4547,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				}
 				else
 				{
-					SetTextValue(10, 9, "ï¿½ï¿½Ç°Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤:ï¿½ï¿½");
+					SetTextValue(10, 9, "µ±Ç°Ô¤ÖÃÐí¿ÉÖ¤:ÎÞ");
 				}
 
 			}
@@ -4555,33 +4555,33 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 		else if(screen_id==17)  
     {                                                                           
         int32 value=0;  
-        sscanf((const char*)str, "%ld", &value);    //ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ 
+        sscanf((const char*)str, "%ld", &value);    //°Ñ×Ö·û´®×ª»»ÎªÕûÊý 
 				switch(control_id)
 				{
-					case 6:if(cu_sxzt[1]==1){cu_tcq_sxzt[1]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 9:if(cu_sxzt[2]==1){cu_tcq_sxzt[2]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 12:if(cu_sxzt[3]==1){cu_tcq_sxzt[3]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 15:if(cu_sxzt[4]==1){cu_tcq_sxzt[4]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 18:if(cu_sxzt[5]==1){cu_tcq_sxzt[5]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 21:if(cu_sxzt[6]==1){cu_tcq_sxzt[6]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 26:if(cu_sxzt[7]==1){cu_tcq_sxzt[7]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 29:if(cu_sxzt[8]==1){cu_tcq_sxzt[8]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 32:if(cu_sxzt[9]==1){cu_tcq_sxzt[9]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 35:if(cu_sxzt[10]==1){cu_tcq_sxzt[10]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 38:if(cu_sxzt[11]==1){cu_tcq_sxzt[11]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 41:if(cu_sxzt[12]==1){cu_tcq_sxzt[12]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
+					case 6:if(cu_sxzt[1]==1){cu_tcq_sxzt[1]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 9:if(cu_sxzt[2]==1){cu_tcq_sxzt[2]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 12:if(cu_sxzt[3]==1){cu_tcq_sxzt[3]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 15:if(cu_sxzt[4]==1){cu_tcq_sxzt[4]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 18:if(cu_sxzt[5]==1){cu_tcq_sxzt[5]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 21:if(cu_sxzt[6]==1){cu_tcq_sxzt[6]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 26:if(cu_sxzt[7]==1){cu_tcq_sxzt[7]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 29:if(cu_sxzt[8]==1){cu_tcq_sxzt[8]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 32:if(cu_sxzt[9]==1){cu_tcq_sxzt[9]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 35:if(cu_sxzt[10]==1){cu_tcq_sxzt[10]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 38:if(cu_sxzt[11]==1){cu_tcq_sxzt[11]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 41:if(cu_sxzt[12]==1){cu_tcq_sxzt[12]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
 					
-					case 49:if(cu_sxzt[13]==1){cu_tcq_sxzt[13]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 52:if(cu_sxzt[14]==1){cu_tcq_sxzt[14]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 55:if(cu_sxzt[15]==1){cu_tcq_sxzt[15]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 58:if(cu_sxzt[16]==1){cu_tcq_sxzt[16]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 61:if(cu_sxzt[17]==1){cu_tcq_sxzt[17]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 64:if(cu_sxzt[18]==1){cu_tcq_sxzt[18]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 67:if(cu_sxzt[19]==1){cu_tcq_sxzt[19]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
-					case 70:if(cu_sxzt[20]==1){cu_tcq_sxzt[20]=value;kaijiyanshi=0;}break;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½Öµ
+					case 49:if(cu_sxzt[13]==1){cu_tcq_sxzt[13]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 52:if(cu_sxzt[14]==1){cu_tcq_sxzt[14]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 55:if(cu_sxzt[15]==1){cu_tcq_sxzt[15]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 58:if(cu_sxzt[16]==1){cu_tcq_sxzt[16]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 61:if(cu_sxzt[17]==1){cu_tcq_sxzt[17]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 64:if(cu_sxzt[18]==1){cu_tcq_sxzt[18]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 67:if(cu_sxzt[19]==1){cu_tcq_sxzt[19]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
+					case 70:if(cu_sxzt[20]==1){cu_tcq_sxzt[20]=value;kaijiyanshi=0;}break;//»ñÈ¡µ¥¸öÉèÖÃÎÄ±¾ÊýÖµ
 				}
 				Save_cutcq_sxzt();
-				SetTextInt32(17,6,cu_tcq_sxzt[1],0,1);//ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½æ£¬ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½0-ï¿½Þ·ï¿½ï¿½Å¡ï¿½1-ï¿½Ð·ï¿½ï¿½Å£ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½à²¹ï¿½ã£©
+				SetTextInt32(17,6,cu_tcq_sxzt[1],0,1);//ÉèÖÃÎÄ±¾ÎªÕûÊý£¬£¨Ò³Ãæ£¬¿Ø¼þ£¬ÊýÖµ£¬0-ÎÞ·ûºÅ¡¢1-ÓÐ·ûºÅ£¬Êý×ÖÎ»Êý£¬²»×ãÊ±×ó²à²¹Áã£©
 				SetTextInt32(17,9,cu_tcq_sxzt[2],0,1);
 				SetTextInt32(17,12,cu_tcq_sxzt[3],0,1);
 				SetTextInt32(17,15,cu_tcq_sxzt[4],0,1);
@@ -4603,53 +4603,53 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				SetTextInt32(17,67,cu_tcq_sxzt[19],0,1);
 				SetTextInt32(17,70,cu_tcq_sxzt[20],0,1);
 	}
-		else if(screen_id==23)                                                                 //ï¿½ï¿½ï¿½ï¿½ID2ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½Ãºï¿½ï¿½ï¿½Ê¾
+		else if(screen_id==23)                                                                 //»­ÃæID2£ºÎÄ±¾ÉèÖÃºÍÏÔÊ¾
     {
-			if(mimajiyi == 0) // ï¿½Ã»ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ 4.25ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¹ï¿½ ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			if(mimajiyi == 0) // ÓÃ»§Î´ÊäÈëÃÜÂë »òÕß 4.25·ÖÖÓÒÑ¹ý ÐèÒªÖØÐÂÊäÈëÃÜÂë
 			{
 				if(control_id==2)                                                            //
 				{
 					int32 value=0;  			
-					sscanf((const char*)(char*)str,"%ld",&value);                                                    //ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ 					
-					yonghumima=value;													//ï¿½ï¿½ï¿½ï¿½
+					sscanf((const char*)(char*)str,"%ld",&value);                                                    //°Ñ×Ö·û´®×ª»»ÎªÕûÊý 					
+					yonghumima=value;													//¸üÐÂ
 				}  
 			}                                                                     
     }
-		else if(screen_id == 24)                                                                 //ï¿½ï¿½ï¿½ï¿½ID2ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½Ãºï¿½ï¿½ï¿½Ê¾
+		else if(screen_id == 24)                                                                 //»­ÃæID2£ºÎÄ±¾ÉèÖÃºÍÏÔÊ¾
     {                                                                            
         int32 value=0;  			
-        sscanf((const char*)(char*)str,"%ld",&value);                                                    //ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ 
+        sscanf((const char*)(char*)str,"%ld",&value);                                                    //°Ñ×Ö·û´®×ª»»ÎªÕûÊý 
 				if(control_id==2)                                                            //
         {                                                                         
 					if(value == SystemSaveInfo.user_password)                                                       
             { 
 							
-							SetTextValue(24,7,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½");
-							yonghumm1=value;//ï¿½ï¿½Â¼ï¿½Ã»ï¿½Ô­ï¿½ï¿½ï¿½ï¿½
+							SetTextValue(24,7,"ÃÜÂëÕýÈ·£¡");
+							yonghumm1=value;//¼ÇÂ¼ÓÃ»§Ô­ÃÜÂë
 							value = 0; 
 						}else
 						{
-							SetTextValue(24,7,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+							SetTextValue(24,7,"ÃÜÂë´íÎó£¡");
 						}						
         } 
 				if(control_id==5)                                                            //
         {                                                                         
-						yonghumm2=value;//ï¿½ï¿½Â¼ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½1
+						yonghumm2=value;//¼ÇÂ¼ÐÂÓÃ»§ÃÜÂë1
 						value = 0; 
         }	
 				if(control_id==6)                                                            //
         {                                                                         
-						yonghumm3=value;//ï¿½ï¿½Â¼ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½2
+						yonghumm3=value;//¼ÇÂ¼ÐÂÓÃ»§ÃÜÂë2
 						value = 0; 
         }				
     }
-		else if(screen_id==25)                                                                 //ï¿½ï¿½ï¿½ï¿½ID2ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½Ãºï¿½ï¿½ï¿½Ê¾
+		else if(screen_id==25)                                                                 //»­ÃæID2£ºÎÄ±¾ÉèÖÃºÍÏÔÊ¾
     {                                                                            
  
     }
 		else if(screen_id == 27)
 		{
-			if(control_id == 9) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½
+			if(control_id == 9) // ¸üÐÂÐí¿ÉÖ¤ÊäÈë
 			{
 				uint8_t len = strlen((char *)str);
 				if(len != 10)
@@ -4665,7 +4665,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				{
 					uint8_t len = 0;
 					uint8_t buff[32] = {0};
-					len = sprintf((char *)buff, "ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½:");
+					len = sprintf((char *)buff, "Ðí¿ÉÖ¤Êé:");
 					for(uint8_t i = 0; i < 10; i++)
 					{
 						buff[len + i] = SystemSaveInfo.curr_license_store[i];
@@ -4674,19 +4674,19 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				}
 				else
 				{
-					SetTextValue(27, 6, "ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½:ï¿½ï¿½");
+					SetTextValue(27, 6, "Ðí¿ÉÖ¤Êé:ÎÞ");
 				}
 				
 				char slicense_buff[10] = {0};
 				
-				if(strncmp((char *)SystemSaveInfo.curr_license_store, (char *)SystemSaveInfo.pref_license_store, 10) == 0 && SystemSaveInfo.license_remain_day == 6666) // ï¿½È½ï¿½Ô¤ï¿½ï¿½ID ï¿½ï¿½ ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(strncmp((char *)SystemSaveInfo.curr_license_store, (char *)SystemSaveInfo.pref_license_store, 10) == 0 && SystemSaveInfo.license_remain_day == 6666) // ±È½ÏÔ¤ÖÃID ºÍ ³õÊ¼»¯ÌìÊý
 				{
 					for(uint8_t i = 0; i < 10; i++)
 					{
 						SystemSaveInfo.last_license_store[i] = SystemSaveInfo.curr_license_store[i];
 					}
 					
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 							
 					SystemSaveInfo.license_year = years;
 					SystemSaveInfo.license_month = months;
@@ -4696,13 +4696,13 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 					SystemSaveInfo.license_minute = minutes;
 					SystemSaveInfo.license_second = secs;
 					
-					SystemSaveInfo.license_remain_day = 30; // Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½30ï¿½ï¿½
+					SystemSaveInfo.license_remain_day = 30; // Ä¬ÈÏÊÔÓÃ30Ìì
 					
 					uint8_t slicense_buff[32] = {0};
-					sprintf((char *)slicense_buff, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:Ê£ï¿½ï¿½%dï¿½ï¿½", SystemSaveInfo.license_remain_day);
+					sprintf((char *)slicense_buff, "Ðí¿É×´Ì¬:Ê£Óà%dÌì", SystemSaveInfo.license_remain_day);
 					SetTextValue(27, 7, slicense_buff);
 				}
-				else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äºï¿½ï¿½ï¿½Ò»ï¿½ÎµÄ²ï¿½Ò»ï¿½ï¿½
+				else // ÐÂÊäÈëµÄºÍÉÏÒ»´ÎµÄ²»Ò»Ñù
 				{
 					uint8_t flag = 0;
 					
@@ -4711,8 +4711,8 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 						generate_new_license_code((char *)SystemSaveInfo.last_license_store, getGenerationDate(i), slicense_buff);
 						if(strncmp((char *)SystemSaveInfo.curr_license_store, slicense_buff, 10) == 0)
 						{
-							flag = 1; // ï¿½ï¿½ï¿½ï¿½Òµï¿½
-							getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+							flag = 1; // ±ê¼ÇÕÒµ½
+							getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 							
 							SystemSaveInfo.license_year = years;
 							SystemSaveInfo.license_month = months;
@@ -4722,7 +4722,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 							SystemSaveInfo.license_minute = minutes;
 							SystemSaveInfo.license_second = secs;
 
-							SystemSaveInfo.license_remain_day = getRemainUseDate(i); // ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½
+							SystemSaveInfo.license_remain_day = getRemainUseDate(i); // ¼ÇÂ¼ÈÕÆÚ
 							
 							for(uint8_t i = 0; i < 10; i++)
 							{
@@ -4731,54 +4731,54 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 							if(SystemSaveInfo.license_remain_day != 999)
 							{
 								uint8_t slicense_buff[32] = {0};
-								sprintf((char *)slicense_buff, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:Ê£ï¿½ï¿½%dï¿½ï¿½", SystemSaveInfo.license_remain_day);
+								sprintf((char *)slicense_buff, "Ðí¿É×´Ì¬:Ê£Óà%dÌì", SystemSaveInfo.license_remain_day);
 								SetTextValue(27, 7, slicense_buff);
 							}
 							else
 							{
-								SetTextValue(27, 7, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§");
+								SetTextValue(27, 7, "Ðí¿É×´Ì¬:ÓÀ¾ÃÓÐÐ§");
 							}
 							
 							break;
 						}
 					}
-					if(flag == 0) // ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½Òµï¿½Æ¥ï¿½ï¿½ï¿½
+					if(flag == 0) // Èç¹ûÃ»ÓÐÕÒµ½Æ¥ÅäµÄ
 					{
-						SetTextValue(27, 7, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½Ð§");
-						SystemSaveInfo.license_remain_day = 0; // Ê£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						SetTextValue(27, 7, "Ðí¿É×´Ì¬:ÎÞÐ§");
+						SystemSaveInfo.license_remain_day = 0; // Ê£ÓàÌìÊýÇåÁã
 					}
 					
 				}
 				SystemInfoSave();
 				last_time_stamp -=3600000;
-				SetTextValue(27, 9, "ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤");
+				SetTextValue(27, 9, "¸üÐÂÊ¹ÓÃÐí¿ÉÖ¤");
 			}
 		}
-		else if(screen_id == 41) // Ê±ï¿½ï¿½ï¿½Þ¸Ä½ï¿½ï¿½ï¿½
+		else if(screen_id == 41) // Ê±¼äÐÞ¸Ä½çÃæ
 		{
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			InternalScreenRTCSetting(screen_id, control_id, str); //RTCï¿½Þ¸ï¿½
+			// ÐÂÔöÄÚÈÝ
+			InternalScreenRTCSetting(screen_id, control_id, str); //RTCÐÞ¸Ä
 		}
 		else if(screen_id == 50)
 		{
 			if(control_id == 17)
 			{
 				int32 value=0;  			
-				sscanf((char *)str,"%ld",&value); // ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ 
+				sscanf((char *)str,"%ld",&value); // °Ñ×Ö·û´®×ª»»ÎªÕûÊý 
 				SystemSaveInfo.factory_release_year = value - 2000;
 				
 			}		
 			else if(control_id == 18)
 			{
 				int32 value=0;  			
-				sscanf((char *)str,"%ld",&value); // ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ 
+				sscanf((char *)str,"%ld",&value); // °Ñ×Ö·û´®×ª»»ÎªÕûÊý 
 				SystemSaveInfo.factory_release_month = value;
 			}		
 			else if(control_id == 19)
 			{
 				int32 value=0;  			
-				sscanf((char *)str,"%ld",&value); // ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ 
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				sscanf((char *)str,"%ld",&value); // °Ñ×Ö·û´®×ª»»ÎªÕûÊý 
+				// ³ö³¡ÈÕÆÚÉèÖÃ
 				SystemSaveInfo.factory_release_days = value;
 			}		
 		}
@@ -4787,8 +4787,8 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 			if(control_id == 2)
 			{
 				int32 value=0;  			
-				sscanf((char *)str,"%ld",&value); // ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ 
-				yonghumima=value;									// ï¿½ï¿½ï¿½ï¿½ï¿½ë¸³Öµ
+				sscanf((char *)str,"%ld",&value); // °Ñ×Ö·û´®×ª»»ÎªÕûÊý 
+				yonghumima=value;									// ¸øÃÜÂë¸³Öµ
 			}				
 		}
 		else if(screen_id == 67)
@@ -4798,8 +4798,8 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 			CompositeDetectorTextInputCtrlApp(&cpsc, control_id, str);
 		}
 		
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-		OutFireDeviceInternalScreenTexttSet(screen_id, control_id, str, &out_fire_start_ctrl); // ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½Þ¸ï¿½
+		// ÐÂÔöÄÚÈÝ
+		OutFireDeviceInternalScreenTexttSet(screen_id, control_id, str, &out_fire_start_ctrl); // Åç·ÅÂß¼­ÐÞ¸Ä
 		
 		SuperAdminInternalScreenTextCtrl(screen_id, control_id, str, &super_admin_password);
 		
@@ -4807,10 +4807,10 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 }                                                                                
 
 /*!                                                                              
-*  \brief  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¼ï¿½Í¨Öª                                                       
-*  \details  ï¿½ï¿½ï¿½ï¿½GetControlValueÊ±ï¿½ï¿½Ö´ï¿½Ð´Ëºï¿½ï¿½ï¿½                                  
-*  \param screen_id ï¿½ï¿½ï¿½ï¿½ID                                                      
-*  \param control_id ï¿½Ø¼ï¿½ID                                                     
+*  \brief  ½ø¶ÈÌõ¿Ø¼þÍ¨Öª                                                       
+*  \details  µ÷ÓÃGetControlValueÊ±£¬Ö´ÐÐ´Ëº¯Êý                                  
+*  \param screen_id »­ÃæID                                                      
+*  \param control_id ¿Ø¼þID                                                     
 *  \param value ?                                                              
 */                                                                              
 void NotifyProgress(uint16 screen_id, uint16 control_id, uint32 value)           
@@ -4818,15 +4818,15 @@ void NotifyProgress(uint16 screen_id, uint16 control_id, uint32 value)
 //    if(screen_id == 5)
 //    {
 //        Progress_Value = value;                                  
-//        SetTextInt32(5,2,Progress_Value,0,1);                                        //ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½Öµ     
+//        SetTextInt32(5,2,Progress_Value,0,1);                                        //ÉèÖÃÎÄ±¾¿òµÄÖµ     
 //    }    
 }                                                                                
 
 /*!                                                                              
-*  \brief  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¼ï¿½Í¨Öª                                                       
-*  \details  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½GetControlValue)Ê±ï¿½ï¿½Ö´ï¿½Ð´Ëºï¿½ï¿½ï¿½                  
-*  \param screen_id ï¿½ï¿½ï¿½ï¿½ID                                                      
-*  \param control_id ï¿½Ø¼ï¿½ID                                                     
+*  \brief  »¬¶¯Ìõ¿Ø¼þÍ¨Öª                                                       
+*  \details  µ±»¬¶¯Ìõ¸Ä±ä(»òµ÷ÓÃGetControlValue)Ê±£¬Ö´ÐÐ´Ëº¯Êý                  
+*  \param screen_id »­ÃæID                                                      
+*  \param control_id ¿Ø¼þID                                                     
 *  \param value ?                                                              
 */                                                                              
 void NotifySlider(uint16 screen_id, uint16 control_id, uint32 value)             
@@ -4836,30 +4836,30 @@ void NotifySlider(uint16 screen_id, uint16 control_id, uint32 value)
 
 
 /*! 
-*  \brief  ï¿½Ç±ï¿½ï¿½Ø¼ï¿½Í¨Öª
-*  \details  ï¿½ï¿½ï¿½ï¿½GetControlValueÊ±ï¿½ï¿½Ö´ï¿½Ð´Ëºï¿½ï¿½ï¿½
-*  \param screen_id ï¿½ï¿½ï¿½ï¿½ID
-*  \param control_id ï¿½Ø¼ï¿½ID
+*  \brief  ÒÇ±í¿Ø¼þÍ¨Öª
+*  \details  µ÷ÓÃGetControlValueÊ±£¬Ö´ÐÐ´Ëº¯Êý
+*  \param screen_id »­ÃæID
+*  \param control_id ¿Ø¼þID
 *  \param value ?
 */
 void NotifyMeter(uint16 screen_id, uint16 control_id, uint32 value)
 {
-    //TODO: ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
+    //TODO: Ìí¼ÓÓÃ»§´úÂë
 }
 
 /*! 
-*  \brief  ï¿½Ëµï¿½ï¿½Ø¼ï¿½Í¨Öª
-*  \details  ï¿½ï¿½ï¿½Ëµï¿½ï¿½î°´ï¿½Â»ï¿½ï¿½É¿ï¿½Ê±ï¿½ï¿½Ö´ï¿½Ð´Ëºï¿½ï¿½ï¿½
-*  \param screen_id ï¿½ï¿½ï¿½ï¿½ID
-*  \param control_id ï¿½Ø¼ï¿½ID
-*  \param item ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-*  \param state ï¿½ï¿½Å¥×´Ì¬ï¿½ï¿½0ï¿½É¿ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½
+*  \brief  ²Ëµ¥¿Ø¼þÍ¨Öª
+*  \details  µ±²Ëµ¥Ïî°´ÏÂ»òËÉ¿ªÊ±£¬Ö´ÐÐ´Ëº¯Êý
+*  \param screen_id »­ÃæID
+*  \param control_id ¿Ø¼þID
+*  \param item ²Ëµ¥ÏîË÷Òý
+*  \param state °´Å¥×´Ì¬£º0ËÉ¿ª£¬1°´ÏÂ
 */
 void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 {
   DeviceThreshold_NotifyMenu(screen_id, control_id, item, state);
-  //TODO: ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
-	// ï¿½Ëµï¿½ï¿½ï¿½ï¿½Â¿Ø¼ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½è¶¨ ï¿½ð¾¯´ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½è¶¨ ï¿½Ú´Ë´ï¿½ï¿½ï¿½ï¿½ï¿½
+  //TODO: Ìí¼ÓÓÃ»§´úÂë
+	// ²Ëµ¥¸üÐÂ¿Ø¼þ Ãð»ðÅç·ÅÂß¼­Éè¶¨ »ð¾¯´¥·¢Âß¼­Éè¶¨ ÔÚ´Ë´¦µ÷ÓÃ
 	
 	OutFireDeviceInternalScreenButtonSet(screen_id, control_id, item, state, &out_fire_start_ctrl);
 	if(screen_id == 3)
@@ -4877,7 +4877,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 				for(uint8_t i = 0; i < 32; i++)
 				{
 					temp_key_value = pack_online_buff[temp_pack_id][i + 1] ? 1 : 0;
-					// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½×´Ì¬
+					// ÏÔÊ¾ÆôÓÃ×´Ì¬
 					setkey_Value(4, point_type_detect_button_online_ctrl_val_map[i], temp_key_value);
 				}
 			}
@@ -4920,7 +4920,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					bsp_screen_switch_ctrl.switch_flag = 1;
 					break;
 				case 2:
-					setKeyValue(DEVICE_SHIELD_KEY); // XR5000_DEVICE_SHIELD_ENTRY_20260802: ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+					setKeyValue(DEVICE_SHIELD_KEY); // XR5000_DEVICE_SHIELD_ENTRY_20260802: Éè±¸ÆÁ±Î
 					SwitchCurrentScreenId(53);
 					bsp_screen_switch_ctrl.target_screen = 53;
 					bsp_screen_switch_ctrl.switch_flag = 1;
@@ -4934,7 +4934,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 			switch(item)
 			{
 				case 0:
-					setKeyValue(LINKAGE_PROGREM); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½ï¿½ï¿½Ä»ï¿½Ä°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					setKeyValue(LINKAGE_PROGREM); // ¸ø°´¼ü¸³Öµ ±íÃ÷ÊÇÐÞ¸ÄÆÁÄ»µÄ°´¼ü°´ÏÂ
 					SwitchCurrentScreenId(53);
 					bsp_screen_switch_ctrl.target_screen = 53;
 					bsp_screen_switch_ctrl.switch_flag = 1;
@@ -4966,7 +4966,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 		{
 			if(item == 0U)
 			{
-				/* ï¿½Â¼Ó¹ï¿½ï¿½Ü£ï¿½FCP-1011ï¿½ï¿½Â·ï¿½ï¿½ï¿½Æ°å£»Ê±ï¿½ä£º2026-08-06 */
+				/* ÐÂ¼Ó¹¦ÄÜ£ºFCP-1011ÁùÂ·¿ØÖÆ°å£»Ê±¼ä£º2026-08-06 */
 				bsp_screen_switch_ctrl.target_screen = 71U;
 				bsp_screen_switch_ctrl.switch_flag = 1U;
 				SwitchCurrentScreenId(71U);
@@ -4995,11 +4995,11 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 }
 
 /*! 
-*  \brief  Ñ¡ï¿½ï¿½Ø¼ï¿½Í¨Öª
-*  \details  ï¿½ï¿½Ñ¡ï¿½ï¿½Ø¼ï¿½ï¿½ä»¯Ê±ï¿½ï¿½Ö´ï¿½Ð´Ëºï¿½ï¿½ï¿½
-*  \param screen_id ï¿½ï¿½ï¿½ï¿½ID
-*  \param control_id ï¿½Ø¼ï¿½ID
-*  \param item ï¿½ï¿½Ç°Ñ¡ï¿½ï¿½
+*  \brief  Ñ¡Ôñ¿Ø¼þÍ¨Öª
+*  \details  µ±Ñ¡Ôñ¿Ø¼þ±ä»¯Ê±£¬Ö´ÐÐ´Ëº¯Êý
+*  \param screen_id »­ÃæID
+*  \param control_id ¿Ø¼þID
+*  \param item µ±Ç°Ñ¡Ïî
 */
 void NotifySelector(uint16 screen_id, uint16 control_id, uint8  item)
 {
@@ -5008,9 +5008,9 @@ void NotifySelector(uint16 screen_id, uint16 control_id, uint8  item)
 
 
 /*! 
-*  \brief  ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ê±Í¨Öªï¿½ï¿½ï¿½ï¿½
-*  \param screen_id ï¿½ï¿½ï¿½ï¿½ID
-*  \param control_id ï¿½Ø¼ï¿½ID
+*  \brief  ¶¨Ê±Æ÷³¬Ê±Í¨Öª´¦Àí
+*  \param screen_id »­ÃæID
+*  \param control_id ¿Ø¼þID
 */
 void NotifyTimer(uint16 screen_id, uint16 control_id)
 {
@@ -5022,49 +5022,49 @@ void NotifyTimer(uint16 screen_id, uint16 control_id)
 
 
 /*! 
-*  \brief  ï¿½ï¿½È¡ï¿½Ã»ï¿½FLASH×´Ì¬ï¿½ï¿½ï¿½ï¿½
-*  \param status 0Ê§ï¿½Ü£ï¿½1ï¿½É¹ï¿½
-*  \param _data ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-*  \param length ï¿½ï¿½ï¿½Ý³ï¿½ï¿½ï¿½
+*  \brief  ¶ÁÈ¡ÓÃ»§FLASH×´Ì¬·µ»Ø
+*  \param status 0Ê§°Ü£¬1³É¹¦
+*  \param _data ·µ»ØÊý¾Ý
+*  \param length Êý¾Ý³¤¶È
 */
 void NotifyReadFlash(uint8 status,uint8 *_data,uint16 length)
 {
-    //TODO: ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
+    //TODO: Ìí¼ÓÓÃ»§´úÂë
 }
 
 
 /*! 
-*  \brief  Ð´ï¿½Ã»ï¿½FLASH×´Ì¬ï¿½ï¿½ï¿½ï¿½
-*  \param status 0Ê§ï¿½Ü£ï¿½1ï¿½É¹ï¿½
+*  \brief  Ð´ÓÃ»§FLASH×´Ì¬·µ»Ø
+*  \param status 0Ê§°Ü£¬1³É¹¦
 */
 void NotifyWriteFlash(uint8 status)
 {
-    //TODO: ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½
+    //TODO: Ìí¼ÓÓÃ»§´úÂë
 }
 
 
 /*! 
-*  \brief  ï¿½ï¿½È¡RTCÊ±ï¿½ä£¬×¢ï¿½â·µï¿½Øµï¿½ï¿½ï¿½BCDï¿½ï¿½
-*  \param year ï¿½ê£¨BCDï¿½ï¿½
-*  \param month ï¿½Â£ï¿½BCDï¿½ï¿½
-*  \param week ï¿½ï¿½ï¿½Ú£ï¿½BCDï¿½ï¿½
-*  \param day ï¿½Õ£ï¿½BCDï¿½ï¿½
-*  \param hour Ê±ï¿½ï¿½BCDï¿½ï¿½
-*  \param minute ï¿½Ö£ï¿½BCDï¿½ï¿½
-*  \param second ï¿½ë£¨BCDï¿½ï¿½
+*  \brief  ¶ÁÈ¡RTCÊ±¼ä£¬×¢Òâ·µ»ØµÄÊÇBCDÂë
+*  \param year Äê£¨BCD£©
+*  \param month ÔÂ£¨BCD£©
+*  \param week ÐÇÆÚ£¨BCD£©
+*  \param day ÈÕ£¨BCD£©
+*  \param hour Ê±£¨BCD£©
+*  \param minute ·Ö£¨BCD£©
+*  \param second Ãë£¨BCD£©
 */
 void NotifyReadRTC(uint8 year,uint8 month,uint8 week,uint8 day,uint8 hour,uint8 minute,uint8 second)
 {
 
        
-    secs    =(0xff & (second>>4))*10 +(0xf & second);                                    //BCDï¿½ï¿½×ªÊ®ï¿½ï¿½ï¿½ï¿½
+    secs    =(0xff & (second>>4))*10 +(0xf & second);                                    //BCDÂë×ªÊ®½øÖÆ
     years   =(0xff & (year>>4))*10 +(0xf & year);                                      
     months  =(0xff & (month>>4))*10 +(0xf & month);                                     
     weeks   =(0xff & (week>>4))*10 +(0xf & week);                                      
     days    =(0xff & (day>>4))*10 +(0xf & day);                                      
     hours   =(0xff & (hour>>4))*10 +(0xf & hour);                                       
     minutes =(0xff & (minute>>4))*10 +(0xf & minute);  
-//   	uart1_printf("Ê±ï¿½ï¿½1ï¿½ï¿½ %dï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½%dÊ±%dï¿½ï¿½%dï¿½ï¿½\r\n",years,months,days,hours,minutes,secs);
+//   	uart1_printf("Ê±¼ä1£º %dÄê%dÔÂ%dÈÕ%dÊ±%d·Ö%dÃë\r\n",years,months,days,hours,minutes,secs);
 //    SetTextInt32(8,1,years,1,1);
 //    SetTextInt32(8,2,months,1,1);
 //    SetTextInt32(8,3,days,1,1);
@@ -5074,17 +5074,17 @@ void NotifyReadRTC(uint8 year,uint8 month,uint8 week,uint8 day,uint8 hour,uint8 
 
 }
 
-// ï¿½ï¿½È¡ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+// »ñÈ¡²Ö ´ØËùÓÐÌ½²âÆ÷ÉÏÏß×´Ì¬
 static void getDetectorSetUpLiveSum(DetectorSum *ds_entry, uint8_t cabin_setup[], uint8_t cluster_setup[])
 {
 	uint8_t detector_sum = 0;
-	// ï¿½Ïµï¿½ï¿½ï¿½Â²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// ÉÏµç¸üÐÂ²ÕÉÏÏßÊýÁ¿
 	for(uint8_t sum = 1; sum < CANG_USER_NUM + 1; sum++)
 	{
 		detector_sum = detector_sum + cabin_setup[sum];
 	}
 			
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// °üÉÏÏßÊýÁ¿
 //	for(uint8_t sum = 1; sum <= 20; sum++)
 //	{
 //		detector_sum = detector_sum + cluster_setup[sum];
@@ -5104,7 +5104,7 @@ static void getDetectorSetUpLiveSum(DetectorSum *ds_entry, uint8_t cabin_setup[]
 		detector_sum += getPointTypeMixtureSettingOnlieState(sum);
 	}
 	
-	ds_entry->curr_num = detector_sum; // ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+	ds_entry->curr_num = detector_sum; // ¸øÉè±¸×ÜÊý¸³Öµ
 }
 static uint8_t getPointDetectorSetUpCount(void)
 {
@@ -5131,7 +5131,7 @@ static uint8_t getPointDetectorSetUpLive(void)
 	}
 	return detector_sum;
 }
-// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// »ñÈ¡µãÐÍÌ½²âÆ÷µÄ¹ÊÕÏ×ÜÊýÁ¿
 static uint8_t getPointDetectorFaultCount(void)
 {
     uint8_t fault_sum = 0;
@@ -5144,7 +5144,7 @@ static uint8_t getPointDetectorFaultCount(void)
     }
     return fault_sum;
 }
-// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// »ñÈ¡µãÐÍÌ½²âÆ÷µÄ±¨¾¯×ÜÊýÁ¿
 static uint8_t getPointDetectorAlarmCount(void)
 {
     uint8_t alarm_sum = 0;
@@ -5164,9 +5164,9 @@ uint8_t creatNewFaultRecordToCache(uint8_t cluster_id, uint8_t pack_id, uint8_t 
 	
 	for(uint8_t k = 0; k < pcfs_buttom_point; k++)
 	{
-		if(cluster_id == LINKAGE_CLUSTER_ID) // ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½
+		if(cluster_id == LINKAGE_CLUSTER_ID) // Èç¹û´ØIDµÈÓÚÍâÁªÉè±¸±àºÅ
 		{
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½IDÒ»ï¿½ï¿½ï¿½ï¿½Í¬ ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ID ï¿½ï¿½ï¿½Ë³ï¿½
+			// Èç¹ûÊÇÍâÁªÉè±¸Ôò´ØIDÒ»¶¨ÏàÍ¬ Èç¹ûÏàÍ¬ÀàÐÍÖÐ´æÔÚÏàÍ¬ID ÔòÍË³ö
 			if(pcfs[k].da.pack_id == pack_id) 
 			{
 				flag = 1;
@@ -5181,7 +5181,7 @@ uint8_t creatNewFaultRecordToCache(uint8_t cluster_id, uint8_t pack_id, uint8_t 
 				break;
 			}
 		}
-		else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½Ç²ï¿½
+		else // Èç¹û¶¼²»ÊÇ¾ÍÊÇ²Ö
 		{
 			if(pcfs[k].da.cabin_id == cabin_id)
 			{
@@ -5191,45 +5191,45 @@ uint8_t creatNewFaultRecordToCache(uint8_t cluster_id, uint8_t pack_id, uint8_t 
 		}
 	}
 	
-	if(flag != 1) // ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½
+	if(flag != 1) // Èç¹ûÃ»ÓÐÏàÍ¬µÄ
 	{
-		getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+		getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 		
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ID ï¿½ï¿½ï¿½ï¿½
-		if(cluster_id == LINKAGE_CLUSTER_ID) // ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½
+		// ¼ÇÂ¼±¨¾¯ID ÀàÐÍ
+		if(cluster_id == LINKAGE_CLUSTER_ID) // Èç¹û´ØIDµÈÓÚÍâÁªÉè±¸±àºÅ
 		{
-			pcfs[pcfs_buttom_point].detector_class = LinkageClassID; // ï¿½ï¿½È·Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸
-			pcfs[pcfs_buttom_point].da.cabin_id    = cabin_id;       // ï¿½ï¿½ï¿½Öºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ä±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
+			pcfs[pcfs_buttom_point].detector_class = LinkageClassID; // Ã÷È·Ì½²âÆ÷ÀàÐÍÊÇÍâÁªÉè±¸
+			pcfs[pcfs_buttom_point].da.cabin_id    = cabin_id;       // ½«²ÖºÅÀ´´«Êä±¨¾¯ÀàÐÍ 
 			pcfs[pcfs_buttom_point].da.cluster_id  = cluster_id;
 			pcfs[pcfs_buttom_point].da.pack_id     = pack_id;
 		}
 		else if(cluster_id != 0)
 		{
-			pcfs[pcfs_buttom_point].detector_class = PackClassID; // ï¿½ï¿½È·Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½
-			pcfs[pcfs_buttom_point].da.cabin_id    = 0;           // ï¿½ï¿½Õ²ï¿½IDï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½
+			pcfs[pcfs_buttom_point].detector_class = PackClassID; // Ã÷È·Ì½²âÆ÷ÀàÐÍÊÇ°ü
+			pcfs[pcfs_buttom_point].da.cabin_id    = 0;           // Çå¿Õ²ÖID±àºÅ Èç¹ûÊÇ°üÔòÄ¬ÈÏÇå¿Õ
 			pcfs[pcfs_buttom_point].da.cluster_id  = cluster_id;
 			pcfs[pcfs_buttom_point].da.pack_id     = pack_id;
 		}
 		else
 		{
-			pcfs[pcfs_buttom_point].detector_class = CabinClassID; // ï¿½ï¿½È·Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½
+			pcfs[pcfs_buttom_point].detector_class = CabinClassID; // Ã÷È·Ì½²âÆ÷ÀàÐÍÊÇ²Ö
 			pcfs[pcfs_buttom_point].da.cabin_id    = cabin_id; 
 			pcfs[pcfs_buttom_point].da.cluster_id  = 0;
 			pcfs[pcfs_buttom_point].da.pack_id     = 0;
 		}
 
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+		// ¼ÇÂ¼±¨¾¯Ê±¼ä
 		pcfs[pcfs_buttom_point].atr.years  = years + 2000;
 		pcfs[pcfs_buttom_point].atr.months = months;
 		pcfs[pcfs_buttom_point].atr.days   = days;
 		pcfs[pcfs_buttom_point].atr.hours  = hours;
 		pcfs[pcfs_buttom_point].atr.minute = minutes;
 		
-		// 2025/11/19 10:59 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// 2025/11/19 10:59 ÐÂÔö¼ÇÂ¼±¨¾¯Ãë
 		pcfs[pcfs_buttom_point].atr.second = secs;
 		pcfs[pcfs_buttom_point].fault_type = RS485_LOOP3_FAULT_OFFLINE;
 		
-		pcfs_buttom_point++; // ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		pcfs_buttom_point++; // µ×Ö¸Õë×ÔÔö
 	}
 	return flag;
 }
@@ -5285,7 +5285,7 @@ void deletRecoveryRecord(uint8_t recovery_index)
 		return;
 	for(k = recovery_index; k < pcfs_buttom_point - 1; k++)
 	{
-		pcfs[k].detector_class = pcfs[k + 1].detector_class; // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°Ò»ï¿½ï¿½
+		pcfs[k].detector_class = pcfs[k + 1].detector_class; // ½«ºóÒ»¸ö¸³¸øÇ°Ò»¸ö
 		pcfs[k].da             = pcfs[k + 1].da;
 		pcfs[k].atr            = pcfs[k + 1].atr;
 		pcfs[k].fault_type     = pcfs[k + 1].fault_type;
@@ -5294,7 +5294,7 @@ void deletRecoveryRecord(uint8_t recovery_index)
 
 }
 
-// ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ·µ»ØÖµ °üµôÏßÊýÁ¿
 static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
 	uint8_t disconnect_detector_sum = 0;
@@ -5302,40 +5302,40 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 	MaxCombustibleGas_t temp_pack_mcg_co = {0};
 	temp_pack_mcg_co.co_max_val = -1;
 	
-	for(uint8_t jsz = 1;jsz <= 20;jsz++) // ï¿½ï¿½ï¿½ï¿½20ï¿½ï¿½
+	for(uint8_t jsz = 1;jsz <= 20;jsz++) // ±éÀú20´Ø
 	{
-		if(cu_tcq_sxzt[jsz] == 0) // ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½Ã»ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ä±ï¿½Òªï¿½ï¿½
+		if(cu_tcq_sxzt[jsz] == 0) // Èç¹ûÃ»ÉèÖÃÉÏÏßÒ²¾ÍÃ»ÓÐ´¦ÀíµÄ±ØÒªÁË
 		{
 			continue;
 		}
-		for(uint8_t i=1;i<=cu_tcq_sxzt[jsz];i++)//Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ã¿Ò»ï¿½ï¿½ï¿½ÂµÄ°ï¿½
+		for(uint8_t i=1;i<=cu_tcq_sxzt[jsz];i++)//Ñ­»·´ÎÊýÓÉÉèÖÃÉÏÏßÊýÁ¿¾ö¶¨ ±éÀúÃ¿Ò»´ØÏÂµÄ°ü
 		{
-			if(getClusterPackDisconnectCount(jsz, i) == PackDisconnectCount) { // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢Í³Ò»ï¿½ï¿½ï¿½ï¿½
+			if(getClusterPackDisconnectCount(jsz, i) == PackDisconnectCount) { // Èç¹ûÉèÖÃÎªÉÏÏß ÅÐ¶ÏÊÇ·ñµôÏß
+				// ÐÂÔöÄÚÈÝ ¶ÔËùÓÐ¹ÊÕÏÐÅÏ¢Í³Ò»´¦Àí
 	
-				disconnect_detector_sum++; // ï¿½ï¿½ï¿½ï¿½ï¿½è±¸+1
-				// Ò»ï¿½ï¿½ÒªÐ´0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				if(creatNewFaultRecordToCache(jsz, i, 0) == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½Ê¾ï¿½É¹ï¿½Ð´ï¿½ï¿½ ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½æ´¢FLASH
+				disconnect_detector_sum++; // µôÏßÉè±¸+1
+				// Ò»¶¨ÒªÐ´0·ñÔò»á³ö´í
+				if(creatNewFaultRecordToCache(jsz, i, 0) == 0) // Èç¹û·µ»Ø0±íÊ¾³É¹¦Ð´Èë ÐèÒªÆô¶¯·äÃùÆ÷ ²¢´æ´¢FLASH
 				{
-					beep_fault_ctrl  = 2;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
-					silencers_state  = 0;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					disconnect_state = 1;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½
-					// ï¿½Þ¸ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½æ´¢
+					beep_fault_ctrl  = 2;   // ·äÃùÆ÷¿ª ¹ÊÕÏ·äÃùÆ÷±êÖ¾Î»
+					silencers_state  = 0;   // ÏûÒôµÆÃð
+					disconnect_state = 1;   // µãÁÁ¹ÊÕÏµÆ
+					// ÐÞ¸ÄÎªº¯Êý´æ´¢
 					//DebugSendString((uint8_t *)&temp_data, sizeof(FlashSaveDetectFault_t));
 					BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, jsz, i);
 				}
-			}else if(PACK_zx_buf[jsz][i] == i) { //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½Ç¶ï¿½Ó¦ï¿½ï¿½IDï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ú½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+			}else if(PACK_zx_buf[jsz][i] == i) { //Èç¹ûÔÚÏßÖµÊÇ¶ÔÓ¦µÄID±àºÅ ÔÚÏß ÔÚ½øÐÐÅÐ¶Ï
 				// new
 				if(pack_pbzt[jsz][i]==0 && PACK_WDZT_buf[jsz][i] != 0 && BJ_packjiyibuf_wd[jsz][i] == 0)
 				{
 					// new
-					// ï¿½ï¿½Â¼Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½ 
-					// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Ê¾Ê¹ï¿½ï¿½
+					// ¼ÇÂ¼Ì½²âÆ÷ÎÂ¶È±¨¾¯
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä 
+					// ´æÈëÁÙÊ±»º³åÇø¹©ÆÁÄ»ÏÔÊ¾Ê¹ÓÃ
 					StoragePackFireAlarm(&pcfas, jsz, i, Temperature);
 					
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, jsz, i, PACK_wendu_buf[jsz][i]);
-					// ï¿½ï¿½ï¿½Â´æ´¢ï¿½ï¿½ï¿½ï¿½ Ö»ï¿½ï¿½Ò»ï¿½ï¿½
+					// ¸üÐÂ´æ´¢¼ÇÒä Ö»´æÒ»´Î
 					BJ_packjiyibuf_wd[jsz][i] = PACK_WDZT_buf[jsz][i];
 					// end
 				}
@@ -5347,7 +5347,7 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				if(pack_pbzt[jsz][i] == 0 && PACK_YWZT_buf[jsz][i] != 0 && BJ_packjiyibuf_yw[jsz][i] == 0) 
 				{
 					// new
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 					StoragePackFireAlarm(&pcfas, jsz, i, Smoke);
 					// end
 					
@@ -5362,22 +5362,22 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				if(pack_pbzt[jsz][i] == 0 && PACK_COZT_buf[jsz][i] !=0 && BJ_packjiyibuf_co[jsz][i] == 0) {
 
 					// new
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 					StoragePackCabinForeWarn(&pcfws, jsz, i, Carbon);
 					// end
-					// È·ï¿½ï¿½Ö»ï¿½æ´¢Ò»ï¿½ï¿½ ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½Ò»Ö±ï¿½æµ¼ï¿½ï¿½FLASHï¿½ï¿½
+					// È·±£Ö»´æ´¢Ò»´Î ·ÀÖ¹³öÏÖÒ»Ö±´æµ¼ÖÂFLASHËð»µ
 					BJ_packjiyibuf_co[jsz][i] = PACK_COZT_buf[jsz][i];
 					
-					// ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½
+					// ±£´æ¿ÉÈ¼ÆøÌå
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM, jsz, i, getPackCoConcenValue(jsz, i));
 				}
-				else if(BJ_packjiyibuf_co[jsz][i] != 0 && PACK_COZT_buf[jsz][i] == 0) { // Ö¤ï¿½ï¿½Ö®Ç°ï¿½æ´¢ï¿½ï¿½
-					// Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½Ô»Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½
+				else if(BJ_packjiyibuf_co[jsz][i] != 0 && PACK_COZT_buf[jsz][i] == 0) { // Ö¤Ã÷Ö®Ç°´æ´¢¹ý
+					// Ò»Ñõ»¯Ì¼¿ÉÒÔ×Ô»Ö¸´£¬ÐèÒª´ÓÊý×éÖÐÉ¾µô
 					// NEW
-					// 2025/10/11 10:35 ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½Ô»Ö¸ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½Òªï¿½Ô»Ö¸ï¿½
+					// 2025/10/11 10:35 ¿ÉÈ¼ÆøÌå×Ô»Ö¸´Ö¸µÄÊÇÌ½²âÆ÷²»ÊÇÖ÷»ú ËùÒÔ²»ÐèÒª×Ô»Ö¸´
 //					DeletPackCabinForeWarn(&pcfws, jsz, i, Carbon);
 //					// 2025/9/2 17:13
-//					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+//					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 //					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, EAR_RECOVERY, jsz, i, getPackCoConcenValue(jsz, i));
 
 					// END
@@ -5386,7 +5386,7 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 					
 				if(PACK_CH4ZT_buf[jsz][i]!=0)
 				{
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 				}
 				else
 				{
@@ -5409,40 +5409,40 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 						BJ_packjiyibuf_co[jsz][i] != 0  || 
 						BJ_packjiyibuf_yw[jsz][i] != 0) && 
 						BJ_packjiyibuf_wd[jsz][i] != 0) 
-				//		|| BJ_packjiyibuf_wd[jsz][i] == 2 // ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				//		|| BJ_packjiyibuf_wd[jsz][i] == 2 // ÔÝÊ±ÆÁ±Îµô¶þ¼¶ÎÂ¶È±¨¾¯Æô¶¯Åç·Å ÒÔÃâ²úÉúÎó±¨
 				)
 			{
-				// ï¿½ï¿½ï¿½Ï»ï¿½ï¿½Ð¶ï¿½
+				// ¸´ºÏ»ð¾¯ÅÐ¶Ï
 				uint8_t flag = 0;
 				for(uint8_t j = 0;j < pas_pointer; j++)
 				{
-					if(pas[j].cabin_id == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½ï¿½ï¿½0 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½Ã´æ´¢ï¿½Ä²ï¿½ï¿½Ç²ï¿½
+					if(pas[j].cabin_id == 0) // Èç¹û²ÕIDµÈÓÚ0 ±íÃ÷¸ÃÎ»ÖÃ´æ´¢µÄ²»ÊÇ²Õ
 					{
 						if(pas[j].cluster_id == jsz	 && pas[j].pack_id == i)
 						{
 							flag = 1;
-							break; // ï¿½ï¿½ï¿½ï¿½Ã±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
+							break; // Èç¹û¸Ã±¨¾¯±àºÅÒÑ¾­´æ´¢¹ýÁË Ìø³öÑ­»·
 						}
 					}
 				}
-				if(flag != 1) // ï¿½ï¿½Ê¾Ã»ï¿½Ð´æ´¢ï¿½ï¿½
+				if(flag != 1) // ±íÊ¾Ã»ÓÐ´æ´¢¹ý
 				{
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
-					// ï¿½ï¿½ï¿½Îªï¿½Ø»ï¿½
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
+					// ±ê¼ÇÎª´Ø»ð¾¯
 					fire_alarm_flag.cluster_alarm_state = 1;
 					
 					pas[pas_pointer].cluster_id  = jsz;
 					pas[pas_pointer].pack_id     = i;
 					pas[pas_pointer].cabin_id    = 0;
-					pas[pas_pointer].lunch_state = 0; // ï¿½ï¿½ï¿½ï¿½×´Ì¬ Î´ï¿½ï¿½ï¿½ï¿½	
-					// Ê±ï¿½ä¸³Öµ
+					pas[pas_pointer].lunch_state = 0; // Æô¶¯×´Ì¬ Î´Æô¶¯	
+					// Ê±¼ä¸³Öµ
 					pas[pas_pointer].atr.years  = years + 2000;
 					pas[pas_pointer].atr.months = months;
 					pas[pas_pointer].atr.days   = days;
 					pas[pas_pointer].atr.hours  = hours;
 					pas[pas_pointer].atr.minute = minutes;
 					
-					// 2025/11/19 10:59 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					// 2025/11/19 10:59 ÐÂÔö¼ÇÂ¼±¨¾¯Ãë
 					pas[pas_pointer].atr.second = secs;
 					
 					pas_pointer++;
@@ -5453,10 +5453,10 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 	
 	if(*pcfs_point > 0)
 	{
-		disconnect_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½
+		disconnect_state = 1; // µãÁÁ¹ÊÕÏµÆ
 	}
 	
-	if(disconnect_detector_sum < *pcfs_point) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ð¡ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½Ö¸ï¿½ï¿½ï¿½
+	if(disconnect_detector_sum < *pcfs_point) // Èç¹ûµôÏßÉè±¸ÊýÐ¡ÓÚÖ¸Õë×ÜÊý Ö¤Ã÷ÓÐÉè±¸»Ö¸´ÁË
 	{
 		uint8_t flag = 0; 
 		uint8_t k;
@@ -5468,10 +5468,10 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			   pcfs_entry[k].da.cluster_id == RS485_DETECT_FLASH_ID)
 			{
 				// XR5000_LOOP3_CHANGE_20260726: Loop 3 recovery is handled by RS485DetectDataDeal().
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// Èç¹ûÊÇÍâÁªÉè±¸±àºÅ Ìø¹ý±¾´Î
 				continue;
 			}
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½ï¿½ï¿½Öµ
+			// Èç¹û²»ÊÇµôÏßÖµ
 			if(getClusterPackDisconnectCount(pcfs_entry[k].da.cluster_id, pcfs_entry[k].da.pack_id) != PackDisconnectCount) 
 			{
 				flag = 1;
@@ -5481,13 +5481,13 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 		if(flag == 1)
 		{
 			deletRecoveryRecord(k);
-			// ï¿½æ´¢ï¿½ï¿½FLASH
+			// ´æ´¢½øFLASH
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, pcfs_entry[k].da.cluster_id, pcfs_entry[k].da.pack_id);
-			if(*pcfs_point > 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			if(*pcfs_point > 0) // Èç¹ûÈÔÓÐ±¨¾¯´æÔÚ£¬¼ÌÐøÏì
 			{
-				beep_fault_ctrl  = 2; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
-				silencers_state  = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				disconnect_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½
+				beep_fault_ctrl  = 2; // ·äÃùÆ÷¿ª ¹ÊÕÏ·äÃùÆ÷±êÖ¾Î»
+				silencers_state  = 0; // ÏûÒôµÆÃð
+				disconnect_state = 1; // µãÁÁ¹ÊÕÏµÆ
 			}		
 		}
 	}
@@ -5497,7 +5497,7 @@ static uint8_t ClusterPackDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 	return disconnect_detector_sum;
 }
 
-// ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ·µ»ØÖµ °üµôÏßÊýÁ¿
 static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
 	uint8_t disconnect_detector_sum = 0;
@@ -5505,43 +5505,43 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 	MaxCombustibleGas_t temp_pack_mcg_co = {0};
 	temp_pack_mcg_co.co_max_val = -1;
 	
-	for(uint8_t jsz = 1;jsz < 4; jsz++) // ï¿½ï¿½ï¿½ï¿½20ï¿½ï¿½
+	for(uint8_t jsz = 1;jsz < 4; jsz++) // ±éÀú20´Ø
 	{
-		for(uint8_t i = 1; i < 33; i++)//Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ã¿Ò»ï¿½ï¿½ï¿½ÂµÄ°ï¿½
+		for(uint8_t i = 1; i < 33; i++)//Ñ­»·´ÎÊýÓÉÉèÖÃÉÏÏßÊýÁ¿¾ö¶¨ ±éÀúÃ¿Ò»´ØÏÂµÄ°ü
 		{
-			if(pack_online_buff[jsz][i] == 0) // ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½
+			if(pack_online_buff[jsz][i] == 0) // Èç¹ûÌ½²âÆ÷Î´ÉÏÏß
 			{
 				continue;
 			}
-			if(getClusterPackDisconnectCount(jsz, i) == PackDisconnectCount) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+			if(getClusterPackDisconnectCount(jsz, i) == PackDisconnectCount) // Èç¹ûÉèÖÃÎªÉÏÏß ÅÐ¶ÏÊÇ·ñµôÏß
 			{ 
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢Í³Ò»ï¿½ï¿½ï¿½ï¿½
+				// ÐÂÔöÄÚÈÝ ¶ÔËùÓÐ¹ÊÕÏÐÅÏ¢Í³Ò»´¦Àí
 	
-				disconnect_detector_sum++; // ï¿½ï¿½ï¿½ï¿½ï¿½è±¸+1
-				// Ò»ï¿½ï¿½ÒªÐ´0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				if(creatNewFaultRecordToCache(jsz, i, 0) == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½Ê¾ï¿½É¹ï¿½Ð´ï¿½ï¿½ ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½æ´¢FLASH
+				disconnect_detector_sum++; // µôÏßÉè±¸+1
+				// Ò»¶¨ÒªÐ´0·ñÔò»á³ö´í
+				if(creatNewFaultRecordToCache(jsz, i, 0) == 0) // Èç¹û·µ»Ø0±íÊ¾³É¹¦Ð´Èë ÐèÒªÆô¶¯·äÃùÆ÷ ²¢´æ´¢FLASH
 				{
-					beep_fault_ctrl  = 2;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
-					silencers_state  = 0;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					disconnect_state = 1;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½
-					// ï¿½Þ¸ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½æ´¢
+					beep_fault_ctrl  = 2;   // ·äÃùÆ÷¿ª ¹ÊÕÏ·äÃùÆ÷±êÖ¾Î»
+					silencers_state  = 0;   // ÏûÒôµÆÃð
+					disconnect_state = 1;   // µãÁÁ¹ÊÕÏµÆ
+					// ÐÞ¸ÄÎªº¯Êý´æ´¢
 					//DebugSendString((uint8_t *)&temp_data, sizeof(FlashSaveDetectFault_t));
 					BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, jsz, i);
 				}
 			}
-			else if(PACK_zx_buf[jsz][i] == i)  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½Ç¶ï¿½Ó¦ï¿½ï¿½IDï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ú½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+			else if(PACK_zx_buf[jsz][i] == i)  //Èç¹ûÔÚÏßÖµÊÇ¶ÔÓ¦µÄID±àºÅ ÔÚÏß ÔÚ½øÐÐÅÐ¶Ï
 			{
 				// new
 				if(pack_pbzt[jsz][i]==0 && PACK_WDZT_buf[jsz][i] != 0 && BJ_packjiyibuf_wd[jsz][i] == 0)
 				{
 					// new
-					// ï¿½ï¿½Â¼Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½ 
-					// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Ê¾Ê¹ï¿½ï¿½
+					// ¼ÇÂ¼Ì½²âÆ÷ÎÂ¶È±¨¾¯
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä 
+					// ´æÈëÁÙÊ±»º³åÇø¹©ÆÁÄ»ÏÔÊ¾Ê¹ÓÃ
 					StoragePackFireAlarm(&pcfas, jsz, i, Temperature);
 					
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, jsz, i, PACK_wendu_buf[jsz][i]);
-					// ï¿½ï¿½ï¿½Â´æ´¢ï¿½ï¿½ï¿½ï¿½ Ö»ï¿½ï¿½Ò»ï¿½ï¿½
+					// ¸üÐÂ´æ´¢¼ÇÒä Ö»´æÒ»´Î
 					BJ_packjiyibuf_wd[jsz][i] = PACK_WDZT_buf[jsz][i];
 					// end
 				}
@@ -5553,7 +5553,7 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 				if(pack_pbzt[jsz][i] == 0 && PACK_YWZT_buf[jsz][i] != 0 && BJ_packjiyibuf_yw[jsz][i] == 0) 
 				{
 					// new
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 					StoragePackFireAlarm(&pcfas, jsz, i, Smoke);
 					// end
 					
@@ -5568,22 +5568,22 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 				if(pack_pbzt[jsz][i] == 0 && PACK_COZT_buf[jsz][i] !=0 && BJ_packjiyibuf_co[jsz][i] == 0) {
 
 					// new
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 					StoragePackCabinForeWarn(&pcfws, jsz, i, Carbon);
 					// end
-					// È·ï¿½ï¿½Ö»ï¿½æ´¢Ò»ï¿½ï¿½ ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½Ò»Ö±ï¿½æµ¼ï¿½ï¿½FLASHï¿½ï¿½
+					// È·±£Ö»´æ´¢Ò»´Î ·ÀÖ¹³öÏÖÒ»Ö±´æµ¼ÖÂFLASHËð»µ
 					BJ_packjiyibuf_co[jsz][i] = PACK_COZT_buf[jsz][i];
 					
-					// ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½
+					// ±£´æ¿ÉÈ¼ÆøÌå
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM, jsz, i, getPackCoConcenValue(jsz, i));
 				}
-				else if(BJ_packjiyibuf_co[jsz][i] != 0 && PACK_COZT_buf[jsz][i] == 0) { // Ö¤ï¿½ï¿½Ö®Ç°ï¿½æ´¢ï¿½ï¿½
-					// Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½Ô»Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½
+				else if(BJ_packjiyibuf_co[jsz][i] != 0 && PACK_COZT_buf[jsz][i] == 0) { // Ö¤Ã÷Ö®Ç°´æ´¢¹ý
+					// Ò»Ñõ»¯Ì¼¿ÉÒÔ×Ô»Ö¸´£¬ÐèÒª´ÓÊý×éÖÐÉ¾µô
 					// NEW
-					// 2025/10/11 10:35 ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½Ô»Ö¸ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½Òªï¿½Ô»Ö¸ï¿½
+					// 2025/10/11 10:35 ¿ÉÈ¼ÆøÌå×Ô»Ö¸´Ö¸µÄÊÇÌ½²âÆ÷²»ÊÇÖ÷»ú ËùÒÔ²»ÐèÒª×Ô»Ö¸´
 //					DeletPackCabinForeWarn(&pcfws, jsz, i, Carbon);
 //					// 2025/9/2 17:13
-//					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+//					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 //					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, EAR_RECOVERY, jsz, i, getPackCoConcenValue(jsz, i));
 
 					// END
@@ -5592,7 +5592,7 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 					
 				if(PACK_CH4ZT_buf[jsz][i]!=0)
 				{
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 				}
 				else
 				{
@@ -5615,40 +5615,40 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 						BJ_packjiyibuf_co[jsz][i] != 0  || 
 						BJ_packjiyibuf_yw[jsz][i] != 0) && 
 						BJ_packjiyibuf_wd[jsz][i] != 0) 
-				//		|| BJ_packjiyibuf_wd[jsz][i] == 2 // ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				//		|| BJ_packjiyibuf_wd[jsz][i] == 2 // ÔÝÊ±ÆÁ±Îµô¶þ¼¶ÎÂ¶È±¨¾¯Æô¶¯Åç·Å ÒÔÃâ²úÉúÎó±¨
 				)
 			{
-				// ï¿½ï¿½ï¿½Ï»ï¿½ï¿½Ð¶ï¿½
+				// ¸´ºÏ»ð¾¯ÅÐ¶Ï
 				uint8_t flag = 0;
 				for(uint8_t j = 0;j < pas_pointer; j++)
 				{
-					if(pas[j].cabin_id == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½ï¿½ï¿½0 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½Ã´æ´¢ï¿½Ä²ï¿½ï¿½Ç²ï¿½
+					if(pas[j].cabin_id == 0) // Èç¹û²ÕIDµÈÓÚ0 ±íÃ÷¸ÃÎ»ÖÃ´æ´¢µÄ²»ÊÇ²Õ
 					{
 						if(pas[j].cluster_id == jsz	 && pas[j].pack_id == i)
 						{
 							flag = 1;
-							break; // ï¿½ï¿½ï¿½ï¿½Ã±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
+							break; // Èç¹û¸Ã±¨¾¯±àºÅÒÑ¾­´æ´¢¹ýÁË Ìø³öÑ­»·
 						}
 					}
 				}
-				if(flag != 1) // ï¿½ï¿½Ê¾Ã»ï¿½Ð´æ´¢ï¿½ï¿½
+				if(flag != 1) // ±íÊ¾Ã»ÓÐ´æ´¢¹ý
 				{
-					getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
-					// ï¿½ï¿½ï¿½Îªï¿½Ø»ï¿½
+					getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
+					// ±ê¼ÇÎª´Ø»ð¾¯
 					fire_alarm_flag.cluster_alarm_state = 1;
 					
 					pas[pas_pointer].cluster_id  = jsz;
 					pas[pas_pointer].pack_id     = i;
 					pas[pas_pointer].cabin_id    = 0;
-					pas[pas_pointer].lunch_state = 0; // ï¿½ï¿½ï¿½ï¿½×´Ì¬ Î´ï¿½ï¿½ï¿½ï¿½	
-					// Ê±ï¿½ä¸³Öµ
+					pas[pas_pointer].lunch_state = 0; // Æô¶¯×´Ì¬ Î´Æô¶¯	
+					// Ê±¼ä¸³Öµ
 					pas[pas_pointer].atr.years  = years + 2000;
 					pas[pas_pointer].atr.months = months;
 					pas[pas_pointer].atr.days   = days;
 					pas[pas_pointer].atr.hours  = hours;
 					pas[pas_pointer].atr.minute = minutes;
 					
-					// 2025/11/19 10:59 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					// 2025/11/19 10:59 ÐÂÔö¼ÇÂ¼±¨¾¯Ãë
 					pas[pas_pointer].atr.second = secs;
 					
 					pas_pointer++;
@@ -5659,10 +5659,10 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 	
 	if(*pcfs_point > 0)
 	{
-		disconnect_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½
+		disconnect_state = 1; // µãÁÁ¹ÊÕÏµÆ
 	}
 	
-	if(disconnect_detector_sum < *pcfs_point) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½Ð¡ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½Ö¸ï¿½ï¿½ï¿½
+	if(disconnect_detector_sum < *pcfs_point) // Èç¹ûµôÏßÉè±¸ÊýÐ¡ÓÚÖ¸Õë×ÜÊý Ö¤Ã÷ÓÐÉè±¸»Ö¸´ÁË
 	{
 		uint8_t flag = 0; 
 		uint8_t k;
@@ -5678,7 +5678,7 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 				// Loop 2 recovery is handled by MBus2DataDeal().
 				continue;
 			}
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½ï¿½ï¿½Öµ
+			// Èç¹û²»ÊÇµôÏßÖµ
 			if(getClusterPackDisconnectCount(pcfs_entry[k].da.cluster_id, pcfs_entry[k].da.pack_id) != PackDisconnectCount) 
 			{
 				flag = 1;
@@ -5690,13 +5690,13 @@ static uint8_t ClusterPackDataDeal_Plus(PackCabinFaultStorage *pcfs_entry, uint8
 			uint8_t saved_cluster_id = pcfs_entry[k].da.cluster_id;
 			uint8_t saved_pack_id    = pcfs_entry[k].da.pack_id;
 			deletRecoveryRecord(k);
-			// ï¿½æ´¢ï¿½ï¿½FLASH
+			// ´æ´¢½øFLASH
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, saved_cluster_id, saved_pack_id);
-			if(*pcfs_point > 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			if(*pcfs_point > 0) // Èç¹ûÈÔÓÐ±¨¾¯´æÔÚ£¬¼ÌÐøÏì
 			{
-				beep_fault_ctrl  = 2; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
-				silencers_state  = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				disconnect_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½
+				beep_fault_ctrl  = 2; // ·äÃùÆ÷¿ª ¹ÊÕÏ·äÃùÆ÷±êÖ¾Î»
+				silencers_state  = 0; // ÏûÒôµÆÃð
+				disconnect_state = 1; // µãÁÁ¹ÊÕÏµÆ
 			}		
 		}
 	}
@@ -5716,28 +5716,28 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 	temp_mcg_co.co_max_val = -1;
 	temp_mcg_hh.co_max_val = -1;
 	
-	//Ñ­ï¿½ï¿½ï¿½Ð¶ï¿½ 24 ï¿½ï¿½ï¿½ï¿½ Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½×´Ì¬
-	for(uint8_t jsz=1; jsz <= 24; jsz++) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò²Òªï¿½Ä³ï¿½24
+	//Ñ­»·ÅÐ¶Ï 24 ¸ö²Ö Ì½²âÔÚÏß ±¨¾¯×´Ì¬
+	for(uint8_t jsz=1; jsz <= 24; jsz++) // ÏÖÔÚÐÂÔöÁËËÄ¸ö²ÖÌ½²âÆ÷£¬Ñ­»·´ÎÊýÒ²Òª¸Ä³É24
 	{
-		if(cang_sxzt[jsz] != 1) // ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ö±ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
+		if(cang_sxzt[jsz] != 1) // Èç¹ûÃ»ÓÐÉèÖÃÉÏÏß Ö±½ÓÅÐ¶ÏÏÂÒ»¸ö
 		{
 			continue;
 		}
-		else if(Cang_zx_buf[jsz] == CabinDisconnectCount) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½+1 ï¿½Ð¶ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
+		else if(Cang_zx_buf[jsz] == CabinDisconnectCount) // Èç¹ûµôÏß¼ÆÊýÒç³ö µôÏßÊý+1 ÅÐ¶ÏÏÂÒ»¸ö
 		{
-			temp_cabin_disconnect_sum++; // ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½	
+			temp_cabin_disconnect_sum++; // ¼ÆËã²ÖµôÏßÊýÁ¿	
 
 			if(DX_cangjiyibuf[jsz] == 0)
 			{
 				DX_cangjiyibuf[jsz] = 1;	
-				if( creatNewFaultRecordToCache(0, 0, jsz) == 0 ) // ï¿½ï¿½ï¿½Ð´ï¿½ï¿½É¹ï¿½
+				if( creatNewFaultRecordToCache(0, 0, jsz) == 0 ) // Èç¹ûÐ´Èë³É¹¦
 				{
-					beep_fault_ctrl  = 2;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
-					silencers_state  = 0;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					disconnect_state = 1;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½
-					// ï¿½Þ¸ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½æ´¢
+					beep_fault_ctrl  = 2;   // ·äÃùÆ÷¿ª ¹ÊÕÏ·äÃùÆ÷±êÖ¾Î»
+					silencers_state  = 0;   // ÏûÒôµÆÃð
+					disconnect_state = 1;   // µãÁÁ¹ÊÕÏµÆ
+					// ÐÞ¸ÄÎªº¯Êý´æ´¢
 					//DebugSendString((uint8_t *)&temp_data, sizeof(FlashSaveDetectFault_t));
-					BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, 0, jsz); // ï¿½æ´¢ï¿½Öµï¿½ï¿½ï¿½
+					BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, 0, jsz); // ´æ´¢²ÖµôÏß
 				}
 			}
 			continue;
@@ -5750,88 +5750,88 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			if(index != 0xFF)
 			{
 				deletRecoveryRecord(index);
-				// ï¿½æ´¢ï¿½ï¿½FLASH
+				// ´æ´¢½øFLASH
 				BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, 0, jsz);
-				if(*pcfs_point > 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(*pcfs_point > 0) // Èç¹ûÈÔÓÐ±¨¾¯´æÔÚ£¬¼ÌÐøÏì
 				{
-					beep_fault_ctrl  = 2; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
-					silencers_state  = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					disconnect_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½
+					beep_fault_ctrl  = 2; // ·äÃùÆ÷¿ª ¹ÊÕÏ·äÃùÆ÷±êÖ¾Î»
+					silencers_state  = 0; // ÏûÒôµÆÃð
+					disconnect_state = 1; // µãÁÁ¹ÊÕÏµÆ
 				}		
 			}
 		}
 		
 		DX_cangjiyibuf[jsz] = 0;
 
-		//ï¿½ï¿½ï¿½Â¶ï¿½ï¿½Ð¶ï¿½
+		//²ÖÎÂ¶ÈÅÐ¶Ï
 		if(Cang_WDZT_buf[jsz] != 0 && BJ_cangjiyibuf_wd[jsz] == 0) 
 		{
 			// new
-			// ï¿½ï¿½Â¼Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½
-			getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½ 
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Ê¾Ê¹ï¿½ï¿½
+			// ¼ÇÂ¼Ì½²âÆ÷ÎÂ¶È±¨¾¯
+			getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä 
+			// ´æÈëÁÙÊ±»º³åÇø¹©ÆÁÄ»ÏÔÊ¾Ê¹ÓÃ
 			StoragePackFireAlarm(&pcfas, 0, jsz, Temperature);
 			
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, 0, jsz, Cang_wendu_buf[jsz]);
-			// ï¿½ï¿½ï¿½Â´æ´¢ï¿½ï¿½ï¿½ï¿½ Ö»ï¿½ï¿½Ò»ï¿½ï¿½
+			// ¸üÐÂ´æ´¢¼ÇÒä Ö»´æÒ»´Î
 			BJ_cangjiyibuf_wd[jsz] = Cang_WDZT_buf[jsz];
 			// end
 
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			cabin_detector_state_buff[jsz].temperature_state = 1; // ï¿½Â¶ï¿½Ô¤ï¿½ï¿½
+			// ÐÂÔöÄÚÈÝ
+			cabin_detector_state_buff[jsz].temperature_state = 1; // ÎÂ¶ÈÔ¤¾¯
 			// end
 		}
 
-		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+		//²ÖÑÌÎíÅÐ¶Ï
 		if(Cang_YWZT_buf[jsz] != 0 && BJ_cangjiyibuf_yw[jsz] == 0) { 
-			getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+			getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 
 			// new
-			getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+			getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 			StoragePackFireAlarm(&pcfas, 0, jsz, Smoke);
 			// end
 			
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, 0, jsz, 0xFFFF);
 			
 			BJ_cangjiyibuf_yw[jsz] = Cang_YWZT_buf[jsz];
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			cabin_detector_state_buff[jsz].smoke_state = 1; // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ô¤ï¿½ï¿½
+			// ÐÂÔöÄÚÈÝ
+			cabin_detector_state_buff[jsz].smoke_state = 1; // ÑÌÎíÒ»¼¶Ô¤¾¯
 			// end
 		}
 
-		//ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½Ð¶ï¿½
+		//²ÖÒ»Ñõ»¯Ì¼ÅÐ¶Ï
 		if(Cang_COZT_buf[jsz] != 0 && BJ_cangjiyibuf_co[jsz] == 0) 
 		{ 
 			// new
-			getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+			getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 			StoragePackCabinForeWarn(&pcfws, 0, jsz, Carbon);
 			// end
 
-			// ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½
+			// ±£´æ¿ÉÈ¼ÆøÌå
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_CO, 0, jsz, Cang_COzhi_buf[jsz]);
 			
 			BJ_cangjiyibuf_co[jsz] = Cang_COZT_buf[jsz];
 			
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			cabin_detector_state_buff[jsz].carbon_state = Cang_COZT_buf[jsz]; // Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Ò»ï¿½ï¿½Ô¤ï¿½ï¿½
+			// ÐÂÔöÄÚÈÝ
+			cabin_detector_state_buff[jsz].carbon_state = Cang_COZT_buf[jsz]; // Ò»Ñõ»¯Ì¼Ò»¼¶Ô¤¾¯
 			
 			// end
 		}
 		else if(Cang_COZT_buf[jsz] == 0 && BJ_cangjiyibuf_co[jsz] != 0)
 		{
 			BJ_cangjiyibuf_co[jsz] = 0;
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			cabin_detector_state_buff[jsz].carbon_state = 0;      // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+			// ÐÂÔöÄÚÈÝ
+			cabin_detector_state_buff[jsz].carbon_state = 0;      // Çå³ý±¨¾¯×´Ì¬
 		}
 			
-//			if(Cang_CH4ZT_buf[jsz]==1 && cang_pbzt[jsz]==0)//ï¿½Ö¼ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ô¤ï¿½ï¿½
+//			if(Cang_CH4ZT_buf[jsz]==1 && cang_pbzt[jsz]==0)//²Ö¼×ÍéÒ»¼¶Ô¤¾¯
 //			{
 //				if(BJ_cangjiyibuf_ch4[jsz]!=1)
 //				{
 //					BJ_cangjiyibuf_ch4[jsz]=1;
 //					SaveSensor(jsz,1,Cang_wendu_buf[jsz]+40,Cang_YWZT_buf[jsz],Cang_COZT_buf[jsz],Cang_CH4ZT_buf[jsz],0,0,0);
 //				}
-//			}else if(Cang_CH4ZT_buf[jsz]==2 && cang_pbzt[jsz]==0) { //ï¿½Ö¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½
+//			}else if(Cang_CH4ZT_buf[jsz]==2 && cang_pbzt[jsz]==0) { //²Ö¼×Íé¶þ¼¶Ô¤¾¯
 //				if(BJ_cangjiyibuf_ch4[jsz]!=2) {
 //					BJ_cangjiyibuf_ch4[jsz]=2;
 //					SaveSensor(jsz,1,Cang_wendu_buf[jsz]+40,Cang_YWZT_buf[jsz],Cang_COZT_buf[jsz],Cang_CH4ZT_buf[jsz],0,0,0);
@@ -5839,7 +5839,7 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 //			}
 			
 			
-		//ï¿½ï¿½VOCï¿½Ð¶ï¿½
+		//²ÖVOCÅÐ¶Ï
 		if(Cang_VOCZT_buf[jsz] != 0 && BJ_cangjiyibuf_voc[jsz] == 0)
 		{ 
 
@@ -5849,24 +5849,24 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 		{
 			
 			BJ_cangjiyibuf_voc[jsz]=0;
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ÐÂÔöÄÚÈÝ
 		}
 		
-		//ï¿½ï¿½H2ï¿½Ð¶ï¿½
+		//²ÖH2ÅÐ¶Ï
 		if(Cang_H2ZT_buf[jsz] != 0 && BJ_cangjiyibuf_h2[jsz] == 0) 
 		{ 
 			// new
-			getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+			getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 			StoragePackCabinForeWarn(&pcfws, 0, jsz, Hydrogen);
 			// end
 
-			// ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½
+			// ±£´æ¿ÉÈ¼ÆøÌå
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_HH, 0, jsz, Cang_H2zhi_buf[jsz]);
 			
 			BJ_cangjiyibuf_h2[jsz] = Cang_H2ZT_buf[jsz];
 			
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			cabin_detector_state_buff[jsz].hydrogen_state = 1; // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ô¤ï¿½ï¿½
+			// ÐÂÔöÄÚÈÝ
+			cabin_detector_state_buff[jsz].hydrogen_state = 1; // ÇâÆøÒ»¼¶Ô¤¾¯
 			
 			// end
 			
@@ -5874,14 +5874,14 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 		else if(Cang_H2ZT_buf[jsz] == 0 && BJ_cangjiyibuf_h2[jsz] != 0) 
 		{
 			
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			cabin_detector_state_buff[jsz].hydrogen_state = 0;    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+			// ÐÂÔöÄÚÈÝ
+			cabin_detector_state_buff[jsz].hydrogen_state = 0;    // Çå³ý±¨¾¯×´Ì¬
 			BJ_cangjiyibuf_h2[jsz] = 0;
 		}
 
 		// end
 
-		// 2025/10/27 16:42 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½ï¿½Ð¶ï¿½
+		// 2025/10/27 16:42 ÐÂÔö¿ÉÈ¼ÆøÌåÅ¨¶ÈÅÐ¶Ï
 		
 		if(Cang_H2zhi_buf[jsz] > temp_mcg_hh.co_max_val)
 		{
@@ -5890,7 +5890,7 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			temp_mcg_hh.gas_type = Hydrogen_Type;
 			
 			temp_mcg_hh.curr_da.cabin_id   = jsz;
-			// ï¿½ï¿½ï¿½ï¿½Ç²ï¿½ ï¿½ï¿½Ø½ï¿½ï¿½Øºï¿½packï¿½ï¿½0
+			// Èç¹ûÊÇ²Ö Îñ±Ø½«´ØºÍpackÇå0
 			temp_mcg_hh.curr_da.cluster_id = 0;
 			temp_mcg_hh.curr_da.pack_id    = 0;
 		}
@@ -5902,48 +5902,48 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			temp_mcg_co.gas_type = Carbon_Type;
 			
 			temp_mcg_co.curr_da.cabin_id   = jsz;
-			// ï¿½ï¿½ï¿½ï¿½Ç²ï¿½ ï¿½ï¿½Ø½ï¿½ï¿½Øºï¿½packï¿½ï¿½0
+			// Èç¹ûÊÇ²Ö Îñ±Ø½«´ØºÍpackÇå0
 			temp_mcg_co.curr_da.cluster_id = 0;
 			temp_mcg_co.curr_da.pack_id    = 0;
 		}
 		
 		
-		// ï¿½Õ¶ï¿½ð¾¯±ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
-		//ï¿½Ö¸ï¿½ï¿½Ï»ï¿½ï¿½Ð¶ï¿½
+		// ²Õ¶à»ð¾¯±¨¾¯¼ÇÂ¼
+		//²Ö¸´ºÏ»ð¾¯ÅÐ¶Ï
 		if( // Cang_WDZT_buf[jsz]==2 || 
 			(((BJ_cangjiyibuf_h2[jsz] != 0) || BJ_cangjiyibuf_voc[jsz] != 0 || BJ_cangjiyibuf_co[jsz] != 0 || BJ_cangjiyibuf_yw[jsz] != 0) 
 			&& BJ_cangjiyibuf_wd[jsz] != 0 ) )
 		{
 			
 			// new
-			fire_alarm_state = 1;  // ï¿½ï¿½Ç»ï¿½(ï¿½Ë´ï¿½Îªï¿½ï¿½ï¿½Ú»ï¿½)
+			fire_alarm_state = 1;  // ±ê¼Ç»ð¾¯(´Ë´¦Îª²ÕÄÚ»ð¾¯)
 			// end
 			
-			// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ÐµÄ»ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ¼ÇÂ¼ËùÓÐµÄ»ð¾¯ÐÅÏ¢²¢´¢´æ
 			uint8_t flag = 0;
 			for(uint8_t k = 0;k < pas_pointer; k++)
 			{
-				if(pas[k].cluster_id == 0 && pas[k].pack_id == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½Í°ï¿½IDï¿½ï¿½ï¿½ï¿½0 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½ID
+				if(pas[k].cluster_id == 0 && pas[k].pack_id == 0) // Èç¹û´ØIDºÍ°üIDµÈÓÚ0 ±íÃ÷¸ÃÎ»ÖÃ´¢´æµÄÊÇ²ÕID
 				{
-					if(pas[k].cabin_id == jsz) // ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½Ñ¾ï¿½ï¿½æ´¢ï¿½ï¿½
+					if(pas[k].cabin_id == jsz) // Èç¹û²ÕIDÒÑ¾­´æ´¢¹ý
 					{
 						flag = 1;
-						break; // ï¿½ï¿½ï¿½ï¿½Ã±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
+						break; // Èç¹û¸Ã±¨¾¯±àºÅÒÑ¾­´æ´¢¹ýÁË Ìø³öÑ­»·
 					}
 				}
 				
 			}
-			if(flag != 1) // ï¿½ï¿½Ê¾Ã»ï¿½Ð´æ´¢ï¿½ï¿½
+			if(flag != 1) // ±íÊ¾Ã»ÓÐ´æ´¢¹ý
 			{
-				getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
-				// ï¿½ï¿½ï¿½Îªï¿½Ö»ï¿½
+				getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
+				// ±ê¼ÇÎª²Ö»ð¾¯
 				fire_alarm_flag.cabin_alarm_state = 1;
 				
 				pas[pas_pointer].cabin_id    = jsz;
 				pas[pas_pointer].cluster_id  = 0;
 				pas[pas_pointer].pack_id     = 0;
 				pas[pas_pointer].lunch_state = 0;
-				// Ê±ï¿½ä¸³Öµ
+				// Ê±¼ä¸³Öµ
 				pas[pas_pointer].atr.years  = years + 2000;
 				pas[pas_pointer].atr.months = months;
 				pas[pas_pointer].atr.days   = days;
@@ -5959,12 +5959,12 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 	mcg[CABIN_CO_ID] = temp_mcg_co;
 	mcg[CABIN_HH_ID] = temp_mcg_hh;
 	
-	return temp_cabin_disconnect_sum; // ï¿½ï¿½ï¿½Ø²Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	return temp_cabin_disconnect_sum; // ·µ»Ø²ÖµôÏßÊýÁ¿
 }
 
 static void FaultRelayCtrlAppFun(uint8_t disconnect_num)
 {
-	if(disconnect_num != 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª0 ï¿½ï¿½ï¿½Ï¹ï¿½ï¿½Ï¸É½Óµï¿½
+	if(disconnect_num != 0) // Èç¹û¹ÊÕÏÊýÁ¿²»Îª0 ÎüºÏ¹ÊÕÏ¸É½Óµã
 	{
 		if(rcsr[FaultRelayId].curr_relay_state == JDQ_OFF)
 		{
@@ -6029,30 +6029,30 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 	static uint16_t last_product_unknown_count = 0U;
 	uint16_t product_unknown_count = DeviceRegistry_GetProductUnknownCount();
 	uint16_t total_fault_count = (uint16_t)pcfs_buttom_point + product_unknown_count;
-	// ï¿½ï¿½ï¿½Ï¼ï¿½ï¿½ï¿½ï¿½Ê¾
+	// ¹ÊÕÏ¼à¿ØÏÔÊ¾
 	if(total_fault_count == 0U)
 	{
 		if(pcfs_fresh_ctrl != 0 || last_product_unknown_count != 0U)
 		{
-			disconnect_state = 0;  // ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ 
-			beep_fault_ctrl  = 0;  // ï¿½Ø±Õµï¿½ï¿½ß·ï¿½ï¿½ï¿½ï¿½ï¿½
+			disconnect_state = 0;  // µôÏß×´Ì¬½â³ý 
+			beep_fault_ctrl  = 0;  // ¹Ø±ÕµôÏß·äÃùÆ÷
 			pcfs_fresh_ctrl = 0;
 			last_product_unknown_count = 0U;
-			clearTextValue(monitor_inform_screen_id , 43);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 44);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 45);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 46);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 47);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 48);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+			clearTextValue(monitor_inform_screen_id , 43);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 44);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 45);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 46);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 47);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 48);//(»­ÃæID,¿Ø¼þID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 42,"ï¿½ï¿½ï¿½Ï¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.     ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 20:SetTextValue(monitor_inform_screen_id, 42,"ï¿½ï¿½ï¿½Ï¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..    ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 30:SetTextValue(monitor_inform_screen_id, 42,"ï¿½ï¿½ï¿½Ï¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...   ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 40:SetTextValue(monitor_inform_screen_id, 42,"ï¿½ï¿½ï¿½Ï¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½....  ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 50:SetTextValue(monitor_inform_screen_id, 42,"ï¿½ï¿½ï¿½Ï¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..... ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 60:SetTextValue(monitor_inform_screen_id, 42,"ï¿½ï¿½ï¿½Ï¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½......");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			case 10:SetTextValue(monitor_inform_screen_id, 42,"¹ÊÕÏ¼à²âÔËÐÐÖÐ.     ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 20:SetTextValue(monitor_inform_screen_id, 42,"¹ÊÕÏ¼à²âÔËÐÐÖÐ..    ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 30:SetTextValue(monitor_inform_screen_id, 42,"¹ÊÕÏ¼à²âÔËÐÐÖÐ...   ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 40:SetTextValue(monitor_inform_screen_id, 42,"¹ÊÕÏ¼à²âÔËÐÐÖÐ....  ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 50:SetTextValue(monitor_inform_screen_id, 42,"¹ÊÕÏ¼à²âÔËÐÐÖÐ..... ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 60:SetTextValue(monitor_inform_screen_id, 42,"¹ÊÕÏ¼à²âÔËÐÐÖÐ......");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 	else if(pcfs_fresh_ctrl != pcfs_buttom_point || last_product_unknown_count != product_unknown_count || fresh_page_flag == 1)
@@ -6082,29 +6082,29 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 				}
 				else if(FormatRS485DetectFaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
 				{
-					// XR5000_LOOP3_CHANGE_20260726: Loop 3 fault display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+					// XR5000_LOOP3_CHANGE_20260726: Loop 3 fault display uses "µÚ3»ØÂ· XºÅ".
 				}
 				else if(FormatMBus2FaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
 				{
-					// Loop 2 fault display uses "ï¿½ï¿½Â·ï¿½ï¿½ XXï¿½è±¸ï¿½ï¿½ï¿½ï¿½".
+					// Loop 2 fault display uses "»ØÂ·¶þ XXÉè±¸µôÏß".
 				}
-				else if(pcfs[data_index].detector_class == PackClassID) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½
+				else if(pcfs[data_index].detector_class == PackClassID) // Èç¹ûÀàÐÍÊÇ°ü
 				{
-					// 2025/11/19 10:59 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					// 2025/11/19 10:59 ÐÂÔö¼ÇÂ¼±¨¾¯Ãë
                     static const uint8_t pack_format[] = {'%','0','3','d',' ','%','d','/','%','0','2','d','/','%','0','2','d',' ','%','0','2','d',':','%','0','2','d',':','%','0','2','d',' ',0xB5U,0xDAU,'%','d',0xB4U,0xD8U,' ','P','A','C','K','%','d',' ',0xB5U,0xF4U,0xCFU,0xDFU,0U};
                     sprintf((char*)baojingneirong, (const char*)pack_format, temp_sequence_count,
 						pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 						pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second,
 						pcfs[data_index].da.cluster_id, pcfs[data_index].da.pack_id);
 				}
-				else if(pcfs[data_index].detector_class == CabinClassID) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½
+				else if(pcfs[data_index].detector_class == CabinClassID) // Èç¹ûÀàÐÍÊÇ²Ö
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½", temp_sequence_count, // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ µôÏß", temp_sequence_count, // ÐÂÔöÏÔÊ¾ÐòºÅ
 						pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 						pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second,
 						pcfs[data_index].da.cabin_id );
 				}
-				else if(pcfs[data_index].detector_class == LinkageClassID) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸
+				else if(pcfs[data_index].detector_class == LinkageClassID) // Èç¹ûÊÇÍâÁªÉè±¸
 				{
 					switch(pcfs[data_index].da.pack_id)
 					{
@@ -6112,13 +6112,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case Deflate_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ·ÅÆøÎðÈëµôÏß", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days, 
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ·ÅÆøÎðÈë¶ÌÂ·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days, 
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6126,13 +6126,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case SoundLt_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d Éù¹â±¨¾¯Æ÷µôÏß", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d Éù¹â±¨¾¯Æ÷¶ÌÂ·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6141,13 +6141,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case SirenBk_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½Ñµï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ¾¯µÑµôÏß", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½Ñ¶ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ¾¯µÑ¶ÌÂ·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6155,13 +6155,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case OutFir1_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d Ãð»ð×°ÖÃ1µôÏß", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d Ãð»ð×°ÖÃ1¶ÌÂ·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6170,13 +6170,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case OutFir2_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½×°ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d Ãð»ð×°ÖÃ2µôÏß", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½×°ï¿½ï¿½2ï¿½ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d Ãð»ð×°ÖÃ2¶ÌÂ·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6185,13 +6185,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case CabinBK_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d Åç·Å×°ÖÃµôÏß", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½×°ï¿½Ã¶ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d Åç·Å×°ÖÃ¶ÌÂ·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6200,13 +6200,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case FEEDBK1_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ·´À¡1µôÏß", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ·´À¡1¶ÌÂ·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6214,13 +6214,13 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case FEEDBK2_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ·´À¡2µôÏß", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ·´À¡2¶ÌÂ·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
@@ -6229,26 +6229,26 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case HANDPOT_Package_ID:
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ÊÖ±¨µôÏß", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½Ö±ï¿½ï¿½ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ÊÖ±¨¶ÌÂ·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							break;
-						case SYS_FLASH_FAULT_ID: { // ï¿½ï¿½ï¿½ï¿½Ç´æ´¢ï¿½ï¿½ï¿½ï¿½
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ÏµÍ³ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+						case SYS_FLASH_FAULT_ID: { // Èç¹ûÊÇ´æ´¢¹ÊÕÏ
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ÏµÍ³´æ´¢¹ÊÕÏ", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 
 							break;
 						}							
 						case SYS_MAIN_POWER_KEY_ID : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d Ö÷µç¹ÊÕÏ", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
@@ -6256,38 +6256,38 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 						case SYS_BACK_POWER_KEY_ID : {
 							if(pcfs[data_index].da.cabin_id == DISCONNECT)
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ±¸µç¹ÊÕÏ", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							else
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½Â·", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ±¸µç¶ÌÂ·", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							}
 							break;
 						}
 						case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_1 : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½Â·1ï¿½ï¿½Â·", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d »ØÂ·1¶ÌÂ·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
 						}
 						case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_2 : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½Â·2ï¿½ï¿½Â·", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d »ØÂ·2¶ÌÂ·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
 						}
 						case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_3 : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½Â·3ï¿½ï¿½Â·", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d »ØÂ·3¶ÌÂ·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
 						}
 						case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_4 : {
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½Â·4ï¿½ï¿½Â·", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d »ØÂ·4¶ÌÂ·", temp_sequence_count,
 								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
@@ -6297,9 +6297,9 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 			} 
 			else {
 				baojingneirong[0] = 0;
-				//clearTextValue(1 , 41 + i);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+				//clearTextValue(1 , 41 + i);//(»­ÃæID,¿Ø¼þID£©
 			}
-			SetTextValue(monitor_inform_screen_id, i + 42, baojingneirong);//Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextValue(monitor_inform_screen_id, i + 42, baojingneirong);//Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 	
@@ -6317,27 +6317,27 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 
 static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry, uint8_t fresh_page_flag)
 {
-	// Ô¤ï¿½ï¿½ï¿½ï¿½Ê¾
-	if(pcfws_entry->self_bottom_point == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª0 
+	// Ô¤¾¯ÏÔÊ¾
+	if(pcfws_entry->self_bottom_point == 0) // Èç¹û±¨¾¯ÊýÁ¿Îª0 
 	{
 		if(pcfws_entry->point_history_len != 0)
 		{
 			pcfws_entry->point_history_len = 0;
-			clearTextValue(monitor_inform_screen_id , 36);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 37);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 38);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 39);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 40);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 41);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+			clearTextValue(monitor_inform_screen_id , 36);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 37);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 38);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 39);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 40);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 41);//(»­ÃæID,¿Ø¼þID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.     ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 20:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..    ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 30:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...   ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 40:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½....  ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 50:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..... ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 60:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½......");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			case 10:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ.     ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 20:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ..    ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 30:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ...   ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 40:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ....  ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 50:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ..... ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 60:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ......");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 	else if(pcfws_entry->self_bottom_point != pcfws_entry->point_history_len || fresh_page_flag == 1)
@@ -6347,41 +6347,41 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 		
 
 		
-		// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Ã¶ï¿½ï¿½ï¿½Ê¾
+		// µÚÒ»Ìõ±¨¾¯ÐÅÏ¢ÖÃ¶¥ÏÔÊ¾
 		if(pcfws_entry->detector_class[0] == PackClassID && pcfws_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first warning display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first warning display uses "µÚ3»ØÂ· XºÅ".
 			FormatRS485DetectForeWarnLine(baojingneirong, 1, pcfws_entry, 0);
 		}
 		else if(pcfws_entry->detector_class[0] == PackClassID)
 		{
 			if(pcfws_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÎÂ¶È±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÑÌÎí±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws.da[0].cluster_id, pcfws.da[0].pack_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
 			}
 		}
-		else if(pcfws_entry->detector_class[0] == LinkageClassID) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸
+		else if(pcfws_entry->detector_class[0] == LinkageClassID) // Èç¹ûÊÇÍâÁªÉè±¸
 		{
 			if(pcfws_entry->alarm_type[0] == AlarmCtrlKey)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ±¨¾¯Æ÷°´ÏÂ", 1,
 					pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 					pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second);
 			}
@@ -6390,41 +6390,41 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 		{
 			if(pcfws_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÎÂ¶È±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÑÌÎí±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws.da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Hydrogen)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÇâÆø±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 		}
 		
-		SetTextValue(monitor_inform_screen_id, 35, baojingneirong); // Ë¢ï¿½Âµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		SetTextValue(monitor_inform_screen_id, 35, baojingneirong); // Ë¢ÐÂµÚÒ»Ìõ±¨¾¯ÄÚÈÝ
 			
 		uint8_t temp_sequence_count = 0;
 		
-		// Ê£ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+		// Ê£ÏÂµÄÇøÓò¹ö¶¯ÏÔÊ¾
 		for (uint8_t i = 1; i < Alarm_Show_Zone; i++) {
-			uint8_t data_index = fore_alarm_start_index + i; // Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			uint8_t data_index = fore_alarm_start_index + i; // Ô¤¾¯¸üÐÂ
 			
 			temp_sequence_count = data_index + 1;
 			
@@ -6432,28 +6432,28 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 				pcfws_entry->detector_class[data_index] == PackClassID &&
 				pcfws_entry->da[data_index].cluster_id == RS485_DETECT_FLASH_ID)
 			{
-				// XR5000_LOOP3_CHANGE_20260726: Loop 3 warning display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+				// XR5000_LOOP3_CHANGE_20260726: Loop 3 warning display uses "µÚ3»ØÂ· XºÅ".
 				FormatRS485DetectForeWarnLine(baojingneirong, temp_sequence_count, pcfws_entry, data_index);
 			}
 			else if(data_index < pcfws_entry->self_bottom_point && pcfws_entry->detector_class[data_index] == PackClassID)
 			{
 				if(pcfws_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÎÂ¶È±¨¾¯", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÑÌÎí±¨¾¯", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷Ò»Ñõ»¯Ì¼±¨¾¯", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
@@ -6464,13 +6464,13 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 			{
 				if(pcfws_entry->alarm_type[0] == AlarmCtrlKey)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ±¨¾¯Æ÷°´ÏÂ", temp_sequence_count,
 						pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 						pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[data_index].second);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == HandAlarm)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ÊÖ±¨°´ÏÂ±¨¾¯", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[0].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second);
 				}
@@ -6479,28 +6479,28 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 			{
 				if(pcfws_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÎÂ¶È±¨¾¯", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÑÌÎí±¨¾¯", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Hydrogen)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÇâÆø±¨¾¯", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
@@ -6509,36 +6509,36 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 			else
 			{
 				baojingneirong[0] = 0;
-//				clearTextValue(1 , 35 + i); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+//				clearTextValue(1 , 35 + i); //(»­ÃæID,¿Ø¼þID£©
 			}
-			SetTextValue(monitor_inform_screen_id, 35 + i, baojingneirong); // Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextValue(monitor_inform_screen_id, 35 + i, baojingneirong); // Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 }
 
 static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_entry, uint8_t fresh_page_flag)
 {
-	// Ô¤ï¿½ï¿½ï¿½ï¿½Ê¾
-	if(pcfws_entry->self_bottom_point == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª0 
+	// Ô¤¾¯ÏÔÊ¾
+	if(pcfws_entry->self_bottom_point == 0) // Èç¹û±¨¾¯ÊýÁ¿Îª0 
 	{
 		if(pcfws_entry->point_history_len != 0)
 		{
 			pcfws_entry->point_history_len = 0;
-			clearTextValue(monitor_inform_screen_id , 36);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 37);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 38);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 39);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 40);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 41);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+			clearTextValue(monitor_inform_screen_id , 36);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 37);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 38);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 39);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 40);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 41);//(»­ÃæID,¿Ø¼þID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.     ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 20:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..    ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 30:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...   ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 40:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½....  ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 50:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..... ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 60:SetTextValue(monitor_inform_screen_id, 35,"Ô¤ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½......");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			case 10:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ.     ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 20:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ..    ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 30:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ...   ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 40:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ....  ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 50:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ..... ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 60:SetTextValue(monitor_inform_screen_id, 35,"Ô¤¾¯ÏµÍ³ÔËÐÐÖÐ......");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 	else if(pcfws_entry->self_bottom_point != pcfws_entry->point_history_len || fresh_page_flag == 1)
@@ -6550,9 +6550,9 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 
 		uint8_t temp_sequence_count = 0;
 		
-		// Ê£ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+		// Ê£ÏÂµÄÇøÓò¹ö¶¯ÏÔÊ¾
 		for (uint8_t i = 0; i < Alarm_Show_Zone; i++) {
-			uint8_t data_index = fore_alarm_start_index + i; // Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			uint8_t data_index = fore_alarm_start_index + i; // Ô¤¾¯¸üÐÂ
 			
 			temp_sequence_count = data_index + 1;
 			
@@ -6560,28 +6560,28 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 				pcfws_entry->detector_class[data_index] == PackClassID &&
 				pcfws_entry->da[data_index].cluster_id == RS485_DETECT_FLASH_ID)
 			{
-				// XR5000_LOOP3_CHANGE_20260726: Loop 3 warning display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+				// XR5000_LOOP3_CHANGE_20260726: Loop 3 warning display uses "µÚ3»ØÂ· XºÅ".
 				FormatRS485DetectForeWarnLine(baojingneirong, temp_sequence_count, pcfws_entry, data_index);
 			}
 			else if(data_index < pcfws_entry->self_bottom_point && pcfws_entry->detector_class[data_index] == PackClassID)
 			{
 				if(pcfws_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÎÂ¶È±¨¾¯", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÑÌÎí±¨¾¯", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷Ò»Ñõ»¯Ì¼±¨¾¯", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cluster_id, pcfws_entry->da[data_index].pack_id);
@@ -6592,13 +6592,13 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 			{
 				if(pcfws_entry->alarm_type[0] == AlarmCtrlKey)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ±¨¾¯Æ÷°´ÏÂ", temp_sequence_count,
 						pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 						pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[data_index].second);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == HandAlarm)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ÊÖ±¨°´ÏÂ±¨¾¯", temp_sequence_count,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[0].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second);
 				}
@@ -6612,28 +6612,28 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 			{
 				if(pcfws_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÎÂ¶È±¨¾¯", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÑÌÎí±¨¾¯", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
 				}
 				else if(pcfws_entry->alarm_type[data_index] == Hydrogen)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÇâÆø±¨¾¯", 1,
 						pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 						pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
 						pcfws_entry->da[data_index].cabin_id);
@@ -6642,36 +6642,36 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 			else
 			{
 				baojingneirong[0] = 0;
-//				clearTextValue(1 , 35 + i); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+//				clearTextValue(1 , 35 + i); //(»­ÃæID,¿Ø¼þID£©
 			}
-			SetTextValue(monitor_inform_screen_id, 35 + i, baojingneirong); // Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextValue(monitor_inform_screen_id, 35 + i, baojingneirong); // Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 }
 
 static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entry, uint8_t fresh_page_flag)
 {
-	// ï¿½ð¾¯¼ï¿½ï¿½
+	// »ð¾¯¼à¿Ø
 	if(pcfas_entry->self_bottom_point == 0) // 
 	{
 		if(pcfas_entry->point_history_len != 0)
 		{
 			pcfas_entry->point_history_len = 0;
-			clearTextValue(monitor_inform_screen_id , 50);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 51);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 52);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 53);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 54);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 55);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+			clearTextValue(monitor_inform_screen_id , 50);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 51);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 52);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 53);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 54);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 55);//(»­ÃæID,¿Ø¼þID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.     ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 20:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..    ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 30:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...   ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 40:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½....  ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 50:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..... ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 60:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½......");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			case 10:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ.     ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 20:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ..    ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 30:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ...   ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 40:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ....  ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 50:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ..... ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 60:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ......");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 	else if(pcfas_entry->self_bottom_point != pcfas_entry->point_history_len || fresh_page_flag == 1)
@@ -6680,33 +6680,33 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 		
 		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
 
-		fire_alarm_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½
+		fire_alarm_state = 1; // µãÁÁ»ð¾¯Ö¸Ê¾µÆ
 		
-		// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Ã¶ï¿½ï¿½ï¿½Ê¾
+		// µÚÒ»Ìõ±¨¾¯ÐÅÏ¢ÖÃ¶¥ÏÔÊ¾
 		if(pcfas_entry->detector_class[0] == PackClassID && pcfas_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first fire display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first fire display uses "µÚ3»ØÂ· XºÅ".
 			FormatRS485DetectFireAlarmLine(baojingneirong, 1, pcfas_entry, 0);
 		}
 		else if(pcfas_entry->detector_class[0] == PackClassID)
 		{
 			if(pcfas_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÎÂ¶È±¨¾¯", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÑÌÎí±¨¾¯", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
@@ -6716,13 +6716,13 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 		{
 			if(pcfas_entry->alarm_type[0] == AlarmCtrlKey)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ±¨¾¯Æ÷°´ÏÂ", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
 			}
 			else
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ÊÖ±¨°´ÏÂ±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
 			}
@@ -6732,39 +6732,39 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 		{
 			if(pcfas_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÎÂ¶È±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÑÌÎí±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfws.atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Hydrogen)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÇâÆø±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 		}
 		
-		SetTextValue(monitor_inform_screen_id, 49, baojingneirong); // Ë¢ï¿½Âµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		SetTextValue(monitor_inform_screen_id, 49, baojingneirong); // Ë¢ÐÂµÚÒ»Ìõ±¨¾¯ÄÚÈÝ
 			
 		uint8_t temp_sequence_count = 0;
 		
-		// Ê£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+		// Ê£ÏÂÎå¸öÇøÓò¹ö¶¯ÏÔÊ¾
 		for (uint8_t i = 1; i < Alarm_Show_Zone; i++) {
 			uint8_t data_index = fire_alarm_start_index + i;
 			
@@ -6774,7 +6774,7 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 				pcfas_entry->detector_class[data_index] == PackClassID &&
 				pcfas_entry->da[data_index].cluster_id == RS485_DETECT_FLASH_ID)
 			{
-				// XR5000_LOOP3_CHANGE_20260726: Loop 3 fire display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+				// XR5000_LOOP3_CHANGE_20260726: Loop 3 fire display uses "µÚ3»ØÂ· XºÅ".
 				FormatRS485DetectFireAlarmLine(baojingneirong, temp_sequence_count, pcfas_entry, data_index);
 			}
 			else if(data_index < pcfas_entry->self_bottom_point && pcfas_entry->detector_class[data_index] == PackClassID)
@@ -6782,21 +6782,21 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 				
 				if(pcfas_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÎÂ¶È±¨¾¯", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
 				}
 				else if(pcfas.alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÑÌÎí±¨¾¯", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
 				}
 				else if(pcfas.alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷Ò»Ñõ»¯Ì¼±¨¾¯", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
@@ -6804,7 +6804,7 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 			}
 			else if(data_index < pcfas_entry->self_bottom_point && pcfas_entry->detector_class[data_index] == LinkageClassID)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½", temp_sequence_count,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ÊÖ±¨°´ÏÂ±¨¾¯", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second);
 			}
@@ -6812,28 +6812,28 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 			{
 				if(pcfas_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÎÂ¶È±¨¾¯", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÑÌÎí±¨¾¯", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Hydrogen)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÇâÆø±¨¾¯", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
@@ -6842,36 +6842,36 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 			else
 			{
 				baojingneirong[0] = 0;
-//				clearTextValue(1 , 38 + i); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+//				clearTextValue(1 , 38 + i); //(»­ÃæID,¿Ø¼þID£©
 			}
-			SetTextValue(monitor_inform_screen_id, 49 + i, baojingneirong); // Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextValue(monitor_inform_screen_id, 49 + i, baojingneirong); // Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 }
 
 static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas_entry, uint8_t fresh_page_flag)
 {
-	// ï¿½ð¾¯¼ï¿½ï¿½
+	// »ð¾¯¼à¿Ø
 	if(pcfas_entry->self_bottom_point == 0) // 
 	{
 		if(pcfas_entry->point_history_len != 0)
 		{
 			pcfas_entry->point_history_len = 0;
-			clearTextValue(monitor_inform_screen_id , 50);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 51);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 52);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 53);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 54);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 55);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+			clearTextValue(monitor_inform_screen_id , 50);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 51);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 52);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 53);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 54);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 55);//(»­ÃæID,¿Ø¼þID)
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.     ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 20:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..    ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 30:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...   ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 40:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½....  ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 50:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..... ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 60:SetTextValue(monitor_inform_screen_id, 49,"ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½......");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			case 10:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ.     ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 20:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ..    ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 30:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ...   ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 40:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ....  ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 50:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ..... ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 60:SetTextValue(monitor_inform_screen_id, 49,"»ð¾¯ÏµÍ³ÔËÐÐÖÐ......");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 	else if(pcfas_entry->self_bottom_point != pcfas_entry->point_history_len || fresh_page_flag == 1)
@@ -6880,11 +6880,11 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 		
 		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
 
-		fire_alarm_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½
+		fire_alarm_state = 1; // µãÁÁ»ð¾¯Ö¸Ê¾µÆ
 		
 		uint8_t temp_sequence_count = 0;
 		
-		// Ê£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+		// Ê£ÏÂÎå¸öÇøÓò¹ö¶¯ÏÔÊ¾
 		for (uint8_t i = 0; i < Alarm_Show_Zone; i++) {
 			uint8_t data_index = fire_alarm_start_index + i;
 			
@@ -6894,7 +6894,7 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 				pcfas_entry->detector_class[data_index] == PackClassID &&
 				pcfas_entry->da[data_index].cluster_id == RS485_DETECT_FLASH_ID)
 			{
-				// XR5000_LOOP3_CHANGE_20260726: Loop 3 fire display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+				// XR5000_LOOP3_CHANGE_20260726: Loop 3 fire display uses "µÚ3»ØÂ· XºÅ".
 				FormatRS485DetectFireAlarmLine(baojingneirong, temp_sequence_count, pcfas_entry, data_index);
 			}
 			else if(data_index < pcfas_entry->self_bottom_point && pcfas_entry->detector_class[data_index] == PackClassID)
@@ -6902,21 +6902,21 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 				
 				if(pcfas_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÎÂ¶È±¨¾¯", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
 				}
 				else if(pcfas.alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÑÌÎí±¨¾¯", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
 				}
 				else if(pcfas.alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷Ò»Ñõ»¯Ì¼±¨¾¯", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 					pcfas_entry->da[data_index].cluster_id, pcfas_entry->da[data_index].pack_id);
@@ -6924,7 +6924,7 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 			}
 			else if(data_index < pcfas_entry->self_bottom_point && pcfas_entry->detector_class[data_index] == LinkageClassID)
 			{
-				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½", temp_sequence_count,
+				sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ÊÖ±¨°´ÏÂ±¨¾¯", temp_sequence_count,
 					pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 					pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second);
 			}
@@ -6937,28 +6937,28 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 			{
 				if(pcfas_entry->alarm_type[data_index] == Temperature)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÎÂ¶È±¨¾¯", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Smoke)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÑÌÎí±¨¾¯", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Carbon)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
 				}
 				else if(pcfas_entry->alarm_type[data_index] == Hydrogen)
 				{
-					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+					sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÇâÆø±¨¾¯", 1,
 						pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 						pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
 						pcfas_entry->da[data_index].cabin_id);
@@ -6967,24 +6967,24 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 			else
 			{
 				baojingneirong[0] = 0;
-//				clearTextValue(1 , 38 + i); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+//				clearTextValue(1 , 38 + i); //(»­ÃæID,¿Ø¼þID£©
 			}
-			SetTextValue(monitor_inform_screen_id, 49 + i, baojingneirong); // Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextValue(monitor_inform_screen_id, 49 + i, baojingneirong); // Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
 }
 
 static void CreatNewFireExtinguishRecord(
-	FireExtinguishDeviceActionSave *fedas_entry, // Ä¬ï¿½Ï¸ï¿½Öµï¿½Ä½á¹¹ï¿½ï¿½
-	FireExtinguishDeviceActionSave *copy_fedas,  // Ä¬ï¿½Ï¸ï¿½Öµï¿½Ä½á¹¹ï¿½ï¿½
+	FireExtinguishDeviceActionSave *fedas_entry, // Ä¬ÈÏ¸³ÖµµÄ½á¹¹Ìå
+	FireExtinguishDeviceActionSave *copy_fedas,  // Ä¬ÈÏ¸³ÖµµÄ½á¹¹Ìå
 	uint8_t copy_dedas_offset,
 	FireExtinguishDeviceActionType state, 
-	uint16_t state_switch_delay             // ×´Ì¬ï¿½Ð»ï¿½ï¿½ï¿½Ê± 
+	uint16_t state_switch_delay             // ×´Ì¬ÇÐ»»ÑÓÊ± 
 )
 {
-	// ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+	// »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 	getBM8563TimeToSystemTime();
-	// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+	// ¼ÇÂ¼´´½¨Ê±¼ä
 	fedas_entry->atr[fedas_entry->self_point_len].years  = years + 2000;
 	fedas_entry->atr[fedas_entry->self_point_len].months = months;
 	fedas_entry->atr[fedas_entry->self_point_len].days   = days;
@@ -6993,27 +6993,27 @@ static void CreatNewFireExtinguishRecord(
 	
 	fedas_entry->atr[fedas_entry->self_point_len].second = secs;
 	
-	// ï¿½ï¿½ï¿½Æ´ï¿½PACK/ï¿½ï¿½ID
+	// ¸´ÖÆ´ØPACK/²ÖID
 	fedas_entry->cabin_id[fedas_entry->self_point_len]   = copy_fedas->cabin_id[copy_dedas_offset];
 	fedas_entry->cluster_id[fedas_entry->self_point_len] = copy_fedas->cluster_id[copy_dedas_offset];
 	fedas_entry->pack_id[fedas_entry->self_point_len]    = copy_fedas->pack_id[copy_dedas_offset];
-	// ×´Ì¬ï¿½ï¿½Öµ
+	// ×´Ì¬¸³Öµ
 	fedas_entry->fed_action[fedas_entry->self_point_len] = state;
-	fedas_entry->countdown_val[fedas_entry->self_point_len] = state_switch_delay; // ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½state_switch_delayï¿½ï¿½
-	// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+	fedas_entry->countdown_val[fedas_entry->self_point_len] = state_switch_delay; // ³ÖÐøÊ±³¤state_switch_delayÃë
+	// ¼ÇÂ¼Æô¶¯Ê±¼ä
 	fedas_entry->start_cntd_time[fedas_entry->self_point_len] = baojingjishi; 
-	// ï¿½ï¿½Â¼Ò»ï¿½Âµï¿½Ç°Ê±ï¿½ï¿½	
+	// ¼ÇÂ¼Ò»ÏÂµ±Ç°Ê±¼ä	
 	fedas_entry->curr_cntd_time[fedas_entry->self_point_len]  = fedas_entry->start_cntd_time[fedas_entry->self_point_len]; 
-	// Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Î»ï¿½ï¿½
+	// Ö¸ÏòÏÂÒ»¸öÎ»ÖÃ
 	fedas_entry->self_point_len++; 
 }
 
 static void FireExtinguishDevice1HandStart(FireExtinguishDeviceActionSave *fedas_entry)
 {
 	uint8_t out_fire_start_flag = 0;
-	start_stop_key_state = 1; // ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½
+	start_stop_key_state = 1; // ÊÖ¶¯Æô¶¯
 
-	// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
+	// ¼ÇÂ¼ÆøÃðÆô¶¯°´¼ü°´ÏÂ 
 	BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_ST_PRESS, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 	for(uint8_t j = 0; j < fedas_entry->self_point_len; j++)
 	{
@@ -7021,37 +7021,37 @@ static void FireExtinguishDevice1HandStart(FireExtinguishDeviceActionSave *fedas
 		{
 			if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_CAN_RESTART)
 			{
-				// ï¿½ï¿½×´Ì¬ ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ý²ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£Ö¹
-				fedas_entry->fed_action[j] = FIRE_EXTINGUISH_RESTART_FINISH; // ï¿½ï¿½ï¿½Îªï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ¸Ã×´Ì¬ ÏÔÊ¾ÄÚÈÝ²»±ä »¹ÊÇÏÔÊ¾Ãð»ð×°ÖÃÆô¶¯Í£Ö¹
+				fedas_entry->fed_action[j] = FIRE_EXTINGUISH_RESTART_FINISH; // ±ê¼ÇÎªÒÑ¾­ÖØÐÂÆô¶¯
+				// ´´½¨ÐÂ¼ÇÂ¼ ÖØÐÂÆô¶¯
 				CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, j, FIRE_EXTINGUISH_START_SPRAY_DELAY, 30);
-				// ï¿½ï¿½Â¼ï¿½ï¿½FLASHï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½Ù´ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ¼ÇÂ¼µ½FLASHÖÐ Ãð»ð×°ÖÃÔÙ´ÎÆô¶¯
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRESTART_AGAIN, OUTFIRE_CLUSTER_ID, OUTFIRE_PACKAGE_ID);
-				// ï¿½ï¿½Â¼ï¿½ï¿½FLASHï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+				// ¼ÇÂ¼µ½FLASHÖÐ Ãð»ð×°ÖÃ1µÚÒ»´ÎÆô¶¯µ¹¼ÆÊ±
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 				out_fire_start_flag = 1;
 			}
 			else if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_MODE_JUDGEMENT)
 			{
-				fedas_entry->start_cntd_time[j] = baojingjishi; // ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-				fedas_entry->curr_cntd_time[j]  = baojingjishi; // ï¿½ï¿½Â¼Ò»ï¿½Âµï¿½Ç°Ê±ï¿½ï¿½
+				fedas_entry->start_cntd_time[j] = baojingjishi; // ¼ÇÂ¼Æô¶¯Ê±¼ä
+				fedas_entry->curr_cntd_time[j]  = baojingjishi; // ¼ÇÂ¼Ò»ÏÂµ±Ç°Ê±¼ä
 				fedas_entry->fed_action[j]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; 
 
-				// ï¿½ï¿½Â¼ï¿½ï¿½FLASHï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+				// ¼ÇÂ¼µ½FLASHÖÐ Ãð»ð×°ÖÃ1µÚÒ»´ÎÆô¶¯µ¹¼ÆÊ±
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 				out_fire_start_flag = 1;
 			}
 		}
 		
 	}
-	if(out_fire_start_flag == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î°ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÎºÎ´ï¿½
+	if(out_fire_start_flag == 0) // Èç¹û±¾´Î°´ÏÂÃ»ÓÐÆô¶¯ÈÎºÎ´Ø
 	{
 		uint8_t index = fedas_entry->self_point_len;
 
-		// ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+		// »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 		getBM8563TimeToSystemTime();
 		
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+		// ¼ÇÂ¼´´½¨Ê±¼ä
 		fedas_entry->atr[index].years  = years + 2000;
 		fedas_entry->atr[index].months = months;
 		fedas_entry->atr[index].days   = days;
@@ -7060,32 +7060,32 @@ static void FireExtinguishDevice1HandStart(FireExtinguishDeviceActionSave *fedas
 		
 		fedas_entry->atr[index].second = secs;
 		
-		// ï¿½ï¿½Â¼ï¿½ï¿½ID
+		// ¼ÇÂ¼²ÖID
 		fedas_entry->cabin_id[index]   = 0;
 		fedas_entry->cluster_id[index] = 1;
 		fedas_entry->pack_id[index]    = 1;
 		
-		// ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
-		fedas_entry->start_cntd_time[index] = baojingjishi; // ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-		fedas_entry->curr_cntd_time[index]  = baojingjishi; // ï¿½ï¿½Â¼Ò»ï¿½Âµï¿½Ç°Ê±ï¿½ï¿½
+		// ´´½¨Ò»ÌõÆô¶¯¼ÇÂ¼
+		fedas_entry->start_cntd_time[index] = baojingjishi; // ¼ÇÂ¼Æô¶¯Ê±¼ä
+		fedas_entry->curr_cntd_time[index]  = baojingjishi; // ¼ÇÂ¼Ò»ÏÂµ±Ç°Ê±¼ä
 		fedas_entry->fed_action[index]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; 
 		
-		fedas_entry->countdown_val[index] = 30; // ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½state_switch_delayï¿½ï¿½
+		fedas_entry->countdown_val[index] = 30; // ³ÖÐøÊ±³¤state_switch_delayÃë
 		
 		fedas_entry->self_point_len++;
 		
 		FireAlarmRelayCtrl(JDQ_ON);
 		ForeWarmRelayCtrl(JDQ_ON);
-		beep_fire_ctrl |= 0xF0;  // ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+		beep_fire_ctrl |= 0xF0;  // Õæ »ð¾¯ ³¤Ãù
 	}
 }
 
 static void FireExtinguishDevice2HandStart(FireExtinguishDeviceActionSave *fedas_entry)
 {
 	uint8_t out_fire_start_flag = 0;
-	start_stop_key_state = 1; // ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½
+	start_stop_key_state = 1; // ÊÖ¶¯Æô¶¯
 	
-	// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
+	// ¼ÇÂ¼ÆøÃðÆô¶¯°´¼ü°´ÏÂ 
 	BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_ST_PRESS, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 	for(uint8_t j = 0; j < fedas_entry->self_point_len; j++)
 	{
@@ -7093,36 +7093,36 @@ static void FireExtinguishDevice2HandStart(FireExtinguishDeviceActionSave *fedas
 		{
 			if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_CAN_RESTART)
 			{
-				// ï¿½ï¿½×´Ì¬ ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ý²ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£Ö¹
-				fedas_entry->fed_action[j] = FIRE_EXTINGUISH_RESTART_FINISH; // ï¿½ï¿½ï¿½Îªï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ¸Ã×´Ì¬ ÏÔÊ¾ÄÚÈÝ²»±ä »¹ÊÇÏÔÊ¾Ãð»ð×°ÖÃÆô¶¯Í£Ö¹
+				fedas_entry->fed_action[j] = FIRE_EXTINGUISH_RESTART_FINISH; // ±ê¼ÇÎªÒÑ¾­ÖØÐÂÆô¶¯
+				// ´´½¨ÐÂ¼ÇÂ¼ ÖØÐÂÆô¶¯
 				CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, j, FIRE_EXTINGUISH_START_SPRAY_DELAY, 30);
-				// ï¿½ï¿½Â¼ï¿½ï¿½FLASHï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½Ù´ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ¼ÇÂ¼µ½FLASHÖÐ Ãð»ð×°ÖÃÔÙ´ÎÆô¶¯
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRESTART_AGAIN, OUTFIRE_CLUSTER_ID, OUTFIRE_PACKAGE_ID);
-				// ï¿½ï¿½Â¼ï¿½ï¿½FLASHï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+				// ¼ÇÂ¼µ½FLASHÖÐ Ãð»ð×°ÖÃ1µÚÒ»´ÎÆô¶¯µ¹¼ÆÊ±
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 				out_fire_start_flag = 1;
 			}
 			else if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_MODE_JUDGEMENT)
 			{
-				fedas_entry->start_cntd_time[j] = baojingjishi; // ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-				fedas_entry->curr_cntd_time[j]  = baojingjishi; // ï¿½ï¿½Â¼Ò»ï¿½Âµï¿½Ç°Ê±ï¿½ï¿½
+				fedas_entry->start_cntd_time[j] = baojingjishi; // ¼ÇÂ¼Æô¶¯Ê±¼ä
+				fedas_entry->curr_cntd_time[j]  = baojingjishi; // ¼ÇÂ¼Ò»ÏÂµ±Ç°Ê±¼ä
 				fedas_entry->fed_action[j]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; 
 
-				// ï¿½ï¿½Â¼ï¿½ï¿½FLASHï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+				// ¼ÇÂ¼µ½FLASHÖÐ Ãð»ð×°ÖÃ1µÚÒ»´ÎÆô¶¯µ¹¼ÆÊ±
 				BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 				out_fire_start_flag = 1;
 			}
 		}
 	}
-	if(out_fire_start_flag == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î°ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ÎºÎ²ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ö¶ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	if(out_fire_start_flag == 0) // Èç¹û±¾´Î°´ÏÂÃ»ÓÐÈÎºÎ²ÖÆô¶¯ ¼´ÊÖ¶¯Ç¿Æô²ÖÅç
 	{
 		uint8_t index = fedas_entry->self_point_len;
 
-		// ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+		// »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 		getBM8563TimeToSystemTime();
 		
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+		// ¼ÇÂ¼´´½¨Ê±¼ä
 		fedas_entry->atr[index].years  = years + 2000;
 		fedas_entry->atr[index].months = months;
 		fedas_entry->atr[index].days   = days;
@@ -7131,36 +7131,36 @@ static void FireExtinguishDevice2HandStart(FireExtinguishDeviceActionSave *fedas
 		
 		fedas_entry->atr[index].second = secs;
 		
-		// ï¿½ï¿½Â¼ï¿½ï¿½ID
+		// ¼ÇÂ¼²ÖID
 		fedas_entry->cabin_id[index]   = 1;
 		fedas_entry->cluster_id[index] = 0;
 		fedas_entry->pack_id[index]    = 0;
 		
-		// ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
-		fedas_entry->start_cntd_time[index] = baojingjishi; // ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-		fedas_entry->curr_cntd_time[index]  = baojingjishi; // ï¿½ï¿½Â¼Ò»ï¿½Âµï¿½Ç°Ê±ï¿½ï¿½
+		// ´´½¨Ò»ÌõÆô¶¯¼ÇÂ¼
+		fedas_entry->start_cntd_time[index] = baojingjishi; // ¼ÇÂ¼Æô¶¯Ê±¼ä
+		fedas_entry->curr_cntd_time[index]  = baojingjishi; // ¼ÇÂ¼Ò»ÏÂµ±Ç°Ê±¼ä
 		fedas_entry->fed_action[index]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; 
 		
-		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½state_switch_delayï¿½ï¿½
+		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // ³ÖÐøÊ±³¤state_switch_delayÃë
 		
 		fedas_entry->self_point_len++;
 		
 		
 		FireAlarmRelayCtrl(JDQ_ON);
 		ForeWarmRelayCtrl(JDQ_ON);
-		beep_fire_ctrl |= 0xF0;  // ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+		beep_fire_ctrl |= 0xF0;  // Õæ »ð¾¯ ³¤Ãù
 	}
 
 }
 
 static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *fedas_entry, PackAlarmStorage *pas_entry)
 {
-	// ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	if(pas_pointer != last_pas_len && pas_pointer > 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÂµÄ±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// Èç¹ûÓÐÌ½²âÆ÷»ð¾¯
+	if(pas_pointer != last_pas_len && pas_pointer > 0) // Èç¹ûÓÐÐÂµÄ±¨¾¯Ôö¼Ó
 	{
-		for(uint8_t i = last_pas_len; i < pas_pointer; i++) // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î¼ï¿½Â¼ï¿½ï¿½Î»ï¿½Ã¿ï¿½Ê¼ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½ï¿½ï¿½Ð¸ï¿½Öµ
+		for(uint8_t i = last_pas_len; i < pas_pointer; i++) // ´ÓÉÏÒ»´Î¼ÇÂ¼µÄÎ»ÖÃ¿ªÊ¼¸ø½á¹¹Ìå½øÐÐ¸³Öµ
 		{
-			if(pas_entry[i].cluster_id == LINKAGE_CLUSTER_ID) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+			if(pas_entry[i].cluster_id == LINKAGE_CLUSTER_ID) // Èç¹ûÊÇÍâÁªÉè±¸²»¼ÆÈëÅÐ¶Ï
 			{
 				continue;
 			}
@@ -7168,42 +7168,42 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 			fedas_entry->cabin_id[fedas_entry->self_point_len]   = pas_entry[i].cabin_id;
 			fedas_entry->cluster_id[fedas_entry->self_point_len] = pas_entry[i].cluster_id;
 			fedas_entry->pack_id[fedas_entry->self_point_len]    = pas_entry[i].pack_id;
-			fedas_entry->fed_action[fedas_entry->self_point_len] = pas_entry[i].lunch_state; // ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½×´Ì¬
-			fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ê±30ï¿½ï¿½
+			fedas_entry->fed_action[fedas_entry->self_point_len] = pas_entry[i].lunch_state; // »ñÈ¡µ±Ç°Æô¶¯×´Ì¬
+			fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // Æô¶¯ÑÓÊ±µ¹¼ÆÊ±30Ãë
 
 			fedas_entry->self_point_len++;
 		}
 		last_pas_len = pas_pointer; 
 	}
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½
+	// Èç¹û·´À¡1´¥·¢
 	if(getFeedBack1State() == 0x0F)
 	{
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½
+		// ÅçÈ÷ÉùÐÅºÅ
 		beep_spray_feedback_ctrl = 1;
-		// ï¿½Þ¸ï¿½×´Ì¬ È·ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
+		// ÐÞ¸Ä×´Ì¬ È·±£Ö»ÔËÐÐÒ»´Î
 		setDealFeedBack1State();
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// µãÁÁ·ÖÇø1·´À¡µÆ
 		Part1FeedbackLedCtrl(LED_ON);
-		// ï¿½ï¿½Â¼ï¿½ï¿½FLASHï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½
+		// ¼ÇÂ¼µ½FLASHÖÐ ·´À¡Ò»¶¯×÷
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_FEEDBACK1, LINKAGE_CLUSTER_ID, FEEDBK1_Package_ID);
-		StorageEvent_LogFeedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0); /* ï¿½ï¿½Â¼:ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ */
-		FecbusReport_Feedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0);    /* FECbus:ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ */
+		StorageEvent_LogFeedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0); /* ¼ÇÂ¼:·´À¡1¶¯×÷ */
+		FecbusReport_Feedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0);    /* FECbus:·´À¡1¶¯×÷ */
 
-		// ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Â¼ï¿½Â¼
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+		// ´´½¨Ò»ÌõÐÂ¼ÍÂ¼
+		// ¼ÇÂ¼´´½¨Ê±¼ä
 		fedas_entry->atr[fedas_entry->self_point_len].years  = years + 2000;
 		fedas_entry->atr[fedas_entry->self_point_len].months = months;
 		fedas_entry->atr[fedas_entry->self_point_len].days   = days;
 		fedas_entry->atr[fedas_entry->self_point_len].hours  = hours;
 		fedas_entry->atr[fedas_entry->self_point_len].minute = minutes;
 
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½
+		// ÐÂÔö¼ÇÂ¼Ãë
 		fedas_entry->atr[fedas_entry->self_point_len].second = secs;
 		
 		fedas_entry->cabin_id[fedas_entry->self_point_len]   = 0;
 		fedas_entry->cluster_id[fedas_entry->self_point_len] = LINKAGE_CLUSTER_ID;
 		fedas_entry->pack_id[fedas_entry->self_point_len]    = FEEDBK1_Package_ID;
-		fedas_entry->fed_action[fedas_entry->self_point_len] = FEEDBACK_1_PRESS; // ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½×´Ì¬
+		fedas_entry->fed_action[fedas_entry->self_point_len] = FEEDBACK_1_PRESS; // »ñÈ¡µ±Ç°Æô¶¯×´Ì¬
 		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // 
 			
 		fedas_entry->self_point_len++;
@@ -7211,26 +7211,26 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 	
 	if(getOutFireKeyalue() == KEY12_PART1_STOP)
 	{
-		// ï¿½ï¿½Õ¼ï¿½Öµ
+		// Çå¿Õ¼üÖµ
 		clearOutFireKeyValue();
-		start_stop_key_state = 2; // ï¿½Ö¶ï¿½Í£Ö¹
-		// ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+		start_stop_key_state = 2; // ÊÖ¶¯Í£Ö¹
+		// »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 		getBM8563TimeToSystemTime();
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Í£Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ¼ÇÂ¼ÆøÃðÍ£Ö¹°´¼ü°´ÏÂ
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_SP_PRESS, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ±éÀúËùÓÐÊý×é
 		for(uint8_t j = 0; j < fedas_entry->self_point_len; j++)
 		{
 			if(fedas_entry->cabin_id[j] == 0  && fedas_entry->cluster_id[j] != OUTFIRE_CLUSTER_ID && fedas_entry->cluster_id[j] != 0)
 			{
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½È«ï¿½ï¿½Í£ï¿½ï¿½
+				// ½«ËùÓÐÕýÔÚÆô¶¯µ¹¼ÆÊ±µÄÃð»ð×°ÖÃÈ«²¿Í£µô
 				if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_START_SPRAY_DELAY)
 				{
-					// ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½Ê¾Îª Ê±ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					fedas_entry->fed_action[j] = FIRE_EXTINGUISH_FORCE_STOP; // ï¿½ï¿½ï¿½ÎªÇ¿ï¿½Æ½ï¿½ï¿½ï¿½
-					// ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ÖµÎªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ Í£Ö¹ï¿½ï¿½ï¿½ï¿½
+					// Õâ¸ö×´Ì¬ÏÔÊ¾Îª Ê±¼ä Æô¶¯µ¹¼ÆÊ±¶àÉÙÃë
+					fedas_entry->fed_action[j] = FIRE_EXTINGUISH_FORCE_STOP; // ±ê¼ÇÎªÇ¿ÖÆ½áÊø
+					// ½«±¾×´Ì¬¸³ÖµÎª¿ÉÖØÐÂÆô¶¯ ÏÔÊ¾ÔÚÆÁÄ»ÉÏÊÇ Í£Ö¹Æô¶¯
 					CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, j, FIRE_EXTINGUISH_CAN_RESTART, 0);  //  
-					// ï¿½ï¿½ï¿½ï¿½FLASH ï¿½Â½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Â¼ ï¿½ï¿½Â¼ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£Ö¹
+					// ´æÈëFLASH ÐÂ½¨Ò»Ìõ¼ÇÂ¼ ¼ÇÂ¼Ãð»ð×°ÖÃÆô¶¯Í£Ö¹
 					BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_STOP, OUTFIRE_CLUSTER_ID, OUTFIRE_PACKAGE_ID);
 				}
 			}
@@ -7239,39 +7239,39 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 	}
 	else if(getOutFireKeyalue() == KEY11_PART1_SOUNDLT)
 	{
-		// ï¿½ï¿½Õ¼ï¿½Öµ
+		// Çå¿Õ¼üÖµ
 		clearOutFireKeyValue();
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LED 
+		// µãÁÁÉù¹âLED 
 		Part1SoundLightLedCtrl(LED_ON);
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½â°´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ¼ÇÂ¼Éù¹â°´¼ü°´ÏÂ
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_SL_PRESS, OUTFIRE_CLUSTER_ID, SoundLt_Package_ID);
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// Æô¶¯Éù¹â
 		SoundLightRelayCtrl(JDQ_ON);
 	}
 	
 	if(getOutFireKeyalue() == KEY14_PART2_STOP)
 	{
-		start_stop_key_state = 2; // ï¿½Ö¶ï¿½Í£Ö¹
+		start_stop_key_state = 2; // ÊÖ¶¯Í£Ö¹
 		
-		// ï¿½ï¿½Õ¼ï¿½Öµ
+		// Çå¿Õ¼üÖµ
 		clearOutFireKeyValue();
-		// ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
+		// »ñÈ¡Ò»ÏÂRTCÊ±¼ä
 		getBM8563TimeToSystemTime();
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Í£Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ¼ÇÂ¼ÆøÃðÍ£Ö¹°´¼ü°´ÏÂ
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_SP_PRESS, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ±éÀúËùÓÐÊý×é
 		for(uint8_t j = 0; j < fedas_entry->self_point_len; j++)
 		{
 			if(fedas_entry->cabin_id[j] != 0  && fedas_entry->cluster_id[j] == 0)
 			{
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½È«ï¿½ï¿½Í£ï¿½ï¿½
+				// ½«ËùÓÐÕýÔÚÆô¶¯µ¹¼ÆÊ±µÄÃð»ð×°ÖÃÈ«²¿Í£µô
 				if(fedas_entry->fed_action[j] == FIRE_EXTINGUISH_START_SPRAY_DELAY)
 				{
-					// ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½Ê¾Îª Ê±ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					fedas_entry->fed_action[j] = FIRE_EXTINGUISH_FORCE_STOP; // ï¿½ï¿½ï¿½ÎªÇ¿ï¿½Æ½ï¿½ï¿½ï¿½
-					// ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ÖµÎªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ Í£Ö¹ï¿½ï¿½ï¿½ï¿½
+					// Õâ¸ö×´Ì¬ÏÔÊ¾Îª Ê±¼ä Æô¶¯µ¹¼ÆÊ±¶àÉÙÃë
+					fedas_entry->fed_action[j] = FIRE_EXTINGUISH_FORCE_STOP; // ±ê¼ÇÎªÇ¿ÖÆ½áÊø
+					// ½«±¾×´Ì¬¸³ÖµÎª¿ÉÖØÐÂÆô¶¯ ÏÔÊ¾ÔÚÆÁÄ»ÉÏÊÇ Í£Ö¹Æô¶¯
 					CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, j, FIRE_EXTINGUISH_CAN_RESTART, 0);  //  
-					// ï¿½ï¿½ï¿½ï¿½FLASH ï¿½Â½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Â¼ ï¿½ï¿½Â¼ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£Ö¹
+					// ´æÈëFLASH ÐÂ½¨Ò»Ìõ¼ÇÂ¼ ¼ÇÂ¼Ãð»ð×°ÖÃÆô¶¯Í£Ö¹
 					BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_STOP, OUTFIRE_CLUSTER_ID, OUTFIRE_PACKAGE_ID);
 				}
 			}
@@ -7281,39 +7281,39 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 	}
 	else if(getOutFireKeyalue() == KEY13_PART2_SOUNDLT)
 	{
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LED 
+		// µãÁÁÉù¹âLED 
 		Part2SoundLightLedCtrl(LED_ON);
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½â°´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ¼ÇÂ¼Éù¹â°´¼ü°´ÏÂ
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_SL_PRESS, OUTFIRE_CLUSTER_ID, SoundLt_Package_ID);
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// Æô¶¯Éù¹â
 		SoundLightRelayCtrl(JDQ_ON);
 		clearOutFireKeyValue();
 	}
 
-	for(uint8_t i = 0; i < fedas_entry->self_point_len; i++) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½Äµï¿½ï¿½ï¿½Ê± 
+	for(uint8_t i = 0; i < fedas_entry->self_point_len; i++) // ¸üÐÂËùÓÐ±¨¾¯µÄµ¹¼ÆÊ± 
 	{
-		if(fedas_entry->cluster_id[i] == LINKAGE_CLUSTER_ID) // ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
+		if(fedas_entry->cluster_id[i] == LINKAGE_CLUSTER_ID) // Èç¹û´ØIDµÈÓÚÁª¶¯Éè±¸¶¯×÷Ìø¹ý±¾´ÎÑ­»·
 		{
 			continue;
 		}
-		fedas_entry->curr_cntd_time[i] = baojingjishi; // ï¿½ï¿½È¡Ò»ï¿½Âµï¿½Ç°Ê±ï¿½ï¿½
+		fedas_entry->curr_cntd_time[i] = baojingjishi; // »ñÈ¡Ò»ÏÂµ±Ç°Ê±¼ä
 		switch(fedas_entry->fed_action[i])
 		{
-			case FIRE_EXTINGUISH_MODE_JUDGEMENT: { // ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½
+			case FIRE_EXTINGUISH_MODE_JUDGEMENT: { // ÅÐ¶ÏÊÇÊÖ¶¯»¹ÊÇ×Ô¶¯
 				if(fedas_entry->cluster_id[i] == 0)
 				{
 					if(getPart2HandAutoState() == KEY_AUTO)
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->curr_cntd_time[i]  = baojingjishi; // ï¿½ï¿½Â¼Ò»ï¿½Âµï¿½Ç°Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; // ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¼ÇÂ¼Æô¶¯Ê±¼ä
+						fedas_entry->curr_cntd_time[i]  = baojingjishi; // ¼ÇÂ¼Ò»ÏÂµ±Ç°Ê±¼ä
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; // ×Ô¶¯Æô¶¯µ¹¼ÆÊ±
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Òªï¿½Þ¸Ä´Ë´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Æô¶¯Éù¹â ºóÐøÒªÐÞ¸Ä´Ë´¦Æô¶¯·ÖÇø¶þµÄ¶ÀÁ¢Éù¹â
 						SoundLightRelayCtrl(JDQ_ON);
-						// ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LED
+						// ·ÖÇø2Éù¹âÆô¶¯LED
 						Part2SoundLightLedCtrl(LED_ON);
 						
-						// ï¿½ï¿½Â¼ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± ï¿½ï¿½ï¿½ï¿½FLASH ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ID ï¿½ï¿½ï¿½×°ï¿½ï¿½2ID
+						// ¼ÇÂ¼ Ãð»ð×°ÖÃÆô¶¯µ¹¼ÆÊ± ´æÈëFLASH ²ÎÊý: ÆøÃð´æ´¢·ÖÇø Ãð»ð×°ÖÃµÚÒ»´ÎÆô¶¯ ´ØID Ãð»ð×°ÖÃ2ID
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIRE_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 					}
 				}
@@ -7321,102 +7321,102 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				{
 					if(getPart1HandAutoState() == KEY_AUTO) // 
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->curr_cntd_time[i]  = baojingjishi; // ï¿½ï¿½Â¼Ò»ï¿½Âµï¿½Ç°Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; // ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¼ÇÂ¼Æô¶¯Ê±¼ä
+						fedas_entry->curr_cntd_time[i]  = baojingjishi; // ¼ÇÂ¼Ò»ÏÂµ±Ç°Ê±¼ä
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_START_SPRAY_DELAY; // ×Ô¶¯Æô¶¯µ¹¼ÆÊ±
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½Îªï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Æô¶¯Éù¹â ºóÐøÐëÐÞ¸ÄÎª·ÖÇøÒ»¶ÀÁ¢Éù¹â
 						SoundLightRelayCtrl(JDQ_ON);
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LED 
+						// µãÁÁÉù¹âLED 
 						Part1SoundLightLedCtrl(LED_ON);
 						
-						// ï¿½ï¿½Â¼ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± ï¿½ï¿½ï¿½ï¿½FLASH
+						// ¼ÇÂ¼ Ãð»ð×°ÖÃÆô¶¯µ¹¼ÆÊ± ´æÈëFLASH
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_1_START_DELAY, OUTFIRE_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_START_SPRAY_DELAY: { // ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
-				// ï¿½ï¿½BMSï¿½Ï´ï¿½ï¿½ï¿½×´Ì¬
+			case FIRE_EXTINGUISH_START_SPRAY_DELAY: { // Ãð»ð×°ÖÃµÚ1´ÎÆô¶¯µ¹¼ÆÊ±
+				// ¸øBMSÉÏ´«µÄ×´Ì¬
 				outfire_spray_state = 1;
 			
 				if(fedas_entry->cluster_id[i] == 0)
 				{
-					// ï¿½ï¿½×´Ì¬Î»ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+					// ¸Ã×´Ì¬Î»ÖÃ1ºó²»ÔÚÅÐ¶ÏÍâÁªÉè±¸µôÏß
 					mhqdbiaozhi = 1;
-					// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± 
+					// µãÁÁ ·ÖÇø2ÅçÈ÷ÑÓÊ± 
 					Part2StartDelayLedCtrl(LED_ON);
-					// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½LED
+					// µãÁÁ ·ÖÇø2Æô¶¯LED
 					Part2StartLedCtrl(LED_ON);
-					// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½
+					// Æô¶¯ ·ÖÇø2Éù¹â
 					SoundLightRelayCtrl(JDQ_ON);
-					// ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LED
+					// ·ÖÇø2Éù¹âÆô¶¯LED
 					Part2SoundLightLedCtrl(LED_ON);
 					
-					// ï¿½ï¿½ï¿½30ï¿½ëµ¹ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					// Èç¹û30Ãëµ¹¼ÆÊ±½áÊøÁË
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FED_START_SPRAY_DELAY_FINISH_FLAG; // ï¿½ï¿½ï¿½Îªï¿½ï¿½Ò»×´Ì¬ï¿½ï¿½ï¿½
-						// ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±LED
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FED_START_SPRAY_DELAY_FINISH_FLAG; // ±ê¼ÇÎªµÚÒ»×´Ì¬Íê³É
+						// ¹Ø±ÕÆô¶¯ÑÓÊ±LED
 						Part2StartDelayLedCtrl(LED_OFF);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LED
+						// µãÁÁÅçÈ÷LED
 						Part2SprayLedCtrl(LED_ON);
 						
-						// ï¿½ï¿½ï¿½×°ï¿½ï¿½2 ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Ãð»ð×°ÖÃ2 µÚÒ»´ÎÆô¶¯
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_1, OUTFIR1_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ò¿ª¸ï¿½Æ¿ï¿½ï¿½2
+						// Æô¶¯µ¹¼ÆÊ±½áÊøºó ´ò¿ª¸ÖÆ¿·§2
 						OutFire2RelayCtrl(JDQ_ON);
-						// ï¿½ò¿ª·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ´ò¿ª·ÅÆøÎðÈë
 						DefauleRelayCtrl(JDQ_ON);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
-						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_CYLINDEF_2_OPENED, 0);  // ï¿½ï¿½Æ¿1ï¿½ï¿½Å·ï¿½ï¿½ï¿½ 
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Å¼ï¿½Â¼
-						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_FIRST_SPRAY_START, 15); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½15ï¿½ï¿½
-						// ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ´´½¨¸ÖÆ¿Æô¶¯¼ÇÂ¼
+						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_CYLINDEF_2_OPENED, 0);  // ¸ÖÆ¿1µç´Å·§´ò¿ª 
+						// ´´½¨¿ªÊ¼Åç·Å¼ÇÂ¼
+						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_FIRST_SPRAY_START, 15); // ³ÖÐøÅç·Å15Ãë
+						// ÒÑ¾­Æô¶¯Åç·Å
 						outfire_spray_state = 2; 
 					}
 				}
 				else
 				{
-					// ï¿½ï¿½×´Ì¬Î»ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+					// ¸Ã×´Ì¬Î»ÖÃ1ºó²»ÔÚÅÐ¶ÏÍâÁªÉè±¸µôÏß
 					mhqdbiaozhi = 1;
-					// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± 
+					// µãÁÁÅçÈ÷ÑÓÊ± 
 					Part1StartDelayLedCtrl(LED_ON);
-					// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½LED
+					// µãÁÁ Æô¶¯LED
 					Part1StartLedCtrl(LED_ON);
-					// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					// Æô¶¯Éù¹â
 					SoundLightRelayCtrl(JDQ_ON);
-					// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LED 
+					// µãÁÁÉù¹âLED 
 					Part1SoundLightLedCtrl(LED_ON);
 					
-					// ï¿½ï¿½ï¿½30ï¿½ëµ¹ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					// Èç¹û30Ãëµ¹¼ÆÊ±½áÊøÁË
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FED_START_SPRAY_DELAY_FINISH_FLAG; // ï¿½ï¿½ï¿½Îªï¿½ï¿½Ò»×´Ì¬ï¿½ï¿½ï¿½
-						// ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±LED
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FED_START_SPRAY_DELAY_FINISH_FLAG; // ±ê¼ÇÎªµÚÒ»×´Ì¬Íê³É
+						// ¹Ø±ÕÆô¶¯ÑÓÊ±LED
 						Part1StartDelayLedCtrl(LED_OFF);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LED
+						// µãÁÁÅçÈ÷LED
 						Part1SprayLedCtrl(LED_ON);
-						// ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Ãð»ð×°ÖÃ1µÚÒ»´ÎÆô¶¯
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_1, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ò¿ª¸ï¿½Æ¿ï¿½ï¿½
+						// Æô¶¯µ¹¼ÆÊ±½áÊøºó ´ò¿ª¸ÖÆ¿·§
 						OutFire1RelayCtrl(JDQ_ON);
-						// ï¿½ò¿ª·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ´ò¿ª·ÅÆøÎðÈë
 						DefauleRelayCtrl(JDQ_ON);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
-						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_CYLINDEF_1_OPENED, 0);  // ï¿½ï¿½Æ¿1ï¿½ï¿½Å·ï¿½ï¿½ï¿½ 
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Å¼ï¿½Â¼
-						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_FIRST_SPRAY_START, 15); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½15ï¿½ï¿½
-						// ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ´´½¨¸ÖÆ¿Æô¶¯¼ÇÂ¼
+						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_CYLINDEF_1_OPENED, 0);  // ¸ÖÆ¿1µç´Å·§´ò¿ª 
+						// ´´½¨¿ªÊ¼Åç·Å¼ÇÂ¼
+						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_FIRST_SPRAY_START, 15); // ³ÖÐøÅç·Å15Ãë
+						// ÒÑ¾­Æô¶¯Åç·Å
 						outfire_spray_state = 2; 
 					}
-					// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ò»ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ò¿ª´ï¿½/ï¿½Ö·ï¿½
+					// ÔÚÆô¶¯µ¹¼ÆÊ±Ò»°ëµÄÊ±ºò·¢ËÍÖ¸Áî´ò¿ª´Ø/²Ö·§
 					else if(cluster_solenoid_valve_start_state == 0 && fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= (fedas_entry->countdown_val[i] - 2) )
 					{
-						// ï¿½ï¿½Â¼ï¿½Ø·ï¿½ï¿½Å¿ï¿½ï¿½ï¿½
+						// ¼ÇÂ¼´Ø·§ÃÅ¿ªÆô
 						cluster_solenoid_valve_start_state = 1; 
 						if(fedas_entry->cabin_id[i] == 0)
 						{
@@ -7426,26 +7426,26 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_FIRST_SPRAY_START: { // ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+			case FIRE_EXTINGUISH_FIRST_SPRAY_START: { // Ãð»ð×°ÖÃÅç·Å³ÖÐøÊ±¼ä
 				if(fedas_entry->cluster_id[i] == 0)
 				{
 					Part2StartDelayLedCtrl(LED_ON);
-					// ï¿½ï¿½ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½Ê±ï¿½ä¹»ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
+					// Èç¹ûÅç·Å³ÖÐøÊ±¼ä¹»ÁË ¸üÐÂ×´Ì¬±£´æ¼ÇÂ¼
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_FIRST_SPRAY_FINISH; // ï¿½ï¿½Ò»ï¿½Î³ï¿½ï¿½ï¿½ï¿½ï¿½Å½ï¿½ï¿½ï¿½
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_FIRST_SPRAY_FINISH; // µÚÒ»´Î³ÖÐøÅç·Å½áÊø
 						
-						// ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ø±Õ¸ï¿½Æ¿ï¿½ï¿½Å·ï¿½
+						// Åç·Åµ¹¼ÆÊ±½áÊøºó ¹Ø±Õ¸ÖÆ¿µç´Å·§
 						OutFire1RelayCtrl(JDQ_OFF);
 						
-						// 2025/10/28 10:50 ï¿½ï¿½Ê±ï¿½ï¿½Í£Ö¹ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-//						// ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// 2025/10/28 10:50 ÔÝÊ±ÔÚÍ£Ö¹Åç·ÅÊ±²»¹Ø±Õ·ÅÆúÎðÈëµÆÅÆ
+//						// ¹Ø±Õ·ÅÆøÎðÈëµÆÅÆ
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_SECOND_SPRAY_DELAY, 300);
-						// ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+						// Ãð»ð×°ÖÃ1µÚÒ»´ÎÆô¶¯ Íê³É µÚ¶þ´ÎÆô¶¯µ¹¼ÆÊ±
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_2_START_DELAY, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 						
 						Part2StartDelayLedCtrl(LED_OFF);
@@ -7454,22 +7454,22 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				else
 				{
 					Part1StartDelayLedCtrl(LED_ON);
-					// ï¿½ï¿½ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½Ê±ï¿½ä¹»ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
+					// Èç¹ûÅç·Å³ÖÐøÊ±¼ä¹»ÁË ¸üÐÂ×´Ì¬±£´æ¼ÇÂ¼
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_FIRST_SPRAY_FINISH; // ï¿½ï¿½Ò»ï¿½Î³ï¿½ï¿½ï¿½ï¿½ï¿½Å½ï¿½ï¿½ï¿½
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_FIRST_SPRAY_FINISH; // µÚÒ»´Î³ÖÐøÅç·Å½áÊø
 						
-						// ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ø±Õ¸ï¿½Æ¿ï¿½ï¿½Å·ï¿½
+						// Åç·Åµ¹¼ÆÊ±½áÊøºó ¹Ø±Õ¸ÖÆ¿µç´Å·§
 						OutFire1RelayCtrl(JDQ_OFF);
 						
-						// 2025/10/28 10:50 ï¿½ï¿½Ê±ï¿½ï¿½Í£Ö¹ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-//						// ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// 2025/10/28 10:50 ÔÝÊ±ÔÚÍ£Ö¹Åç·ÅÊ±²»¹Ø±Õ·ÅÆúÎðÈëµÆÅÆ
+//						// ¹Ø±Õ·ÅÆøÎðÈëµÆÅÆ
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_SECOND_SPRAY_DELAY, 300);
-						// ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+						// Ãð»ð×°ÖÃ1µÚÒ»´ÎÆô¶¯ Íê³É µÚ¶þ´ÎÆô¶¯µ¹¼ÆÊ±
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_2_START_DELAY, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 						
 						Part1StartDelayLedCtrl(LED_OFF);
@@ -7477,24 +7477,24 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				}
 				break; 
 			}
-			case FIRE_EXTINGUISH_SECOND_SPRAY_DELAY: {   // ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+			case FIRE_EXTINGUISH_SECOND_SPRAY_DELAY: {   // Ãð»ð×°ÖÃµÚ2´ÎÆô¶¯µ¹¼ÆÊ±
 				
 				if(fedas_entry->cluster_id[i] == 0)
 				{
 					Part2StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FED_SECOND_SPRAY_DELAY_FINISH_FLAG; // ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ò¿ª¸ï¿½Æ¿ï¿½ï¿½
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FED_SECOND_SPRAY_DELAY_FINISH_FLAG; // µÚ¶þ´ÎÅç·Åµ¹¼ÆÊ±½áÊø
+						// Æô¶¯µ¹¼ÆÊ±½áÊøºó ´ò¿ª¸ÖÆ¿·§
 						OutFire2RelayCtrl(JDQ_ON);
-						// ï¿½ò¿ª·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ´ò¿ª·ÅÆøÎðÈë
 						DefauleRelayCtrl(JDQ_ON);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_SECOND_SPRAY_START, 15);
-						// ï¿½ï¿½ï¿½×°ï¿½ÃµÚ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Ãð»ð×°ÖÃµÚ¶þ´ÎÅç·ÅÆô¶¯
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_2, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+						// µãÁÁÆô¶¯ÑÓÊ±
 						Part1StartDelayLedCtrl(LED_OFF);
 					}
 				}
@@ -7503,131 +7503,131 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 					Part1StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FED_SECOND_SPRAY_DELAY_FINISH_FLAG; // ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ò¿ª¸ï¿½Æ¿ï¿½ï¿½
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FED_SECOND_SPRAY_DELAY_FINISH_FLAG; // µÚ¶þ´ÎÅç·Åµ¹¼ÆÊ±½áÊø
+						// Æô¶¯µ¹¼ÆÊ±½áÊøºó ´ò¿ª¸ÖÆ¿·§
 						OutFire1RelayCtrl(JDQ_ON);
-						// ï¿½ò¿ª·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ´ò¿ª·ÅÆøÎðÈë
 						DefauleRelayCtrl(JDQ_ON);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_SECOND_SPRAY_START, 15);
-						// ï¿½ï¿½ï¿½×°ï¿½ÃµÚ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Ãð»ð×°ÖÃµÚ¶þ´ÎÅç·ÅÆô¶¯
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_2, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+						// µãÁÁÆô¶¯ÑÓÊ±
 						Part1StartDelayLedCtrl(LED_OFF);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_SECOND_SPRAY_START: { // ï¿½ï¿½ï¿½×°ï¿½ÃµÚ¶ï¿½ï¿½Î³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
+			case FIRE_EXTINGUISH_SECOND_SPRAY_START: { // Ãð»ð×°ÖÃµÚ¶þ´Î³ÖÐøÅç·Å 
 				if(fedas_entry->cluster_id[i] == 0)
 				{
-					// ï¿½ï¿½Ê±ï¿½Ú¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+					// ÑÓÊ±ÆÚ¼äµãÁÁÑÓÊ±
 					Part2StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_SECOND_SPRAY_FINISH; // ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Å½ï¿½ï¿½ï¿½
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_SECOND_SPRAY_FINISH; // µÚ¶þ´ÎÅç·Å½áÊø
 						// 
 						Part2StartDelayLedCtrl(LED_OFF);
-						// ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ø±Õ¸ï¿½Æ¿ï¿½ï¿½Å·ï¿½
+						// Åç·Åµ¹¼ÆÊ±½áÊøºó ¹Ø±Õ¸ÖÆ¿µç´Å·§
 						OutFire2RelayCtrl(JDQ_OFF);
 						
-//						// ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//						// ¹Ø±Õ·ÅÆøÎðÈëµÆÅÆ
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_THIRD_SPRAY_DELAY, 300);
-						// ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±
+						// Ãð»ð×°ÖÃµÚÈý´ÎÅç·Åµ¹¼ÆÊ±
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_3_START_DELAY, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 					}
 				}
 				else
 				{
-					// ï¿½ï¿½Ê±ï¿½Ú¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+					// ÑÓÊ±ÆÚ¼äµãÁÁÑÓÊ±
 					Part1StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_SECOND_SPRAY_FINISH; // ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Å½ï¿½ï¿½ï¿½
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_SECOND_SPRAY_FINISH; // µÚ¶þ´ÎÅç·Å½áÊø
 						// 
 						Part1StartDelayLedCtrl(LED_OFF);
-						// ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ø±Õ¸ï¿½Æ¿ï¿½ï¿½Å·ï¿½
+						// Åç·Åµ¹¼ÆÊ±½áÊøºó ¹Ø±Õ¸ÖÆ¿µç´Å·§
 						OutFire1RelayCtrl(JDQ_OFF);
 						
-//						// ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//						// ¹Ø±Õ·ÅÆøÎðÈëµÆÅÆ
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_THIRD_SPRAY_DELAY, 300);
-						// ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±
+						// Ãð»ð×°ÖÃµÚÈý´ÎÅç·Åµ¹¼ÆÊ±
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_3_START_DELAY, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_THIRD_SPRAY_DELAY: {   // ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+			case FIRE_EXTINGUISH_THIRD_SPRAY_DELAY: {   // Ãð»ð×°ÖÃµÚ3´ÎÆô¶¯µ¹¼ÆÊ±
 				if(fedas_entry->cluster_id[i] == 0)
 				{
-					// ï¿½ï¿½Ê±ï¿½Ú¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+					// ÑÓÊ±ÆÚ¼äµãÁÁÑÓÊ±
 					Part2StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FED_THIRD_SPRAY_DELAY_FINISH_FLAG; // ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Å½ï¿½ï¿½ï¿½
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø±ï¿½ï¿½ï¿½Ê±LED
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FED_THIRD_SPRAY_DELAY_FINISH_FLAG; // µÚ¶þ´ÎÅç·Å½áÊø
+						// Æô¶¯ºó¹Ø±ÕÑÓÊ±LED
 						Part2StartDelayLedCtrl(LED_OFF);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ò¿ª¸ï¿½Æ¿ï¿½ï¿½
+						// Æô¶¯µ¹¼ÆÊ±½áÊøºó ´ò¿ª¸ÖÆ¿·§
 						OutFire2RelayCtrl(JDQ_ON);
-						// ï¿½ò¿ª·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ´ò¿ª·ÅÆøÎðÈë
 						DefauleRelayCtrl(JDQ_ON);
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_THIRD_SPRAY_START, 999);
-						// ï¿½ï¿½ï¿½×°ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Ãð»ð×°ÖÃ1 µÚÈý´ÎÅç·Å
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_3, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 					}
 				}
 				else
 				{
-					// ï¿½ï¿½Ê±ï¿½Ú¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±
+					// ÑÓÊ±ÆÚ¼äµãÁÁÑÓÊ±
 					Part1StartDelayLedCtrl(LED_ON);
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FED_THIRD_SPRAY_DELAY_FINISH_FLAG; // ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Å½ï¿½ï¿½ï¿½
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø±ï¿½ï¿½ï¿½Ê±LED
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FED_THIRD_SPRAY_DELAY_FINISH_FLAG; // µÚ¶þ´ÎÅç·Å½áÊø
+						// Æô¶¯ºó¹Ø±ÕÑÓÊ±LED
 						Part1StartDelayLedCtrl(LED_OFF);
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ò¿ª¸ï¿½Æ¿ï¿½ï¿½
+						// Æô¶¯µ¹¼ÆÊ±½áÊøºó ´ò¿ª¸ÖÆ¿·§
 						OutFire1RelayCtrl(JDQ_ON);
-						// ï¿½ò¿ª·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ´ò¿ª·ÅÆøÎðÈë
 						DefauleRelayCtrl(JDQ_ON);
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_THIRD_SPRAY_START, 999);
-						// ï¿½ï¿½ï¿½×°ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Ãð»ð×°ÖÃ1 µÚÈý´ÎÅç·Å
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE1OPEN_3, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_THIRD_SPRAY_START: {  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¿ï¿½Ê¼
+			case FIRE_EXTINGUISH_THIRD_SPRAY_START: {  // µÚÈý´ÎÅç·Å¿ªÊ¼
 				if(fedas_entry->cluster_id[i] == 0)
 				{
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_THIRD_SPRAY_FINISH; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å½ï¿½ï¿½ï¿½
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_THIRD_SPRAY_FINISH; // µÚÈý´ÎÅç·Å½áÊø
 						
-						// ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ø±Õ¸ï¿½Æ¿ï¿½ï¿½Å·ï¿½
+						// Åç·Åµ¹¼ÆÊ±½áÊøºó ¹Ø±Õ¸ÖÆ¿µç´Å·§
 						OutFire2RelayCtrl(JDQ_OFF);
 						
-//						// ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//						// ¹Ø±Õ·ÅÆøÎðÈëµÆÅÆ
 //						DefauleRelayCtrl(JDQ_OFF);
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE, 999);
-						// ï¿½ï¿½ï¿½×°ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Ãð»ð×°ÖÃ1 Åç·ÅÍê³É
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_OVER, OUTFIR2_CLUSTER_ID, OUTFIR2_PACKAGE_ID);
 					}
 				}
@@ -7635,28 +7635,28 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 				{
 					if(fedas_entry->curr_cntd_time[i] - fedas_entry->start_cntd_time[i] >= fedas_entry->countdown_val[i])
 					{
-						fedas_entry->start_cntd_time[i] = baojingjishi; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
-						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_THIRD_SPRAY_FINISH; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å½ï¿½ï¿½ï¿½
+						fedas_entry->start_cntd_time[i] = baojingjishi; // ¸üÐÂÆô¶¯Ê±¼ä
+						fedas_entry->fed_action[i]      = FIRE_EXTINGUISH_THIRD_SPRAY_FINISH; // µÚÈý´ÎÅç·Å½áÊø
 						
-						// ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ø±Õ¸ï¿½Æ¿ï¿½ï¿½Å·ï¿½
+						// Åç·Åµ¹¼ÆÊ±½áÊøºó ¹Ø±Õ¸ÖÆ¿µç´Å·§
 						OutFire1RelayCtrl(JDQ_OFF);
-						// ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ¹Ø±Õ·ÅÆøÎðÈëµÆÅÆ
 						DefauleRelayCtrl(JDQ_OFF);
 						
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+						// ´´½¨ÐÂ¼ÇÂ¼
 						CreatNewFireExtinguishRecord(fedas_entry , fedas_entry, i, FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE, 999);
-						// ï¿½ï¿½ï¿½×°ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Ãð»ð×°ÖÃ1 Åç·ÅÍê³É
 						BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_OVER, OUTFIR1_CLUSTER_ID, OUTFIR1_PACKAGE_ID);
 					}
 				}
 				break;
 			}
-			case FIRE_EXTINGUISH_FORCE_STOP : { // ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í£Ö¹×´Ì¬ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			case FIRE_EXTINGUISH_FORCE_STOP : { // Èç¹ûÊÇÇ¿ÖÆÍ£Ö¹×´Ì¬ ²»×ö´¦Àí
 				
 				
 				break;
 			}
-			case FIRE_EXTINGUISH_CAN_RESTART: { // ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ ï¿½Ð¶Ï°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Âºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			case FIRE_EXTINGUISH_CAN_RESTART: { // Èç¹ûÊÇ¿ÉÒÔÖØÆô×´Ì¬ ÅÐ¶Ï°´¼ü°´ÏÂºóÖØÐÂÆô¶¯
 				break;
 			}
 			default:
@@ -7677,15 +7677,15 @@ static void printf_fadas_data(FireExtinguishDeviceActionSave *fedas_entry)
 	uint8_t send_len = 0;
 	for(uint8_t i = 0; i < fedas_entry->self_point_len; i++)
 	{
-		// ï¿½ï¿½Ó¡Ê±ï¿½ï¿½
+		// ´òÓ¡Ê±¼ä
 		send_len = sprintf((char *)debug_buff, "sq:%d time:%d/%d/%d/%d/%d\r\n", i, fedas_entry->atr[i].years, 
 									fedas_entry->atr[i].months, fedas_entry->atr[i].days,
 									fedas_entry->atr[i].hours, fedas_entry->atr[i].minute);
 		DebugSendString(debug_buff, send_len);
-		// ï¿½ï¿½Ó¡ï¿½Ø±ï¿½ï¿½
+		// ´òÓ¡´Ø±àºÅ
 		send_len = sprintf((char *)debug_buff, "sq:%d cb_id:%d pk_id:%d cl_id:%d\r\n", i, fedas_entry->cabin_id[i], fedas_entry->pack_id[i], fedas_entry->cluster_id[i]);
 		DebugSendString(debug_buff, send_len);
-		// ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½
+		// ´òÓ¡¶¯×÷
 		send_len = sprintf((char *)debug_buff, "sq:%d action_id:%d \r\n", i, fedas_entry->fed_action[i]);
 		DebugSendString(debug_buff, send_len);
 	}
@@ -7695,32 +7695,32 @@ static void printf_fadas_data(FireExtinguishDeviceActionSave *fedas_entry)
 
 
 
-// ï¿½ï¿½ï¿½×°ï¿½Ã·ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
+// Ãð»ð×°ÖÃ·ÖÇøÏÔÊ¾¿ØÖÆ
 static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *fedas_entry, uint8_t fresh_page_flag)
 {
-	if(fedas_entry->self_point_len == 0) // Ã»ï¿½Ð»ï¿½
+	if(fedas_entry->self_point_len == 0) // Ã»ÓÐ»ð¾¯
 	{
 		if(fedas_entry->last_point_len == 255)
 		{
-			clearTextValue(monitor_inform_screen_id , 2);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 3);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 4);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 5);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 6);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
-			clearTextValue(monitor_inform_screen_id , 7);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID)
+			clearTextValue(monitor_inform_screen_id , 2);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 3);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 4);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 5);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 6);//(»­ÃæID,¿Ø¼þID)
+			clearTextValue(monitor_inform_screen_id , 7);//(»­ÃæID,¿Ø¼þID)
 			fedas_entry->last_point_len = 0;
 		}
 		switch(screen_fresh_num)
 		{
-			case 10:SetTextValue(monitor_inform_screen_id, 1,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½.     ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 20:SetTextValue(monitor_inform_screen_id, 1,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..    ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 30:SetTextValue(monitor_inform_screen_id, 1,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...   ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 40:SetTextValue(monitor_inform_screen_id, 1,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½....  ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 50:SetTextValue(monitor_inform_screen_id, 1,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½..... ");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			case 60:SetTextValue(monitor_inform_screen_id, 1,"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½......");break;   //Ë¢ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			case 10:SetTextValue(monitor_inform_screen_id, 1,"ÆøÃð¼à²âÔËÐÐÖÐ.     ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 20:SetTextValue(monitor_inform_screen_id, 1,"ÆøÃð¼à²âÔËÐÐÖÐ..    ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 30:SetTextValue(monitor_inform_screen_id, 1,"ÆøÃð¼à²âÔËÐÐÖÐ...   ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 40:SetTextValue(monitor_inform_screen_id, 1,"ÆøÃð¼à²âÔËÐÐÖÐ....  ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 50:SetTextValue(monitor_inform_screen_id, 1,"ÆøÃð¼à²âÔËÐÐÖÐ..... ");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
+			case 60:SetTextValue(monitor_inform_screen_id, 1,"ÆøÃð¼à²âÔËÐÐÖÐ......");break;   //Ë¢ÐÂ±¨¾¯ÄÚÈÝ
 		}
 	}
-	else if( fresh_page_flag == 1 ) // ï¿½ï¿½ï¿½ï¿½Ð»ð¾¯£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È»ï¿½ï¿½Â¶È³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	else if( fresh_page_flag == 1 ) // Èç¹ûÓÐ»ð¾¯£¨ÈÎÒâÆøÌå¼ÓÎÂ¶È»òÎÂ¶È³¬¹ý¶þ¼¶Ô¤¾¯£©´æÔÚÁË
 	{
 		uint8_t baojingneirong[96] = {0}; // XR5000_LOOP3_CHANGE_20260726: Loop 3 gas extinguish text needs more room.
 		
@@ -7729,35 +7729,35 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 		#ifdef FADAS_DEBUG
 		printf_fadas_data(fedas_entry);
 		#endif
-		// 3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+		// 3¸öÇøÓò¹ö¶¯ÏÔÊ¾
 		for (uint8_t i = 0; i < Out_Fire_Show_Zone; i++) {
 			uint8_t data_index = fedas_fresh_point + i;
 			
 			temp_sequence_count = data_index + 1;
 			
-			if(data_index < fedas_entry->self_point_len) // ×´Ì¬ï¿½ï¿½ï¿½Ú²ï¿½ï¿½Ð¶ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½Ç²ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½â²¿ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			if(data_index < fedas_entry->self_point_len) // ×´Ì¬»úÄÚ²¿ÅÐ¶ÏÊÇ°ü»¹ÊÇ²Ö ²»ÔÚÍâ²¿ÅÐ¶Ï×öÇø·ÖÁË
 			{
-				if(fedas_entry->cluster_id[data_index] == LINKAGE_CLUSTER_ID) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ID
+				if(fedas_entry->cluster_id[data_index] == LINKAGE_CLUSTER_ID) // Èç¹ûÊÇÁª¶¯ID
 				{
 					if(fedas_entry->fed_action[data_index] == FEEDBACK_1_PRESS)
 					{
-						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ·´À¡1´¥·¢", temp_sequence_count,
 							fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 							fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second);
 					}
 					else if(fedas_entry->fed_action[data_index] == FEEDBACK_2_PRESS)
 					{
-						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ·´À¡2´¥·¢", temp_sequence_count,
 							fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 							fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second);
 					}
 					SetTextValue(59, 1 + i, baojingneirong);
-					continue; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ñ­ï¿½ï¿½
+					continue; // ½øÈëÏÂÒ»´ÎÑ­»·
 				}
 				uint16_t temp_time = fedas_entry->curr_cntd_time[data_index] - fedas_entry->start_cntd_time[data_index];
 				if(FormatRS485DetectFireExtinguisherLine(baojingneirong, temp_sequence_count, fedas_entry, data_index, temp_time) == 1)
 				{
-					// XR5000_LOOP3_CHANGE_20260726: Loop 3 gas extinguish display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+					// XR5000_LOOP3_CHANGE_20260726: Loop 3 gas extinguish display uses "µÚ3»ØÂ· XºÅ".
 					SetTextValue(monitor_inform_screen_id, 1 + i, baojingneirong);
 					continue;
 				}
@@ -7766,9 +7766,9 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_MODE_JUDGEMENT:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							if(getPart2HandAutoState() == KEY_MANUAL) // ï¿½Ö¶ï¿½
+							if(getPart2HandAutoState() == KEY_MANUAL) // ÊÖ¶¯
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ ÇëÊÖ¶¯Æô¶¯Ãð»ð×°ÖÃ", temp_sequence_count,
 									fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 									fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second, 
 									fedas_entry->cabin_id[data_index]);
@@ -7776,9 +7776,9 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 						}
 						else
 						{
-							if(getPart1HandAutoState() == KEY_MANUAL) // ï¿½Ö¶ï¿½
+							if(getPart1HandAutoState() == KEY_MANUAL) // ÊÖ¶¯
 							{
-								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½", temp_sequence_count,
+								sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ ÇëÊÖ¶¯Æô¶¯Ãð»ð×°ÖÃ", temp_sequence_count,
 									fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 									fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 									fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -7788,14 +7788,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_START_SPRAY_DELAY:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÆô¶¯µ¹¼ÆÊ±%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃÆô¶¯µ¹¼ÆÊ±%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7803,17 +7803,17 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 						
 
 						break;
-					case FED_START_SPRAY_DELAY_FINISH_FLAG: // ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
+					case FED_START_SPRAY_DELAY_FINISH_FLAG: // Ãð»ð×°ÖÃµÚÒ»´ÎÆô¶¯µ¹¼ÆÊ±½áÊø
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ1´ÎÅç·ÅÆô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second, 
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃµÚ1´ÎÅç·ÅÆô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -7822,14 +7822,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_FIRST_SPRAY_START:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ê±ï¿½ï¿½%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÅç·ÅÊ£ÓàÊ±¼ä%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second, 
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ê±ï¿½ï¿½%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃÅç·ÅÊ£ÓàÊ±¼ä%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7840,14 +7840,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_FIRST_SPRAY_FINISH:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ1´ÎÅç·ÅÍê±Ï", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃµÚ1´ÎÅç·ÅÍê±Ï", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  );
@@ -7856,14 +7856,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_SECOND_SPRAY_DELAY:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ2´ÎÆô¶¯µ¹¼ÆÊ±%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃµÚ2´ÎÆô¶¯µ¹¼ÆÊ±%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7872,14 +7872,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FED_SECOND_SPRAY_DELAY_FINISH_FLAG:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ2´ÎÅç·ÅÆô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃµÚ2´ÎÅç·ÅÆô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -7888,14 +7888,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_SECOND_SPRAY_START:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ê±ï¿½ï¿½%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÅç·ÅÊ£ÓàÊ±¼ä%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ê±ï¿½ï¿½%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃÅç·ÅÊ£ÓàÊ±¼ä%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7906,14 +7906,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_SECOND_SPRAY_FINISH:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ2´ÎÅç·ÅÍê±Ï", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃµÚ2´ÎÅç·ÅÍê±Ï", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  );
@@ -7924,30 +7924,30 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_THIRD_SPRAY_DELAY:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ3´ÎÆô¶¯µ¹¼ÆÊ±%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃµÚ3´ÎÆô¶¯µ¹¼ÆÊ±%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						break;
-					case FED_THIRD_SPRAY_DELAY_FINISH_FLAG: // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
+					case FED_THIRD_SPRAY_DELAY_FINISH_FLAG: // µÚÈý´ÎÅç·Åµ¹¼ÆÊ±½áÊø
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ3´ÎÅç·ÅÆô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃµÚ3´ÎÅç·ÅÆô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -7958,14 +7958,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_THIRD_SPRAY_START:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ê±ï¿½ï¿½%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÅç·ÅÊ£ÓàÊ±¼ä%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index], fedas_entry->countdown_val[data_index] - temp_time);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ê£ï¿½ï¿½Ê±ï¿½ï¿½%d", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃÅç·ÅÊ£ÓàÊ±¼ä%d", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  , fedas_entry->countdown_val[data_index] - temp_time);
@@ -7976,14 +7976,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_THIRD_SPRAY_FINISH:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃµÚ3´ÎÅç·ÅÍê±Ï", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃµÚ3´ÎÅç·ÅÍê±Ï", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  );
@@ -7994,14 +7994,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_ALL_SPRAY_COMPLETE:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÅç·ÅÍê±Ï", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃÅç·ÅÍê±Ï", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]  );
@@ -8012,14 +8012,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_STARYUP_FINISH_FLAG:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÕýÔÚÆô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃÕýÔÚÆô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8030,14 +8030,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_CYLINDEF_1_OPENED:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃ1Æô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃ1Æô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8048,14 +8048,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_FORCE_STOP: {
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±--", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÆô¶¯µ¹¼ÆÊ±--", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±--", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃÆô¶¯µ¹¼ÆÊ±--", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8067,14 +8067,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_RESTART_FINISH:
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½Ö¶ï¿½Í£Ö¹ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃÊÖ¶¯Í£Ö¹Æô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½Ö¶ï¿½Í£Ö¹ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃÊÖ¶¯Í£Ö¹Æô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second, 
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8082,7 +8082,7 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 						
 						break;
 					case FEEDBACK_1_PRESS : {
-						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+						sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ·´À¡1´¥·¢", temp_sequence_count,
 							fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 							fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second);
 						break;
@@ -8090,14 +8090,14 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 					case FIRE_EXTINGUISH_CYLINDEF_2_OPENED: {
 						if(fedas_entry->cluster_id[data_index] == 0)
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ »ð¾¯ Ãð»ð×°ÖÃ2Æô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cabin_id[data_index]);
 						}
 						else
 						{
-							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½pack%dï¿½ï¿½ ï¿½ï¿½ï¿½×°ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½", temp_sequence_count,
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Øpack%d»ð¾¯ Ãð»ð×°ÖÃ1Æô¶¯", temp_sequence_count,
 								fedas_entry->atr[data_index].years, fedas_entry->atr[data_index].months, fedas_entry->atr[data_index].days,
 								fedas_entry->atr[data_index].hours, fedas_entry->atr[data_index].minute, fedas_entry->atr[data_index].second,
 								fedas_entry->cluster_id[data_index], fedas_entry->pack_id[data_index]);
@@ -8112,55 +8112,55 @@ static void InternalScreenShowFireExtinguisher(FireExtinguishDeviceActionSave *f
 				baojingneirong[0] = 0;
 			}
 			SetTextValue(monitor_inform_screen_id, 1 + i,baojingneirong);
-		} // Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	} // ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Ë¢ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½
+		} // Ñ­»·À¨ºÅ
+	} // ÓÐ±¨¾¯ºóÃ¿ÃëË¢ÐÂµÄÀ¨ºÅ
 }
 
 void InternalScreenShowDetectorDataCtrlInit(DetectorDataShowCtrl *ddsc_entry)
 {
-	ddsc_entry->curr_detector_page = 1; // Ä¬ï¿½ï¿½ï¿½Çµï¿½Ò»Ò³
-	ddsc_entry->last_detector_page = 0; // Ä¬ï¿½Ï²ï¿½ï¿½ï¿½Ê¾
+	ddsc_entry->curr_detector_page = 1; // Ä¬ÈÏÊÇµÚÒ»Ò³
+	ddsc_entry->last_detector_page = 0; // Ä¬ÈÏ²»ÏÔÊ¾
 
 	memset(ddsc_entry->detector_offline_fresh_flag, 0xFF, sizeof(ddsc_entry->detector_offline_fresh_flag));
 	
-	// Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// Ì½²âÆ÷ÔÚÏßÊý×é
 	memset(ddsc_entry->detect_online_state, 0xFF, sizeof(ddsc_entry->detect_online_state));
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// ÆÁ±ÎÊý×é
 	memset(ddsc_entry->detect_shield_state, 0xFF, sizeof(ddsc_entry->detect_shield_state));
 	
-	// ï¿½Â¶ï¿½Öµï¿½ï¿½Â¼
+	// ÎÂ¶ÈÖµ¼ÇÂ¼
 	memset(ddsc_entry->last_temperature,    0xFF, sizeof(ddsc_entry->last_temperature));
-	// ï¿½Â¶ï¿½×´Ì¬ï¿½ï¿½Â¼
+	// ÎÂ¶È×´Ì¬¼ÇÂ¼
 	memset(ddsc_entry->last_temperat_state, 0xFF, sizeof(ddsc_entry->last_temperat_state));
 	
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
+	// ÑÌÎí¼ÇÂ¼
 	memset(ddsc_entry->last_smoke_state,    0xFF, sizeof(ddsc_entry->last_smoke_state));
 	
-	// Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½È¼ï¿½Â¼
+	// Ò»Ñõ»¯Ì¼Å¨¶È¼ÇÂ¼
 	memset(ddsc_entry->last_co_concentrat,  0xFF, sizeof(ddsc_entry->last_co_concentrat));
-	// Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	// Ò»Ñõ»¯Ì¼±¨¾¯×´Ì¬
 	memset(ddsc_entry->last_co_state,       0xFF, sizeof(ddsc_entry->last_co_state));
 	
 }
 
 void InternalScreenShowDetectorDataCtrlInit_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry)
 {
-	ddsc_32p_entry->curr_detector_page = 1; // Ä¬ï¿½ï¿½ï¿½Çµï¿½Ò»Ò³
+	ddsc_32p_entry->curr_detector_page = 1; // Ä¬ÈÏÊÇµÚÒ»Ò³
 
-	ddsc_32p_entry->last_detector_page = 0xFF; // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Öµ
+	ddsc_32p_entry->last_detector_page = 0xFF; // ³õÊ¼»¯µÄÖµ
 	
-	// Ä¬ï¿½ï¿½PACKï¿½ï¿½0 ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ò²Ã»ï¿½ï¿½ï¿½ï¿½
+	// Ä¬ÈÏPACKÊÇ0 ²»³õÊ¼»¯Ò²Ã»ÎÊÌâ
 	ddsc_32p_entry->curr_pack_id = 0; // 
-	// Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
+	// Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
 	ddsc_32p_entry->force_fresh_flag = 1;
 	
-	ddsc_32p_entry->last_temperature = 0xFF; // ï¿½ï¿½Ê·ï¿½Â¶ï¿½
-	ddsc_32p_entry->last_temperat_state = 0xFF; // ï¿½ï¿½Ê·ï¿½Â¶ï¿½×´Ì¬
-	ddsc_32p_entry->last_smoke_state = 0xFF; // ï¿½ï¿½Ê·ï¿½ï¿½ï¿½ï¿½×´Ì¬
-	ddsc_32p_entry->last_co_concentrat = 0xFF; // ï¿½ï¿½Ê·Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½
-	ddsc_32p_entry->last_co_state = 0xFF; // ï¿½ï¿½Ê·Ò»ï¿½ï¿½ï¿½ï¿½Ì¼×´Ì¬
+	ddsc_32p_entry->last_temperature = 0xFF; // ÀúÊ·ÎÂ¶È
+	ddsc_32p_entry->last_temperat_state = 0xFF; // ÀúÊ·ÎÂ¶È×´Ì¬
+	ddsc_32p_entry->last_smoke_state = 0xFF; // ÀúÊ·ÑÌÎí×´Ì¬
+	ddsc_32p_entry->last_co_concentrat = 0xFF; // ÀúÊ·Ò»Ñõ»¯Ì¼Å¨¶È
+	ddsc_32p_entry->last_co_state = 0xFF; // ÀúÊ·Ò»Ñõ»¯Ì¼×´Ì¬
 	
-	// ï¿½ï¿½ï¿½ï¿½Ê·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Îª255
+	// ½«ÀúÊ·ÉÏÏßÊýÁ¿³õÊ¼»¯Îª255
 	memset(ddsc_32p_entry->lat_detector_online_num, 0xFF, sizeof(ddsc_32p_entry->lat_detector_online_num));
 }
 
@@ -8168,9 +8168,9 @@ void Bsp_Screen_Buff_Init(void)
 {
 	DetectorDataShowCtrl *p = &ddsc;
 	DetectorDataShowCtrl_32Pack *ddsc_32p_entry = &ddsc_32p;
-	// ï¿½ï¿½ï¿½ï¿½æ±¾
+	// ¾­µä°æ±¾
 	InternalScreenShowDetectorDataCtrlInit(p);
-	// 1ï¿½ï¿½32ï¿½ï¿½ï¿½æ±¾
+	// 1´Ø32°ü°æ±¾
 	InternalScreenShowDetectorDataCtrlInit_32Pack(ddsc_32p_entry);
 }
 
@@ -8182,116 +8182,116 @@ uint8_t smoke_show_ctrl_id[11] = {0, 11, 22, 32, 42, 52, 62, 72, 82, 92, 102};
 static void InternalScreenShowClusterData(DetectorDataShowCtrl *ddsc_entry)
 {
 	uint8_t temp_screen_id = 54;
-	uint8_t curr_page = ddsc_entry->curr_detector_page; // ï¿½È±ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ö¸ï¿½ï¿½
+	uint8_t curr_page = ddsc_entry->curr_detector_page; // ÏÈ±¸·ÝÒ»´ÎÖ¸Õë
 	uint8_t fresh_flag = 0;
 	
-	if(curr_page !=	ddsc_entry->last_detector_page) // Ë¢ï¿½Âµï¿½Ç°Ò³ï¿½ï¿½Ê¾
+	if(curr_page !=	ddsc_entry->last_detector_page) // Ë¢ÐÂµ±Ç°Ò³ÏÔÊ¾
 	{
 		uint8_t buff[32] = {0};
 
-		fresh_flag |= 1; // Ë¢ï¿½Â±ï¿½Ö¾
-		sprintf((char *)buff, "ï¿½ï¿½%dï¿½ï¿½ PACKï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", curr_page);
+		fresh_flag |= 1; // Ë¢ÐÂ±êÖ¾
+		sprintf((char *)buff, "µÚ%d´Ø PACKÃð»ð¿ØÖÆ", curr_page);
 		SetTextValue(temp_screen_id, 1, buff);
-		sprintf((char *)buff, "ï¿½ï¿½%dï¿½ï¿½ ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", curr_page);
+		sprintf((char *)buff, "µÚ%d´Ø ´Ø¼¶Ãð»ð¿ØÖÆ", curr_page);
 		SetTextValue(temp_screen_id, 2, buff);
 		
 		sprintf((char *)buff, "%d/20", curr_page);
 		SetTextValue(temp_screen_id, 105, buff);
 	}
 	
-	if(cu_sxzt[curr_page] == 0 || cu_tcq_sxzt[curr_page] == 0) // ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	if(cu_sxzt[curr_page] == 0 || cu_tcq_sxzt[curr_page] == 0) // Èç¹ûÃ»ÉèÖÃÉÏÏß
 	{
 		fresh_flag |= 1; // 
-		if(ddsc_entry->detector_offline_fresh_flag[curr_page] != cu_tcq_sxzt[curr_page] || fresh_flag) // ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½Ë¢ï¿½ï¿½
+		if(ddsc_entry->detector_offline_fresh_flag[curr_page] != cu_tcq_sxzt[curr_page] || fresh_flag) // Èç¹ûÊÇµÚÒ»´ÎÆô¶¯»òÒ³ÃæË¢ÐÂ
 		{
-			ddsc_entry->detector_offline_fresh_flag[curr_page] = cu_tcq_sxzt[curr_page]; // ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½Ë¢ï¿½Â¹ï¿½ï¿½ï¿½
+			ddsc_entry->detector_offline_fresh_flag[curr_page] = cu_tcq_sxzt[curr_page]; // ±íÃ÷ÒÑ¾­Ë¢ÐÂ¹ýÁË
 			for(uint8_t i = cu_tcq_sxzt[curr_page] + 1; i < 11; i++)
 			{
 				SetControlForeColor(temp_screen_id, detector_online_ctrl_id[i], 0x8410);
-				SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "Î´ï¿½ï¿½ï¿½ï¿½");
-				// ï¿½Â¶ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½
+				SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "Î´ÆôÓÃ");
+				// ÎÂ¶ÈÀ¸ÑÕÉ«ÉèÖÃ
 				SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, temperature_ctrl_id[i], "--");
-				// Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½
+				// Ò»Ñõ»¯Ì¼Å¨¶È
 				SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, co_concentrate_ctrl_id[i], "--");
-				// ï¿½ï¿½ï¿½ï¿½×´Ì¬
+				// ÑÌÎí×´Ì¬
 				SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "--");
 			}
 		}
 	}
-	if(cu_sxzt[curr_page] != 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	if(cu_sxzt[curr_page] != 0) // Èç¹ûÉèÖÃÉÏÏß
 	{
 //		if(ddsc_entry->detector_offline_fresh_flag[curr_page] == 0)
 //			fresh_flag = 1;
-		//ddsc_entry->detector_offline_fresh_flag[curr_page] = 0xFF; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßºï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½
+		//ddsc_entry->detector_offline_fresh_flag[curr_page] = 0xFF; // ±íÃ÷ÏÂÏßºóÐèÒªÖØÐÂË¢ÐÂ
 		for(uint8_t i = 1; i < cu_tcq_sxzt[curr_page] + 1; i++)
 		{
-			if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+			if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // ÅÐ¶ÏÊÇ·ñµôÏß
 			{ 
-				// ï¿½ï¿½ï¿½ï¿½×´Ì¬Ë¢ï¿½ï¿½
+				// ÔÚÏß×´Ì¬Ë¢ÐÂ
 				if(ddsc_entry->detect_online_state[curr_page][i] != 1 || fresh_flag)
 				{
-					fresh_flag |= 2; // ï¿½Óµï¿½ï¿½ß»Ö¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½×´Ì¬
-					ddsc_entry->detect_online_state[curr_page][i] = 1; // ï¿½Ñµï¿½curr_pageï¿½ï¿½ ï¿½ï¿½iï¿½ï¿½ï¿½ï¿½ÖµÎª1
+					fresh_flag |= 2; // ´ÓµôÏß»Ö¸´ÁË ÖØÐÂË¢ÐÂÒ»´Î×´Ì¬
+					ddsc_entry->detect_online_state[curr_page][i] = 1; // °ÑµÚcurr_page´Ø µÚi°ü¸³ÖµÎª1
 					SetControlForeColor(temp_screen_id, detector_online_ctrl_id[i], 0x0400);
-					SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "ï¿½ï¿½ï¿½ï¿½");
-				} // ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½
+					SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "ÔÚÏß");
+				} // ÔÚÏßË¢ÐÂ
 				
-				// ï¿½Â¶ï¿½ÖµË¢ï¿½ï¿½
+				// ÎÂ¶ÈÖµË¢ÐÂ
 				if(ddsc_entry->last_temperature[curr_page][i] != PACK_wendu_buf[curr_page][i] || fresh_flag)
 				{
 					ddsc_entry->last_temperature[curr_page][i] = PACK_wendu_buf[curr_page][i];
-					SetTextInt32(temp_screen_id, temperature_ctrl_id[i], PACK_wendu_buf[curr_page][i], 1, 2);//ï¿½Â¶ï¿½ï¿½ï¿½Ê¾
+					SetTextInt32(temp_screen_id, temperature_ctrl_id[i], PACK_wendu_buf[curr_page][i], 1, 2);//ÎÂ¶ÈÏÔÊ¾
 				}
 				
-				// ï¿½Â¶ï¿½ï¿½ï¿½É«ï¿½Ä±ï¿½
+				// ÎÂ¶ÈÑÕÉ«¸Ä±ä
 				if(ddsc_entry->last_temperat_state[curr_page][i] != PACK_WDZT_buf[curr_page][i] || fresh_flag)
 				{
 					ddsc_entry->last_temperat_state[curr_page][i] = PACK_WDZT_buf[curr_page][i];
 					
 					if(ddsc_entry->last_temperat_state[curr_page][i] == 0)
 					{
-						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x0400); // ï¿½ï¿½ï¿½ï¿½
+						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x0400); // Õý³£
 					}
 					else if(ddsc_entry->last_temperat_state[curr_page][i] == 1)
 					{
-						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0xFB20); // Ô¤ï¿½ï¿½
+						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0xFB20); // Ô¤¾¯
 					}
 					else
 					{
-						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0xF800); // ï¿½ï¿½
+						SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0xF800); // »ð¾¯
 					}
 				}
 				
-				// ï¿½ï¿½curr_pageï¿½ï¿½ ï¿½ï¿½iï¿½ï¿½ COÖµï¿½ï¿½Ê¾
+				// µÚcurr_page´Ø µÚi°ü COÖµÏÔÊ¾
 				uint16_t temp_co_concen = getPackCoConcenValue(curr_page, i);
 				if(ddsc_entry->last_smoke_state[curr_page][i] != temp_co_concen || fresh_flag)
 				{
-					ddsc_entry->last_smoke_state[curr_page][i] = temp_co_concen; // ï¿½æ´¢Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½Öµ
-//					SetTextInt32(temp_screen_id, co_concentrate_ctrl_id[i], temp_co_concen, 1, 1); // COï¿½ï¿½Ê¾
+					ddsc_entry->last_smoke_state[curr_page][i] = temp_co_concen; // ´æ´¢Ò»Ñõ»¯Ì¼µÄÖµ
+//					SetTextInt32(temp_screen_id, co_concentrate_ctrl_id[i], temp_co_concen, 1, 1); // COÏÔÊ¾
 					uint8_t buff[16];
 					sprintf((char *)buff, "%dPPM", temp_co_concen);
 					SetTextValue(temp_screen_id, co_concentrate_ctrl_id[i], buff);
 				}
 				
-				// COï¿½ï¿½É«ï¿½Ä±ï¿½
+				// COÑÕÉ«¸Ä±ä
 				if(ddsc_entry->last_co_state[curr_page][i] != PACK_COZT_buf[curr_page][i] || fresh_flag)
 				{
 					ddsc_entry->last_temperat_state[curr_page][i] = PACK_COZT_buf[curr_page][i];
 					
 					if(ddsc_entry->last_temperat_state[curr_page][i] == 0)
 					{
-						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0x0400); // ï¿½ï¿½ï¿½ï¿½
+						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0x0400); // Õý³£
 					}
 					else if(ddsc_entry->last_temperat_state[curr_page][i] == 1)
 					{
-						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0xFB20); // Ô¤ï¿½ï¿½
+						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0xFB20); // Ô¤¾¯
 					}
 					else if(ddsc_entry->last_temperat_state[curr_page][i] == 2)
 					{
-						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0xF800); // ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½
+						SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0xF800); // ¶þ¼¶Ô¤¾¯
 					}
 				}
 				
@@ -8300,32 +8300,32 @@ static void InternalScreenShowClusterData(DetectorDataShowCtrl *ddsc_entry)
 					ddsc_entry->last_smoke_state[curr_page][i] = PACK_YWZT_buf[curr_page][i];
 					if(PACK_YWZT_buf[curr_page][i] == 0)
 					{
-						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x0400); // ï¿½ï¿½ï¿½ï¿½
-						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "ï¿½ï¿½ï¿½ï¿½");
+						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x0400); // Õý³£
+						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "Õý³£");
 					}
 					else if(PACK_YWZT_buf[curr_page][i] == 1)
 					{
-						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0xFB20); // Ô¤ï¿½ï¿½
-						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "ï¿½ï¿½ï¿½ï¿½");
+						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0xFB20); // Ô¤¾¯
+						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "±¨¾¯");
 					}
 					else if(PACK_YWZT_buf[curr_page][i] == 2)
 					{
-						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0xF800); // ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½
-						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "ï¿½ï¿½ï¿½ï¿½");
+						SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0xF800); // ¶þ¼¶Ô¤¾¯
+						SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "±¨¾¯");
 					}
 					
 				}
 				
-			} // ï¿½ï¿½ï¿½ß´ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
-			else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			} // ÔÚÏß´¦Àí À¨ºÅ
+			else // Èç¹ûµôÏßÁË
 			{ 
 				if(ddsc_entry->detect_online_state[i] != 0 || fresh_flag)
 				{
 					ddsc_entry->detect_online_state[curr_page][i] = 0;
 					SetControlForeColor(temp_screen_id, detector_online_ctrl_id[i], 0xFB20);
-					SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "ï¿½ï¿½ï¿½ï¿½");
+					SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "µôÏß");
 					
-					// ï¿½Â¶ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½
+					// ÎÂ¶ÈÀ¸ÑÕÉ«ÉèÖÃ
 					SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x8410);
 					SetTextValue(temp_screen_id, temperature_ctrl_id[i], "--");
 
@@ -8334,30 +8334,30 @@ static void InternalScreenShowClusterData(DetectorDataShowCtrl *ddsc_entry)
 					
 					SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x8410);
 					SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "--");
-				} // ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½
-			} // ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
-		} // forÑ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½
+				} // ÔÚÏßË¢ÐÂ
+			} // µôÏßÅÐ¶Ï
+		} // forÑ­»·À¨ºÅ ±éÀúµ±Ç°Ò³ÉÏÏßÊýÁ¿¸öÌ½²âÆ÷
 		
 		if(ddsc_entry->detector_offline_fresh_flag[curr_page] != cu_tcq_sxzt[curr_page])
 		{
 			for(uint8_t i = cu_tcq_sxzt[curr_page] + 1; i < 11; i++)
 			{
 				SetControlForeColor(temp_screen_id, detector_online_ctrl_id[i], 0x8410);
-				SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "Î´ï¿½ï¿½ï¿½ï¿½");
-				// ï¿½Â¶ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½
+				SetTextValue(temp_screen_id, detector_online_ctrl_id[i], "Î´ÆôÓÃ");
+				// ÎÂ¶ÈÀ¸ÑÕÉ«ÉèÖÃ
 				SetControlForeColor(temp_screen_id, temperature_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, temperature_ctrl_id[i], "--");
-				// Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½
+				// Ò»Ñõ»¯Ì¼Å¨¶È
 				SetControlForeColor(temp_screen_id, co_concentrate_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, co_concentrate_ctrl_id[i], "--");
-				// ï¿½ï¿½ï¿½ï¿½×´Ì¬
+				// ÑÌÎí×´Ì¬
 				SetControlForeColor(temp_screen_id, smoke_show_ctrl_id[i], 0x8410);
 				SetTextValue(temp_screen_id, smoke_show_ctrl_id[i], "--");
 			}
-		}// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ Ë¢ï¿½ï¿½ï¿½ï¿½Ê¾
+		}// Èç¹ûÉÏÏßÊýÁ¿¸Ä±ä Ë¢ÐÂÏÔÊ¾
 
 		
-	} // ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	} // ÉèÖÃÎªÉÏÏßÀ¨ºÅ
 	if(fresh_flag == 1)
 	{
 		ddsc_entry->last_detector_page = curr_page; // 
@@ -8372,7 +8372,7 @@ const uint8_t pack_state_show_ctrl_id[] = {
 
 static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, DetectorDataShowCtrl_32Pack *ddsc_32p_entry)
 {
-	uint8_t curr_page = ddsc_32p_entry->curr_detector_page; // ï¿½È±ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ö¸ï¿½ï¿½
+	uint8_t curr_page = ddsc_32p_entry->curr_detector_page; // ÏÈ±¸·ÝÒ»´ÎÖ¸Õë
 	
 	uint8_t temp_force_fresh = 0;
 //	DebugPrintf("page:%d\r\n", ddsc_32p_entry->curr_detector_page);
@@ -8381,33 +8381,33 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 
 	uint8_t page_change_flage = 0;
 
-	// Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
-	if(ddsc_32p_entry->last_detector_page != curr_page) // Ë¢ï¿½Âµï¿½Ç°Ò³ï¿½ï¿½Ê¾
+	// Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
+	if(ddsc_32p_entry->last_detector_page != curr_page) // Ë¢ÐÂµ±Ç°Ò³ÏÔÊ¾
 	{
 		uint8_t buff[32] = {0};
-		sprintf((char *)buff, "ï¿½ï¿½%dï¿½ï¿½ PACKï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", curr_page);
-		SetTextValue(screen_id_entry, 1, buff); // Ë¢ï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		sprintf((char *)buff, "µÚ%d´Ø PACKÃð»ð¿ØÖÆ", curr_page);
+		SetTextValue(screen_id_entry, 1, buff); // Ë¢ÐÂ´ØÃð»ð¿ØÖÆ
 		sprintf((char *)buff, "%d/3", curr_page);
-		SetTextValue(screen_id_entry, 105, buff); // Ë¢ï¿½Âµï¿½Ç°Ò³ï¿½ï¿½ï¿½ï¿½Ê¾
+		SetTextValue(screen_id_entry, 105, buff); // Ë¢ÐÂµ±Ç°Ò³ÃæÏÔÊ¾
 		
 		page_change_flage = 1;
 		ddsc_32p_entry->last_detector_page = curr_page;
 	}
 
-	if(screen_id_entry == 61) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½é¿´ï¿½ï¿½ï¿½ï¿½
+	if(screen_id_entry == 61) // Èç¹û²»ÊÇÌ½²âÆ÷¾ßÌåÊýÖµ²é¿´½çÃæ
 	{
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬Îª0 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª0
-		if(cu_sxzt[curr_page] == 0 || cu_tcq_sxzt[curr_page] == 0) // ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// Èç¹ûÉÏÏß×´Ì¬Îª0 »òÕßÉÏÏßÊýÁ¿Îª0
+		if(cu_sxzt[curr_page] == 0 || cu_tcq_sxzt[curr_page] == 0) // Èç¹ûÃ»ÉèÖÃÉÏÏß
 		{
-			if(ddsc_32p_entry->lat_detector_online_num[curr_page] != cu_tcq_sxzt[curr_page] || page_change_flage == 1) // ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½Ë¢ï¿½ï¿½
+			if(ddsc_32p_entry->lat_detector_online_num[curr_page] != cu_tcq_sxzt[curr_page] || page_change_flage == 1) // Èç¹ûÊÇµÚÒ»´ÎÆô¶¯»òÒ³ÃæË¢ÐÂ
 			{
-				ddsc_32p_entry->lat_detector_online_num[curr_page] = cu_tcq_sxzt[curr_page]; // ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½Ë¢ï¿½Â¹ï¿½ï¿½ï¿½
+				ddsc_32p_entry->lat_detector_online_num[curr_page] = cu_tcq_sxzt[curr_page]; // ±íÃ÷ÒÑ¾­Ë¢ÐÂ¹ýÁË
 				for(uint8_t i = cu_tcq_sxzt[curr_page] + 1; i < 33; i++)
 				{
 //					SetControlForeColor(screen_id_entry, detector_online_ctrl_id[i], 0x8410);
-					SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "Î´ï¿½ï¿½ï¿½ï¿½");
+					SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "Î´ÆôÓÃ");
 					
-					ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 2; // ï¿½ï¿½ï¿½ÎªÎ´ï¿½ï¿½ï¿½ï¿½
+					ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 2; // ±ê¼ÇÎªÎ´ÆôÓÃ
 				}
 				
 				page_change_flage = 0;
@@ -8417,22 +8417,22 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 		{
 			if(page_change_flage == 1 || ddsc_32p_entry->lat_detector_online_num[curr_page] != cu_tcq_sxzt[curr_page])
 			{
-				ddsc_32p_entry->lat_detector_online_num[curr_page] = cu_tcq_sxzt[curr_page]; // ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½Ë¢ï¿½Â¹ï¿½ï¿½ï¿½
+				ddsc_32p_entry->lat_detector_online_num[curr_page] = cu_tcq_sxzt[curr_page]; // ±íÃ÷ÒÑ¾­Ë¢ÐÂ¹ýÁË
 				for(uint8_t i = 1; i < cu_tcq_sxzt[curr_page] + 1; i++)
 				{
-					if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+					if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // ÅÐ¶ÏÊÇ·ñµôÏß
 					{
 //						SetControlForeColor(screen_id_entry, detector_online_ctrl_id[i], 0xFB20);
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "ÔÚÏß");
 						
-						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 0; // ï¿½ï¿½ï¿½Îªï¿½Ö¸ï¿½
+						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 0; // ±ê¼ÇÎª»Ö¸´
 					}
 					else
 					{
 //						SetControlForeColor(screen_id_entry, pack_state_show_ctrl_id[i], 0xFB20);
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "µôÏß");
 						
-						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 1; // ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
+						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 1; // ±ê¼ÇÎªµôÏß
 					}
 				}
 				
@@ -8446,18 +8446,18 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 				{
 					if(ddsc_32p_entry->last_derector_state[temp_index][i] == 0 && getClusterPackDisconnectCount(curr_page, i + 1) == PackDisconnectCount)
 					{
-						ddsc_32p_entry->last_derector_state[temp_index][i] = 1; // ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "ï¿½ï¿½ï¿½ï¿½");
+						ddsc_32p_entry->last_derector_state[temp_index][i] = 1; // ±ê¼ÇÎªµôÏß
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "µôÏß");
 					}
 					else if(ddsc_32p_entry->last_derector_state[temp_index][i] == 1 && getClusterPackDisconnectCount(curr_page, i + 1) != PackDisconnectCount)
 					{
-						ddsc_32p_entry->last_derector_state[temp_index][i] = 0; // ï¿½ï¿½ï¿½Îªï¿½Ö¸ï¿½
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "ï¿½ï¿½ï¿½ï¿½");
+						ddsc_32p_entry->last_derector_state[temp_index][i] = 0; // ±ê¼ÇÎª»Ö¸´
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "ÔÚÏß");
 					}
 					else if(ddsc_32p_entry->last_derector_state[temp_index][i] == 2 && getClusterPackDisconnectCount(curr_page, i + 1) != PackDisconnectCount)
 					{
-						ddsc_32p_entry->last_derector_state[temp_index][i] = 0; // ï¿½ï¿½ï¿½Îªï¿½Ö¸ï¿½
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "ï¿½ï¿½ï¿½ï¿½");
+						ddsc_32p_entry->last_derector_state[temp_index][i] = 0; // ±ê¼ÇÎª»Ö¸´
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i + 1], "ÔÚÏß");
 					}
 				}
 				
@@ -8467,83 +8467,83 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 					{
 						ddsc_32p_entry->last_derector_state[temp_index][j] = 2;
 						
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[j + 1], "Î´ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[j + 1], "Î´ÆôÓÃ");
 					}
 				}
 				
 			}
 		}
 	}
-	else if(screen_id_entry == 62) // ï¿½é¿´ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½
+	else if(screen_id_entry == 62) // ²é¿´¾ßÌåÌ½²âÆ÷ÊýÖµ½çÃæ
 	{
 		if(ddsc_32p_entry->force_fresh_flag == 1)
 		{
-			// ï¿½ï¿½ï¿½ÎªË¢ï¿½Â¹ï¿½ï¿½ï¿½
+			// ±ê¼ÇÎªË¢ÐÂ¹ýÁË
 			ddsc_32p_entry->force_fresh_flag = 0;
 			temp_force_fresh = 1;
 		}
 
-		if(cu_sxzt[curr_page] != 0 && cu_tcq_sxzt[curr_page] >= ddsc_32p_entry->curr_pack_id) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Òµï¿½Ç°ï¿½é¿´idÐ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		if(cu_sxzt[curr_page] != 0 && cu_tcq_sxzt[curr_page] >= ddsc_32p_entry->curr_pack_id) // Èç¹ûÉèÖÃÉÏÏß ÇÒµ±Ç°²é¿´idÐ¡ÓÚÉÏÏßÊýÁ¿
 		{
-			if(getClusterPackDisconnectCount(curr_page, ddsc_32p_entry->curr_pack_id) != PackDisconnectCount) // ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+			if(getClusterPackDisconnectCount(curr_page, ddsc_32p_entry->curr_pack_id) != PackDisconnectCount) // ÅÐ¶ÏÊÇ·ñµôÏß
 			{
 				uint8_t buff[32];
-				sprintf((char *)buff, "pack%d ×´Ì¬:ï¿½ï¿½ï¿½ï¿½", ddsc_32p_entry->curr_pack_id);
+				sprintf((char *)buff, "pack%d ×´Ì¬:ÔÚÏß", ddsc_32p_entry->curr_pack_id);
 				SetTextValue(screen_id_entry, 5, buff);
 				
-				// ï¿½Â¶ï¿½ÖµË¢ï¿½ï¿½
+				// ÎÂ¶ÈÖµË¢ÐÂ
 				if(ddsc_32p_entry->last_temperature != PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id] || temp_force_fresh == 1)
 				{
 					ddsc_32p_entry->last_temperature = PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id];
-					sprintf((char *)buff, "ï¿½ï¿½        ï¿½ï¿½:%dï¿½ï¿½", ddsc_32p_entry->last_temperature);
-					//SetTextInt32(screen_id_entry, 9, PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id], 1, 2);//ï¿½Â¶ï¿½ï¿½ï¿½Ê¾
+					sprintf((char *)buff, "ÎÂ        ¶È:%d¶È", ddsc_32p_entry->last_temperature);
+					//SetTextInt32(screen_id_entry, 9, PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id], 1, 2);//ÎÂ¶ÈÏÔÊ¾
 					SetTextValue(screen_id_entry, 9, buff);
 				}
 				
-//				// ï¿½Â¶ï¿½ï¿½ï¿½É«ï¿½Ä±ï¿½
+//				// ÎÂ¶ÈÑÕÉ«¸Ä±ä
 //				if(ddsc_32p_entry->last_temperat_state != PACK_WDZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] || ddsc_32p_entry->force_fresh_flag == 1)
 //				{
 //					ddsc_32p_entry->last_temperat_state = PACK_WDZT_buf[curr_page][ddsc_32p_entry->curr_pack_id];
 //					
 //					if(ddsc_32p_entry->last_temperat_state == 0)
 //					{
-//						SetControlForeColor(screen_id_entry, 9, 0x0400); // ï¿½ï¿½ï¿½ï¿½
+//						SetControlForeColor(screen_id_entry, 9, 0x0400); // Õý³£
 //					}
 //					else if(ddsc_32p_entry->last_temperat_state == 1)
 //					{
-//						SetControlForeColor(screen_id_entry, 9, 0xFB20); // Ô¤ï¿½ï¿½
+//						SetControlForeColor(screen_id_entry, 9, 0xFB20); // Ô¤¾¯
 //					}
 //					else
 //					{
-//						SetControlForeColor(screen_id_entry, 9, 0xF800); // ï¿½ï¿½
+//						SetControlForeColor(screen_id_entry, 9, 0xF800); // »ð¾¯
 //					}
 //				}
 						
-				// ï¿½ï¿½curr_pageï¿½ï¿½ ï¿½ï¿½iï¿½ï¿½ COÖµï¿½ï¿½Ê¾
+				// µÚcurr_page´Ø µÚi°ü COÖµÏÔÊ¾
 				uint16_t temp_co_concen = getPackCoConcenValue(curr_page, ddsc_32p_entry->curr_pack_id);
 				if(ddsc_32p_entry->last_smoke_state != temp_co_concen || temp_force_fresh == 1)
 				{
-					ddsc_32p_entry->last_smoke_state = temp_co_concen; // ï¿½æ´¢Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½Öµ
-					sprintf((char *)buff, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼:%dPPM", temp_co_concen);
+					ddsc_32p_entry->last_smoke_state = temp_co_concen; // ´æ´¢Ò»Ñõ»¯Ì¼µÄÖµ
+					sprintf((char *)buff, "Ò»Ñõ»¯Ì¼:%dPPM", temp_co_concen);
 					SetTextValue(screen_id_entry, 17, buff);
 				}
 				
-//				// COï¿½ï¿½É«ï¿½Ä±ï¿½
+//				// COÑÕÉ«¸Ä±ä
 //				if(ddsc_32p_entry->last_co_state != PACK_COZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] || ddsc_32p_entry->force_fresh_flag == 1)
 //				{
 //					ddsc_32p_entry->last_co_state = PACK_COZT_buf[curr_page][ddsc_32p_entry->curr_pack_id];
 //					
 //					if(ddsc_32p_entry->last_co_state == 0)
 //					{
-//						SetControlForeColor(screen_id_entry, 17, 0x0400); // ï¿½ï¿½ï¿½ï¿½
+//						SetControlForeColor(screen_id_entry, 17, 0x0400); // Õý³£
 //					}
 //					else if(ddsc_32p_entry->last_co_state == 1)
 //					{
-//						SetControlForeColor(screen_id_entry, 17, 0xFB20); // Ô¤ï¿½ï¿½
+//						SetControlForeColor(screen_id_entry, 17, 0xFB20); // Ô¤¾¯
 //					}
 //					else if(ddsc_32p_entry->last_temperat_state == 2)
 //					{
-//						SetControlForeColor(screen_id_entry, 17, 0xF800); // ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½
+//						SetControlForeColor(screen_id_entry, 17, 0xF800); // ¶þ¼¶Ô¤¾¯
 //					}
 //				}
 						
@@ -8552,18 +8552,18 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 					ddsc_32p_entry->last_smoke_state = PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id];
 					if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 0)
 					{
-//						SetControlForeColor(screen_id_entry, 13, 0x0400); // ï¿½ï¿½ï¿½ï¿½
-						SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½");
+//						SetControlForeColor(screen_id_entry, 13, 0x0400); // Õý³£
+						SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:Õý³£");
 					}
 					else if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 1)
 					{
-//						SetControlForeColor(screen_id_entry, 13, 0xFB20); // Ô¤ï¿½ï¿½
-						SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½");
+//						SetControlForeColor(screen_id_entry, 13, 0xFB20); // Ô¤¾¯
+						SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:±¨¾¯");
 					} 
 					else if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 2)
 					{
-//						SetControlForeColor(screen_id_entry, 13, 0xF800); // ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½
-						SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½");
+//						SetControlForeColor(screen_id_entry, 13, 0xF800); // ¶þ¼¶Ô¤¾¯
+						SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:±¨¾¯");
 					}
 					
 				}
@@ -8573,28 +8573,28 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 				if(temp_force_fresh == 1)
 				{
 					uint8_t buff[32];
-					sprintf((char *)buff, "pack%d ï¿½ï¿½ï¿½ï¿½", ddsc_32p_entry->curr_pack_id);
+					sprintf((char *)buff, "pack%d µôÏß", ddsc_32p_entry->curr_pack_id);
 					
 //					SetControlForeColor(screen_id_entry, 5, 0xFB20);
 					SetTextValue(screen_id_entry, 5, buff);
 					
 //					SetControlForeColor(screen_id_entry, 13, 0x8410);
-					SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:--");
+					SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:--");
 					
 //					SetControlForeColor(screen_id_entry, 17, 0x8410);
-					SetTextValue(screen_id_entry, 17, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼:--");
+					SetTextValue(screen_id_entry, 17, "Ò»Ñõ»¯Ì¼:--");
 					
 //					SetControlForeColor(screen_id_entry, 17, 0x8410);
-					SetTextValue(screen_id_entry, 9, "ï¿½ï¿½        ï¿½ï¿½:--");
+					SetTextValue(screen_id_entry, 9, "ÎÂ        ¶È:--");
 					
 				}
 //				
 //				uint8_t buff[32];
-//				sprintf((char *)buff, "pack%d ï¿½ï¿½ï¿½ï¿½", ddsc_32p_entry->curr_pack_id);
+//				sprintf((char *)buff, "pack%d µôÏß", ddsc_32p_entry->curr_pack_id);
 //				SetTextValue(screen_id_entry, 5, buff);
-//				SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:--");
-//				SetTextValue(screen_id_entry, 17, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼:--");
-//				SetTextValue(screen_id_entry, 9, "ï¿½ï¿½        ï¿½ï¿½:--");
+//				SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:--");
+//				SetTextValue(screen_id_entry, 17, "Ò»Ñõ»¯Ì¼:--");
+//				SetTextValue(screen_id_entry, 9, "ÎÂ        ¶È:--");
 				
 			}
 		}
@@ -8603,28 +8603,28 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 			if(temp_force_fresh == 1)
 			{
 				uint8_t buff[32];
-				sprintf((char *)buff, "pack%d ×´Ì¬:Î´ï¿½ï¿½ï¿½ï¿½", ddsc_32p_entry->curr_pack_id);
+				sprintf((char *)buff, "pack%d ×´Ì¬:Î´ÆôÓÃ", ddsc_32p_entry->curr_pack_id);
 //				DebugSendString(buff, sizeof(buff));
 				//					SetControlForeColor(screen_id_entry, 5, 0xFB20);
 				SetTextValue(screen_id_entry, 5, buff);
 
 				//					SetControlForeColor(screen_id_entry, 13, 0x8410);
-				SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:--");
+				SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:--");
 
 				//					SetControlForeColor(screen_id_entry, 17, 0x8410);
-				SetTextValue(screen_id_entry, 17, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼:--");
+				SetTextValue(screen_id_entry, 17, "Ò»Ñõ»¯Ì¼:--");
 
 				//					SetControlForeColor(screen_id_entry, 17, 0x8410);
-				SetTextValue(screen_id_entry, 9, "ï¿½ï¿½        ï¿½ï¿½:--");
+				SetTextValue(screen_id_entry, 9, "ÎÂ        ¶È:--");
 
 			}
 			
 //			uint8_t buff[32];
-//			sprintf((char *)buff, "pack%d Î´ï¿½ï¿½ï¿½ï¿½", ddsc_32p_entry->curr_pack_id);
+//			sprintf((char *)buff, "pack%d Î´ÆôÓÃ", ddsc_32p_entry->curr_pack_id);
 //			SetTextValue(screen_id_entry, 5, buff);
-//			SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:--");
-//			SetTextValue(screen_id_entry, 17, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼:--");
-//			SetTextValue(screen_id_entry, 9, "ï¿½ï¿½        ï¿½ï¿½:--");
+//			SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:--");
+//			SetTextValue(screen_id_entry, 17, "Ò»Ñõ»¯Ì¼:--");
+//			SetTextValue(screen_id_entry, 9, "ÎÂ        ¶È:--");
 		}
 		
 	}
@@ -8635,108 +8635,108 @@ static void InternalScreenShowClusterData_32Pack(uint16_t screen_id_entry, Detec
 //	DebugSendString(buff, sizeof(buff));
 }
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ö±ï¿½Ó³ï¿½Ê¼ï¿½ï¿½ÎªÈ«0xFF
+// ÔÚÉùÃ÷Ê±Ö±½Ó³õÊ¼»¯ÎªÈ«0xFF
 uint8_t last_pack_online_buff_state[33] = {
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-    0xFF  // ï¿½Ü¹ï¿½33ï¿½ï¿½0xFF
+    0xFF  // ×Ü¹²33¸ö0xFF
 };
 
 static void InternalScreenShowClusterData_32Pack_Plus(uint16_t screen_id_entry, DetectorDataShowCtrl_32Pack *ddsc_32p_entry)
 {
-	uint8_t curr_page = ddsc_32p_entry->curr_detector_page; // ï¿½È±ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ö¸ï¿½ï¿½
+	uint8_t curr_page = ddsc_32p_entry->curr_detector_page; // ÏÈ±¸·ÝÒ»´ÎÖ¸Õë
 	
 	uint8_t temp_force_fresh = 0;
 
 	uint8_t page_change_flage = 0;
 
-	// Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
-	if(ddsc_32p_entry->last_detector_page != curr_page) // Ë¢ï¿½Âµï¿½Ç°Ò³ï¿½ï¿½Ê¾
+	// Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
+	if(ddsc_32p_entry->last_detector_page != curr_page) // Ë¢ÐÂµ±Ç°Ò³ÏÔÊ¾
 	{
 		uint8_t buff[32] = {0};
-		sprintf((char *)buff, "ï¿½ï¿½%dï¿½ï¿½ PACKï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", curr_page);
-		SetTextValue(screen_id_entry, 1, buff); // Ë¢ï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		sprintf((char *)buff, "µÚ%d´Ø PACKÃð»ð¿ØÖÆ", curr_page);
+		SetTextValue(screen_id_entry, 1, buff); // Ë¢ÐÂ´ØÃð»ð¿ØÖÆ
 		sprintf((char *)buff, "%d/3", curr_page);
-		SetTextValue(screen_id_entry, 105, buff); // Ë¢ï¿½Âµï¿½Ç°Ò³ï¿½ï¿½ï¿½ï¿½Ê¾
+		SetTextValue(screen_id_entry, 105, buff); // Ë¢ÐÂµ±Ç°Ò³ÃæÏÔÊ¾
 		
 		page_change_flage = 1;
 		ddsc_32p_entry->last_detector_page = curr_page;
 	}
 
-	if(screen_id_entry == 61) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½é¿´ï¿½ï¿½ï¿½ï¿½
+	if(screen_id_entry == 61) // Èç¹û²»ÊÇÌ½²âÆ÷¾ßÌåÊýÖµ²é¿´½çÃæ
 	{
 		for(uint8_t i = 1; i < 33; i++)
 		{
 			if((pack_online_buff[curr_page][i] != last_pack_online_buff_state[i] && pack_online_buff[curr_page][i] == 0) || 
-					page_change_flage == 1) // Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+					page_change_flage == 1) // Ë¢ÐÂÒ»´Î
 			{
-				last_pack_online_buff_state[i] = pack_online_buff[curr_page][i]; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				last_pack_online_buff_state[i] = pack_online_buff[curr_page][i]; // ¸üÐÂÒÖÖÆ
 				
-				SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "Î´ï¿½ï¿½ï¿½ï¿½");
-				ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 2; // ï¿½ï¿½ï¿½ÎªÎ´ï¿½ï¿½ï¿½ï¿½
+				SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "Î´ÆôÓÃ");
+				ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 2; // ±ê¼ÇÎªÎ´ÆôÓÃ
 			}
-			else if(pack_online_buff[curr_page][i] == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			else if(pack_online_buff[curr_page][i] == 1) // Èç¹ûÉèÖÃÎªÉÏÏßÁË
 			{
-				if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+				if(getClusterPackDisconnectCount(curr_page, i) != PackDisconnectCount) // ÅÐ¶ÏÊÇ·ñµôÏß
 				{
 					if(page_change_flage == 1 || ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] != 0)
 					{
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "ï¿½ï¿½ï¿½ï¿½");
-						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 0; // ï¿½ï¿½ï¿½Îªï¿½Ö¸ï¿½
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "ÔÚÏß");
+						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 0; // ±ê¼ÇÎª»Ö¸´
 					}
 				}
 				else
 				{
 					if(page_change_flage == 1 || ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] != 1)
 					{
-						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "ï¿½ï¿½ï¿½ï¿½");
-						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 1; // ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
+						SetTextValue(screen_id_entry, pack_state_show_ctrl_id[i], "µôÏß");
+						ddsc_32p_entry->last_derector_state[curr_page - 1][i - 1] = 1; // ±ê¼ÇÎªµôÏß
 					}
 					
 				}
 			}
-		} // Ñ­ï¿½ï¿½Ë¢ï¿½ï¿½×´Ì¬
+		} // Ñ­»·Ë¢ÐÂ×´Ì¬
 	} // screen id 61 
-	else if(screen_id_entry == 62) // ï¿½é¿´ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½
+	else if(screen_id_entry == 62) // ²é¿´¾ßÌåÌ½²âÆ÷ÊýÖµ½çÃæ
 	{
 		if(ddsc_32p_entry->force_fresh_flag == 1)
 		{
-			// ï¿½ï¿½ï¿½ÎªË¢ï¿½Â¹ï¿½ï¿½ï¿½
+			// ±ê¼ÇÎªË¢ÐÂ¹ýÁË
 			ddsc_32p_entry->force_fresh_flag = 0;
 			temp_force_fresh = 1;
 		}
 		
 		uint8_t check_pack_id = ddsc_32p_entry->curr_pack_id;
 		
-		if(pack_online_buff[curr_page][check_pack_id] == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		if(pack_online_buff[curr_page][check_pack_id] == 1) // Èç¹ûÉèÖÃÉÏÏß
 		{
 			if(getClusterPackDisconnectCount(curr_page, check_pack_id) != PackDisconnectCount)
 			{
 				uint8_t buff[32];
 				if(ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] != 0 || temp_force_fresh == 1)
 				{
-					sprintf((char *)buff, "pack%d ×´Ì¬:ï¿½ï¿½ï¿½ï¿½", check_pack_id);
+					sprintf((char *)buff, "pack%d ×´Ì¬:ÔÚÏß", check_pack_id);
 					SetTextValue(screen_id_entry, 5, buff);
-					ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] = 0; // ï¿½ï¿½ÖµÎª0
+					ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] = 0; // ¸³ÖµÎª0
 				}
 
-				// ï¿½Â¶ï¿½ÖµË¢ï¿½ï¿½
+				// ÎÂ¶ÈÖµË¢ÐÂ
 				if(ddsc_32p_entry->last_temperature != PACK_wendu_buf[curr_page][check_pack_id] || temp_force_fresh == 1)
 				{
 					ddsc_32p_entry->last_temperature = PACK_wendu_buf[curr_page][check_pack_id];
-					sprintf((char *)buff, "ï¿½ï¿½        ï¿½ï¿½:%dï¿½ï¿½", ddsc_32p_entry->last_temperature);
-					//SetTextInt32(screen_id_entry, 9, PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id], 1, 2);//ï¿½Â¶ï¿½ï¿½ï¿½Ê¾
+					sprintf((char *)buff, "ÎÂ        ¶È:%d¶È", ddsc_32p_entry->last_temperature);
+					//SetTextInt32(screen_id_entry, 9, PACK_wendu_buf[curr_page][ddsc_32p_entry->curr_pack_id], 1, 2);//ÎÂ¶ÈÏÔÊ¾
 					SetTextValue(screen_id_entry, 9, buff);
 				}
 						
-				// ï¿½ï¿½curr_pageï¿½ï¿½ ï¿½ï¿½iï¿½ï¿½ COÖµï¿½ï¿½Ê¾
+				// µÚcurr_page´Ø µÚi°ü COÖµÏÔÊ¾
 				uint16_t temp_co_concen = getPackCoConcenValue(curr_page, check_pack_id);
 				if(ddsc_32p_entry->last_smoke_state != temp_co_concen || temp_force_fresh == 1)
 				{
-					ddsc_32p_entry->last_smoke_state = temp_co_concen; // ï¿½æ´¢Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½Öµ
-					sprintf((char *)buff, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼:%dPPM", temp_co_concen);
+					ddsc_32p_entry->last_smoke_state = temp_co_concen; // ´æ´¢Ò»Ñõ»¯Ì¼µÄÖµ
+					sprintf((char *)buff, "Ò»Ñõ»¯Ì¼:%dPPM", temp_co_concen);
 					SetTextValue(screen_id_entry, 17, buff);
 				}
 
@@ -8745,51 +8745,51 @@ static void InternalScreenShowClusterData_32Pack_Plus(uint16_t screen_id_entry, 
 					ddsc_32p_entry->last_smoke_state = PACK_YWZT_buf[curr_page][check_pack_id];
 					if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 0)
 					{
-						SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:Õý³£");
 					}
 					else if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 1)
 					{
-						SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:±¨¾¯");
 					} 
 					else if(PACK_YWZT_buf[curr_page][ddsc_32p_entry->curr_pack_id] == 2)
 					{
-						SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:±¨¾¯");
 					}
 				}
 			}
-			else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			else // µôÏßÁË
 			{
 				if(temp_force_fresh == 1 || ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] != 1)
 				{
 					uint8_t buff[32];
-					sprintf((char *)buff, "pack%d ×´Ì¬:ï¿½ï¿½ï¿½ï¿½", ddsc_32p_entry->curr_pack_id);
+					sprintf((char *)buff, "pack%d ×´Ì¬:µôÏß", ddsc_32p_entry->curr_pack_id);
 
 					SetTextValue(screen_id_entry, 5, buff);
 
-					SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:--");
+					SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:--");
 
-					SetTextValue(screen_id_entry, 17, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼:--");
+					SetTextValue(screen_id_entry, 17, "Ò»Ñõ»¯Ì¼:--");
 
-					SetTextValue(screen_id_entry, 9, "ï¿½ï¿½        ï¿½ï¿½:--");
+					SetTextValue(screen_id_entry, 9, "ÎÂ        ¶È:--");
 					
 					ddsc_32p_entry->last_derector_state[curr_page - 1][check_pack_id - 1] = 1;
 				}
 			}
 		}
-		else // Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		else // Ã»ÉèÖÃÉÏÏß
 		{
 			if(temp_force_fresh == 1 || ddsc_32p_entry->last_derector_state[curr_page - 1][ddsc_32p_entry->curr_pack_id - 1] != 2)
 			{
 				uint8_t buff[32];
-				sprintf((char *)buff, "pack%d ×´Ì¬:Î´ï¿½ï¿½ï¿½ï¿½", ddsc_32p_entry->curr_pack_id);
+				sprintf((char *)buff, "pack%d ×´Ì¬:Î´ÆôÓÃ", ddsc_32p_entry->curr_pack_id);
 
 				SetTextValue(screen_id_entry, 5, buff);
 
-				SetTextValue(screen_id_entry, 13, "ï¿½ï¿½        ï¿½ï¿½:--");
+				SetTextValue(screen_id_entry, 13, "ÑÌ        Îí:--");
 
-				SetTextValue(screen_id_entry, 17, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼:--");
+				SetTextValue(screen_id_entry, 17, "Ò»Ñõ»¯Ì¼:--");
 
-				SetTextValue(screen_id_entry, 9, "ï¿½ï¿½        ï¿½ï¿½:--");
+				SetTextValue(screen_id_entry, 9, "ÎÂ        ¶È:--");
 				
 				ddsc_32p_entry->last_derector_state[curr_page - 1][ddsc_32p_entry->curr_pack_id - 1] = 2;
 			}
@@ -8798,72 +8798,72 @@ static void InternalScreenShowClusterData_32Pack_Plus(uint16_t screen_id_entry, 
 	} // screen id 62
 }
 
-const char sensor_str1[] = "ï¿½ï¿½Ñ§ï¿½ï¿½ï¿½ï¿½";
-const char sensor_str2[] = "ï¿½ï¿½ï¿½ï¿½";
-const char sensor_str3[] = "ï¿½ï¿½ï¿½ï¿½";
+const char sensor_str1[] = "¹âÑ§ÑÌÎí";
+const char sensor_str2[] = "¼×Íé";
+const char sensor_str3[] = "ÇâÆø";
 const char sensor_str4[] = "VOC";
-//const char sensor_str5[] = "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼";
+//const char sensor_str5[] = "Ò»Ñõ»¯Ì¼";
 const char sensor_str5[] = "CO";
-const char sensor_str6[] = "ï¿½Â¶ï¿½";
-const char sensor_str7[] = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:";
+const char sensor_str6[] = "ÎÂ¶È";
+const char sensor_str7[] = "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:";
 
 const char *sensor_str[] = {
-	sensor_str1, // ï¿½ï¿½Ñ§ï¿½ï¿½ï¿½ï¿½
-	sensor_str2, // ï¿½ï¿½ï¿½ï¿½  
-	sensor_str3, // ï¿½ï¿½ï¿½ï¿½
+	sensor_str1, // ¹âÑ§ÑÌÎí
+	sensor_str2, // ¼×Íé  
+	sensor_str3, // ÇâÆø
 	sensor_str4, // VOC
-	sensor_str5, // Ò»ï¿½ï¿½ï¿½ï¿½Ì¼
-	sensor_str6, // ï¿½Â¶ï¿½
-	sensor_str7  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	sensor_str5, // Ò»Ñõ»¯Ì¼
+	sensor_str6, // ÎÂ¶È
+	sensor_str7  // ´«¸ÐÆ÷ÆôÓÃ×´Ì¬
 };
 
 static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 {
 	uint8_t temp_screen_id = 64;
-	// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢Öµï¿½ï¿½ï¿½Þ¸Äµï¿½Ê±ï¿½ò·½±ï¿½
+	// ÓÃÒ»¸ö±äÁ¿´æ´¢Öµ£¬ÐÞ¸ÄµÄÊ±ºò·½±ã
 	uint8_t temp_cabin_id = cabin_dsc_entry->curr_cabin_id;
 
 	if(cang_sxzt[temp_cabin_id] != 0)
 	{
-		if(cang_sxzt[temp_cabin_id] == 1 || cabin_dsc_entry->force_fresh_flag == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		if(cang_sxzt[temp_cabin_id] == 1 || cabin_dsc_entry->force_fresh_flag == 1) // Èç¹ûÆôÓÃ
 		{
 			if(Cang_zx_buf[temp_cabin_id] == CabinDisconnectCount)
 			{
 				uint8_t temp_buff[32] = {0};
-				sprintf((char *)temp_buff,"Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", temp_cabin_id);
+				sprintf((char *)temp_buff,"Ì½²âÆ÷%d×´Ì¬:µôÏß", temp_cabin_id);
 				SetTextValue(temp_screen_id, 2, temp_buff);
-				SetTextValue(temp_screen_id, 3, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--");
-				SetTextValue(temp_screen_id, 4, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:--");
-				SetTextValue(temp_screen_id, 5, "ï¿½Â¶ï¿½:--");
-				SetTextValue(temp_screen_id, 6, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:--");
-				SetTextValue(temp_screen_id, 7, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½:--");
-				SetTextValue(temp_screen_id, 8, "ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½:--");
+				SetTextValue(temp_screen_id, 3, "Ì½²âÆ÷ÐÍºÅ:--");
+				SetTextValue(temp_screen_id, 4, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:--");
+				SetTextValue(temp_screen_id, 5, "ÎÂ¶È:--");
+				SetTextValue(temp_screen_id, 6, "ÑÌÎí×´Ì¬:--");
+				SetTextValue(temp_screen_id, 7, "Ò»Ñõ»¯Ì¼Å¨¶È:--");
+				SetTextValue(temp_screen_id, 8, "ÇâÆøÅ¨¶È:--");
 			}
 			else
 			{
 				uint8_t temp_buff[32] = {0};
-				sprintf((char *)temp_buff,"Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", temp_cabin_id);
+				sprintf((char *)temp_buff,"Ì½²âÆ÷%d×´Ì¬:ÔÚÏß", temp_cabin_id);
 				SetTextValue(temp_screen_id, 2, temp_buff);
 				
-				// ï¿½ï¿½Ê¾Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½
+				// ÏÔÊ¾Ì½²âÆ÷ÐÍºÅ
 				if(cabin_dsc_entry->last_detector_model != Cang_TCQXH_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					switch(Cang_TCQXH_buf[temp_cabin_id])
 					{
 						case 1: {
-							SetTextValue(temp_screen_id, 3, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-V2.0");
+							SetTextValue(temp_screen_id, 3, "Ì½²âÆ÷ÐÍºÅ:XR805-V2.0");
 							break;
 						}
 						case 2: {
-							SetTextValue(temp_screen_id, 3, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXD");
+							SetTextValue(temp_screen_id, 3, "Ì½²âÆ÷ÐÍºÅ:XR805-EXD");
 							break;
 						}
 						case 3: {
-							SetTextValue(temp_screen_id, 3, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXi");
+							SetTextValue(temp_screen_id, 3, "Ì½²âÆ÷ÐÍºÅ:XR805-EXi");
 							break;
 						}
 						default:
-							SetTextValue(temp_screen_id, 3, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--");
+							SetTextValue(temp_screen_id, 3, "Ì½²âÆ÷ÐÍºÅ:--");
 							break;
 					}
 					
@@ -8874,14 +8874,14 @@ static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 				{
 					if(Cang_CGQQY_buf[temp_cabin_id] == 0)
 					{
-						SetTextValue(temp_screen_id, 4, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½Þ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(temp_screen_id, 4, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:ÎÞ´«¸ÐÆ÷Æô¶¯");
 					}
 					else
 					{
 						uint8_t temp = Cang_CGQQY_buf[temp_cabin_id];
 						uint8_t temp_buff[128] = {0};
 						
-						uint8_t first_sensor = 1;  // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						uint8_t first_sensor = 1;  // ±ê¼ÇÊÇ·ñÊÇµÚÒ»¸ö´«¸ÐÆ÷
 						
 						uint8_t pos = 0;
 						
@@ -8891,7 +8891,7 @@ static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 						{
 							if( (temp >> i) & 0x01 )
 							{
-								// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó·Ö¸ï¿½ï¿½ï¿½
+								// Èç¹û²»ÊÇµÚÒ»¸ö£¬Ìí¼Ó·Ö¸ô·û
 								if(!first_sensor)
 								{
 										pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -8906,47 +8906,47 @@ static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 						SetTextValue(temp_screen_id, 4, temp_buff);
 					}
 					cabin_dsc_entry->last_sensor_mode = Cang_CGQQY_buf[temp_cabin_id];
-				} // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½Ð¶ï¿½
+				} // ´«¸ÐÆ÷ÆôÓÃ×´Ì¬ÅÐ¶Ï
 				
 				if(cabin_dsc_entry->last_temperat_value != Cang_wendu_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					uint8_t temp_buff[16];
 					cabin_dsc_entry->last_temperat_value = Cang_wendu_buf[temp_cabin_id];
-					sprintf((char *)temp_buff, "ï¿½Â¶ï¿½:%dï¿½ï¿½", Cang_wendu_buf[temp_cabin_id]);
+					sprintf((char *)temp_buff, "ÎÂ¶È:%d¶È", Cang_wendu_buf[temp_cabin_id]);
 					SetTextValue(temp_screen_id, 5, temp_buff);
-				} // ï¿½Â¶ï¿½ÖµË¢ï¿½ï¿½
+				} // ÎÂ¶ÈÖµË¢ÐÂ
 				
 				if(cabin_dsc_entry->last_smoke_state != Cang_YWZT_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					if(Cang_YWZT_buf[temp_cabin_id] == 0)
 					{
-						SetTextValue(temp_screen_id, 6, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(temp_screen_id, 6, "ÑÌÎí×´Ì¬:Õý³£");
 					}
 					else
 					{
-						SetTextValue(temp_screen_id, 6, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(temp_screen_id, 6, "ÑÌÎí×´Ì¬:±¨¾¯");
 					}
 					cabin_dsc_entry->last_smoke_state = Cang_YWZT_buf[temp_cabin_id];
-				} // ï¿½ï¿½ï¿½ï¿½×´Ì¬Ë¢ï¿½ï¿½
+				} // ÑÌÎí×´Ì¬Ë¢ÐÂ
 				
 				if(cabin_dsc_entry->last_co_value != Cang_COzhi_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					uint8_t temp_buff[16];
 					cabin_dsc_entry->last_temperat_value = Cang_COzhi_buf[temp_cabin_id];
-					sprintf((char *)temp_buff, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½:%dPPM", Cang_COzhi_buf[temp_cabin_id]);
+					sprintf((char *)temp_buff, "Ò»Ñõ»¯Ì¼Å¨¶È:%dPPM", Cang_COzhi_buf[temp_cabin_id]);
 					SetTextValue(temp_screen_id, 7, temp_buff);
 					
 					cabin_dsc_entry->last_co_value = Cang_COzhi_buf[temp_cabin_id];
-				} // Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½Ë¢ï¿½ï¿½
+				} // Ò»Ñõ»¯Ì¼Å¨¶ÈË¢ÐÂ
 				
 				if(cabin_dsc_entry->last_hh_value != Cang_H2zhi_buf[temp_cabin_id] || cabin_dsc_entry->force_fresh_flag == 1)
 				{
 					uint8_t temp_buff[16];
 					cabin_dsc_entry->last_temperat_value = Cang_H2zhi_buf[temp_cabin_id];
-					sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½:%dPPM", Cang_H2zhi_buf[temp_cabin_id]);
+					sprintf((char *)temp_buff, "ÇâÆøÅ¨¶È:%dPPM", Cang_H2zhi_buf[temp_cabin_id]);
 					SetTextValue(temp_screen_id, 8, temp_buff);
 					cabin_dsc_entry->last_hh_value = Cang_H2zhi_buf[temp_cabin_id];
-				} // ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½Ë¢ï¿½ï¿½
+				} // ÇâÆøÅ¨¶ÈË¢ÐÂ
 			}
 		}
 
@@ -8957,14 +8957,14 @@ static void InternalScreenShowCabinDate(CabinDataShowCtrl_t *cabin_dsc_entry)
 		if(cabin_dsc_entry->force_fresh_flag == 1)
 		{
 			uint8_t temp_buff[32] = {0};
-			sprintf((char *)temp_buff,"Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:Î´ï¿½ï¿½ï¿½ï¿½", temp_cabin_id);
+			sprintf((char *)temp_buff,"Ì½²âÆ÷%d×´Ì¬:Î´ÆôÓÃ", temp_cabin_id);
 			SetTextValue(temp_screen_id, 2, temp_buff);
-			SetTextValue(temp_screen_id, 3, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--");
-			SetTextValue(temp_screen_id, 4, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:--");
-			SetTextValue(temp_screen_id, 5, "ï¿½Â¶ï¿½:--");
-			SetTextValue(temp_screen_id, 6, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:--");
-			SetTextValue(temp_screen_id, 7, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½:--");
-			SetTextValue(temp_screen_id, 8, "ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½:--");
+			SetTextValue(temp_screen_id, 3, "Ì½²âÆ÷ÐÍºÅ:--");
+			SetTextValue(temp_screen_id, 4, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:--");
+			SetTextValue(temp_screen_id, 5, "ÎÂ¶È:--");
+			SetTextValue(temp_screen_id, 6, "ÑÌÎí×´Ì¬:--");
+			SetTextValue(temp_screen_id, 7, "Ò»Ñõ»¯Ì¼Å¨¶È:--");
+			SetTextValue(temp_screen_id, 8, "ÇâÆøÅ¨¶È:--");
 		}
 		
 	}
@@ -9112,10 +9112,10 @@ static void DetectorShowMaxCombusteGasValue(MaxCombustibleGas_t *mcg_entry)
 			}
 		}
 
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ì³£
-		if(temp_mcg.co_max_val == -1) // ï¿½ï¿½Ê¾Ã»ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È«ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// Èç¹ûÊý¾ÝÒì³£
+		if(temp_mcg.co_max_val == -1) // ±íÊ¾Ã»ÓÐÌ½²âÆ÷ÉÏÏß »òÈ«²¿Ì½²âÆ÷µôÏß
 		{
-			SetTextValue(temp_screen_id, 26, "Ì½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½/È«ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½");
+			SetTextValue(temp_screen_id, 26, "Ì½²âÆ÷Î´ÉÏÏß/È«µôÏß/ÎÞÕýÈ·Êý¾Ý");
 		}
 		else
 		{
@@ -9125,24 +9125,24 @@ static void DetectorShowMaxCombusteGasValue(MaxCombustibleGas_t *mcg_entry)
 			{
 				if(Hydrogen_Type == temp_mcg.gas_type)
 				{
-					sprintf((char *)temp_buff, "ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½%dPPM", temp_mcg.curr_da.cabin_id, temp_mcg.co_max_val);
+					sprintf((char *)temp_buff, "µÚ1»ØÂ· %dºÅ ÇâÆøÅ¨¶È%dPPM", temp_mcg.curr_da.cabin_id, temp_mcg.co_max_val);
 					SetTextValue(temp_screen_id, 26, temp_buff);
 				}
 				else
 				{
-					sprintf((char *)temp_buff, "ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½%dPPM", temp_mcg.curr_da.cabin_id, temp_mcg.co_max_val);
+					sprintf((char *)temp_buff, "µÚ1»ØÂ· %dºÅ Ò»Ñõ»¯Ì¼Å¨¶È%dPPM", temp_mcg.curr_da.cabin_id, temp_mcg.co_max_val);
 					SetTextValue(temp_screen_id, 26, temp_buff);
 				}
 				
 			}
 			else if(temp_mcg.curr_da.cluster_id != 0 && temp_mcg.curr_da.pack_id != 0 && temp_mcg.curr_da.cabin_id == 0)
 			{
-				sprintf((char *)temp_buff, "ï¿½ï¿½%dï¿½ï¿½pack%dÒ»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½%dPPM", temp_mcg.curr_da.cluster_id, temp_mcg.curr_da.pack_id, temp_mcg.co_max_val);
+				sprintf((char *)temp_buff, "µÚ%d´Øpack%dÒ»Ñõ»¯Ì¼Å¨¶È%dPPM", temp_mcg.curr_da.cluster_id, temp_mcg.curr_da.pack_id, temp_mcg.co_max_val);
 				SetTextValue(temp_screen_id, 26, temp_buff);
 			}
 			else
 			{
-				SetTextValue(temp_screen_id, 26, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½");
+				SetTextValue(temp_screen_id, 26, "Ì½²âÆ÷ÎÞÕýÈ·Êý¾Ý");
 			}
 		}
 		
@@ -9156,7 +9156,7 @@ static void DetectorDataFreshMenuCtrl(DetectorDataShowCtrl *ddsc_entry, uint16_t
 {
 	if(ctrl_id == 103)
 	{
-		if(state == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		if(state == 1) // °´¼ü°´ÏÂ
 		{
 			ddsc_entry->curr_detector_page = item + 1;
 		}
@@ -9167,10 +9167,10 @@ static void DetectorDataFreshMenuCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_3
 {
 	if(ctrl_id == 103)
 	{
-		if(state == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		if(state == 1) // °´¼ü°´ÏÂ
 		{
 			ddsc_32p_entry->curr_detector_page = item + 1;
-			ddsc_32p_entry->force_fresh_flag = 1; // Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
+			ddsc_32p_entry->force_fresh_flag = 1; // Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
 		}
 	}
 }
@@ -9204,7 +9204,7 @@ static void DetectorFreshPageButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc
 			if(ddsc_32p_entry->curr_detector_page > 1)
 			{
 				ddsc_32p_entry->curr_detector_page--;
-				ddsc_32p_entry->force_fresh_flag = 1; // Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
+				ddsc_32p_entry->force_fresh_flag = 1; // Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
 			}
 				
 		}
@@ -9216,7 +9216,7 @@ static void DetectorFreshPageButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc
 			if(ddsc_32p_entry->curr_detector_page < 3)
 			{
 				ddsc_32p_entry->curr_detector_page++;
-				ddsc_32p_entry->force_fresh_flag = 1; // Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
+				ddsc_32p_entry->force_fresh_flag = 1; // Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
 			}
 				
 		}
@@ -9228,7 +9228,7 @@ const uint8_t button_value_map[] = {
 	 37,  41,  45,  49,  53,  57,  61,  65, 
 	 69,  73,  77,  81,  85,  89,  93,  97, 
 	101, 111, 115, 119, 123, 127, 131, 136,};
-// 1ï¿½ï¿½32packï¿½æ±¾ ï¿½ï¿½Ñ¯PACKï¿½ï¿½Å¥
+// 1´Ø32pack°æ±¾ ²éÑ¯PACK°´Å¥
 static void DetectorMonitorButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_32p_entry, uint16_t ctrl_id, uint8_t state)
 {
 	if(state == 1)
@@ -9238,7 +9238,7 @@ static void DetectorMonitorButtonCtrl_32Pack(DetectorDataShowCtrl_32Pack *ddsc_3
 			if(button_value_map[i] == ctrl_id)
 			{
 				ddsc_32p_entry->curr_pack_id = i + 1;
-				ddsc_32p_entry->force_fresh_flag = 1; // Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
+				ddsc_32p_entry->force_fresh_flag = 1; // Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
 				SetScreen(62);	// 
 				osDelay(5);
 				GetScreen();
@@ -9304,7 +9304,7 @@ static void PointTypeDetectorOnlineIconCtrl(uint16_t ctrl_id, uint8_t state, uin
 	{
 		uint8_t set_online_state = !getPointTypeMixtureDetectOnlineState(ctrl_id);
 		PointTypeMixtureOnlieStateSingleSetting(ctrl_id, set_online_state);
-		AnimationPlayFrame(5, ctrl_id, set_online_state);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID,Ö¡ID) 0ï¿½ì£¬1ï¿½ï¿½
+		AnimationPlayFrame(5, ctrl_id, set_online_state);//(»­ÃæID,¿Ø¼þID,Ö¡ID) 0ºì£¬1ÂÌ
 		
 		SavePointTypeSetOnlieState();
 		ReadPointTypeSetOnlieState();
@@ -9324,7 +9324,7 @@ static void PointTypeDetectorOnlineButtonCtrlPlus(uint16_t ctrl_id, uint8_t stat
 			for(uint8_t i = 1; i < 33; i++)
 			{
 				PointTypeMixtureOnlieStateSingleSetting(i, 1);
-				AnimationPlayFrame(5, i, 1);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID,Ö¡ID) 0ï¿½ì£¬1ï¿½ï¿½
+				AnimationPlayFrame(5, i, 1);//(»­ÃæID,¿Ø¼þID,Ö¡ID) 0ºì£¬1ÂÌ
 			}
 			SavePointTypeSetOnlieState();
 			ReadPointTypeSetOnlieState();
@@ -9334,7 +9334,7 @@ static void PointTypeDetectorOnlineButtonCtrlPlus(uint16_t ctrl_id, uint8_t stat
 			for(uint8_t i = 1; i < 33; i++)
 			{
 				PointTypeMixtureOnlieStateSingleSetting(i, 0);
-				AnimationPlayFrame(5, i, 0);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID,Ö¡ID) 0ï¿½ì£¬1ï¿½ï¿½
+				AnimationPlayFrame(5, i, 0);//(»­ÃæID,¿Ø¼þID,Ö¡ID) 0ºì£¬1ÂÌ
 			}
 			SavePointTypeSetOnlieState();
 			ReadPointTypeSetOnlieState();
@@ -9355,7 +9355,7 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 				int8_t success_len;
 				int32_t x,y;
 				success_len = sscanf((const char*)entry_str, "%d.%d", &x, &y);  
-				if(success_len == 2 && x >0 && y > 0) // ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½ ï¿½ï¿½ï¿½ï¿½x yï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(success_len == 2 && x >0 && y > 0) // ½âÎö³É¹¦ ²¢ÇÒx y´óÓÚÁã
 				{
 					uint8_t modify_flag = 0;
 					if (x > y)
@@ -9369,7 +9369,7 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 						if(getPointTypeMixtureDetectOnlineState(i) == 0)
 						{
 							PointTypeMixtureOnlieStateSingleSetting(i, 1);
-							AnimationPlayFrame(5, i, 1);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID,Ö¡ID) 0ï¿½ì£¬1ï¿½ï¿½
+							AnimationPlayFrame(5, i, 1);//(»­ÃæID,¿Ø¼þID,Ö¡ID) 0ºì£¬1ÂÌ
 							modify_flag = 1;	
 						}
 					}
@@ -9379,7 +9379,7 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 					}
 				}
 			}
-			SetTextValue(5, 235, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+			SetTextValue(5, 235, "ÅúÁ¿ÉÏÏß");
 			break;
 		}
 		case 236:{
@@ -9389,14 +9389,14 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 				int8_t success_len;
 				int32_t x;
 				success_len = sscanf((const char*)entry_str, "%d", &x);  
-				if(success_len == 2 && x >0) // ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½ ï¿½ï¿½ï¿½ï¿½xï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(success_len == 2 && x >0) // ½âÎö³É¹¦ ²¢ÇÒx´óÓÚÁã
 				{
 					uint8_t modify_flag = 0;
 
 					if(getPointTypeMixtureDetectOnlineState(x) == 0)
 					{
 						PointTypeMixtureOnlieStateSingleSetting(x, 1);
-						AnimationPlayFrame(5, x, 1);//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID,Ö¡ID) 0ï¿½ì£¬1ï¿½ï¿½
+						AnimationPlayFrame(5, x, 1);//(»­ÃæID,¿Ø¼þID,Ö¡ID) 0ºì£¬1ÂÌ
 						modify_flag = 1;	
 					}
 					if(modify_flag == 1)
@@ -9405,7 +9405,7 @@ static void PointTypeDetectorOnlineTextCtrlPlus(uint16_t ctrl_id, uint8 *entry_s
 					}
 				}
 			}
-			SetTextValue(5, 236, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+			SetTextValue(5, 236, "µ¥µãÉÏÏß");
 			break;
 		}
 		default:
@@ -9418,7 +9418,7 @@ static void PointTypeDetectorOnlineStateShowInit(void)
 {
 	for(uint8_t i = 1; i < 33; i++)
 	{
-		AnimationPlayFrame(5, i, getPointTypeMixtureDetectOnlineState(i));//(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½ID,Ö¡ID) 0ï¿½ì£¬1ï¿½ï¿½
+		AnimationPlayFrame(5, i, getPointTypeMixtureDetectOnlineState(i));//(»­ÃæID,¿Ø¼þID,Ö¡ID) 0ºì£¬1ÂÌ
 	}
 }
 
@@ -9427,11 +9427,11 @@ void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clu
 	uint8_t flag = 0;
 	for(uint8_t l = 0;l < pcfws_entry->self_bottom_point; l++)
 	{
-		// ï¿½ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ID 
+		// Èç¹û´ØIDÊÇÍâÁªÉè±¸ID 
 		if(pcfws_entry->da[l].cluster_id == LINKAGE_CLUSTER_ID)
 		{
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ÐºÍ½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
-			if(pcfws_entry->da[l].pack_id == pack_id) // ï¿½ï¿½ï¿½ï¿½Òªï¿½Ð¶Ï±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½Ò»ï¿½ï¿½ ï¿½ï¿½ÎªÖ»ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
+			// Èç¹û´«½øÀ´µÄ²ÎÊýÓÐºÍ½á¹¹ÌåÄÚÏàÍ¬µÄ ½áÊøÑ­»·
+			if(pcfws_entry->da[l].pack_id == pack_id) // ²»ÐèÒªÅÐ¶Ï±¨¾¯ÀàÐÍÊÇ·ñÒ»ÖÂ ÒòÎªÖ»ÓÐÕâÒ»¸ö
 			{
 				flag = 1;
 				break;
@@ -9439,7 +9439,7 @@ void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clu
 		}
 		else if(pcfws_entry->da[l].cluster_id != 0)
 		{
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ÐºÍ½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
+			// Èç¹û´«½øÀ´µÄ²ÎÊýÓÐºÍ½á¹¹ÌåÄÚÏàÍ¬µÄ ½áÊøÑ­»·
 			if(pcfws_entry->da[l].cluster_id == cluster_id && pcfws_entry->da[l].pack_id == pack_id && pcfws_entry->alarm_type[l] == alarm_type)
 			{
 				flag = 1;
@@ -9449,14 +9449,14 @@ void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clu
 		else if(pcfws_entry->da[l].pack_id != 0)
 		{
 			if( pcfws_entry->da[l].cabin_id == pack_id &&
-					pcfws_entry->alarm_type[l]  == alarm_type) // ï¿½ï¿½ï¿½Üµï¿½ï¿½ï¿½Ò²ï¿½Üµï¿½pack id
+					pcfws_entry->alarm_type[l]  == alarm_type) // ¼ÈÄÜµ±²ÖÒ²ÄÜµ±pack id
 			{
 				flag = 1;
 				break;
 			}
 		}
 	}
-	// ï¿½ï¿½Ê¾Ã»ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½Í¬ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î³ï¿½ï¿½ï¿½
+	// ±íÊ¾Ã»ÓÐÕÒµ½ÏàÍ¬µÄ ¼´µÚÒ»´Î³öÏÖ
 	if(flag != 1)
 	{
 		if(cluster_id == LINKAGE_CLUSTER_ID)
@@ -9489,17 +9489,17 @@ void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clu
 		pcfws_entry->atr[pcfws_entry->self_bottom_point].hours  = hours;
 		pcfws_entry->atr[pcfws_entry->self_bottom_point].minute = minutes;
 		
-		// 2025/11/19 13:53 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½
+		// 2025/11/19 13:53 ÐÂÔö¼ÇÂ¼Ãë
 		pcfws_entry->atr[pcfws_entry->self_bottom_point].second = secs;
 		
 		pcfws_entry->self_bottom_point++;
 		
-		beep_fire_ctrl |= 0x0F;  // ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
-		silencers_state = 0; // ï¿½ï¿½ï¿½ÂµÄ±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
+		beep_fire_ctrl |= 0x0F;  // ÈÎÒâ±¨¾¯ ³¤Ãù
+		silencers_state = 0; // ÓÐÐÂµÄ±¨¾¯ ·äÃùÆ÷¿ª Çå³ýÏûÒô±êÖ¾Î»
 	}
 }
 
-// Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// Ô¤¾¯¿ÉÒÔÇå³ý
 void DeletPackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cluster_id, uint8_t pack_id, uint8_t alarm_type)
 {
 	uint8_t l;
@@ -9515,7 +9515,7 @@ void DeletPackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clust
 			}
 		}
 	}
-	if(flag == 1 && pcfws_entry->self_bottom_point > 0) // ï¿½ï¿½Ê¾ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	if(flag == 1 && pcfws_entry->self_bottom_point > 0) // ±íÊ¾»Ö¸´Õý³£µÄÌ½²âÆ÷ÔÚ±¨¾¯Êý×éÖÐ
 	{
 		for(;l < pcfws_entry->self_bottom_point - 1; l++)
 		{
@@ -9526,10 +9526,10 @@ void DeletPackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clust
 		}
 		pcfws_entry->self_bottom_point--;
 		
-		if(pcfws_entry->self_bottom_point > 0) // ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½
+		if(pcfws_entry->self_bottom_point > 0) // »Ö¸´ºó»¹ÓÐÆäËû±¨¾¯µÄ»°
 		{
-			beep_fire_ctrl |= 0x0F; // ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			silencers_state = 0; // ï¿½ï¿½ï¿½ÂµÄ±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
+			beep_fire_ctrl |= 0x0F; // ´ò¿ªÔ¤¾¯·äÃùÆ÷
+			silencers_state = 0; // ÓÐÐÂµÄ±¨¾¯ ·äÃùÆ÷¿ª Çå³ýÏûÒô±êÖ¾Î»
 		}
 	}
 }
@@ -9541,7 +9541,7 @@ void StorageCabinFireAlarm(PackCabinFireAlarmStorage *pcfas_entry,
 		uint8_t flag = 0;
 	for(uint8_t l = 0;l < pcfas_entry->self_bottom_point; l++)
 	{
-		if(pcfas_entry->detector_class[l] == CabinClassID) // ï¿½ï¿½ï¿½ï¿½Ç²Ö²Å½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+		if(pcfas_entry->detector_class[l] == CabinClassID) // Èç¹ûÊÇ²Ö²Å½øÐÐÅÐ¶Ï
 		{
 			if(pcfas_entry->da[l].cabin_id == cabin_id && pcfas_entry->alarm_type[l] == alarm_type)
 			{
@@ -9574,10 +9574,10 @@ void StorageCabinFireAlarm(PackCabinFireAlarmStorage *pcfas_entry,
 }
 
 void StoragePackFireAlarm(
-	PackCabinFireAlarmStorage *pcfas_entry, // Òªï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·
-	uint8_t cluster_id,                     // ï¿½ï¿½ID
-	uint8_t pack_id,                        // ï¿½ï¿½/ï¿½ï¿½
-	uint8_t alarm_type                      // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	PackCabinFireAlarmStorage *pcfas_entry, // Òª´æÈëµÄ»º³åÇøµØÖ·
+	uint8_t cluster_id,                     // ´ØID
+	uint8_t pack_id,                        // °ü/²Ö
+	uint8_t alarm_type                      // ±¨¾¯ÀàÐÍ
 )
 {
 	uint8_t flag = 0;
@@ -9601,10 +9601,10 @@ void StoragePackFireAlarm(
 				break;
 			}
 		}
-		else // ï¿½ï¿½IDÎª0(ï¿½ï¿½ï¿½ï¿½)
+		else // ´ØIDÎª0(Áª¶¯)
 		{
 			if( pcfas_entry->da[l].cabin_id == pack_id &&
-					pcfas_entry->alarm_type[l]  == alarm_type) // ï¿½ï¿½ï¿½Üµï¿½ï¿½ï¿½Ò²ï¿½Üµï¿½pack id
+					pcfas_entry->alarm_type[l]  == alarm_type) // ¼ÈÄÜµ±²ÖÒ²ÄÜµ±pack id
 			{
 				flag = 1;
 				break;
@@ -9614,7 +9614,7 @@ void StoragePackFireAlarm(
 	
 	if(flag != 1)
 	{
-		if(cluster_id == LINKAGE_CLUSTER_ID) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ID
+		if(cluster_id == LINKAGE_CLUSTER_ID) // Èç¹ûÊÇÍâÁªÉè±¸ID
 		{
 			pcfas_entry->detector_class[pcfas_entry->self_bottom_point] = LinkageClassID;
 			pcfas_entry->da[pcfas_entry->self_bottom_point].cabin_id    = 0;
@@ -9652,7 +9652,7 @@ void StoragePackFireAlarm(
 static uint8_t getShieldDetectorSum(uint8_t pack_shield[][33], uint8_t cabin_shield[])
 {
 	uint8_t shield_sum = 0;
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// ¼ÆËãÆÁ±Î×ÜÊý
 	for(uint8_t i = 1;i < 21;i++)
 	{
 		for(uint8_t j = 1;j < 11;j++)
@@ -9681,25 +9681,25 @@ uint8_t point_site_ctrl_id[4][7] = {
 static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 {
 	uint8_t temp_screen_id = 59;
-	uint8_t temp_partition = bkcnc_entry->curr_partition; // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
+	uint8_t temp_partition = bkcnc_entry->curr_partition; // ¸´ÖÆÒ»·Ý
 	uint8_t prev_partition = bkcnc_entry->last_partition; // XR5000_CURSOR_FIX_20260726: capture the pre-mutation partition for correct stale-cursor clearing below.
 	
 	uint8_t key_val_temp;
 	
-	// ï¿½ï¿½Òªï¿½ï¿½Ê¼ï¿½ï¿½
-	if(bkcnc_entry->curr_menu_state == InitMenu) // ï¿½È³ï¿½Ê¼ï¿½ï¿½ï¿½Ëµï¿½×´Ì¬
+	// ÐèÒª³õÊ¼»¯
+	if(bkcnc_entry->curr_menu_state == InitMenu) // ÏÈ³õÊ¼»¯²Ëµ¥×´Ì¬
 	{
 		for(uint8_t i = 0; i < 3; i+=2)
 		{
-			clearTextValue(temp_screen_id, partition_ctrl_id[i]); // Ä¬ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Í·
+			clearTextValue(temp_screen_id, partition_ctrl_id[i]); // Ä¬ÈÏÇå¿Õ¼ýÍ·
 			for(uint8_t j = 0; j < 7; j++)
 			{
-				clearTextValue(temp_screen_id, point_site_ctrl_id[i][j]); // Ä¬ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Í·
+				clearTextValue(temp_screen_id, point_site_ctrl_id[i][j]); // Ä¬ÈÏÇå¿Õ¼ýÍ·
 			}
 		}
-		bkcnc_entry->curr_menu_state = OutMenu; // Ä¬ï¿½ï¿½ï¿½Ú²Ëµï¿½ï¿½ï¿½
+		bkcnc_entry->curr_menu_state = OutMenu; // Ä¬ÈÏÔÚ²Ëµ¥Íâ
 		bkcnc_entry->last_menu_state = OutMenu;
-		// ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ ï¿½ï¿½ÖµÒ»ï¿½ï¿½
+		// ³õÊ¼»¯µÄÊ±ºò ¸³ÖµÒ»´Î
 		bkcnc_entry->last_show_len[ForceAlarmPart] = pcfws.self_bottom_point;
 		bkcnc_entry->last_show_len[FaultPart]      = pcfs_buttom_point;
 		bkcnc_entry->last_show_len[FireAlarmPart]  = pcfas.self_bottom_point;
@@ -9712,26 +9712,26 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 		SetTextValue(temp_screen_id, partition_ctrl_id[ForceAlarmPart], "<-");
 	}
 	
-	// ï¿½ï¿½Í·Î»ï¿½Ã¸ï¿½ï¿½ï¿½
+	// ¼ýÍ·Î»ÖÃ¸üÐÂ
 	
-	// ï¿½ï¿½ï¿½Ï¼ï¿½Í·Ë¢ï¿½ï¿½ - ï¿½Þ¸Ä²ï¿½ï¿½ï¿½
+	// ¹ÊÕÏ¼ýÍ·Ë¢ÐÂ - ÐÞ¸Ä²¿·Ö
 	if(((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) > bkcnc_entry->last_show_len[FaultPart])
 	{
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Í·Î»ï¿½Ã²ï¿½ï¿½Ã¶ï¿½
+		// Èç¹û¹ÊÕÏÊýÁ¿Ôö¼ÓÁË ¼ýÍ·Î»ÖÃ²»ÓÃ¶¯
 		bkcnc_entry->last_show_len[FaultPart] = (uint8_t)((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount());
 	}
 	else if(((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) < bkcnc_entry->last_show_len[FaultPart])
 	{
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë£ï¿½ï¿½Ð»Ö¸ï¿½ï¿½ï¿½
+		// Èç¹û¹ÊÕÏÊýÁ¿¼õÉÙÁË£¨ÓÐ»Ö¸´£©
 		uint8_t new_count = (uint8_t)((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount());
 			
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Í·Î»ï¿½Ã£ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î§
+		// µ÷Õûµ±Ç°¼ýÍ·Î»ÖÃ£¬È·±£²»³¬³ö·¶Î§
 		if (bkcnc_entry->curr_point_site[FaultPart] >= new_count) 
 		{
 			bkcnc_entry->curr_point_site[FaultPart] = (new_count > 0) ? new_count - 1 : 0;
 		}
 			
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§
+		// µ÷Õû·­Ò³Ë÷Òý£¬È·±£ÏÔÊ¾ÇøÓòÓÐÐ§
 		if (fault_current_page + Fault_Show_Zone > new_count) 
 		{
 			if (new_count > Fault_Show_Zone) 
@@ -9748,24 +9748,24 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 		bkcnc_entry->last_show_len[FaultPart] = new_count;
 	}
 	
-	// Ô¤ï¿½ï¿½ï¿½ï¿½Í·Ë¢ï¿½ï¿½ - ï¿½Þ¸Ä²ï¿½ï¿½ï¿½
+	// Ô¤¾¯¼ýÍ·Ë¢ÐÂ - ÐÞ¸Ä²¿·Ö
 	if(pcfws.self_bottom_point > bkcnc_entry->last_show_len[ForceAlarmPart])
 	{
-		// ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Í·Î»ï¿½Ã²ï¿½ï¿½Ã¶ï¿½
+		// Èç¹ûÔ¤¾¯ÊýÁ¿Ôö¼ÓÁË ¼ýÍ·Î»ÖÃ²»ÓÃ¶¯
 		bkcnc_entry->last_show_len[ForceAlarmPart] = pcfws.self_bottom_point;
 	}
 	else if(pcfws.self_bottom_point < bkcnc_entry->last_show_len[ForceAlarmPart])
 	{
-		// ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë£ï¿½ï¿½Ð»Ö¸ï¿½ï¿½ï¿½
+		// Èç¹ûÔ¤¾¯ÊýÁ¿¼õÉÙÁË£¨ÓÐ»Ö¸´£©
 		uint8_t new_count = pcfws.self_bottom_point;
 		
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Í·Î»ï¿½Ã£ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î§
+		// µ÷Õûµ±Ç°¼ýÍ·Î»ÖÃ£¬È·±£²»³¬³ö·¶Î§
 		if (bkcnc_entry->curr_point_site[ForceAlarmPart] >= new_count) 
 		{
 			bkcnc_entry->curr_point_site[ForceAlarmPart] = (new_count > 0) ? new_count - 1 : 0;
 		}
 			
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§
+		// µ÷Õû·­Ò³Ë÷Òý£¬È·±£ÏÔÊ¾ÇøÓòÓÐÐ§
 		if (fore_alarm_start_index + Alarm_Show_Zone > new_count) 
 		{
 			if (new_count > Alarm_Show_Zone) 
@@ -9787,13 +9787,13 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 	{
 		clearMatrixKeyValue();
 	}
-	// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Öµ 
+	// »ñÈ¡°´¼üÖµ 
 	switch(key_val_temp)
 	{
-		case KEY6_DIRECTION_UP   : // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
-			if(bkcnc_entry->curr_menu_state == OutMenu) // ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½Ú²Ëµï¿½ï¿½ï¿½
+		case KEY6_DIRECTION_UP   : // ·½Ïò¼ü ÉÏ
+			if(bkcnc_entry->curr_menu_state == OutMenu) // Èç¹ûµ±Ç°ÊÇÔÚ²Ëµ¥Íâ
 			{
-				if(temp_partition == FireAlarmPart) // ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½Ç»ð¾¯·ï¿½ï¿½ï¿½
+				if(temp_partition == FireAlarmPart) // Èç¹ûµ±Ç°·ÖÇøÊÇ»ð¾¯·ÖÇø
 				{
 					bkcnc_entry->curr_partition = ForceAlarmPart;
 					temp_partition = ForceAlarmPart;
@@ -9804,18 +9804,18 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 					temp_partition = FaultPart;
 				}
 			}
-			else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²Ëµï¿½ï¿½ï¿½ 
+			else // Èç¹ûÊÇÔÚ²Ëµ¥ÄÚ 
 			{
-				if(temp_partition == ForceAlarmPart) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½
+				if(temp_partition == ForceAlarmPart) // Èç¹ûÊÇÔÚÔ¤¾¯À¸
 				{
 					if(pcfws.self_bottom_point > 0)
 					{
 						// 
 						if(bkcnc_entry->curr_point_site[temp_partition] > 0) 
 						{
-							bkcnc_entry->curr_point_site[temp_partition]--; // Ö¸ï¿½ï¿½Æ«ï¿½ï¿½
+							bkcnc_entry->curr_point_site[temp_partition]--; // Ö¸ÕëÆ«ÒÆ
 						}
-						else if(bkcnc_entry->curr_point_site[temp_partition] == 0) // ï¿½ï¿½ï¿½Ï¹ï¿½ï¿½ï¿½
+						else if(bkcnc_entry->curr_point_site[temp_partition] == 0) // ÏòÉÏ¹ö¶¯
 						{
 							if(fore_alarm_start_index > 0)
 							{
@@ -9825,105 +9825,105 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 						}
 					}
 				}
-				else if(temp_partition == FaultPart) // ï¿½ï¿½ï¿½ï¿½Ç¹ï¿½ï¿½ï¿½ï¿½ï¿½
+				else if(temp_partition == FaultPart) // Èç¹ûÊÇ¹ÊÕÏÀ¸
 				{
-					// ï¿½ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+					// Èç¹ûÓÐ¹ÊÕÏÐÅÏ¢
 					if(pcfs_buttom_point > 0)
 					{
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Ç°Ö¸ï¿½ï¿½Ã»ï¿½ï¿½ï¿½î¶¥ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Èç¹ûµ±Ç°Ö¸ÕëÃ»ÔÚ×î¶¥ÉÏÃæ ÏÈÒÆ¶¯¼ýÍ·µ½×îÉÏÃæ
 						if(bkcnc_entry->curr_point_site[temp_partition] > 0) 
 						{
-							bkcnc_entry->curr_point_site[temp_partition]--; // Ö¸ï¿½ï¿½Æ«ï¿½ï¿½
+							bkcnc_entry->curr_point_site[temp_partition]--; // Ö¸ÕëÆ«ÒÆ
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == 0)
 						{
-							// ï¿½ï¿½Ò³ï¿½ß¼ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½Ò³
+							// ·­Ò³Âß¼­ ÏòÉÏ·­Ò³
 							if (fault_current_page > 0) 
 							{ 
 								fault_current_page--;
-								fault_check_new_flag = 1; // ï¿½ï¿½Ç°ï¿½ï¿½ï¿½
+								fault_check_new_flag = 1; // ±ê¼Ç°´ÏÂ
 							} 
 						}
 						
-						// ï¿½ï¿½Ê±ï¿½ï¿½Ö§ï¿½Öµï¿½Í·ï¿½Øµï¿½
+						// ÔÝÊ±²»Ö§³Öµ½Í·»Øµ×
 //						else {
-//							// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»Ò³
+//							// Ìøµ½×îºóÒ»Ò³
 //							fault_current_page = pcfs_buttom_point - Fault_Show_Zone;
-//							// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//							// ´¦Àí×îºóÒ»Ò³²»×ãµÄÇé¿ö
 //							if (fault_current_page < 0) {
-//									fault_current_page = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½Ò»Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³
+//									fault_current_page = 0; // Èç¹û×ÜÌõÄ¿²»×ãÒ»Ò³£¬±£³ÖÔÚÊ×Ò³
 //							}
 //						}
 						
 					}
 					else
 					{
-						// ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½Ä¬ï¿½ï¿½Ö¸ï¿½Úµï¿½Ò»ï¿½ï¿½
+						// ·ñÔòÖ¸ÕëÄ¬ÈÏÖ¸ÔÚµÚÒ»¸ö
 						bkcnc_entry->curr_point_site[temp_partition] = 0;
 					}
 				}
-				else if(temp_partition == FireAlarmPart) // ï¿½ï¿½ï¿½ï¿½Ç»ï¿½
+				else if(temp_partition == FireAlarmPart) // Èç¹ûÊÇ»ð¾¯
 				{
-					// ï¿½ï¿½ï¿½ï¿½Ð¹ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
-					if(pcfas.self_bottom_point > 0) // ?ï¿½ï¿½?
+					// Èç¹ûÓÐ¹ÊÕÏÐÅÏ¢
+					if(pcfas.self_bottom_point > 0) // ?§Ý?
 					{
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Ç°Ö¸ï¿½ï¿½Ã»ï¿½ï¿½ï¿½î¶¥ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Èç¹ûµ±Ç°Ö¸ÕëÃ»ÔÚ×î¶¥ÉÏÃæ ÏÈÒÆ¶¯¼ýÍ·µ½×îÉÏÃæ
 						if(bkcnc_entry->curr_point_site[temp_partition] > 0) 
 						{
-							bkcnc_entry->curr_point_site[temp_partition]--; // Ö¸ï¿½ï¿½Æ«ï¿½ï¿½
+							bkcnc_entry->curr_point_site[temp_partition]--; // Ö¸ÕëÆ«ÒÆ
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == 0)
 						{
-							// ï¿½ï¿½Ò³ï¿½ß¼ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½Ò³
+							// ·­Ò³Âß¼­ ÏòÉÏ·­Ò³
 							if (fire_alarm_start_index > 0) 
 							{ 
 								fire_alarm_start_index--;
-								fire_alarm_check_new_flag = 1; // ï¿½ï¿½Ç°ï¿½ï¿½ï¿½
+								fire_alarm_check_new_flag = 1; // ±ê¼Ç°´ÏÂ
 							} 
 						}
 					}
 					
 				}
-				else if(temp_partition == OutFirePart) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				else if(temp_partition == OutFirePart) // ÆøÃð·ÖÇø
 				{
 					if(fedas.self_point_len > 0)
 					{
-						// ï¿½ï¿½ï¿½ï¿½ï¿½Ç°Ö¸ï¿½ï¿½Ã»ï¿½ï¿½ï¿½î¶¥ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Èç¹ûµ±Ç°Ö¸ÕëÃ»ÔÚ×î¶¥ÉÏÃæ ÏÈÒÆ¶¯¼ýÍ·µ½×îÉÏÃæ
 						if(bkcnc_entry->curr_point_site[temp_partition] > 0) 
 						{
-							bkcnc_entry->curr_point_site[temp_partition]--; // Ö¸ï¿½ï¿½Æ«ï¿½ï¿½
+							bkcnc_entry->curr_point_site[temp_partition]--; // Ö¸ÕëÆ«ÒÆ
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == 0)
 						{
-							// ï¿½ï¿½Ò³ï¿½ß¼ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½Ò³
+							// ·­Ò³Âß¼­ ÏòÉÏ·­Ò³
 							if (fedas_fresh_point > 0) 
 							{ 
 								fedas_fresh_point--;
-								fed_fresh_flag = 1; // ï¿½ï¿½Ç°ï¿½ï¿½ï¿½
+								fed_fresh_flag = 1; // ±ê¼Ç°´ÏÂ
 							} 
 						}
 					}
 				}
 			}
 			break;
-		case KEY7_DIRECTION_RIGHT: // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
-			if(temp_partition == ForceAlarmPart) // ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½
+		case KEY7_DIRECTION_RIGHT: // Èç¹û·½Ïò¼ü ÓÒ °´ÏÂ
+			if(temp_partition == ForceAlarmPart) // Èç¹ûµ±Ç°·ÖÇøÊÇÔ¤¾¯
 			{
-				if(bkcnc_entry->curr_menu_state == InMenu) // ï¿½ï¿½ï¿½ï¿½Ú²Ëµï¿½ï¿½ï¿½
+				if(bkcnc_entry->curr_menu_state == InMenu) // Èç¹ûÔÚ²Ëµ¥ÄÚ
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; // ï¿½Ë³ï¿½ï¿½Ëµï¿½
+					bkcnc_entry->curr_menu_state = OutMenu; // ÍË³ö²Ëµ¥
 				}
-				else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²Ëµï¿½ï¿½ï¿½
+				else // ±¾À´¾ÍÔÚ²Ëµ¥Íâ
 				{
-					bkcnc_entry->curr_partition = FaultPart; // ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½
+					bkcnc_entry->curr_partition = FaultPart; // ÇÐ»»·ÖÇø
 					temp_partition = FaultPart;
 				}
 			}
 			else if(temp_partition == FireAlarmPart)
 			{
-				if(bkcnc_entry->curr_menu_state == InMenu) // ï¿½ï¿½ï¿½ï¿½Ú²Ëµï¿½ï¿½ï¿½
+				if(bkcnc_entry->curr_menu_state == InMenu) // Èç¹ûÔÚ²Ëµ¥ÄÚ
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; // ï¿½Ë³ï¿½ï¿½Ëµï¿½
+					bkcnc_entry->curr_menu_state = OutMenu; // ÍË³ö²Ëµ¥
 				}
 				else 
 				{
@@ -9933,20 +9933,20 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			}
 			else if(temp_partition == FaultPart || temp_partition == OutFirePart)
 			{
-				if(bkcnc_entry->curr_menu_state == OutMenu) // ï¿½Ëµï¿½ï¿½ï¿½
+				if(bkcnc_entry->curr_menu_state == OutMenu) // ²Ëµ¥Íâ
 				{
-					bkcnc_entry->curr_menu_state = InMenu; //  ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½
+					bkcnc_entry->curr_menu_state = InMenu; //  ½øÈë²Ëµ¥ÄÚ
 				}
 				else
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; //  ï¿½Ë³ï¿½ï¿½Ëµï¿½
+					bkcnc_entry->curr_menu_state = OutMenu; //  ÍË³ö²Ëµ¥
 				}
 			}
 			break;
-		case KEY8_DIRECTION_DOWN : // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			if(bkcnc_entry->curr_menu_state == OutMenu) // ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½Ú²Ëµï¿½ï¿½ï¿½
+		case KEY8_DIRECTION_DOWN : // ·½Ïò¼üÏÂ
+			if(bkcnc_entry->curr_menu_state == OutMenu) // Èç¹ûµ±Ç°ÊÇÔÚ²Ëµ¥Íâ
 			{
-				if(temp_partition == ForceAlarmPart) // ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(temp_partition == ForceAlarmPart) // Èç¹ûµ±Ç°·ÖÇøÊÇÔ¤¾¯·ÖÇø
 				{
 					bkcnc_entry->curr_partition = FireAlarmPart;
 					temp_partition = FireAlarmPart;
@@ -9959,22 +9959,22 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			}
 			else
 			{
-				if(temp_partition == ForceAlarmPart) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½
+				if(temp_partition == ForceAlarmPart) // Èç¹ûÊÇÔÚÔ¤¾¯À¸
 				{
-					// ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½
+					// Èç¹ûÓÐÔ¤¾¯
 					if(pcfws.self_bottom_point > 0)
 					{
-						// ï¿½ï¿½ï¿½ ï¿½ï¿½Ç°ï¿½ï¿½Í·Î»ï¿½Ã»ï¿½Ã»ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½
+						// Èç¹û µ±Ç°¼ýÍ·Î»ÖÃ»¹Ã»ÓÐÖ¸µ½µ×
 						if(bkcnc_entry->curr_point_site[temp_partition] < Alarm_Show_Zone - 1) 
 						{
-							// ï¿½ï¿½ï¿½ï¿½Ç·ñ³¬¹ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½Ý·ï¿½Î§ï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ô½ï¿½ç£©
+							// ¼ì²éÊÇ·ñ³¬¹ýÊµ¼ÊÊý¾Ý·¶Î§£¨·ÀÖ¹Êý¾ÝÁ¿²»×ãÊ±Ô½½ç£©
 							if (bkcnc_entry->curr_point_site[temp_partition] < pcfws.self_bottom_point - 1) {
 									bkcnc_entry->curr_point_site[temp_partition]++;
 							}
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == Alarm_Show_Zone - 1)
 						{
-							// ï¿½ï¿½Ò³ï¿½ß¼ï¿½ // ï¿½ï¿½Ç°Ò³+ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ò³¤¶ï¿½ Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+							// ·­Ò³Âß¼­ // µ±Ç°Ò³+ÏÔÊ¾ÇøÓò³¤¶È Ð¡ÓÚ×ÜÊý Ôò¿ÉÒÔÍùºó¹ö¶¯
 							if (fore_alarm_start_index + Alarm_Show_Zone < pcfws.self_bottom_point) 
 							{
 								fore_alarm_start_index++;
@@ -9983,11 +9983,11 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 						}
 					}
 				}
-				else if(temp_partition == FaultPart) // ï¿½ï¿½ï¿½ï¿½Ç¹ï¿½ï¿½ï¿½ï¿½ï¿½
+				else if(temp_partition == FaultPart) // Èç¹ûÊÇ¹ÊÕÏÀ¸
 				{
-					if(pcfs_buttom_point > 0) // ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½
+					if(pcfs_buttom_point > 0) // Èç¹ûÓÐ±¨¾¯
 					{
-						// ï¿½ï¿½ï¿½ ï¿½ï¿½Ç°ï¿½ï¿½Í·Î»ï¿½Ã»ï¿½Ã»ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½
+						// Èç¹û µ±Ç°¼ýÍ·Î»ÖÃ»¹Ã»ÓÐÖ¸µ½µ×
 						if(bkcnc_entry->curr_point_site[temp_partition] < Fault_Show_Zone - 1) 
 						{
 //							bkcnc_entry->curr_point_site[temp_partition]++;
@@ -9995,19 +9995,19 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 //							{
 //								bkcnc_entry->curr_point_site[temp_partition] = pcfs_buttom_point - 1;
 //							}
-							// ï¿½ï¿½ï¿½ï¿½Ç·ñ³¬¹ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½Ý·ï¿½Î§ï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ô½ï¿½ç£©
+							// ¼ì²éÊÇ·ñ³¬¹ýÊµ¼ÊÊý¾Ý·¶Î§£¨·ÀÖ¹Êý¾ÝÁ¿²»×ãÊ±Ô½½ç£©
 							if (((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) > 0U && bkcnc_entry->curr_point_site[temp_partition] < ((uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) - 1U) {
 									bkcnc_entry->curr_point_site[temp_partition]++;
 							}
 						}
 						else if(bkcnc_entry->curr_point_site[temp_partition] == Fault_Show_Zone - 1)
 						{
-							// ï¿½ï¿½Ò³ï¿½ß¼ï¿½ // ï¿½ï¿½Ç°Ò³+ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ò³¤¶ï¿½ Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+							// ·­Ò³Âß¼­ // µ±Ç°Ò³+ÏÔÊ¾ÇøÓò³¤¶È Ð¡ÓÚ×ÜÊý Ôò¿ÉÒÔÍùºó¹ö¶¯
 							if ((uint16_t)fault_current_page + Fault_Show_Zone < (uint16_t)pcfs_buttom_point + DeviceRegistry_GetProductUnknownCount()) {
 								fault_current_page++;
-								fault_check_new_flag = 1; // ï¿½ï¿½Ç°ï¿½ï¿½ï¿½
+								fault_check_new_flag = 1; // ±ê¼Ç°´ÏÂ
 							} 
-					// ï¿½ï¿½Ê±È¥ï¿½ï¿½ï¿½ï¿½ï¿½×»ï¿½Í·
+					// ÔÝÊ±È¥µôµ½µ×»ØÍ·
 //					else {
 //						fault_current_page = 0;
 //					}
@@ -10018,11 +10018,11 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 						bkcnc_entry->curr_point_site[temp_partition] = 0;
 					}
 				}
-				else if(temp_partition == FireAlarmPart) // ï¿½ï¿½ï¿½ï¿½Ç»ï¿½
+				else if(temp_partition == FireAlarmPart) // Èç¹ûÊÇ»ð¾¯
 				{
 					if(pcfas.self_bottom_point > 0)
 					{
-						// ï¿½ï¿½ï¿½ ï¿½ï¿½Ç°ï¿½ï¿½Í·Î»ï¿½Ã»ï¿½Ã»ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½
+						// Èç¹û µ±Ç°¼ýÍ·Î»ÖÃ»¹Ã»ÓÐÖ¸µ½µ×
 						if(bkcnc_entry->curr_point_site[temp_partition] < Alarm_Show_Zone - 1) 
 						{
 							if (bkcnc_entry->curr_point_site[temp_partition] < pcfas.self_bottom_point - 1) {
@@ -10036,13 +10036,13 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 								fire_alarm_check_new_flag = 1;
 							} 
 						}			
-					} // ï¿½ï¿½ï¿½ï¿½ð¾¯´æ´¢ï¿½Ð¼ï¿½Â¼
+					} // Èç¹û»ð¾¯´æ´¢ÓÐ¼ÇÂ¼
 				}
-				else if(temp_partition == OutFirePart) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				else if(temp_partition == OutFirePart) // ÆøÃð·ÖÇø
 				{
 					if(fedas.self_point_len > 0)
 					{
-						// ï¿½ï¿½ï¿½ ï¿½ï¿½Ç°ï¿½ï¿½Í·Î»ï¿½Ã»ï¿½Ã»ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½
+						// Èç¹û µ±Ç°¼ýÍ·Î»ÖÃ»¹Ã»ÓÐÖ¸µ½µ×
 						if(bkcnc_entry->curr_point_site[temp_partition] < Out_Fire_Show_Zone - 1) 
 						{
 							if (bkcnc_entry->curr_point_site[temp_partition] < fedas.self_point_len - 1) {
@@ -10057,17 +10057,17 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 								fed_fresh_flag = 1;
 							} 
 						}	
-					} // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½Ð¼ï¿½Â¼
+					} // Èç¹ûÆøÃð·ÖÇø´æ´¢ÓÐ¼ÇÂ¼
 					
 				}
 			}
 			break;
-		case KEY9_DIRECTION_LEFT : // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+		case KEY9_DIRECTION_LEFT : // ·½Ïò¼ü ×ó °´ÏÂ
 			if(temp_partition == FaultPart)
 			{
-				if(bkcnc_entry->curr_menu_state == InMenu) // ï¿½ï¿½ï¿½ï¿½Ú²Ëµï¿½ï¿½ï¿½
+				if(bkcnc_entry->curr_menu_state == InMenu) // Èç¹ûÔÚ²Ëµ¥ÄÚ
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; // ï¿½Ë³ï¿½ï¿½Ëµï¿½
+					bkcnc_entry->curr_menu_state = OutMenu; // ÍË³ö²Ëµ¥
 				}
 				else
 				{
@@ -10077,9 +10077,9 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			}
 			else if(temp_partition == OutFirePart)
 			{
-				if(bkcnc_entry->curr_menu_state == InMenu) // ï¿½ï¿½ï¿½ï¿½Ú²Ëµï¿½ï¿½ï¿½
+				if(bkcnc_entry->curr_menu_state == InMenu) // Èç¹ûÔÚ²Ëµ¥ÄÚ
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; // ï¿½Ë³ï¿½ï¿½Ëµï¿½
+					bkcnc_entry->curr_menu_state = OutMenu; // ÍË³ö²Ëµ¥
 				}
 				else
 				{
@@ -10089,13 +10089,13 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			}
 			else if(temp_partition == ForceAlarmPart || temp_partition == FireAlarmPart)
 			{
-				if(bkcnc_entry->curr_menu_state == OutMenu) // ï¿½Ëµï¿½ï¿½ï¿½
+				if(bkcnc_entry->curr_menu_state == OutMenu) // ²Ëµ¥Íâ
 				{
-					bkcnc_entry->curr_menu_state = InMenu; // ï¿½ï¿½ï¿½ï¿½Ëµï¿½
+					bkcnc_entry->curr_menu_state = InMenu; // ½øÈë²Ëµ¥
 				}
 				else
 				{
-					bkcnc_entry->curr_menu_state = OutMenu; //  ï¿½Ë³ï¿½ï¿½Ëµï¿½
+					bkcnc_entry->curr_menu_state = OutMenu; //  ÍË³ö²Ëµ¥
 				}
 			}
 			break;
@@ -10103,12 +10103,12 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 			break;
 	}
 	
-	// ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+	// ³õÊ¼»¯²Ëµ¥ÄÚÏÔÊ¾
 	if(temp_partition != bkcnc_entry->last_partition) // 
 	{
-		// ï¿½ï¿½ï¿½ï¿½ï¿½Ê·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·
+		// Çå³ýÀúÊ··ÖÇø¼ýÍ·
 		clearTextValue(temp_screen_id, partition_ctrl_id[bkcnc_entry->last_partition]);
-		bkcnc_entry->last_partition = temp_partition; // ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½
+		bkcnc_entry->last_partition = temp_partition; // ±íÃ÷ÒÑ¾­¸üÐÂ
 
 		switch(temp_partition)
 		{
@@ -10129,12 +10129,12 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 		}
 	}
 	
-	// ï¿½Ëµï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½
-	if( bkcnc_entry->last_point_site[temp_partition] != bkcnc_entry->curr_point_site[temp_partition] || // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½×´Ì¬Î»ï¿½Ã¸Ä±ï¿½
-			bkcnc_entry->last_menu_state                 != bkcnc_entry->curr_menu_state                    // ï¿½ï¿½ï¿½ï¿½Ç²Ëµï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½Ä±ï¿½
+	// ²Ëµ¥ÄÚÖ¸Õë¿ØÖÆ
+	if( bkcnc_entry->last_point_site[temp_partition] != bkcnc_entry->curr_point_site[temp_partition] || // Èç¹ûÊÇ·ÖÇø×´Ì¬Î»ÖÃ¸Ä±ä
+			bkcnc_entry->last_menu_state                 != bkcnc_entry->curr_menu_state                    // Èç¹ûÊÇ²Ëµ¥ÄÚÍâ×´Ì¬¸Ä±ä
 	)
 	{
-		// ï¿½ï¿½ï¿½ï¿½ï¿½Ê·ï¿½ï¿½Í·
+		// Çå³ýÀúÊ·¼ýÍ·
 		clearTextValue(temp_screen_id, point_site_ctrl_id[ prev_partition % 4 ][ bkcnc_entry->last_point_site[prev_partition] % 7 ]); // XR5000_CURSOR_FIX_20260726: was indexing with the already-updated last_partition/temp_partition, so the stale arrow at the old partition/position never got cleared.
 		if(bkcnc_entry->curr_menu_state == InMenu)
 		{
@@ -10164,7 +10164,7 @@ static void BspCheckNewKeyPressDeal(BspKeyCheckNewCtrl_t *bkcnc_entry)
 
 void InternalSwitchInterfaceCtrlInit(void)
 {
-	switch_ui_ctrl.curr_pack_alarm_len = &pas_pointer; // ï¿½ó¶¨°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	switch_ui_ctrl.curr_pack_alarm_len = &pas_pointer; // °ó¶¨°ü»ð¾¯ÊýÁ¿
 	switch_ui_ctrl.last_pack_alarm_len = 0;
 	
 	switch_ui_ctrl.curr_pc_fire_alarm_len = &pcfas.self_bottom_point;
@@ -10199,7 +10199,7 @@ static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry)
 			sic_entry->curr_pc_fore_alarm_len == NULL ||
 			sic_entry->curr_pc_fault_len      == NULL ||
 			sic_entry->curr_pc_outfire_len    == NULL
-	) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½
+	) // Èç¹ûÓÐÈÎÒâµÄ±¨¾¯ ¹ÊÕÏ´æÔÚ
 	{
 		return;
 	}
@@ -10208,13 +10208,13 @@ static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry)
 			*(sic_entry->curr_pc_fore_alarm_len) != 0 ||
 			*(sic_entry->curr_pc_fault_len     ) != 0	||
 			*(sic_entry->curr_pc_outfire_len   ) != 0
-	) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½
+	) // Èç¹ûÓÐÈÎÒâµÄ±¨¾¯ ¹ÊÕÏ´æÔÚ
 	{
 		uint32_t curr_time = osKernelGetTickCount();
 		if(curr_time - sic_entry->curr_sys_time >= 180000)
 		{
 			sic_entry->curr_sys_time = curr_time;
-			// ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½
+			// ´ò¿ªÆÁÄ»±³¹â
 			beiguangkai();
 		}
 	}
@@ -10224,7 +10224,7 @@ static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry)
 			*(sic_entry->curr_pc_fore_alarm_len) != sic_entry->last_pc_fore_alarm_len ||
 			*(sic_entry->curr_pc_fault_len     ) != sic_entry->last_pc_fault_len      ||
 			*(sic_entry->curr_pc_outfire_len   ) != sic_entry->last_pc_outfire_len
-	) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï±ä¶¯
+	) // Èç¹ûÓÐÈÎÒâµÄ±¨¾¯ ¹ÊÕÏ±ä¶¯
 	{
 		sic_entry->last_pack_alarm_len    = *(sic_entry->curr_pack_alarm_len);
 		sic_entry->last_pc_fire_alarm_len = *(sic_entry->curr_pc_fire_alarm_len);
@@ -10232,15 +10232,15 @@ static void InternalScreenMainInterfaceCtrl(SwitchInterfaceCtrl *sic_entry)
 		sic_entry->last_pc_fault_len      = *(sic_entry->curr_pc_fault_len     );
 		sic_entry->last_pc_outfire_len    = *(sic_entry->curr_pc_outfire_len   );
 
-		// ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½
+		// ´ò¿ªÆÁÄ»±³¹â
 		beiguangkai();
-		// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// »ØÒ»´ÎÖ÷½çÃæ
 		SetMonitorPageFrom(current_screen_id); /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
 	}
 	
 }
 
-// ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½æ£¨ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ£¬ï¿½Ó²ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ²éÑ¯±¨¾¯ÇÐ»»½çÃæ£¨ÕâÊÇµÚÒ»²½£¬²éÑ¯±¨¾¯½çÃæ£¬´Ó²éÑ¯±¨¾¯À´£©
 static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t ctrl_id, uint8_t state)
 {
 	if(state == 1)
@@ -10250,11 +10250,11 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 			case 1: {
 				int8_t temp_sector = 0;
 				bsrr_entry->curr_show_type = RECORD_FAULT;
-				SetScreen(57);	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³
-				// ï¿½È¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½
+				SetScreen(57);	// ½øÈë¶þ¼¶ÃÜÂëÒ³
+				// ÏÈ¶ÁÈ¡ÊýÁ¿
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(FAULT_FLASH_SAVE);
-				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
-				bsrr_entry->force_fresh_flag = 1; // Ã¿ï¿½Î½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //¼ÇÂ¼×ÜÊýÏÔÊ¾
+				bsrr_entry->force_fresh_flag = 1; // Ã¿´Î½øÈë±ØÐëÇ¿ÖÆË¢ÐÂÒ»´Î
 				
 //				BspReadFlashData(FAULT_FLASH_SAVE, read_data[0].byte_buff, 0);
 //				BspReadFlashData(FAULT_FLASH_SAVE, read_data[1].byte_buff, 1);
@@ -10263,9 +10263,9 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				
 				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=500)
 				{
-					// ï¿½ï¿½ï¿½ã»ºï¿½ï¿½ï¿½ï¿½ï¿½Â±ï¿½
+					// ¼ÆËã»º³åÇøÏÂ±ê
 					temp_sector = temp_sum/500;
-					// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½
+					// ¶ÁÈ¡»º³åÇøÖÐµÄÄÚÈÝ
 					BspReadFlashData(FAULT_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10276,17 +10276,17 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 			case 2: {
 				int8_t temp_sector = 0;
 				bsrr_entry->curr_show_type = RECORD_ALARM;
-				SetScreen(56);	// ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ò³
+				SetScreen(56);	// ÇÐ»»µ½±¨¾¯ÏÔÊ¾Ò³
 				
-				// ï¿½È¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½
+				// ÏÈ¶ÁÈ¡ÊýÁ¿
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(FIRE_FLASH_SAVE);
-				SetTextInt32(56, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
-				bsrr_entry->force_fresh_flag = 1; // Ã¿ï¿½Î½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+				SetTextInt32(56, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //¼ÇÂ¼×ÜÊýÏÔÊ¾
+				bsrr_entry->force_fresh_flag = 1; // Ã¿´Î½øÈë±ØÐëÇ¿ÖÆË¢ÐÂÒ»´Î
 				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=400)
 				{
-					// ï¿½ï¿½ï¿½ã»ºï¿½ï¿½ï¿½ï¿½ï¿½Â±ï¿½
+					// ¼ÆËã»º³åÇøÏÂ±ê
 					temp_sector = temp_sum/400;
-					// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½
+					// ¶ÁÈ¡»º³åÇøÖÐµÄÄÚÈÝ
 					BspReadFlashData(FIRE_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10300,21 +10300,21 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				bsrr_entry->curr_show_type = RECORD_GASOF;
 				SetScreen(57);	// 
 				
-				// ï¿½È¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½
+				// ÏÈ¶ÁÈ¡ÊýÁ¿
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(GASER_FLASH_SAVE);
-				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
-				bsrr_entry->force_fresh_flag = 1; // Ã¿ï¿½Î½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //¼ÇÂ¼×ÜÊýÏÔÊ¾
+				bsrr_entry->force_fresh_flag = 1; // Ã¿´Î½øÈë±ØÐëÇ¿ÖÆË¢ÐÂÒ»´Î
 				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=500)
 				{
-					// ï¿½ï¿½ï¿½ã»ºï¿½ï¿½ï¿½ï¿½ï¿½Â±ï¿½
+					// ¼ÆËã»º³åÇøÏÂ±ê
 					temp_sector = temp_sum/500;
-					// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½
+					// ¶ÁÈ¡»º³åÇøÖÐµÄÄÚÈÝ
 					BspReadFlashData(GASER_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
 				GetScreen();
 				
-				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //¼ÇÂ¼×ÜÊýÏÔÊ¾
 				
 				break;
 			}
@@ -10324,15 +10324,15 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				bsrr_entry->curr_show_type = RECORD_OTHER;
 				SetScreen(57);	// 
 
-				// ï¿½È¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½
+				// ÏÈ¶ÁÈ¡ÊýÁ¿
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(OTHER_FLASH_SAVE);
-				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
-				bsrr_entry->force_fresh_flag = 1; // Ã¿ï¿½Î½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //¼ÇÂ¼×ÜÊýÏÔÊ¾
+				bsrr_entry->force_fresh_flag = 1; // Ã¿´Î½øÈë±ØÐëÇ¿ÖÆË¢ÐÂÒ»´Î
 				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=500)
 				{
-					// ï¿½ï¿½ï¿½ã»ºï¿½ï¿½ï¿½ï¿½ï¿½Â±ï¿½
+					// ¼ÆËã»º³åÇøÏÂ±ê
 					temp_sector = temp_sum/500;
-					// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½
+					// ¶ÁÈ¡»º³åÇøÖÐµÄÄÚÈÝ
 					BspReadFlashData(OTHER_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10343,11 +10343,11 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 			default:
 				break;
 		}
-		bsrr_entry->curr_page[bsrr_entry->curr_show_type] = 1; // Ã¿ï¿½Î½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ò»Ò³
+		bsrr_entry->curr_page[bsrr_entry->curr_show_type] = 1; // Ã¿´Î½øÈëÇ¿ÖÆÏÔÊ¾µÚÒ»Ò³
 	}
 }
 
-// ï¿½ï¿½Ñ¯Ê±ï¿½Ð»ï¿½Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ï¿½ï¿½
+// ²éÑ¯Ê±ÇÐ»»Ò³°´¼ü£¬»»Ò³¶¯×÷
 static void InternalScreenRecordShiftButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t ctrl_id, uint8_t state)
 {
 	if(state == 1)
@@ -10358,7 +10358,7 @@ static void InternalScreenRecordShiftButtonCtrl(BspScreenReadRecord_t *bsrr_entr
 				if(bsrr_entry->curr_page[bsrr_entry->curr_show_type] > 1)
 				{
 					bsrr_entry->curr_page[bsrr_entry->curr_show_type]--;
-					bsrr_entry->force_fresh_flag = 1; // Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
+					bsrr_entry->force_fresh_flag = 1; // Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
 				}
 				break;
 			case 2:
@@ -10380,126 +10380,126 @@ uint8_t retime_ctrl_id[10] = {26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
 uint8_t states_ctrl_id[10] = {36, 37, 38, 39, 40, 41, 42, 43, 44, 45};
 
 uint8_t values_ctrl_id[10] = {86, 87, 88, 89, 90, 91, 92, 93, 94, 95};
-// ï¿½ï¿½Ê¾ï¿½ï¿½Â¼,Í¬Ê±ï¿½ï¿½Ò³ï¿½ï¿½Ò²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+// ÏÔÊ¾¼ÇÂ¼,Í¬Ê±»»Ò³ºóÒ²µ÷ÓÃÕâ¸ö½øÐÐÏÔÊ¾
 static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 {
 	uint8_t temp_screen_id = 0;
-	uint8_t x_sector; // ï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½
-	uint8_t temp_page = bsrr_entry->curr_page[bsrr_entry->curr_show_type]; // ï¿½ï¿½Ê±ï¿½ï¿½Â¼Ò»ï¿½ï¿½Ò³ Ô¤ï¿½ï¿½ï¿½Ù±ð´¦±ï¿½ï¿½Þ¸ï¿½
+	uint8_t x_sector; // ÉÈÇøÆ«ÒÆ
+	uint8_t temp_page = bsrr_entry->curr_page[bsrr_entry->curr_show_type]; // ÁÙÊ±¼ÇÂ¼Ò»´ÎÒ³ Ô¤·ÀÔÙ±ð´¦±»ÐÞ¸Ä
 	
-	if(bsrr_entry->force_fresh_flag == 1) // Ç¿ï¿½ï¿½Ë¢ï¿½Â±ï¿½Ö¾Î»
+	if(bsrr_entry->force_fresh_flag == 1) // Ç¿ÖÆË¢ÐÂ±êÖ¾Î»
 	{
 		uint8_t show_buff[32];
 		uint16_t temp_caculate;
 		uint16_t data_index;
-		uint16_t start = (temp_page - 1)*RECORD_SHOW_ZONE; // ï¿½ï¿½Ê¼ï¿½Â±ï¿½
+		uint16_t start = (temp_page - 1)*RECORD_SHOW_ZONE; // ¿ªÊ¼ÏÂ±ê
 		uint16_t total_records = bsrr_entry->record_sum[bsrr_entry->curr_show_type];
 		
-		// Í¨ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½ï¿½ï¿½Ê¾Ò³ï¿½ï¿½
+		// Í¨¹ýÒ»¸ö±äÁ¿ÐÞ¸ÄÏÔÊ¾Ò³Ãæ
 		temp_screen_id = (bsrr_entry->curr_show_type == RECORD_ALARM) ? 56 : 57;
 
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ò³ Ö»Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+		// ¸üÐÂÏÔÊ¾Ò³ Ö»Ë¢ÐÂÒ»´Î
 		bsrr_entry->force_fresh_flag = 0;
 		
-		// ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½Ê¾
+		// ¸üÐÂÒ³ÏÔÊ¾
 		SetTextInt32(temp_screen_id, 97, temp_page, 0, 1);   
 		
 		for(uint16_t i = 0; i < RECORD_SHOW_ZONE; i++)
 		{
 			temp_caculate = start + i;
-			if(temp_caculate < total_records) // ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			if(temp_caculate < total_records) // Èç¹ûµ±Ç°Ë÷ÒýÐ¡ÓÚ×ÜÊý
 			{
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ total_records = 591 ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ temp_page = 10 ï¿½ï¿½Ê®Ò³ start = ï¿½ï¿½10-1ï¿½ï¿½*10 = 90
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½i = 0ï¿½ï¿½temp_caculate = start + i = 90ï¿½ï¿½i= 1ï¿½ï¿½temp_caculate = start + i = 91ï¿½ï¿½...
-				// reverse_index = 591 - 1 - 90 = 500ï¿½ï¿½reverse_index = 591 - 1 - 91 = 499 
+				// ¼ÙÉè×ÜÊý total_records = 591 Ìõ ÏÖÔÚ temp_page = 10 µÚÊ®Ò³ start = £¨10-1£©*10 = 90
+				// ¼ÙÉèÏÖÔÚi = 0£¬temp_caculate = start + i = 90£»i= 1£¬temp_caculate = start + i = 91£»...
+				// reverse_index = 591 - 1 - 90 = 500£»reverse_index = 591 - 1 - 91 = 499 
 				uint16_t reverse_index = total_records - 1 - temp_caculate;
 				// 
 				switch(bsrr_entry->curr_show_type)
 				{
 					case RECORD_FAULT: {
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½È·
+						// ²âÊÔÊý¾ÝÊÇ·ñÕýÈ·
 						//DebugSendString(read_data[total_records/500].byte_buff, total_records * 8);
 						//x_sector = total_records/500;
 						x_sector = reverse_index/500;
 						data_index = reverse_index%500;
 						
-						// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½
+						// ÏÔÊ¾ÐòºÅ
 						SetTextInt32(temp_screen_id, serial_ctrl_id[i], temp_caculate + 1, 0, 1);   //
 
-						// ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+						// Éè±¸Ãû³ÆÅÐ¶Ï
 						if(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id != 0)
 						{
 							if(FormatRS485DetectFlashDeviceName(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id,
 								read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id, show_buff) == 1)
 							{
-								// XR5000_LOOP3_CHANGE_20260726: Loop 3 history fault display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+								// XR5000_LOOP3_CHANGE_20260726: Loop 3 history fault display uses "µÚ3»ØÂ· XºÅ".
 							}
 							else if(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id == MBUS_CONTROL_FLASH_ID)
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½2ï¿½ï¿½Â· %dï¿½ï¿½", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
+								sprintf((char *)show_buff, "µÚ2»ØÂ· %dºÅ", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
 							}
 							else if(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id == LINKAGE_CLUSTER_ID)
 							{
 								switch(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id)
 								{
 									case Deflate_Package_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+										sprintf((char *)show_buff, "·ÅÆøÎóÈë");
 										break;
 									}
 									case SoundLt_Package_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½â±¨ï¿½ï¿½ï¿½ï¿½");
+										sprintf((char *)show_buff, "Éù¹â±¨¾¯Æ÷");
 										break;
 									}
 									case SirenBk_Package_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½");
+										sprintf((char *)show_buff, "¾¯µÑ/±¸ÓÃ");
 										break;
 									}
 									case OutFir1_Package_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½1");
+										sprintf((char *)show_buff, "Ãð»ð×°ÖÃ1");
 										break;
 									}
 									case OutFir2_Package_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½2");
+										sprintf((char *)show_buff, "Ãð»ð×°ÖÃ2");
 										break;
 									}
 									case CabinBK_Package_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½");
+										sprintf((char *)show_buff, "Åç·Å×°ÖÃ");
 										break;
 									}
 									case FEEDBK1_Package_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½1");
+										sprintf((char *)show_buff, "·´À¡1");
 										break;
 									}
 									case FEEDBK2_Package_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½2");
+										sprintf((char *)show_buff, "·´À¡2");
 										break;
 									}
 									case HANDPOT_Package_ID: {
-										sprintf((char *)show_buff, "ï¿½Ö±ï¿½");
+										sprintf((char *)show_buff, "ÊÖ±¨");
 										break;
 									}
 									case SYS_MAIN_POWER_KEY_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½Ô´");
+										sprintf((char *)show_buff, "Ö÷µçÔ´");
 										break;
 									}
 									case SYS_BACK_POWER_KEY_ID: {
-										sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½");
+										sprintf((char *)show_buff, "±¸µç³Ø");
 										break;
 									}
 									case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_1: {
-										sprintf((char *)show_buff, "ï¿½ï¿½Â·1");
+										sprintf((char *)show_buff, "»ØÂ·1");
 										break;
 									}
 									case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_2: {
-										sprintf((char *)show_buff, "ï¿½ï¿½Â·2");
+										sprintf((char *)show_buff, "»ØÂ·2");
 										break;
 									}
 									case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_3: {
-										sprintf((char *)show_buff, "ï¿½ï¿½Â·3");
+										sprintf((char *)show_buff, "»ØÂ·3");
 										break;
 									}
 									case GENERAL_IOPUT_ISOLATE_OUTPUT_ID_4: {
-										sprintf((char *)show_buff, "ï¿½ï¿½Â·4");
+										sprintf((char *)show_buff, "»ØÂ·4");
 										break;
 									}
 									default:
@@ -10508,43 +10508,43 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 							}
 							else
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½%dï¿½ï¿½%dpack", 
+								sprintf((char *)show_buff, "µÚ%d´Ø%dpack", 
 									read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id,
 									read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
 							}
 						}
 						else
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
+							sprintf((char *)show_buff, "µÚ1»ØÂ· %dºÅ", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
 						}
-						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
-						// ï¿½ï¿½Ê¾Ê±ï¿½ï¿½
+						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //Ë¢ÐÂÉè±¸Ãû³Æ
+						// ÏÔÊ¾Ê±¼ä
 						
-						// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ê¾
+						// ÉêÇë ÁÙÊ±±äÁ¿ ÓÃÀ´Ë¢ÐÂÊ±¼äÏÔÊ¾
 						FlashSaveTime_t temp_time_save = {0};
 						
 						getFlashTime_Plus(read_data[x_sector].fs_sys_fault[data_index].fs_time_buff, &temp_time_save);
 
-						sprintf((char *)show_buff, "%02dï¿½ï¿½%02dï¿½ï¿½%02dï¿½ï¿½ %02dÊ±%02dï¿½ï¿½%02dï¿½ï¿½", temp_time_save.years + 2000, temp_time_save.months, 
+						sprintf((char *)show_buff, "%02dÄê%02dÔÂ%02dÈÕ %02dÊ±%02d·Ö%02dÃë", temp_time_save.years + 2000, temp_time_save.months, 
 							temp_time_save.days, temp_time_save.hours , temp_time_save.minute, temp_time_save.second);
 						
-						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½Ê±ï¿½ï¿½
-						// ×´Ì¬ï¿½ï¿½Ê¾
+						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //Ë¢ÐÂÊ±¼ä
+						// ×´Ì¬ÏÔÊ¾
 						if(read_data[x_sector].fs_sys_fault[data_index].state == DISCONNECT)
 						{
-							sprintf((char *)show_buff, "ï¿½è±¸ï¿½ï¿½ï¿½ï¿½");
+							sprintf((char *)show_buff, "Éè±¸µôÏß");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == DIS_RECOVERY)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ß»Ö¸ï¿½");
+							sprintf((char *)show_buff, "µôÏß»Ö¸´");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == SHORTCIRCUIT)
 						{
-							sprintf((char *)show_buff, "ï¿½è±¸ï¿½ï¿½Â·");
+							sprintf((char *)show_buff, "Éè±¸¶ÌÂ·");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == SHO_RECOVERY)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½Â·ï¿½Ö¸ï¿½");
+							sprintf((char *)show_buff, "¶ÌÂ·»Ö¸´");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_TEMP_SENSOR_FAULT)
 						{
@@ -10552,15 +10552,15 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_TEMP_SENSOR_RECOVERY)
 						{
-							sprintf((char *)show_buff, "ï¿½Â¶È¹ï¿½ï¿½Ï»Ö¸ï¿½");
+							sprintf((char *)show_buff, "ÎÂ¶È¹ÊÕÏ»Ö¸´");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_SMOKE_POLLUTION_FAULT)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½");
+							sprintf((char *)show_buff, "ÑÌÎíÎÛÈ¾¹ÊÕÏ");
 						}
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_SMOKE_POLLUTION_RECOVERY)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½Ï»Ö¸ï¿½");
+							sprintf((char *)show_buff, "ÑÌÎíÎÛÈ¾¹ÊÕÏ»Ö¸´");
 						}
                         else if(read_data[x_sector].fs_sys_fault[data_index].state == LOOP1_TEMP_SENSOR_FAULT)
                         {
@@ -10586,22 +10586,22 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
                         {
                             sprintf((char *)show_buff, "\xD1\xCC\xCE\xED\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF\xBB\xD6\xB8\xB4");
                         }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CO_SENSOR_FAULT) { sprintf((char *)show_buff, "COï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CO_SENSOR_RECOVERY) { sprintf((char *)show_buff, "COï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»Ö¸ï¿½"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_H2_SENSOR_FAULT) { sprintf((char *)show_buff, "H2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_H2_SENSOR_RECOVERY) { sprintf((char *)show_buff, "H2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»Ö¸ï¿½"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_VOC_SENSOR_FAULT) { sprintf((char *)show_buff, "VOCï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_VOC_SENSOR_RECOVERY) { sprintf((char *)show_buff, "VOCï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»Ö¸ï¿½"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_FAULT) { sprintf((char *)show_buff, "CH4ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); }
-                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_RECOVERY) { sprintf((char *)show_buff, "CH4ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»Ö¸ï¿½"); }
-						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½×´Ì¬
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CO_SENSOR_FAULT) { sprintf((char *)show_buff, "CO´«¸ÐÆ÷¹ÊÕÏ"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CO_SENSOR_RECOVERY) { sprintf((char *)show_buff, "CO´«¸ÐÆ÷¹ÊÕÏ»Ö¸´"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_H2_SENSOR_FAULT) { sprintf((char *)show_buff, "H2´«¸ÐÆ÷¹ÊÕÏ"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_H2_SENSOR_RECOVERY) { sprintf((char *)show_buff, "H2´«¸ÐÆ÷¹ÊÕÏ»Ö¸´"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_VOC_SENSOR_FAULT) { sprintf((char *)show_buff, "VOC´«¸ÐÆ÷¹ÊÕÏ"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_VOC_SENSOR_RECOVERY) { sprintf((char *)show_buff, "VOC´«¸ÐÆ÷¹ÊÕÏ»Ö¸´"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_FAULT) { sprintf((char *)show_buff, "CH4´«¸ÐÆ÷¹ÊÕÏ"); }
+                        else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_RECOVERY) { sprintf((char *)show_buff, "CH4´«¸ÐÆ÷¹ÊÕÏ»Ö¸´"); }
+						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //Ë¢ÐÂ×´Ì¬
 						
 						break;
 					}
 					case RECORD_ALARM: {
-						// ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
+						// ÁÙÊ±ÉÈÇø
 //						x_sector = total_records/400;
-//						data_index = (total_records - 1 - temp_caculate)%400; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//						data_index = (total_records - 1 - temp_caculate)%400; // ¼ÆËãÊý¾ÝË÷Òý
 //						
 						x_sector = reverse_index/400;
 						data_index = reverse_index%400;
@@ -10609,7 +10609,7 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 //						DebugSendString(&read_data[total_records/500].byte_buff[data_index * 10], 10);
 //						
 //						sprintf((char *)show_buff, "%d", total_records);
-//						SetTextValue(1, 37, show_buff); //Ë¢ï¿½ï¿½×´Ì¬
+//						SetTextValue(1, 37, show_buff); //Ë¢ÐÂ×´Ì¬
 //						
 //						sprintf((char *)show_buff, "%d %d %d %d %d %d %d %d %d %d", 
 //							read_data[x_sector].byte_buff[0],
@@ -10622,87 +10622,87 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 //							read_data[x_sector].byte_buff[7],
 //							read_data[x_sector].byte_buff[8],
 //							read_data[x_sector].byte_buff[9] );
-//						SetTextValue(1, 36, show_buff); //Ë¢ï¿½ï¿½×´Ì¬
+//						SetTextValue(1, 36, show_buff); //Ë¢ÐÂ×´Ì¬
 //						
-						// ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+						// Éè±¸Ãû³ÆÅÐ¶Ï
 						if(FormatRS485DetectFlashDeviceName(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id,
 							read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id, show_buff) == 1)
 						{
-							// XR5000_LOOP3_CHANGE_20260726: Loop 3 history alarm display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+							// XR5000_LOOP3_CHANGE_20260726: Loop 3 history alarm display uses "µÚ3»ØÂ· XºÅ".
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id == MBUS_CONTROL_FLASH_ID)
 					{
 						/* XR5000_MBUS2_HAND_ALARM_FIRE_HISTORY_20260729: render loop2 manual alarm device. */
-						sprintf((char *)show_buff, "ï¿½ï¿½2ï¿½ï¿½Â· %dï¿½ï¿½", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
+						sprintf((char *)show_buff, "µÚ2»ØÂ· %dºÅ", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
 					}
 					else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id == LINKAGE_CLUSTER_ID)
 						{
 							if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id == ALARM_ANNUNCIATOR_ID)
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "±¨¾¯Æ÷");
 							}
 							else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id == HANDPOT_Package_ID)
 							{
-								sprintf((char *)show_buff, "ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "ÊÖ¶¯±¨¾¯Æ÷");
 							}
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id != 0)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½%dï¿½ï¿½%dpack", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id,
+							sprintf((char *)show_buff, "µÚ%d´Ø%dpack", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id,
 								read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
 							
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cluster_id == 0 && 
 										read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id != 0)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
+							sprintf((char *)show_buff, "µÚ1»ØÂ· %dºÅ", read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_detect_id.cabin_or_pack_id);
 						}
 						else
 						{
-							sprintf((char *)show_buff, "Î´Öªï¿½è±¸");
+							sprintf((char *)show_buff, "Î´ÖªÉè±¸");
 						}
-						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //Ë¢ÐÂÉè±¸Ãû³Æ
 						
-						// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½
+						// ÏÔÊ¾ÐòºÅ
 						SetTextInt32(temp_screen_id, serial_ctrl_id[i], temp_caculate + 1, 0, 1);   //
 						
-						// ï¿½ï¿½Ê¾Ê±ï¿½ï¿½
-						// 2025/11/19 15:39 ï¿½Þ¸ï¿½
-						// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ê¾
+						// ÏÔÊ¾Ê±¼ä
+						// 2025/11/19 15:39 ÐÞ¸Ä
+						// ÉêÇë ÁÙÊ±±äÁ¿ ÓÃÀ´Ë¢ÐÂÊ±¼äÏÔÊ¾
 						FlashSaveTime_t temp_time_save = {0};
 						
 						getFlashTime_Plus(read_data[x_sector].fs_fire_alarm[data_index].fs_base.fs_time_buff, &temp_time_save);
 
-						sprintf((char *)show_buff, "%02dï¿½ï¿½%02dï¿½ï¿½%02dï¿½ï¿½ %02dÊ±%02dï¿½ï¿½%02dï¿½ï¿½", temp_time_save.years + 2000, temp_time_save.months, 
+						sprintf((char *)show_buff, "%02dÄê%02dÔÂ%02dÈÕ %02dÊ±%02d·Ö%02dÃë", temp_time_save.years + 2000, temp_time_save.months, 
 							temp_time_save.days, temp_time_save.hours , temp_time_save.minute, temp_time_save.second);
 
-						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½Ê±ï¿½ï¿½
+						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //Ë¢ÐÂÊ±¼ä
 						
-						// ×´Ì¬ï¿½ï¿½Ê¾
+						// ×´Ì¬ÏÔÊ¾
 						if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == FIRGAS_ALARM)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½È¼ï¿½ï¿½ï¿½å±¨ï¿½ï¿½");
+							sprintf((char *)show_buff, "¿ÉÈ¼ÆøÌå±¨¾¯");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == EAR_RECOVERY)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½");
+							sprintf((char *)show_buff, "¿ÉÈ¼ÆøÌå»Ö¸´");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == SMOKE_ALARM)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+							sprintf((char *)show_buff, "ÑÌÎí±¨¾¯");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == TEMPRT_ALARM)
 						{
-							sprintf((char *)show_buff, "ï¿½Â¶È»ï¿½");
+							sprintf((char *)show_buff, "ÎÂ¶È»ð¾¯");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == LINKAGE_PRESS)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+							sprintf((char *)show_buff, "±¨¾¯Æ÷±¨¾¯");
 						}
 						else if(read_data[x_sector].fs_fire_alarm[data_index].fs_base.state == MBUS2_HAND_ALARM)
 						{
 							/* XR5000_MBUS2_HAND_ALARM_FIRE_HISTORY_20260729: render manual alarm state. */
-							sprintf((char *)show_buff, "ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½");
+							sprintf((char *)show_buff, "ÊÖ¶¯±¨¾¯");
 						}
 					else if(FIRGAS_ALARM_CO == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
@@ -10713,7 +10713,7 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 							}
 							else
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "¿ÉÈ¼ÆøÌåÒ»Ñõ»¯Ì¼±¨¾¯");
 							}
 						}
 						else if(FIRGAS_ALARM_HH == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
@@ -10725,24 +10725,24 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 							}
 							else
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "¿ÉÈ¼ÆøÌåÇâÆø±¨¾¯");
 							}
 						}
 						else if(RS485_TEMP_WARNING == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
-							sprintf((char *)show_buff, "ï¿½Â¶ï¿½Ô¤ï¿½ï¿½");
+							sprintf((char *)show_buff, "ÎÂ¶ÈÔ¤¾¯");
 						}
 						else if(RS485_CO_FIRE == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
-							sprintf((char *)show_buff, "COï¿½ï¿½");
+							sprintf((char *)show_buff, "CO»ð¾¯");
 						}
 						else if(RS485_H2_FIRE == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
-							sprintf((char *)show_buff, "H2ï¿½ï¿½");
+							sprintf((char *)show_buff, "H2»ð¾¯");
 						}
 						else if(FIRGAS_ALARM_VOC == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
-							sprintf((char *)show_buff, "VOCÔ¤ï¿½ï¿½");
+							sprintf((char *)show_buff, "VOCÔ¤¾¯");
 						}
                         else if(LOOP1_TEMP_WARNING == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
                         {
@@ -10760,7 +10760,7 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
                         {
                             sprintf((char *)show_buff, "\xD1\xCC\xCE\xED\xD4\xA4\xBE\xAF\xBB\xD6\xB8\xB4");
                         }
-						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //Ë¢ÐÂ×´Ì¬
 						
 						if(read_data[x_sector].fs_fire_alarm[data_index].data_high == 0xFFFF)
 						{
@@ -10770,165 +10770,165 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						{
 							sprintf((char *)show_buff, "%d", read_data[x_sector].fs_fire_alarm[data_index].data_high);
 						}
-						SetTextValue(temp_screen_id, values_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, values_ctrl_id[i], show_buff); //Ë¢ÐÂ×´Ì¬
 						
 						break;
 					}
 					case RECORD_GASOF: {
-						// ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
+						// ÁÙÊ±ÉÈÇø
 //						x_sector = total_records/500;
-//						data_index = (total_records - 1 - temp_caculate)%500; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//						data_index = (total_records - 1 - temp_caculate)%500; // ¼ÆËãÊý¾ÝË÷Òý
 						x_sector = reverse_index/500;
 						data_index = reverse_index%500;
 
-						// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½
+						// ÏÔÊ¾ÐòºÅ
 						SetTextInt32(temp_screen_id, serial_ctrl_id[i], temp_caculate + 1, 0, 1);   //
 						
-						// ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸
+						// Éè±¸Ãû³ÆÅÐ¶Ï
+						// Èç¹ûÊÇÍâÁªÉè±¸
 						if(FormatRS485DetectFlashDeviceName(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id,
 							read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id, show_buff) == 1)
 						{
-							// XR5000_LOOP3_CHANGE_20260726: Loop 3 gas action history display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+							// XR5000_LOOP3_CHANGE_20260726: Loop 3 gas action history display uses "µÚ3»ØÂ· XºÅ".
 						}
 						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id == OUTFIRE_CLUSTER_ID)
 						{
 							if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id == OUTFIR1_PACKAGE_ID)
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½1");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃ1");
 							}
 							else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id == OUTFIR2_PACKAGE_ID)
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½2");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃ2");
 							}
 							else
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃ");
 							}
 						}
 						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id == LINKAGE_CLUSTER_ID)
 						{
 							if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id == ALARM_ANNUNCIATOR_ID)
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "¾¯±¨Æ÷");
 							}
 							else if(PART1_HAND_AUTO_Package_ID == read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id)
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½1");
+								sprintf((char *)show_buff, "·ÖÇø1");
 							}
 							else if(PART2_HAND_AUTO_Package_ID == read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id)
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½2");
+								sprintf((char *)show_buff, "·ÖÇø2");
 							}
 							else if(SYS_HAND_AUTO_Package_ID == read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id)
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "Áª¶¯Æô¶¯");
 							}
 							else if(FEEDBK1_Package_ID == read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id)
 							{
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½1");
+								sprintf((char *)show_buff, "·´À¡1");
 							}
 						}
 						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id != 0)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½%dï¿½ï¿½%dpack", 
+							sprintf((char *)show_buff, "µÚ%d´Ø%dpack", 
 								read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id,
 								read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id);
 						}
 						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id == 0 && 
 										read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id != 0)
 						{
-							sprintf((char *)show_buff, "ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½", read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id);
+							sprintf((char *)show_buff, "µÚ1»ØÂ· %dºÅ", read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id);
 						}
-						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //Ë¢ÐÂÉè±¸Ãû³Æ
 
-						// ï¿½ï¿½Ê¾Ê±ï¿½ï¿½
-						// 2025/11/19 15:39 ï¿½Þ¸ï¿½
+						// ÏÔÊ¾Ê±¼ä
+						// 2025/11/19 15:39 ÐÞ¸Ä
 						FlashSaveTime_t temp_time_save = {0};
 						
 						getFlashTime_Plus(read_data[x_sector].fs_gas_outfires[data_index].fs_time_buff, &temp_time_save);
 
-						sprintf((char *)show_buff, "%02dï¿½ï¿½%02dï¿½ï¿½%02dï¿½ï¿½ %02dÊ±%02dï¿½ï¿½%02dï¿½ï¿½", temp_time_save.years + 2000, temp_time_save.months, 
+						sprintf((char *)show_buff, "%02dÄê%02dÔÂ%02dÈÕ %02dÊ±%02d·Ö%02dÃë", temp_time_save.years + 2000, temp_time_save.months, 
 							temp_time_save.days, temp_time_save.hours , temp_time_save.minute, temp_time_save.second);
 			
-						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½Ê±ï¿½ï¿½
+						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //Ë¢ÐÂÊ±¼ä
 
-						// ×´Ì¬ï¿½ï¿½Ê¾
+						// ×´Ì¬ÏÔÊ¾
 						switch(read_data[x_sector].fs_gas_outfires[data_index].state)
 						{
 							case OUTFIRE1OPEN_1:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃµÚÒ»´ÎÆô¶¯");
 								break;
 							case OUTFIRE1CLOSE:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½Ã¹Ø±ï¿½");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃ¹Ø±Õ");
 								break;
 							case OUTFIRE1OPEN_2:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ÃµÚ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃµÚ¶þ´ÎÆô¶¯");
 								break;
 							case OUTFIRE1OPEN_3:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃµÚÈý´ÎÆô¶¯");
 								break;
 							case OUTFIRE_1_START_DELAY:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ê¼");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃµÚÒ»´ÎÆô¶¯µ¹¼ÆÊ±¿ªÊ¼");
 								break;
 							case OUTFIRE_2_START_DELAY:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ÃµÚ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ê¼");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃµÚ¶þ´ÎÆô¶¯µ¹¼ÆÊ±¿ªÊ¼");
 								break;
 							case OUTFIRE_3_START_DELAY:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ê¼");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃµÚÈý´ÎÆô¶¯µ¹¼ÆÊ±¿ªÊ¼");
 								break;
 							case OUTFIRE_STOP  :
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½Ç¿ï¿½ï¿½Í£Ö¹");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃÇ¿ÖÆÍ£Ö¹");
 								break;
 							case OUTFIRESTART_AGAIN:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½Ù´ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃÔÙ´ÎÆô¶¯");
 								break;
 							case OUTFIRE_ST_PRESS:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃÆô¶¯°´¼ü°´ÏÂ");
 								break;
 							case OUTFIRE_SP_PRESS:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½Í£Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃÍ£Ö¹°´¼ü°´ÏÂ");
 								break;
 							case OUTFIRE_SL_PRESS:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½â°´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "Éù¹â°´¼ü°´ÏÂ");
 								break;
 							case OUTFIRE_OVER :
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "Ãð»ð×°ÖÃÅç·ÅÍê³É");
 								break;
 							case OTHER_PART1_TURN_AUTO:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½1ï¿½Ð»ï¿½Îªï¿½Ô¶ï¿½");
+								sprintf((char *)show_buff, "·ÖÇø1ÇÐ»»Îª×Ô¶¯");
 								break;
 							case OTHER_PART1_TURN_HAND:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½1ï¿½Ð»ï¿½Îªï¿½Ö¶ï¿½");
+								sprintf((char *)show_buff, "·ÖÇø1ÇÐ»»ÎªÊÖ¶¯");
 								break;
 							case OTHER_PART2_TURN_AUTO:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½2ï¿½Ð»ï¿½Îªï¿½Ô¶ï¿½");
+								sprintf((char *)show_buff, "·ÖÇø2ÇÐ»»Îª×Ô¶¯");
 								break;
 							case OTHER_PART2_TURN_HAND:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½2ï¿½Ð»ï¿½Îªï¿½Ö¶ï¿½");
+								sprintf((char *)show_buff, "·ÖÇø2ÇÐ»»ÎªÊÖ¶¯");
 								break;
 							case OTHER_SYS_TURN_HAND:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½Îªï¿½Ö¶ï¿½");
+								sprintf((char *)show_buff, "Áª¶¯Æô¶¯ÇÐ»»ÎªÊÖ¶¯");
 								break;
 							case OTHER_SYS_TURN_AUTO:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½Îªï¿½Ô¶ï¿½");
+								sprintf((char *)show_buff, "Áª¶¯Æô¶¯ÇÐ»»Îª×Ô¶¯");
 								break;
 							case OUTFIRE_FEEDBACK1:
-								sprintf((char *)show_buff, "ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "·´À¡1´¥·¢");
 								break;
 							default:
 								sprintf((char *)show_buff,"Î´Öª×´Ì¬");
 								break;
 						}
 
-						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //Ë¢ÐÂ×´Ì¬
 						
 						break;
 					}
-					case RECORD_OTHER: { // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½
-						// ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
+					case RECORD_OTHER: { // ÆäËü¼ÇÂ¼·ÖÇø
+						// ÁÙÊ±ÉÈÇø
 //						x_sector = total_records/500;
-//						data_index = (total_records - 1 - temp_caculate)%500; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+//						data_index = (total_records - 1 - temp_caculate)%500; // ¼ÆËãÊý¾ÝË÷Òý
 						x_sector = reverse_index/500;
 						data_index = reverse_index%500;
 						
@@ -10936,24 +10936,24 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 //						
 						//DebugSendString(read_data[x_sector].byte_buff, total_records * 8);
 						
-						// ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½
+						// ÏÔÊ¾ÐòºÅ
 						SetTextInt32(temp_screen_id, serial_ctrl_id[i], temp_caculate + 1, 0, 1);   //
 					
-						// ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸
+						// Éè±¸Ãû³ÆÅÐ¶Ï
+						// Èç¹ûÊÇÍâÁªÉè±¸
 						if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cluster_id == LINKAGE_CLUSTER_ID)
 						{
 							if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_RESET_Package_ID)
 							{
-								sprintf((char *)show_buff, "ÏµÍ³ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "ÏµÍ³¸´Î»°´¼ü");
 							}
 							else if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_MAIN_POWER_KEY_ID)
 							{
-								sprintf((char *)show_buff, "ÏµÍ³ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "ÏµÍ³µçÔ´°´¼ü");
 							}
 							else if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_SELFCHECK_Package_ID)
 							{
-								sprintf((char *)show_buff, "ÏµÍ³ï¿½Ô¼ì°´ï¿½ï¿½");
+								sprintf((char *)show_buff, "ÏµÍ³×Ô¼ì°´¼ü");
 							}
 							else if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_CHECK_Package_ID)
 						{
@@ -10961,37 +10961,37 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						}
 						else if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id == SYS_TURN_OFF_Package_ID)
 							{
-								sprintf((char *)show_buff, "ÏµÍ³ï¿½Ø»ï¿½ï¿½ï¿½ï¿½ï¿½");
+								sprintf((char *)show_buff, "ÏµÍ³¹Ø»ú°´¼ü");
 							}
 						}
 						else
 						{
-							sprintf((char *)show_buff, "Î´Öªï¿½è±¸");
+							sprintf((char *)show_buff, "Î´ÖªÉè±¸");
 						}
-						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+						SetTextValue(temp_screen_id, device_ctrl_id[i], show_buff); //Ë¢ÐÂÉè±¸Ãû³Æ
 						
-						// ï¿½ï¿½Ê¾Ê±ï¿½ï¿½
-						// 2025/11/19 15:39 ï¿½Þ¸ï¿½
+						// ÏÔÊ¾Ê±¼ä
+						// 2025/11/19 15:39 ÐÞ¸Ä
 						FlashSaveTime_t temp_time_save = {0};
 						
 						getFlashTime_Plus(read_data[x_sector].fs_other_record[data_index].fs_time_buff, &temp_time_save);
 
-						sprintf((char *)show_buff, "%02dï¿½ï¿½%02dï¿½ï¿½%02dï¿½ï¿½ %02dÊ±%02dï¿½ï¿½%02dï¿½ï¿½", temp_time_save.years + 2000, temp_time_save.months, 
+						sprintf((char *)show_buff, "%02dÄê%02dÔÂ%02dÈÕ %02dÊ±%02d·Ö%02dÃë", temp_time_save.years + 2000, temp_time_save.months, 
 							temp_time_save.days, temp_time_save.hours , temp_time_save.minute, temp_time_save.second);
 
-						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½Ê±ï¿½ï¿½
+						SetTextValue(temp_screen_id , retime_ctrl_id[i], show_buff); //Ë¢ÐÂÊ±¼ä
 						
 						if(read_data[x_sector].fs_other_record[data_index].state == OTHER_SYS_RESET)
 						{
-							sprintf((char *)show_buff, "ÏµÍ³ï¿½ï¿½Î»ï¿½É¹ï¿½");
+							sprintf((char *)show_buff, "ÏµÍ³¸´Î»³É¹¦");
 						}
 						else if(read_data[x_sector].fs_other_record[data_index].state == OTHER_TURN_ON)
 						{
-							sprintf((char *)show_buff, "ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½");
+							sprintf((char *)show_buff, "ÏµÍ³¿ª»ú³É¹¦");
 						}
 						else if(read_data[x_sector].fs_other_record[data_index].state == OTHER_SYS_SELF_CHECK)
 						{
-							sprintf((char *)show_buff, "ÏµÍ³ï¿½Ô¼ï¿½");
+							sprintf((char *)show_buff, "ÏµÍ³×Ô¼ì");
 						}
 						else if(OTHER_SYS_CHECK == read_data[x_sector].fs_other_record[data_index].state)
 						{
@@ -10999,9 +10999,9 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						}
 						else if(OTHER_TURN_OFF == read_data[x_sector].fs_other_record[data_index].state )
 						{
-							sprintf((char *)show_buff, "ÏµÍ³ï¿½Ø»ï¿½ï¿½É¹ï¿½");
+							sprintf((char *)show_buff, "ÏµÍ³¹Ø»ú³É¹¦");
 						}
-						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					default:
@@ -11009,40 +11009,40 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 				}
 
 			}
-			else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê£ï¿½ï¿½ï¿½ï¿½Ê¾
+			else // ·ñÔòÇå¿ÕÊ£ÓàÏÔÊ¾
 			{
-				clearTextValue(temp_screen_id , serial_ctrl_id[i]); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , device_ctrl_id[i]); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , retime_ctrl_id[i]); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , states_ctrl_id[i]); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+				clearTextValue(temp_screen_id , serial_ctrl_id[i]); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , device_ctrl_id[i]); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , retime_ctrl_id[i]); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , states_ctrl_id[i]); //(»­ÃæID,¿Ø¼þID£©
 				if(bsrr_entry->curr_show_type == RECORD_ALARM)
 				{
-					clearTextValue(temp_screen_id , values_ctrl_id[i]); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+					clearTextValue(temp_screen_id , values_ctrl_id[i]); //(»­ÃæID,¿Ø¼þID£©
 				}
 			}
-		} // forÑ­ï¿½ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-	} // ï¿½Ð¶ï¿½ï¿½Ç·ï¿½Ë¢ï¿½Âµï¿½ï¿½ï¿½ï¿½ï¿½
+		} // forÑ­»·Ë¢ÐÂÏÔÊ¾µÄÀ¨ºÅ
+	} // ÅÐ¶ÏÊÇ·ñË¢ÐÂµÄÀ¨ºÅ
 }
 
-// ï¿½Ãºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½FLASHï¿½æ±¨ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½
+// ¸Ãº¯ÊýÊÇÓÃÀ´¸øFLASH´æ±¨¾¯¼ÇÂ¼µÄ
 static void BspAlarmDataSaveApp(
-	FlashReadCtrlId addr_type, // ï¿½æ´¢ï¿½ï¿½Ö·
-	FlashSaveType save_type,   // ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½
-	uint8_t cluster_id,        // ï¿½Øºï¿½
-	uint8_t pack_or_cabin,     // ï¿½ï¿½ï¿½ï¿½
+	FlashReadCtrlId addr_type, // ´æ´¢µØÖ·
+	FlashSaveType save_type,   // ´æ´¢ÀàÐÍ
+	uint8_t cluster_id,        // ´ØºÅ
+	uint8_t pack_or_cabin,     // °üºÅ
 	uint16_t val               // ?
 )
 {
 	FlashSaveFireAlarm_t temp_data = {0};
 
-	// ï¿½è±¸ï¿½Å¸ï¿½Öµ
-	temp_data.fs_base.fs_detect_id.cluster_id = cluster_id; // ï¿½ï¿½ID
-	temp_data.fs_base.fs_detect_id.cabin_or_pack_id = pack_or_cabin; // packID ï¿½Ø²ï¿½Îª0ï¿½ï¿½ï¿½ï¿½pack
-	// Ê±ï¿½ä¸³Öµ
-	// 2025/11/19 15:39 ï¿½Þ¸ï¿½
+	// Éè±¸ºÅ¸³Öµ
+	temp_data.fs_base.fs_detect_id.cluster_id = cluster_id; // ´ØID
+	temp_data.fs_base.fs_detect_id.cabin_or_pack_id = pack_or_cabin; // packID ´Ø²»Îª0¾ÍÊÇpack
+	// Ê±¼ä¸³Öµ
+	// 2025/11/19 15:39 ÐÞ¸Ä
 	
 	FlashSaveTimeBuff temp_time = {0};
-	// ï¿½ï¿½ï¿½ï¿½ï¿½é¸³Öµ
+	// ¸øÊý×é¸³Öµ
 	setFlashTime(temp_time, years, months, days, hours, minutes, secs);
 
 	
@@ -11052,9 +11052,9 @@ static void BspAlarmDataSaveApp(
 		temp_data.fs_base.fs_time_buff[i] = temp_time[i];
 	}
 
-	// ×´Ì¬ï¿½ï¿½Öµ ï¿½ï¿½
+	// ×´Ì¬¸³Öµ »ð¾¯
 	temp_data.fs_base.state = save_type;
-	// ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½Â¶ï¿½Öµ
+	// ´æ´¢±¨¾¯ÎÂ¶ÈÖµ
 	temp_data.data_high = val;
 	
 	BspSaveDataToFlash(addr_type, save_type, (void *)&temp_data);
@@ -11062,37 +11062,37 @@ static void BspAlarmDataSaveApp(
 
 static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state)
 {
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ì³£
+	// Èç¹û±¸µç¹ÊÕÏ Ö÷µçÒì³£
 	if(main_power_state == 0 && (back_power_state == open_circuit || back_power_state == short_circuit))
 	{
 		BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_TURN_OFF, LINKAGE_CLUSTER_ID, SYS_TURN_OFF_Package_ID);
-		StorageEvent_LogPowerOff(); /* ï¿½ï¿½Ï»ï¿½ï¿½:ï¿½Ø»ï¿½ï¿½Â¼ï¿½(EVT_POWER_OFF=121), ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È«Ê§ */
+		StorageEvent_LogPowerOff(); /* ºÚÏ»×Ó:¹Ø»úÊÂ¼þ(EVT_POWER_OFF=121), Ö÷±¸µçÈ«Ê§ */
 	}
 	else
 	{
-		// ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½
+		// ÅÐ¶ÏÖ÷µç
 		if(main_power_state != 1 && main_power_alarm_flag == 0)
 		{
 			main_power_beep_ctrl |= (1U << 0);
-			silencers_state  = 0;  // ï¿½ï¿½ï¿½ï¿½ï¿½ì³£ ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
+			silencers_state  = 0;  // Ö÷µçÒì³£ ¹Ø±ÕÏûÒôÖ¸Ê¾µÆ ·äÃùÆ÷¿ªÊ¼±¨¾¯
 			main_power_alarm_flag = 1;
 			
-			// ï¿½æ´¢ï¿½ï¿½FLASHï¿½ï¿½ï¿½Ï´æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ´æ´¢µ½FLASH¹ÊÕÏ´æ´¢ÇøÖÐ Ö÷µçµôµç
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID);
-			// ï¿½ï¿½RAMï¿½Ð´ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+			// ÔÚRAMÖÐ´´½¨ÐÂ¼ÇÂ¼
 			creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID, DISCONNECT);
 			
 		}
 		else if(main_power_state == 1 && main_power_alarm_flag == 1)
 		{
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// Çå³ý¸üÐÂÒÖÖÆ
 			main_power_alarm_flag = 0;
-			// ï¿½Ø±Õ±ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ¹Ø±Õ±¾Î»·äÃùÆ÷
 			main_power_beep_ctrl &= ~(1U << 0);
-	//				silencers_state  = 0;  // ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½ ï¿½Ø±Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ // ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½Æ²ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½Ï¨ï¿½ï¿½ Ó¦ï¿½ï¿½ï¿½ÂµÄ¹ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½Î»ï¿½ï¿½Ï¨ï¿½ï¿½
-			// ï¿½æ´¢ï¿½ï¿½FLASHï¿½ï¿½ï¿½Ï´æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	//				silencers_state  = 0;  // ¹Ø±ÕÏûÒôÖ¸Ê¾µÆ ¹Ø±Õ·äÃùÆ÷ // ÏûÒôÖ¸Ê¾µÆ²»Ó¦Ö÷¶¯Ï¨Ãð Ó¦ÔÚÐÂµÄ¹ÊÕÏµ½À´»òÕßÏµÍ³¸´Î»ºóÏ¨Ãð
+			// ´æ´¢µ½FLASH¹ÊÕÏ´æ´¢ÇøÖÐ Ö÷µçµôµç
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID);
-			// ï¿½Ó»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ÚµÄ¹ï¿½ï¿½ï¿½
+			// ´Ó»º³åÇøÖÐÑ°ÕÒÓÐ´æÔÚµÄ¹ÊÕÏ
 			uint8_t temp_index_ = findRecoveryDevice(LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID, 0);
 			if(0xFF != temp_index_)
 			{
@@ -11100,56 +11100,56 @@ static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state)
 			}
 		}
 		
-		// ï¿½Ð¶Ï±ï¿½ï¿½ï¿½
+		// ÅÐ¶Ï±¸µç
 		if(back_power_alarm_flag == 0 && back_power_state == open_circuit)
 		{
-			// ï¿½ò¿ª·ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ´ò¿ª·äÃùÆ÷
 			main_power_beep_ctrl |= (1U << 1);
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ¸üÐÂÒÖÖÆ
 			back_power_alarm_flag = 1;
 			
-			silencers_state  = 0;  // ï¿½ï¿½ï¿½ï¿½ï¿½ì³£ ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
-			// ï¿½æ´¢ï¿½ï¿½FLASHï¿½ï¿½ï¿½Ï´æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			silencers_state  = 0;  // Ö÷µçÒì³£ ¹Ø±ÕÏûÒôÖ¸Ê¾µÆ ·äÃùÆ÷¿ªÊ¼±¨¾¯
+			// ´æ´¢µ½FLASH¹ÊÕÏ´æ´¢ÇøÖÐ ±¸µçµôµç
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
-			// ï¿½ï¿½RAMï¿½Ð´ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+			// ÔÚRAMÖÐ´´½¨ÐÂ¼ÇÂ¼
 			creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID, DISCONNECT);
-		} // ï¿½ï¿½ï¿½ï¿½ï¿½Â·Ê±ï¿½ï¿½ï¿½ï¿½
+		} // ±¸µç¶ÏÂ·Ê±À¨ºÅ
 		else if(back_power_alarm_flag == 0 && back_power_state == short_circuit)
 		{
-			// ï¿½ò¿ª·ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ´ò¿ª·äÃùÆ÷
 			main_power_beep_ctrl |= (1U << 1);
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Â¼×´Ì¬
+			// ¸üÐÂÒÖÖÆ ¼ÇÂ¼×´Ì¬
 			back_power_alarm_flag = 2;
-			silencers_state  = 0;  // ï¿½ï¿½ï¿½ï¿½ï¿½ì³£ ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸Ê¾ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
-			// ï¿½æ´¢ï¿½ï¿½FLASHï¿½ï¿½ï¿½Ï´æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Â·
+			silencers_state  = 0;  // Ö÷µçÒì³£ ¹Ø±ÕÏûÒôÖ¸Ê¾µÆ ·äÃùÆ÷¿ªÊ¼±¨¾¯
+			// ´æ´¢µ½FLASH¹ÊÕÏ´æ´¢ÇøÖÐ ±¸µç¶ÌÂ·
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, SHORTCIRCUIT, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
-			// ï¿½ï¿½RAMï¿½Ð´ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
+			// ÔÚRAMÖÐ´´½¨ÐÂ¼ÇÂ¼
 			creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID, SHORTCIRCUIT);
-		} // ï¿½ï¿½ï¿½ï¿½ï¿½Â·Ê±ï¿½ï¿½ï¿½ï¿½
+		} // ±¸µç¶ÌÂ·Ê±À¨ºÅ
 		else if(back_power_alarm_flag != 0 && back_power_state != open_circuit && back_power_state != short_circuit)
 		{
 			if(back_power_alarm_flag == 1)
 			{
-				// ï¿½æ´¢ï¿½ï¿½FLASHï¿½ï¿½ï¿½Ï´æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Â·
+				// ´æ´¢µ½FLASH¹ÊÕÏ´æ´¢ÇøÖÐ ±¸µç¶ÌÂ·
 				BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
 			}
 			else
 			{
-				// ï¿½æ´¢ï¿½ï¿½FLASHï¿½ï¿½ï¿½Ï´æ´¢ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Â·
+				// ´æ´¢µ½FLASH¹ÊÕÏ´æ´¢ÇøÖÐ ±¸µç¶ÌÂ·
 				BspCommonDataSaveApp(FAULT_FLASH_SAVE, SHO_RECOVERY, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
 			}
 			
 			main_power_beep_ctrl &= ~(1U << 1);
 			
-			// ï¿½Ó»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ÚµÄ¹ï¿½ï¿½ï¿½
+			// ´Ó»º³åÇøÖÐÑ°ÕÒÓÐ´æÔÚµÄ¹ÊÕÏ
 			uint8_t temp_index_ = findRecoveryDevice(LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID, 0);
 			if(0xFF != temp_index_)
 			{
 				deletRecoveryRecord(temp_index_);
 			}
 			back_power_alarm_flag = 0;
-		} // ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
-	} // Ö»ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ì³£Ê±ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½
+		} // ±¸µç»Ö¸´Ê±À¨ºÅ
+	} // Ö»ÓÐÒ»¸öÒì³£Ê±µÄÅÐ¶ÏÀ¨ºÅ
 }
 
 static void HandForceStartAnyCluster(FireExtinguishDeviceActionSave *fedas_entry, uint16_t ctrl_id, uint8_t state)
@@ -11160,9 +11160,9 @@ static void HandForceStartAnyCluster(FireExtinguishDeviceActionSave *fedas_entry
 		{
 			return;
 		}
-		getBM8563TimeToSystemTime(); // ï¿½ï¿½È¡Ò»ï¿½ï¿½RTCÊ±ï¿½ï¿½
-		// ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Â¼ï¿½Â¼
-		// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
+		getBM8563TimeToSystemTime(); // »ñÈ¡Ò»ÏÂRTCÊ±¼ä
+		// ´´½¨Ò»ÌõÐÂ¼ÍÂ¼
+		// ¼ÇÂ¼´´½¨Ê±¼ä
 		fedas_entry->atr[fedas_entry->self_point_len].years  = years + 2000;
 		fedas_entry->atr[fedas_entry->self_point_len].months = months;
 		fedas_entry->atr[fedas_entry->self_point_len].days   = days;
@@ -11172,9 +11172,9 @@ static void HandForceStartAnyCluster(FireExtinguishDeviceActionSave *fedas_entry
 
 		fedas_entry->cabin_id[fedas_entry->self_point_len]   = 0;
 		fedas_entry->cluster_id[fedas_entry->self_point_len] = ctrl_id - 20;
-		fedas_entry->pack_id[fedas_entry->self_point_len]    = 1; // ï¿½ï¿½IDÄ¬ï¿½ï¿½ï¿½ï¿½1
-		fedas_entry->fed_action[fedas_entry->self_point_len] = FIRE_EXTINGUISH_START_SPRAY_DELAY; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±×´Ì¬
-		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // ï¿½ï¿½Ê±Ê±ï¿½ï¿½30ï¿½ï¿½
+		fedas_entry->pack_id[fedas_entry->self_point_len]    = 1; // °üIDÄ¬ÈÏÊÇ1
+		fedas_entry->fed_action[fedas_entry->self_point_len] = FIRE_EXTINGUISH_START_SPRAY_DELAY; // Æô¶¯ÑÓÊ±×´Ì¬
+		fedas_entry->countdown_val[fedas_entry->self_point_len] = 30; // ÑÓÊ±Ê±³¤30Ãë
 		
 		fedas_entry->curr_cntd_time[fedas_entry->self_point_len] = baojingjishi;
 		fedas_entry->start_cntd_time[fedas_entry->self_point_len] = fedas_entry->curr_cntd_time[fedas_entry->self_point_len];
@@ -11191,29 +11191,29 @@ static void BspFanOnlineJudgeFaultRecord(PackCabinFaultStorage *pcfs_entry, uint
 {
 	if(fan_disconnect_count == 5)
 	{
-		// ï¿½Ð¶ï¿½ï¿½Ç·ï¿½Ð´ï¿½ï¿½
+		// ÅÐ¶ÏÊÇ·ñÐ´Èë
 		if(fan_disconnect_record_flag == 0)
 		{
-			// ï¿½Ð¶Ï½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½ 
+			// ÅÐ¶Ï½á¹¹ÌåÖÐÊÇ·ñÓÐ Èç¹ûÃ»ÓÐ ´´½¨ÐÂµÄ 
 			if(creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, LINKAGE_FAN_Package_ID, 0) == 0)
 			{
-				// ï¿½ï¿½ï¿½Ð´ï¿½ï¿½É¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LED 
-				beep_fault_ctrl  = 2;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾Î»
-				silencers_state  = 0;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				disconnect_state = 1;   // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½
-				// ï¿½Þ¸ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½æ´¢
+				// Èç¹ûÐ´Èë³É¹¦ ¿ª·äÃùÆ÷ µãÁÁ¹ÊÕÏLED 
+				beep_fault_ctrl  = 2;   // ·äÃùÆ÷¿ª ¹ÊÕÏ·äÃùÆ÷±êÖ¾Î»
+				silencers_state  = 0;   // ÏûÒôµÆÃð
+				disconnect_state = 1;   // µãÁÁ¹ÊÕÏµÆ
+				// ÐÞ¸ÄÎªº¯Êý´æ´¢
 				//DebugSendString((uint8_t *)&temp_data, sizeof(FlashSaveDetectFault_t));
 				BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, LINKAGE_CLUSTER_ID, LINKAGE_FAN_Package_ID);
 			}
-			// ï¿½ï¿½ï¿½Ð´ï¿½ï¿½
+			// ±ê¼ÇÐ´Èë
 			fan_disconnect_record_flag = 1;
 		}
 	}
-	else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ðµï¿½ï¿½ï¿½
+	else // Èç¹û·ç»úÃ»ÓÐµôÏß
 	{
 		if(fan_disconnect_record_flag == 1)
 		{
-			// ï¿½Ó»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ÚµÄ¹ï¿½ï¿½ï¿½
+			// ´Ó»º³åÇøÖÐÑ°ÕÒÓÐ´æÔÚµÄ¹ÊÕÏ
 			uint8_t temp_index_ = findRecoveryDevice(LINKAGE_CLUSTER_ID, LINKAGE_FAN_Package_ID, 0);
 			if(0xFF != temp_index_)
 			{
@@ -11237,22 +11237,22 @@ void FanSendCountInit(void)
 
 static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t fire_alarm_num)
 {
-	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ã·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// Èç¹û·ç»úÊÇµôÏß ¹ÊÕÏ ÕýÔÚÔËÐÐ Ôò²»ÓÃ·¢ËÍÆô¶¯
 	if(fan_sta == fan_disconnect || fan_sta == fan_break || fan_sta == fan_run)
 	{
 //		return;
 	}
-	// ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ ï¿½Ð¶Ï·ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	// Á½ÃëÒ»·¢ ÅÐ¶Ï·ç»ú×´Ì¬·¢ËÍÖ¸Áî ±ÜÃâ¶ÓÁÐÒç³ö
 	if(baojingjishi - fan_start_ticks >= 2)
 	{
 		fan_start_ticks = baojingjishi;
 		if(fan_sta == fan_stop && early_aralm_num != 0 && fire_alarm_num == 0)
 		{
-			if(getSysHandAutoState() == KEY_MANUAL) // ï¿½Ö¶ï¿½×´Ì¬ï¿½ï¿½Òªï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
+			if(getSysHandAutoState() == KEY_MANUAL) // ÊÖ¶¯×´Ì¬ÐèÒªÊÖ¶¯Æô¶¯ ·ç»ú
 			{
 				if(linkage_start_key_press_flag == 1)
 				{
-					// ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					// ·¢ËÍ·ç»úÆô¶¯
 					Fan1CtrlOpen();
 					Fan2CtrlOpen();
 					linkage_start_key_press_flag = 0;
@@ -11261,14 +11261,14 @@ static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t
 			}
 			else
 			{
-				// ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ·¢ËÍ·ç»úÆô¶¯
 				Fan1CtrlOpen();
 				Fan2CtrlOpen();
 				SysStartStateLedCtrl(LED_ON);
 			}
 			
 		}
-		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ ï¿½ð¾¯¶ï¿½Îª0 ï¿½Ø±Õ·ï¿½ï¿½
+		// Èç¹û·ç»úÕýÔÚ¹¤×÷ ²¢ÇÒÔ¤¾¯ »ð¾¯¶¼Îª0 ¹Ø±Õ·ç»ú
 		if(fan_sta == fan_run && early_aralm_num == 0 && fire_alarm_num == 0)
 		{
 			Fan1CtrlClose();
@@ -11276,7 +11276,7 @@ static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t
 		}
 		
 
-		// ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½Ø±ï¿½
+		// ·¢ËÍ·ç»ú¹Ø±Õ
 		if(early_aralm_num == 0 && fire_alarm_num == 0)
 		{
 			SysStartStateLedCtrl(LED_OFF);
@@ -11296,9 +11296,9 @@ static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t
 			}
 			
 		}
-		if(fan_send_counts < 10 && fire_alarm_num != 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½10ï¿½ï¿½ï¿½ï¿½
+		if(fan_send_counts < 10 && fire_alarm_num != 0) // Èç¹û·¢ËÍÊýÁ¿Ð¡ÓÚ10²¢ÇÒ
 		{
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ò³ï¿½ï¿½Ö»ï¿½ ï¿½Ø±Õ·ï¿½ï¿½
+			// Èç¹û·ç»úÕýÔÚ¹¤×÷ ²¢ÇÒ³öÏÖ»ð¾¯ ¹Ø±Õ·ç»ú
 			if(fan_sta == fan_run)
 			{
 				Fan1CtrlClose();
@@ -11321,7 +11321,7 @@ static void BspFanStartCrtlApp(uint8_t fan_sta, uint8_t early_aralm_num, uint8_t
 	}
 }
 
-// 0 Ã»ï¿½Ð±ï¿½ï¿½ï¿½ 1ï¿½Ð±ï¿½ï¿½ï¿½ 2ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// 0 Ã»ÓÐ±¨¾¯ 1ÓÐ±¨¾¯ 2ÒÑ¾­´¥·¢²ÖÆøÌåÃð»ð
 uint8_t any_point_temper_alarm = 0;
 uint8_t any_point_smoke_alarm = 0;
 
@@ -11930,9 +11930,9 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
             {
                 if(old_state == 1U) Loop1RemoveWarning(addr, Loop1TempWarning, LOOP1_TEMP_WARNING_RECOVERY, value);
                 if(old_state == 3U) Loop1RemoveFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_RECOVERY);
-                /* ï¿½ï¿½Â¼ï¿½Â¶È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»Ö¸ï¿½ */
+                /* ¼ÇÂ¼ÎÂ¶È´«¸ÐÆ÷¹ÊÕÏ»Ö¸´ */
                 if(old_state == 3U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1);
-                if(old_state == 3U) FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1); /* FECbus:ï¿½Â¶È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»Ö¸ï¿½ */
+                if(old_state == 3U) FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1); /* FECbus:ÎÂ¶È´«¸ÐÆ÷¹ÊÕÏ»Ö¸´ */
                 setPointTypeMixtureDetectTempertureMemory(addr, raw_state == 2U ? 1U : 0U);
 
                 if(raw_state == 1U) Loop1AddWarning(addr, Loop1TempWarning, LOOP1_TEMP_WARNING, value);
@@ -11946,17 +11946,17 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, 0U, addr, value);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FIRE);
-                    /* ï¿½ï¿½Â¼:ï¿½Â¶È´ï¿½ï¿½ï¿½ï¿½ï¿½Loop1ï¿½ï¿½(ï¿½Â¶ï¿½Öµï¿½Ï±ï¿½) */
+                    /* ¼ÇÂ¼:ÎÂ¶È´«¸ÐÆ÷Loop1»ð¾¯(ÎÂ¶ÈÖµÉÏ±¨) */
                     StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 1, 0);
-                    FecbusReport_Fire(addr, DEV_TYPE_TEMPERATURE, 1, 0); /* FECbus:ï¿½Ï±ï¿½ï¿½Â¶È»ï¿½ */
+                    FecbusReport_Fire(addr, DEV_TYPE_TEMPERATURE, 1, 0); /* FECbus:ÉÏ±¨ÎÂ¶È»ð¾¯ */
                 }
                 else if(raw_state == 3U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FAULT);
-                    /* ï¿½ï¿½Â¼ï¿½Â¶È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+                    /* ¼ÇÂ¼ÎÂ¶È´«¸ÐÆ÷¹ÊÕÏ */
                     StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 0);
-                    FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 0); /* FECbus:ï¿½Â¶È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+                    FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 0); /* FECbus:ÎÂ¶È´«¸ÐÆ÷¹ÊÕÏ */
                 }
             }
             else
@@ -11964,11 +11964,11 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                 if(old_state == 1U) Loop1RemoveWarning(addr, Loop1SmokeWarning, LOOP1_SMOKE_WARNING_RECOVERY, value);
                 if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_SMOKE_POLLUTION, LOOP1_SMOKE_POLLUTION_RECOVERY);
                 if(old_state == 9U) Loop1RemoveFault(addr, LOOP1_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_RECOVERY);
-                /* ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»Ö¸ï¿½ */
+                /* ¼ÇÂ¼ÑÌÎí´«¸ÐÆ÷¹ÊÕÏ»Ö¸´ */
                 if(old_state == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);
                 if(old_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);
-                if(old_state == 8U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½Ï»Ö¸ï¿½ */
-                if(old_state == 9U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»Ö¸ï¿½ */
+                if(old_state == 8U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:ÑÌÎíÎÛÈ¾¹ÊÕÏ»Ö¸´ */
+                if(old_state == 9U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:ÑÌÎí´«¸ÐÆ÷¹ÊÕÏ»Ö¸´ */
                 setPointTypeMixtureDetectSmokeMemory(addr, raw_state == 2U ? 1U : 0U);
 
                 if(raw_state == 1U) Loop1AddWarning(addr, Loop1SmokeWarning, LOOP1_SMOKE_WARNING, value);
@@ -11982,25 +11982,25 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, 0U, addr, value);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FIRE);
-                    /* ï¿½ï¿½Â¼:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Loop1ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï±ï¿½) */
+                    /* ¼ÇÂ¼:ÑÌÎí´«¸ÐÆ÷Loop1»ð¾¯(ÑÌÎí»ð¾¯ÉÏ±¨) */
                     StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 1, 0);
-                    FecbusReport_Fire(addr, DEV_TYPE_SMOKE, 1, 0); /* FECbus:ï¿½Ï±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+                    FecbusReport_Fire(addr, DEV_TYPE_SMOKE, 1, 0); /* FECbus:ÉÏ±¨ÑÌÎí»ð¾¯ */
                 }
                 else if(raw_state == 8U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_SMOKE_POLLUTION, LOOP1_SMOKE_POLLUTION_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FAULT);
-                    /* ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½ */
+                    /* ¼ÇÂ¼ÑÌÎíÎÛÈ¾¹ÊÕÏ */
                     StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 0);
-                    FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½ */
+                    FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:ÑÌÎíÎÛÈ¾¹ÊÕÏ */
                 }
                 else if(raw_state == 9U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FAULT);
-                    /* ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+                    /* ¼ÇÂ¼ÑÌÎí´«¸ÐÆ÷¹ÊÕÏ */
                     StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 0);
-                    FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+                    FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:ÑÌÎí´«¸ÐÆ÷¹ÊÕÏ */
                 }
             }
             loop1_raw_state_memory[addr] = raw_state;
@@ -12014,29 +12014,29 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
     if(pcfs_buttom_point > 0U) disconnect_state = 1U;
     return fault_sum;
 }
-uint8_t last_point_type_found_online_state = 1; // Ä¬ï¿½Ï±ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+uint8_t last_point_type_found_online_state = 1; // Ä¬ÈÏ±ØÐëË¢ÐÂÒ»´Î
 static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 {
 	uint8_t temp_screen_id = 67;
 	
-	ptsc_entry->curr_fresh_time_ctrl = osKernelGetTickCount(); // ÏµÍ³ï¿½ï¿½Ç°Ê±ï¿½ï¿½ï¿½
+	ptsc_entry->curr_fresh_time_ctrl = osKernelGetTickCount(); // ÏµÍ³µ±Ç°Ê±¼ä´Á
 	
-	if(ptsc_entry->curr_fresh_time_ctrl - ptsc_entry->last_fresh_time_ctrl >= 3000 || ptsc_entry->poll_show_ctrl.key_perss_fresh != 0) // ï¿½ï¿½ï¿½ï¿½Ò»Ë¢ï¿½ï¿½
+	if(ptsc_entry->curr_fresh_time_ctrl - ptsc_entry->last_fresh_time_ctrl >= 3000 || ptsc_entry->poll_show_ctrl.key_perss_fresh != 0) // ÈýÃëÒ»Ë¢ÐÂ
 	{
 		uint8_t show_addr;
 		
 		uint8_t found_online = 0;
 		
-		ptsc_entry->last_fresh_time_ctrl = ptsc_entry->curr_fresh_time_ctrl; // ï¿½ï¿½Â¼Ë¢ï¿½ï¿½Ê±ï¿½ï¿½
+		ptsc_entry->last_fresh_time_ctrl = ptsc_entry->curr_fresh_time_ctrl; // ¼ÇÂ¼Ë¢ÐÂÊ±¼ä
 		
-		// ï¿½È½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½Ñ¯Öµ
+		// ÏÈ½«Öµ±£´æ¸øÉÏ´ÎÂÖÑ¯Öµ
 		ptsc_entry->poll_show_ctrl.last_detector_id = ptsc_entry->poll_show_ctrl.poll_circuits_id;
 
 		if(ptsc_entry->poll_show_ctrl.key_perss_fresh == 'p')
 		{
 			for(uint8_t test_addr = 0U; test_addr < MIXTURE_DEVICE_MAX_ADDR; test_addr++)
 			{
-				ptsc_entry->poll_show_ctrl.poll_circuits_id--; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ö±ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½
+				ptsc_entry->poll_show_ctrl.poll_circuits_id--; // ±éÀúÊý×é Ö±µ½ÕÒµ½ÉÏÏßµÄÊý×é
 				
 				if(ptsc_entry->poll_show_ctrl.poll_circuits_id > MIXTURE_DEVICE_MAX_ADDR || ptsc_entry->poll_show_ctrl.poll_circuits_id < 1)
 				{
@@ -12046,7 +12046,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 				if(getPointTypeMixtureDetectOnlineState( ptsc_entry->poll_show_ctrl.poll_circuits_id ) == 1)
 				{
 					found_online = 1;
-					last_point_type_found_online_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¸ï¿½×´Ì¬ï¿½ï¿½Îª1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹Ã¿ï¿½Î¶ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ø¸ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½Ä»
+					last_point_type_found_online_state = 1; // Èç¹û·¢ÏÖÉÏÏß¸Ã×´Ì¬ÉèÎª1 ÓÃÀ´·ÀÖ¹Ã¿´Î¶¼Ã»ÓÐÉÏÏßÊ±ÖØ¸´Ë¢ÐÂÆÁÄ»
 					show_addr = ptsc_entry->poll_show_ctrl.poll_circuits_id;
 
 					break;
@@ -12058,7 +12058,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 		{
 			for(uint8_t test_addr = 0U; test_addr < MIXTURE_DEVICE_MAX_ADDR; test_addr++)
 			{
-				ptsc_entry->poll_show_ctrl.poll_circuits_id++; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ö±ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½
+				ptsc_entry->poll_show_ctrl.poll_circuits_id++; // ±éÀúÊý×é Ö±µ½ÕÒµ½ÉÏÏßµÄÊý×é
 				
 				if(ptsc_entry->poll_show_ctrl.poll_circuits_id > MIXTURE_DEVICE_MAX_ADDR || ptsc_entry->poll_show_ctrl.poll_circuits_id < 1)
 				{
@@ -12068,7 +12068,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 				if(getPointTypeMixtureDetectOnlineState( ptsc_entry->poll_show_ctrl.poll_circuits_id ) == 1)
 				{
 					found_online = 1;
-					last_point_type_found_online_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¸ï¿½×´Ì¬ï¿½ï¿½Îª1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹Ã¿ï¿½Î¶ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ø¸ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½Ä»
+					last_point_type_found_online_state = 1; // Èç¹û·¢ÏÖÉÏÏß¸Ã×´Ì¬ÉèÎª1 ÓÃÀ´·ÀÖ¹Ã¿´Î¶¼Ã»ÓÐÉÏÏßÊ±ÖØ¸´Ë¢ÐÂÆÁÄ»
 					show_addr = ptsc_entry->poll_show_ctrl.poll_circuits_id;
 
 					break;
@@ -12078,94 +12078,94 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 			ptsc_entry->poll_show_ctrl.key_perss_fresh = 0;
 		}
 
-		if(found_online == 0 && last_point_type_found_online_state != 0) // ï¿½ï¿½ï¿½Ã»ï¿½Ð·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½Ì½ï¿½ï¿½ï¿½ï¿½
+		if(found_online == 0 && last_point_type_found_online_state != 0) // Èç¹ûÃ»ÓÐ·¢ÏÖÉÏÏßµÄÌ½²âÆ÷
 		{
-			last_point_type_found_online_state = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			ptsc_entry->poll_show_ctrl.poll_circuits_id = ptsc_entry->poll_show_ctrl.last_detector_id; // ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½Ñ¯Öµï¿½ï¿½Ê¼
+			last_point_type_found_online_state = 0; // ¸üÐÂÒÖÖÆ
+			ptsc_entry->poll_show_ctrl.poll_circuits_id = ptsc_entry->poll_show_ctrl.last_detector_id; // ´ÓÉÏ´ÎÂÖÑ¯Öµ¿ªÊ¼
 			
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Ê¾
-			SetTextValue(temp_screen_id, 33, "ï¿½ï¿½ï¿½Îºï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
-			clearTextValue(temp_screen_id , 34); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 35); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 36); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 37); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 38); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 39); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+			// ¸üÐÂÆÁÄ»ÏÔÊ¾
+			SetTextValue(temp_screen_id, 33, "ÎÞÈÎºÎÌ½²âÆ÷ÆôÓÃ"); //Ë¢ÐÂ×´Ì¬
+			clearTextValue(temp_screen_id , 34); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 35); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 36); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 37); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 38); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 39); //(»­ÃæID,¿Ø¼þID£©
 		}
-		else if(found_online != 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Å¸ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+		else if(found_online != 0) // ·¢ÏÖÓÐÌ½²âÆ÷ÉÏÏß ²Å¸üÐÂÏÔÊ¾
 		{
 			uint8_t temp_detect_type;
 			
 			uint8_t temp_buff[64] = {0};
 			
-			if(getPointTypeMixtureDisconnectCount(show_addr) < MIXTURE_DEVICE_DISCONNECT_SUM) // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			if(getPointTypeMixtureDisconnectCount(show_addr) < MIXTURE_DEVICE_DISCONNECT_SUM) // Ì½²âÆ÷ÔÚÏß
 			{
 //				if(getPointTypeMixtureDetectSmokeMemory(show_addr) == 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) == 0)
 //				{
-//					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", show_addr);
+//					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß | ÎÞÎÂ¶È±¨¾¯ | ÎÞÑÌÎí±¨¾¯", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) != 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) == 0)
 //				{
-//					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", show_addr);
+//					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß | ÎÞÎÂ¶È±¨¾¯ | ÑÌÎí±¨¾¯", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) == 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) != 0)
 //				{
-//					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½ | ï¿½Â¶È±ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", show_addr);
+//					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß | ÎÂ¶È±¨¾¯ | ÎÞÑÌÎí±¨¾¯", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) != 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) != 0)
 //				{
-//					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½ | ï¿½Â¶È±ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", show_addr);
+//					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß | ÎÂ¶È±¨¾¯ | ÑÌÎí±¨¾¯", show_addr);
 //				}
-				sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", show_addr);
-				SetTextValue(temp_screen_id, 33, temp_buff); //Ë¢ï¿½ï¿½×´Ì¬
+				sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß", show_addr);
+				SetTextValue(temp_screen_id, 33, temp_buff); //Ë¢ÐÂ×´Ì¬
 				
-				// ï¿½ï¿½Ê¾Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½
+				// ÏÔÊ¾Ì½²âÆ÷ÐÍºÅ
 				temp_detect_type = getPointTypeMixtureDetectName(show_addr);
 				switch(temp_detect_type)
 				{
 					case 1: {
-						SetTextValue(temp_screen_id, 34, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-V2.0"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 34, "Ì½²âÆ÷ÐÍºÅ:XR805-V2.0"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 2: {
-						SetTextValue(temp_screen_id, 34, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXD"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 34, "Ì½²âÆ÷ÐÍºÅ:XR805-EXD"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 3: {
-						SetTextValue(temp_screen_id, 34, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXi"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 34, "Ì½²âÆ÷ÐÍºÅ:XR805-EXi"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 4: {
-						SetTextValue(temp_screen_id, 34, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR-DLYGWG"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 34, "Ì½²âÆ÷ÐÍºÅ:XR-DLYGWG"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 5: {
-						SetTextValue(temp_screen_id, 34, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-XR800B"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 34, "Ì½²âÆ÷ÐÍºÅ:JTY-XR800B"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 6: {
-						SetTextValue(temp_screen_id, 34, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-ZDM-XR8002/C"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 34, "Ì½²âÆ÷ÐÍºÅ:JTY-ZDM-XR8002/C"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 7: {
-						SetTextValue(temp_screen_id, 34, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-GD-XR8001AI"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 34, "Ì½²âÆ÷ÐÍºÅ:JTY-GD-XR8001AI"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					default: {
-						SetTextValue(temp_screen_id, 34, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 34, "Ì½²âÆ÷ÐÍºÅ:--"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 				}
 				
-				// ï¿½ï¿½Ê¾Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+				// ÏÔÊ¾Ì½²âÆ÷´«¸ÐÆ÷ÆôÓÃ×´Ì¬
 				uint8_t sensor_enable_state = getPointTypeMixtureDetectType(show_addr);
 				if(sensor_enable_state == 0)
 				{
-					SetTextValue(temp_screen_id, 35, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½Þ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+					SetTextValue(temp_screen_id, 35, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:ÎÞ´«¸ÐÆ÷Æô¶¯");
 				}
 				else
 				{
-					uint8_t first_sensor = 1;  // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					uint8_t first_sensor = 1;  // ±ê¼ÇÊÇ·ñÊÇµÚÒ»¸ö´«¸ÐÆ÷
 					uint8_t pos = 0;
 					
 					pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "%s", sensor_str[6]);
@@ -12173,7 +12173,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 					{
 						if( (sensor_enable_state >> i) & 0x01 )
 						{
-							// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó·Ö¸ï¿½ï¿½ï¿½
+							// Èç¹û²»ÊÇµÚÒ»¸ö£¬Ìí¼Ó·Ö¸ô·û
 							if(!first_sensor)
 							{
 									pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -12188,83 +12188,83 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 					SetTextValue(temp_screen_id, 35, temp_buff);
 				}
 				
-				clearTextValue(temp_screen_id , 36); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 37); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 38); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 39); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+				clearTextValue(temp_screen_id , 36); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 37); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 38); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 39); //(»­ÃæID,¿Ø¼þID£©
 				
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½Ê¾Öµ
+				// ¸ù¾ÝÆôÓÃ×´Ì¬ÏÔÊ¾Öµ
 				uint8_t screen_show_id_offset = 0;
-				if(sensor_enable_state & 0x20) // ï¿½Ð¶ï¿½ï¿½Â¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(sensor_enable_state & 0x20) // ÅÐ¶ÏÎÂ¶ÈÊÇ·ñÆôÓÃ
 				{
-					sprintf((char *)temp_buff, "ï¿½Â¶ï¿½Öµ:%dï¿½ï¿½", getPointTypeMixtureReceiveData(PointTypeData_Temper, show_addr));
+					sprintf((char *)temp_buff, "ÎÂ¶ÈÖµ:%d¶È", getPointTypeMixtureReceiveData(PointTypeData_Temper, show_addr));
 					SetTextValue(temp_screen_id, 36 + screen_show_id_offset, temp_buff);
-					screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+					screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 				}
-				if(sensor_enable_state & 0x01) // ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(sensor_enable_state & 0x01) // ÅÐ¶ÏÑÌÎíÊÇ·ñÆôÓÃ
 				{
 					if(getPointTypeMixtureReceiveState(PointTypeData_Smoke, show_addr) == 1)
 					{
-						SetTextValue(temp_screen_id, 36 + screen_show_id_offset, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(temp_screen_id, 36 + screen_show_id_offset, "ÑÌÎí×´Ì¬:±¨¾¯");
 					}
 					else
 					{
-						SetTextValue(temp_screen_id, 36 + screen_show_id_offset, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(temp_screen_id, 36 + screen_show_id_offset, "ÑÌÎí×´Ì¬:Õý³£");
 					}
-					screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+					screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 				}
 				if(sensor_enable_state & 0x10)
 				{
 					
-					screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+					screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 				}
 				
 				
 			}
-			else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			else // ·ñÔòµôÏß
 			{
-				sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", show_addr);
-				SetTextValue(temp_screen_id, 33, temp_buff); //Ë¢ï¿½ï¿½×´Ì¬
-				SetTextValue(temp_screen_id, 34, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--"); //Ë¢ï¿½ï¿½×´Ì¬
-				SetTextValue(temp_screen_id, 35, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:--");
-				clearTextValue(temp_screen_id , 36); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 37); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 38); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 39); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+				sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:µôÏß", show_addr);
+				SetTextValue(temp_screen_id, 33, temp_buff); //Ë¢ÐÂ×´Ì¬
+				SetTextValue(temp_screen_id, 34, "Ì½²âÆ÷ÐÍºÅ:--"); //Ë¢ÐÂ×´Ì¬
+				SetTextValue(temp_screen_id, 35, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:--");
+				clearTextValue(temp_screen_id , 36); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 37); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 38); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 39); //(»­ÃæID,¿Ø¼þID£©
 			}
-		} // ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½Ì½ï¿½ï¿½ï¿½ï¿½
-	} // Ë¢ï¿½Â¼ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+		} // ÕÒµ½ÓÐÉèÖÃÉÏÏßµÄÌ½²âÆ÷
+	} // Ë¢ÐÂ¼ÆÊ±µ½ÁË Ë¢ÐÂÒ»´Î
 	
-	// ï¿½ï¿½Ñ¯Ë¢ï¿½ï¿½
-	if(ptsc_entry->verb_show_ctrl.verb_detector_id == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½0 Ã»ï¿½Ð²ï¿½Ñ¯ID
+	// ²éÑ¯Ë¢ÐÂ
+	if(ptsc_entry->verb_show_ctrl.verb_detector_id == 0) // Èç¹ûÊÇ0 Ã»ÓÐ²éÑ¯ID
 	{
-		ptsc_entry->verb_show_ctrl.verb_detector_id = 255; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-		SetTextValue(temp_screen_id, 23, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯Ì½ï¿½ï¿½ï¿½ï¿½ID"); //Ë¢ï¿½ï¿½×´Ì¬
-		clearTextValue(temp_screen_id , 24); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 25); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 26); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 27); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 28); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 29); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		SetTextValue(temp_screen_id, 30, "ï¿½Ë´ï¿½ï¿½ï¿½ï¿½ï¿½ID"); //Ë¢ï¿½ï¿½×´Ì¬
+		ptsc_entry->verb_show_ctrl.verb_detector_id = 255; // ¸üÐÂÒÖÖÆ
+		SetTextValue(temp_screen_id, 23, "ÇëÊäÈë²éÑ¯Ì½²âÆ÷ID"); //Ë¢ÐÂ×´Ì¬
+		clearTextValue(temp_screen_id , 24); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 25); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 26); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 27); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 28); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 29); //(»­ÃæID,¿Ø¼þID£©
+		SetTextValue(temp_screen_id, 30, "´Ë´¦ÊäÈëID"); //Ë¢ÐÂ×´Ì¬
 	}
-	else if(ptsc_entry->verb_show_ctrl.verb_detector_id != 255) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·IDï¿½ï¿½ï¿½ï¿½ ï¿½Ò²ï¿½ï¿½Ç¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½Öµ
+	else if(ptsc_entry->verb_show_ctrl.verb_detector_id != 255) // Èç¹ûÓÐÕýÈ·IDÊäÈë ÇÒ²»ÊÇ¸üÐÂÒÖÖÆµÄÖµ
 	{
 		uint8_t show_addr = ptsc_entry->verb_show_ctrl.verb_detector_id;
 		
-		if(getPointTypeMixtureDetectOnlineState( show_addr ) == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		if(getPointTypeMixtureDetectOnlineState( show_addr ) == 1) // Èç¹ûÉèÖÃÉÏÏßÁË
 		{
 			uint8_t temp_buff[64] = {0};
-			// ï¿½Ð¶ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ÅÐ¶ÏÌ½²âÆ÷ÊÇ·ñÔÚÏß
 			if(getPointTypeMixtureDisconnectCount(show_addr) < MIXTURE_DEVICE_DISCONNECT_SUM)
 			{
-				// ï¿½ï¿½ï¿½idï¿½ï¿½ï¿½
+				// Èç¹ûid±ä¸ü
 				if(show_addr != ptsc_entry->verb_show_ctrl.last_detector_id || ptsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
-					ptsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					ptsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ¸üÐÂÒÖÖÆ
 					
-					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", show_addr);
-					SetTextValue(temp_screen_id, 23, temp_buff); //Ë¢ï¿½ï¿½×´Ì¬
+					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß", show_addr);
+					SetTextValue(temp_screen_id, 23, temp_buff); //Ë¢ÐÂ×´Ì¬
 				}
 				
 				ptsc_entry->verb_show_ctrl.verb_detect_name = getPointTypeMixtureDetectName(show_addr);
@@ -12273,45 +12273,45 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 				{
 					ptsc_entry->verb_show_ctrl.lsat_detect_name = ptsc_entry->verb_show_ctrl.verb_detect_name;
 					
-					// ï¿½ï¿½Ê¾Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½
+					// ÏÔÊ¾Ì½²âÆ÷ÐÍºÅ
 					switch(ptsc_entry->verb_show_ctrl.verb_detect_name)
 					{
 						case 1: {
-							SetTextValue(temp_screen_id, 24, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-V2.0"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 24, "Ì½²âÆ÷ÐÍºÅ:XR805-V2.0"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 2: {
-							SetTextValue(temp_screen_id, 24, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXD"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 24, "Ì½²âÆ÷ÐÍºÅ:XR805-EXD"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 3: {
-							SetTextValue(temp_screen_id, 24, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXi"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 24, "Ì½²âÆ÷ÐÍºÅ:XR805-EXi"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 4: {
-							SetTextValue(temp_screen_id, 24, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR-DLYGWG"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 24, "Ì½²âÆ÷ÐÍºÅ:XR-DLYGWG"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 5: {
-							SetTextValue(temp_screen_id, 24, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-XR800B"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 24, "Ì½²âÆ÷ÐÍºÅ:JTY-XR800B"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 6: {
-							SetTextValue(temp_screen_id, 24, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-ZDM-XR8002/C"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 24, "Ì½²âÆ÷ÐÍºÅ:JTY-ZDM-XR8002/C"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 7: {
-							SetTextValue(temp_screen_id, 24, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-GD-XR8001AI"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 24, "Ì½²âÆ÷ÐÍºÅ:JTY-GD-XR8001AI"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						default: {
-							SetTextValue(temp_screen_id, 24, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 24, "Ì½²âÆ÷ÐÍºÅ:--"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 					}
 				}
 				
-				// ï¿½ï¿½Ê¾Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+				// ÏÔÊ¾Ì½²âÆ÷´«¸ÐÆ÷ÆôÓÃ×´Ì¬
 				ptsc_entry->verb_show_ctrl.verb_sensor_state = getPointTypeMixtureDetectType(show_addr);
 				
 				if(ptsc_entry->verb_show_ctrl.last_sensor_state != ptsc_entry->verb_show_ctrl.verb_sensor_state || ptsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
@@ -12320,11 +12320,11 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 					
 					if(ptsc_entry->verb_show_ctrl.verb_sensor_state == 0)
 					{
-						SetTextValue(temp_screen_id, 25, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½Þ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(temp_screen_id, 25, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:ÎÞ´«¸ÐÆ÷Æô¶¯");
 					}
 					else
 					{
-						uint8_t first_sensor = 1;  // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						uint8_t first_sensor = 1;  // ±ê¼ÇÊÇ·ñÊÇµÚÒ»¸ö´«¸ÐÆ÷
 						uint8_t pos = 0;
 						
 						pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "%s", sensor_str[6]);
@@ -12332,7 +12332,7 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 						{
 							if( (ptsc_entry->verb_show_ctrl.verb_sensor_state >> i) & 0x01 )
 							{
-								// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó·Ö¸ï¿½ï¿½ï¿½
+								// Èç¹û²»ÊÇµÚÒ»¸ö£¬Ìí¼Ó·Ö¸ô·û
 								if(!first_sensor)
 								{
 										pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -12347,26 +12347,26 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 						SetTextValue(temp_screen_id, 25, temp_buff);
 					}
 					
-					clearTextValue(temp_screen_id , 26); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 27); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 28); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 29); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+					clearTextValue(temp_screen_id , 26); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 27); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 28); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 29); //(»­ÃæID,¿Ø¼þID£©
 				}
 
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½Ê¾Öµ
+				// ¸ù¾ÝÆôÓÃ×´Ì¬ÏÔÊ¾Öµ
 				uint8_t screen_show_id_offset = 0;
-				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x20) // ï¿½Ð¶ï¿½ï¿½Â¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x20) // ÅÐ¶ÏÎÂ¶ÈÊÇ·ñÆôÓÃ
 				{
 					ptsc_entry->verb_show_ctrl.verb_temper_value = getPointTypeMixtureReceiveData(PointTypeData_Temper, show_addr);
 					if(ptsc_entry->verb_show_ctrl.verb_temper_value != ptsc_entry->verb_show_ctrl.last_temper_value || ptsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 					{
 						ptsc_entry->verb_show_ctrl.last_temper_value = ptsc_entry->verb_show_ctrl.verb_temper_value;
-						sprintf((char *)temp_buff, "ï¿½Â¶ï¿½Öµ:%dï¿½ï¿½", ptsc_entry->verb_show_ctrl.verb_temper_value);
+						sprintf((char *)temp_buff, "ÎÂ¶ÈÖµ:%d¶È", ptsc_entry->verb_show_ctrl.verb_temper_value);
 						SetTextValue(temp_screen_id, 26 + screen_show_id_offset, temp_buff);
-						screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+						screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 					}
 				}
-				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x01) // ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x01) // ÅÐ¶ÏÑÌÎíÊÇ·ñÆôÓÃ
 				{
 					ptsc_entry->verb_show_ctrl.verb_smokes_state = getPointTypeMixtureReceiveState(PointTypeData_Smoke, show_addr);
 					
@@ -12376,49 +12376,49 @@ static void PointTypeDetectorShowApp(PointTypeShowCtrl_t *ptsc_entry)
 						
 						if(ptsc_entry->verb_show_ctrl.verb_smokes_state == 1)
 						{
-							SetTextValue(temp_screen_id, 26 + screen_show_id_offset, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+							SetTextValue(temp_screen_id, 26 + screen_show_id_offset, "ÑÌÎí×´Ì¬:±¨¾¯");
 						}
 						else
 						{
-							SetTextValue(temp_screen_id, 26 + screen_show_id_offset, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+							SetTextValue(temp_screen_id, 26 + screen_show_id_offset, "ÑÌÎí×´Ì¬:Õý³£");
 						}
-						screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+						screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 					}
 				}
 				if(ptsc_entry->verb_show_ctrl.verb_sensor_state & 0x10)
 				{
 					
-					screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+					screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 				}
 			}
-			else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			else // ÉèÖÃÆôÓÃ µ«µôÏßÁË
 			{
 				if(show_addr != ptsc_entry->verb_show_ctrl.last_detector_id || ptsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
-					ptsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					ptsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ¸üÐÂÒÖÖÆ
 					
-					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", show_addr);
-					SetTextValue(temp_screen_id, 23, temp_buff); //Ë¢ï¿½ï¿½×´Ì¬
-					SetTextValue(temp_screen_id, 24, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--"); //Ë¢ï¿½ï¿½×´Ì¬
-					SetTextValue(temp_screen_id, 25, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:--");
-					clearTextValue(temp_screen_id , 26); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 27); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 28); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 29); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:µôÏß", show_addr);
+					SetTextValue(temp_screen_id, 23, temp_buff); //Ë¢ÐÂ×´Ì¬
+					SetTextValue(temp_screen_id, 24, "Ì½²âÆ÷ÐÍºÅ:--"); //Ë¢ÐÂ×´Ì¬
+					SetTextValue(temp_screen_id, 25, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:--");
+					clearTextValue(temp_screen_id , 26); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 27); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 28); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 29); //(»­ÃæID,¿Ø¼þID£©
 				}
 			}
 			ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 0;
 		}
-		else // Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		else // Ã»ÉèÖÃÉÏÏß
 		{
-			ptsc_entry->verb_show_ctrl.verb_detector_id = 255; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextValue(temp_screen_id, 23, "ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
-			clearTextValue(temp_screen_id , 24); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 25); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 26); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 27); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 28); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 29); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+			ptsc_entry->verb_show_ctrl.verb_detector_id = 255; // ¸üÐÂÒÖÖÆ
+			SetTextValue(temp_screen_id, 23, "¸ÃÌ½²âÆ÷Î´ÆôÓÃ"); //Ë¢ÐÂ×´Ì¬
+			clearTextValue(temp_screen_id , 24); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 25); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 26); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 27); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 28); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 29); //(»­ÃæID,¿Ø¼þID£©
 		}
 
 	}
@@ -12439,55 +12439,55 @@ static void PointTypeDetectorButtonCtrlApp(PointTypeShowCtrl_t *ptsc_entry, uint
 static void PointTypeDetectorTextInputCtrlApp(PointTypeShowCtrl_t *ptsc_entry, uint16 control_id, uint8 *str)
 {
 	int32 value=0;  			
-	sscanf((const char*)str,"%ld",&value); //ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ 
+	sscanf((const char*)str,"%ld",&value); //°Ñ×Ö·û´®×ª»»ÎªÕûÊý 
 	if(control_id == 30)    
 	{
 		ptsc_entry->verb_show_ctrl.verb_detector_id = value;
 		
-		ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+		ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // Ç¿ÖÆË¢ÐÂÒ»´Î
 	}
 }
 
 static void PointTypeDetectorScreenSwitchShowApp(PointTypeShowCtrl_t *ptsc_entry)
 {
-	ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+	ptsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // ½øÈë½çÃæºóÇ¿ÖÆË¢ÐÂÒ»´Î
 }
 
-// ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½
-uint8_t last_composite_found_online_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ß¿ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+// ¸´ºÏÌ½²âÆ÷Ë¢ÐÂ
+uint8_t last_composite_found_online_state = 1; // Èç¹û¶¼Ã»ÉÏÏß¿ª¾ÖÇ¿ÖÆË¢ÐÂÒ»´Î
 void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 {
 	uint8_t temp_screen_id = 67;
 	
-	cpsc_entry->curr_fresh_time_ctrl = osKernelGetTickCount(); // ÏµÍ³ï¿½ï¿½Ç°Ê±ï¿½ï¿½ï¿½
+	cpsc_entry->curr_fresh_time_ctrl = osKernelGetTickCount(); // ÏµÍ³µ±Ç°Ê±¼ä´Á
 	
-	if(cpsc_entry->curr_fresh_time_ctrl - cpsc_entry->last_fresh_time_ctrl >= 3000 || cpsc_entry->poll_show_ctrl.key_perss_fresh != 0) // ï¿½ï¿½ï¿½ï¿½Ò»Ë¢ï¿½ï¿½
+	if(cpsc_entry->curr_fresh_time_ctrl - cpsc_entry->last_fresh_time_ctrl >= 3000 || cpsc_entry->poll_show_ctrl.key_perss_fresh != 0) // ÈýÃëÒ»Ë¢ÐÂ
 	{
 		uint8_t show_addr;
 		
 		uint8_t found_online = 0;
 		
-		cpsc_entry->last_fresh_time_ctrl = cpsc_entry->curr_fresh_time_ctrl; // ï¿½ï¿½Â¼Ë¢ï¿½ï¿½Ê±ï¿½ï¿½
+		cpsc_entry->last_fresh_time_ctrl = cpsc_entry->curr_fresh_time_ctrl; // ¼ÇÂ¼Ë¢ÐÂÊ±¼ä
 		
-		// ï¿½È½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½Ñ¯Öµ
+		// ÏÈ½«Öµ±£´æ¸øÉÏ´ÎÂÖÑ¯Öµ
 		cpsc_entry->poll_show_ctrl.last_detector_id = cpsc_entry->poll_show_ctrl.poll_circuits_id;
 
 		if(cpsc_entry->poll_show_ctrl.key_perss_fresh == 'p')
 		{
 			for(uint8_t test_addr = 0U; test_addr < MIXTURE_DEVICE_MAX_ADDR; test_addr++)
 			{
-				cpsc_entry->poll_show_ctrl.poll_circuits_id--; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ö±ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½
+				cpsc_entry->poll_show_ctrl.poll_circuits_id--; // ±éÀúÊý×é Ö±µ½ÕÒµ½ÉÏÏßµÄÊý×é
 				
 				if(cpsc_entry->poll_show_ctrl.poll_circuits_id > MIXTURE_DEVICE_MAX_ADDR || cpsc_entry->poll_show_ctrl.poll_circuits_id < 1)
 				{
 					cpsc_entry->poll_show_ctrl.poll_circuits_id = MIXTURE_DEVICE_MAX_ADDR;
 				}
 				
-				// ï¿½Ë´ï¿½ï¿½Þ¸ï¿½Îª ï¿½ï¿½ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½×´Ì¬ É¸Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+				// ´Ë´¦ÐÞ¸ÄÎª ¸´ºÏ²ÖÉÏÏßÅÐ¶Ï×´Ì¬ É¸Ñ¡³öÀ´ÉÏÏßµÄÌ½²âÆ÷ÅÐ¶Ï
 				if( cang_sxzt[ cpsc_entry->poll_show_ctrl.poll_circuits_id ] == 1 )
 				{
 					found_online = 1;
-					last_composite_found_online_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¸ï¿½×´Ì¬ï¿½ï¿½Îª1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹Ã¿ï¿½Î¶ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ø¸ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½Ä»
+					last_composite_found_online_state = 1; // Èç¹û·¢ÏÖÉÏÏß¸Ã×´Ì¬ÉèÎª1 ÓÃÀ´·ÀÖ¹Ã¿´Î¶¼Ã»ÓÐÉÏÏßÊ±ÖØ¸´Ë¢ÐÂÆÁÄ»
 					show_addr = cpsc_entry->poll_show_ctrl.poll_circuits_id;
 
 					break;
@@ -12499,7 +12499,7 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 		{
 			for(uint8_t test_addr = 0U; test_addr < MIXTURE_DEVICE_MAX_ADDR; test_addr++)
 			{
-				cpsc_entry->poll_show_ctrl.poll_circuits_id++; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ö±ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½
+				cpsc_entry->poll_show_ctrl.poll_circuits_id++; // ±éÀúÊý×é Ö±µ½ÕÒµ½ÉÏÏßµÄÊý×é
 				
 				if(cpsc_entry->poll_show_ctrl.poll_circuits_id > MIXTURE_DEVICE_MAX_ADDR || cpsc_entry->poll_show_ctrl.poll_circuits_id < 1)
 				{
@@ -12509,7 +12509,7 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 				if( cang_sxzt[ cpsc_entry->poll_show_ctrl.poll_circuits_id ] == 1 )
 				{
 					found_online = 1;
-					last_composite_found_online_state = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¸ï¿½×´Ì¬ï¿½ï¿½Îª1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹Ã¿ï¿½Î¶ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ø¸ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½Ä»
+					last_composite_found_online_state = 1; // Èç¹û·¢ÏÖÉÏÏß¸Ã×´Ì¬ÉèÎª1 ÓÃÀ´·ÀÖ¹Ã¿´Î¶¼Ã»ÓÐÉÏÏßÊ±ÖØ¸´Ë¢ÐÂÆÁÄ»
 					show_addr = cpsc_entry->poll_show_ctrl.poll_circuits_id;
 
 					break;
@@ -12519,92 +12519,92 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 			cpsc_entry->poll_show_ctrl.key_perss_fresh = 0;
 		}
 
-		if(found_online == 0 && last_composite_found_online_state != 0) // ï¿½ï¿½ï¿½Ã»ï¿½Ð·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½Ì½ï¿½ï¿½ï¿½ï¿½
+		if(found_online == 0 && last_composite_found_online_state != 0) // Èç¹ûÃ»ÓÐ·¢ÏÖÉÏÏßµÄÌ½²âÆ÷
 		{
-			last_composite_found_online_state = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			cpsc_entry->poll_show_ctrl.poll_circuits_id = cpsc_entry->poll_show_ctrl.last_detector_id; // ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½Ñ¯Öµï¿½ï¿½Ê¼
+			last_composite_found_online_state = 0; // ¸üÐÂÒÖÖÆ
+			cpsc_entry->poll_show_ctrl.poll_circuits_id = cpsc_entry->poll_show_ctrl.last_detector_id; // ´ÓÉÏ´ÎÂÖÑ¯Öµ¿ªÊ¼
 			
-			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Ê¾
-			SetTextValue(temp_screen_id, 15, "ï¿½ï¿½ï¿½Îºï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
-			clearTextValue(temp_screen_id , 16); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 17); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 18); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 19); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 20); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 21); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+			// ¸üÐÂÆÁÄ»ÏÔÊ¾
+			SetTextValue(temp_screen_id, 15, "ÎÞÈÎºÎÌ½²âÆ÷ÆôÓÃ"); //Ë¢ÐÂ×´Ì¬
+			clearTextValue(temp_screen_id , 16); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 17); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 18); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 19); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 20); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 21); //(»­ÃæID,¿Ø¼þID£©
 		}
-		else if(found_online != 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Å¸ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+		else if(found_online != 0) // ·¢ÏÖÓÐÌ½²âÆ÷ÉÏÏß ²Å¸üÐÂÏÔÊ¾
 		{
 			uint8_t temp_buff[64] = {0};
 			
-			// ï¿½Ë´ï¿½ï¿½Þ¸ï¿½Îª ï¿½Ð¶Ï¸ï¿½ï¿½Ï²ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
-			if( Cang_zx_buf[ cpsc_entry->poll_show_ctrl.poll_circuits_id ] < CabinDisconnectCount ) // Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			// ´Ë´¦ÐÞ¸ÄÎª ÅÐ¶Ï¸´ºÏ²ÖÊÇ·ñµôÏß
+			if( Cang_zx_buf[ cpsc_entry->poll_show_ctrl.poll_circuits_id ] < CabinDisconnectCount ) // Ì½²âÆ÷ÔÚÏß
 			{
 //				if(getPointTypeMixtureDetectSmokeMemory(show_addr) == 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) == 0)
 //				{
-//					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", show_addr);
+//					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß | ÎÞÎÂ¶È±¨¾¯ | ÎÞÑÌÎí±¨¾¯", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) != 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) == 0)
 //				{
-//					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", show_addr);
+//					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß | ÎÞÎÂ¶È±¨¾¯ | ÑÌÎí±¨¾¯", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) == 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) != 0)
 //				{
-//					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½ | ï¿½Â¶È±ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", show_addr);
+//					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß | ÎÂ¶È±¨¾¯ | ÎÞÑÌÎí±¨¾¯", show_addr);
 //				}
 //				else if(getPointTypeMixtureDetectSmokeMemory(show_addr) != 0 && getPointTypeMixtureDetectTempertureMemory(show_addr) != 0)
 //				{
-//					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½ | ï¿½Â¶È±ï¿½ï¿½ï¿½ | ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", show_addr);
+//					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß | ÎÂ¶È±¨¾¯ | ÑÌÎí±¨¾¯", show_addr);
 //				}
-				sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", show_addr);
-				SetTextValue(temp_screen_id, 15, temp_buff); //Ë¢ï¿½ï¿½×´Ì¬
+				sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß", show_addr);
+				SetTextValue(temp_screen_id, 15, temp_buff); //Ë¢ÐÂ×´Ì¬
 				
-				// ï¿½ï¿½Ê¾Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ ï¿½Ë´ï¿½ï¿½Þ¸ï¿½Îª 805xxxï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ÏÔÊ¾Ì½²âÆ÷ÐÍºÅ ´Ë´¦ÐÞ¸ÄÎª 805xxx¸´ºÏÌ½²âÆ÷ÀàÐÍ
 				switch( Cang_TCQXH_buf[ show_addr ] )
 				{
 					case 1: {
-						SetTextValue(temp_screen_id, 16, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-V2.0"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 16, "Ì½²âÆ÷ÐÍºÅ:XR805-V2.0"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 2: {
-						SetTextValue(temp_screen_id, 16, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXD"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 16, "Ì½²âÆ÷ÐÍºÅ:XR805-EXD"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 3: {
-						SetTextValue(temp_screen_id, 16, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXi"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 16, "Ì½²âÆ÷ÐÍºÅ:XR805-EXi"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 4: {
-						SetTextValue(temp_screen_id, 16, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR-DLYGWG"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 16, "Ì½²âÆ÷ÐÍºÅ:XR-DLYGWG"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 5: {
-						SetTextValue(temp_screen_id, 16, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-XR800B"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 16, "Ì½²âÆ÷ÐÍºÅ:JTY-XR800B"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 6: {
-						SetTextValue(temp_screen_id, 16, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-ZDM-XR8002/C"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 16, "Ì½²âÆ÷ÐÍºÅ:JTY-ZDM-XR8002/C"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					case 7: {
-						SetTextValue(temp_screen_id, 16, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-GD-XR8001AI"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 16, "Ì½²âÆ÷ÐÍºÅ:JTY-GD-XR8001AI"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 					default: {
-						SetTextValue(temp_screen_id, 16, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--"); //Ë¢ï¿½ï¿½×´Ì¬
+						SetTextValue(temp_screen_id, 16, "Ì½²âÆ÷ÐÍºÅ:--"); //Ë¢ÐÂ×´Ì¬
 						break;
 					}
 				}
 
-				// ï¿½ï¿½Ê¾Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ ï¿½Ë´ï¿½ï¿½Þ¸ï¿½Îª 805xxxï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				// ÏÔÊ¾Ì½²âÆ÷´«¸ÐÆ÷ÆôÓÃ×´Ì¬ ´Ë´¦ÐÞ¸ÄÎª 805xxx¸´ºÏÌ½²âÆ÷ÀàÐÍ
 				uint8_t sensor_enable_state = Cang_CGQQY_buf[ show_addr ];
 				if(sensor_enable_state  == 0 )
 				{
-					SetTextValue(temp_screen_id, 17, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½Þ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+					SetTextValue(temp_screen_id, 17, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:ÎÞ´«¸ÐÆ÷Æô¶¯");
 				}
 				else
 				{
-					uint8_t first_sensor = 1;  // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					uint8_t first_sensor = 1;  // ±ê¼ÇÊÇ·ñÊÇµÚÒ»¸ö´«¸ÐÆ÷
 					uint8_t pos = 0;
 					
 					pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "%s", sensor_str[6]);
@@ -12612,7 +12612,7 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 					{
 						if( (sensor_enable_state >> i) & 0x01 )
 						{
-							// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó·Ö¸ï¿½ï¿½ï¿½
+							// Èç¹û²»ÊÇµÚÒ»¸ö£¬Ìí¼Ó·Ö¸ô·û
 							if(!first_sensor)
 							{
 									pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -12627,145 +12627,145 @@ void CompositeDetectorPollCtrl(CompositeShowCtrl_t *cpsc_entry)
 					SetTextValue(temp_screen_id, 17, temp_buff);
 				}
 				
-				clearTextValue(temp_screen_id , 18); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 19); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 20); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 21); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+				clearTextValue(temp_screen_id , 18); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 19); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 20); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 21); //(»­ÃæID,¿Ø¼þID£©
 	
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½Ê¾Öµ
+				// ¸ù¾ÝÆôÓÃ×´Ì¬ÏÔÊ¾Öµ
 				uint8_t screen_show_id_offset = 0;
-				if(sensor_enable_state & 0x20) // ï¿½Ð¶ï¿½ï¿½Â¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(sensor_enable_state & 0x20) // ÅÐ¶ÏÎÂ¶ÈÊÇ·ñÆôÓÃ
 				{
-					// ï¿½Ë´ï¿½ï¿½Þ¸ï¿½Îª 805xxxï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					sprintf((char *)temp_buff, "ï¿½Â¶ï¿½Öµ:%dï¿½ï¿½", Cang_wendu_buf[ show_addr ] );
+					// ´Ë´¦ÐÞ¸ÄÎª 805xxx¸´ºÏÌ½²âÆ÷ÀàÐÍ
+					sprintf((char *)temp_buff, "ÎÂ¶ÈÖµ:%d¶È", Cang_wendu_buf[ show_addr ] );
 					SetTextValue(temp_screen_id, 18 + screen_show_id_offset, temp_buff);
-					screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+					screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 				}
-				if(sensor_enable_state & 0x01) // ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(sensor_enable_state & 0x01) // ÅÐ¶ÏÑÌÎíÊÇ·ñÆôÓÃ
 				{
 					if(Cang_YWZT_buf[ show_addr ] == 1)
 					{
-						SetTextValue(temp_screen_id, 18 + screen_show_id_offset, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(temp_screen_id, 18 + screen_show_id_offset, "ÑÌÎí×´Ì¬:±¨¾¯");
 					}
 					else
 					{
-						SetTextValue(temp_screen_id, 18 + screen_show_id_offset, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(temp_screen_id, 18 + screen_show_id_offset, "ÑÌÎí×´Ì¬:Õý³£");
 					}
-					screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+					screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 				}
-				if(sensor_enable_state & 0x10) // ï¿½Ð¶ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½Ä´ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(sensor_enable_state & 0x10) // ÅÐ¶ÏÒ»Ñõ»¯Ì¼¼Ä´æÆ÷ÊÇ·ñÆôÓÃ
 				{
-					// ï¿½Ë´ï¿½ï¿½Þ¸ï¿½Îª 805xxxï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					sprintf((char *)temp_buff, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½:%dPPM", Cang_COzhi_buf[ show_addr ] );
+					// ´Ë´¦ÐÞ¸ÄÎª 805xxx¸´ºÏÌ½²âÆ÷ÀàÐÍ
+					sprintf((char *)temp_buff, "Ò»Ñõ»¯Ì¼Å¨¶È:%dPPM", Cang_COzhi_buf[ show_addr ] );
 					SetTextValue(temp_screen_id, 18 + screen_show_id_offset, temp_buff);
-					screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+					screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 				}
-				if(sensor_enable_state & 0x04) // ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(sensor_enable_state & 0x04) // ÅÐ¶ÏÇâÆøÊÇ·ñÆôÓÃ
 				{
-					// ï¿½Ë´ï¿½ï¿½Þ¸ï¿½Îª 805xxxï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-					sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½:%dPPM", Cang_H2zhi_buf[show_addr] );
+					// ´Ë´¦ÐÞ¸ÄÎª 805xxx¸´ºÏÌ½²âÆ÷ÀàÐÍ
+					sprintf((char *)temp_buff, "ÇâÆøÅ¨¶È:%dPPM", Cang_H2zhi_buf[show_addr] );
 					SetTextValue(temp_screen_id, 18 + screen_show_id_offset, temp_buff);
-					screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+					screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 				}
 			}
-			else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			else // ·ñÔòµôÏß
 			{
-				sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", show_addr);
-				SetTextValue(temp_screen_id, 15, temp_buff); //Ë¢ï¿½ï¿½×´Ì¬
-				SetTextValue(temp_screen_id, 16, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--"); //Ë¢ï¿½ï¿½×´Ì¬
-				SetTextValue(temp_screen_id, 17, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:--");
-				clearTextValue(temp_screen_id , 18); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 19); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 20); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-				clearTextValue(temp_screen_id , 21); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+				sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:µôÏß", show_addr);
+				SetTextValue(temp_screen_id, 15, temp_buff); //Ë¢ÐÂ×´Ì¬
+				SetTextValue(temp_screen_id, 16, "Ì½²âÆ÷ÐÍºÅ:--"); //Ë¢ÐÂ×´Ì¬
+				SetTextValue(temp_screen_id, 17, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:--");
+				clearTextValue(temp_screen_id , 18); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 19); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 20); //(»­ÃæID,¿Ø¼þID£©
+				clearTextValue(temp_screen_id , 21); //(»­ÃæID,¿Ø¼þID£©
 			}
-		} // ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½Ì½ï¿½ï¿½ï¿½ï¿½
-	} // Ë¢ï¿½Â¼ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+		} // ÕÒµ½ÓÐÉèÖÃÉÏÏßµÄÌ½²âÆ÷
+	} // Ë¢ÐÂ¼ÆÊ±µ½ÁË Ë¢ÐÂÒ»´Î
 }
 
 void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 {
 	uint8_t temp_screen_id = 67;
-	// ï¿½ï¿½Ñ¯Ë¢ï¿½ï¿½
-	if(cpsc_entry->verb_show_ctrl.verb_detector_id == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½0 Ã»ï¿½Ð²ï¿½Ñ¯ID
+	// ²éÑ¯Ë¢ÐÂ
+	if(cpsc_entry->verb_show_ctrl.verb_detector_id == 0) // Èç¹ûÊÇ0 Ã»ÓÐ²éÑ¯ID
 	{
-		cpsc_entry->verb_show_ctrl.verb_detector_id = 255; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-		SetTextValue(temp_screen_id, 5, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯Ì½ï¿½ï¿½ï¿½ï¿½ID"); //Ë¢ï¿½ï¿½×´Ì¬
-		clearTextValue(temp_screen_id , 6); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 7); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 8); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 9); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 10); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-		clearTextValue(temp_screen_id , 11); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+		cpsc_entry->verb_show_ctrl.verb_detector_id = 255; // ¸üÐÂÒÖÖÆ
+		SetTextValue(temp_screen_id, 5, "ÇëÊäÈë²éÑ¯Ì½²âÆ÷ID"); //Ë¢ÐÂ×´Ì¬
+		clearTextValue(temp_screen_id , 6); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 7); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 8); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 9); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 10); //(»­ÃæID,¿Ø¼þID£©
+		clearTextValue(temp_screen_id , 11); //(»­ÃæID,¿Ø¼þID£©
 		
-		SetTextValue(temp_screen_id, 12, "ï¿½Ë´ï¿½ï¿½ï¿½ï¿½ï¿½ID"); //Ë¢ï¿½ï¿½×´Ì¬
+		SetTextValue(temp_screen_id, 12, "´Ë´¦ÊäÈëID"); //Ë¢ÐÂ×´Ì¬
 	}
-	else if(cpsc_entry->verb_show_ctrl.verb_detector_id != 255) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·IDï¿½ï¿½ï¿½ï¿½ ï¿½Ò²ï¿½ï¿½Ç¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½Öµ
+	else if(cpsc_entry->verb_show_ctrl.verb_detector_id != 255) // Èç¹ûÓÐÕýÈ·IDÊäÈë ÇÒ²»ÊÇ¸üÐÂÒÖÖÆµÄÖµ
 	{
 		uint8_t show_addr = cpsc_entry->verb_show_ctrl.verb_detector_id;
 		
-		// 1 ï¿½Þ¸ï¿½
-		if( cang_sxzt[ show_addr ] == 1 ) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		// 1 ÐÞ¸Ä
+		if( cang_sxzt[ show_addr ] == 1 ) // Èç¹ûÉèÖÃÉÏÏßÁË
 		{
 			uint8_t temp_buff[64] = {0};
-			// ï¿½Ð¶ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ 2 ï¿½Þ¸ï¿½
+			// ÅÐ¶ÏÌ½²âÆ÷ÊÇ·ñÔÚÏß 2 ÐÞ¸Ä
 			if( Cang_zx_buf[ show_addr ] < CabinDisconnectCount )
 			{
-				// ï¿½ï¿½ï¿½idï¿½ï¿½ï¿½
+				// Èç¹ûid±ä¸ü
 				if(show_addr != cpsc_entry->verb_show_ctrl.last_detector_id || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
-					cpsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					cpsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ¸üÐÂÒÖÖÆ
 					
-					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", show_addr);
-					SetTextValue(temp_screen_id, 5, temp_buff); //Ë¢ï¿½ï¿½×´Ì¬
+					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:ÔÚÏß", show_addr);
+					SetTextValue(temp_screen_id, 5, temp_buff); //Ë¢ÐÂ×´Ì¬
 				}
 				
-				// 3 ï¿½Þ¸ï¿½
+				// 3 ÐÞ¸Ä
 				cpsc_entry->verb_show_ctrl.verb_detect_name = Cang_TCQXH_buf[ show_addr ];
 				
 				if(cpsc_entry->verb_show_ctrl.lsat_detect_name != cpsc_entry->verb_show_ctrl.verb_detect_name || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
 					cpsc_entry->verb_show_ctrl.lsat_detect_name = cpsc_entry->verb_show_ctrl.verb_detect_name;
 					
-					// ï¿½ï¿½Ê¾Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½
+					// ÏÔÊ¾Ì½²âÆ÷ÐÍºÅ
 					switch(cpsc_entry->verb_show_ctrl.verb_detect_name)
 					{
 						case 1: {
-							SetTextValue(temp_screen_id, 6, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-V2.0"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 6, "Ì½²âÆ÷ÐÍºÅ:XR805-V2.0"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 2: {
-							SetTextValue(temp_screen_id, 6, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXD"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 6, "Ì½²âÆ÷ÐÍºÅ:XR805-EXD"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 3: {
-							SetTextValue(temp_screen_id, 6, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR805-EXi"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 6, "Ì½²âÆ÷ÐÍºÅ:XR805-EXi"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 4: {
-							SetTextValue(temp_screen_id, 6, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:XR-DLYGWG"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 6, "Ì½²âÆ÷ÐÍºÅ:XR-DLYGWG"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 5: {
-							SetTextValue(temp_screen_id, 6, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-XR800B"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 6, "Ì½²âÆ÷ÐÍºÅ:JTY-XR800B"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 6: {
-							SetTextValue(temp_screen_id, 6, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-ZDM-XR8002/C"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 6, "Ì½²âÆ÷ÐÍºÅ:JTY-ZDM-XR8002/C"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						case 7: {
-							SetTextValue(temp_screen_id, 6, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:JTY-GD-XR8001AI"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 6, "Ì½²âÆ÷ÐÍºÅ:JTY-GD-XR8001AI"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 						default: {
-							SetTextValue(temp_screen_id, 6, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--"); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(temp_screen_id, 6, "Ì½²âÆ÷ÐÍºÅ:--"); //Ë¢ÐÂ×´Ì¬
 							break;
 						}
 					}
 				}
 				
-				// ï¿½ï¿½Ê¾Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ 4 ï¿½Þ¸ï¿½
+				// ÏÔÊ¾Ì½²âÆ÷´«¸ÐÆ÷ÆôÓÃ×´Ì¬ 4 ÐÞ¸Ä
 				cpsc_entry->verb_show_ctrl.verb_sensor_state = Cang_CGQQY_buf[ show_addr ];
 				
 				if(cpsc_entry->verb_show_ctrl.last_sensor_state != cpsc_entry->verb_show_ctrl.verb_sensor_state || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
@@ -12774,11 +12774,11 @@ void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 					
 					if(cpsc_entry->verb_show_ctrl.verb_sensor_state == 0)
 					{
-						SetTextValue(temp_screen_id, 7, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½Þ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+						SetTextValue(temp_screen_id, 7, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:ÎÞ´«¸ÐÆ÷Æô¶¯");
 					}
 					else
 					{
-						uint8_t first_sensor = 1;  // ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						uint8_t first_sensor = 1;  // ±ê¼ÇÊÇ·ñÊÇµÚÒ»¸ö´«¸ÐÆ÷
 						uint8_t pos = 0;
 						
 						pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "%s", sensor_str[6]);
@@ -12786,7 +12786,7 @@ void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 						{
 							if( (cpsc_entry->verb_show_ctrl.verb_sensor_state >> i) & 0x01 )
 							{
-								// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó·Ö¸ï¿½ï¿½ï¿½
+								// Èç¹û²»ÊÇµÚÒ»¸ö£¬Ìí¼Ó·Ö¸ô·û
 								if(!first_sensor)
 								{
 										pos += snprintf((char *)temp_buff + pos, sizeof(temp_buff) - pos, "/");
@@ -12801,26 +12801,26 @@ void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 						SetTextValue(temp_screen_id, 7, temp_buff);
 					}
 					
-					clearTextValue(temp_screen_id , 8); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 9); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 10); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 11); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+					clearTextValue(temp_screen_id , 8); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 9); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 10); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 11); //(»­ÃæID,¿Ø¼þID£©
 				}
 
-				// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½Ê¾Öµ
+				// ¸ù¾ÝÆôÓÃ×´Ì¬ÏÔÊ¾Öµ
 				uint8_t screen_show_id_offset = 0;
-				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x20) // ï¿½Ð¶ï¿½ï¿½Â¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x20) // ÅÐ¶ÏÎÂ¶ÈÊÇ·ñÆôÓÃ
 				{
 					cpsc_entry->verb_show_ctrl.verb_temper_value = Cang_wendu_buf[ show_addr ];
 					if(cpsc_entry->verb_show_ctrl.verb_temper_value != cpsc_entry->verb_show_ctrl.last_temper_value || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 					{
 						cpsc_entry->verb_show_ctrl.last_temper_value = cpsc_entry->verb_show_ctrl.verb_temper_value;
-						sprintf((char *)temp_buff, "ï¿½Â¶ï¿½Öµ:%dï¿½ï¿½", cpsc_entry->verb_show_ctrl.verb_temper_value);
+						sprintf((char *)temp_buff, "ÎÂ¶ÈÖµ:%d¶È", cpsc_entry->verb_show_ctrl.verb_temper_value);
 						SetTextValue(temp_screen_id, 8 + screen_show_id_offset, temp_buff);
-						screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+						screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 					}
 				}
-				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x01) // ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x01) // ÅÐ¶ÏÑÌÎíÊÇ·ñÆôÓÃ
 				{
 					cpsc_entry->verb_show_ctrl.verb_smokes_state = Cang_wendu_buf[ show_addr ];
 					
@@ -12830,74 +12830,74 @@ void CompositeDetectorVerbCtrl(CompositeShowCtrl_t *cpsc_entry)
 						
 						if(cpsc_entry->verb_show_ctrl.verb_smokes_state == 1)
 						{
-							SetTextValue(temp_screen_id, 8 + screen_show_id_offset, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+							SetTextValue(temp_screen_id, 8 + screen_show_id_offset, "ÑÌÎí×´Ì¬:±¨¾¯");
 						}
 						else
 						{
-							SetTextValue(temp_screen_id, 8 + screen_show_id_offset, "ï¿½ï¿½ï¿½ï¿½×´Ì¬:ï¿½ï¿½ï¿½ï¿½");
+							SetTextValue(temp_screen_id, 8 + screen_show_id_offset, "ÑÌÎí×´Ì¬:Õý³£");
 						}
-						screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+						screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 					}
 				}
-				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x10) // ï¿½Ð¶ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½Ä´ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x10) // ÅÐ¶ÏÒ»Ñõ»¯Ì¼¼Ä´æÆ÷ÊÇ·ñÆôÓÃ
 				{
-					// ï¿½Ë´ï¿½ï¿½Þ¸ï¿½Îª 805xxxï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					// ´Ë´¦ÐÞ¸ÄÎª 805xxx¸´ºÏÌ½²âÆ÷ÀàÐÍ
 					cpsc_entry->verb_show_ctrl.verb_carbon_value = Cang_COzhi_buf[ show_addr ];
 					if(cpsc_entry->verb_show_ctrl.last_carbon_value != cpsc_entry->verb_show_ctrl.verb_carbon_value || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 					{
-						// ï¿½ï¿½ï¿½Ó¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// Ìí¼Ó¸üÐÂÒÖÖÆ
 						cpsc_entry->verb_show_ctrl.last_carbon_value = cpsc_entry->verb_show_ctrl.verb_carbon_value;
 						
-						sprintf((char *)temp_buff, "Ò»ï¿½ï¿½ï¿½ï¿½Ì¼Å¨ï¿½ï¿½:%dPPM", cpsc_entry->verb_show_ctrl.verb_carbon_value );
+						sprintf((char *)temp_buff, "Ò»Ñõ»¯Ì¼Å¨¶È:%dPPM", cpsc_entry->verb_show_ctrl.verb_carbon_value );
 						SetTextValue(temp_screen_id, 8 + screen_show_id_offset, temp_buff);
-						screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+						screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 					}
 				}
-				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x04) // ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
+				if(cpsc_entry->verb_show_ctrl.verb_sensor_state & 0x04) // ÅÐ¶ÏÇâÆøÊÇ·ñÆôÓÃ
 				{
 					
 					cpsc_entry->verb_show_ctrl.verb_hydrog_value = Cang_H2zhi_buf[ show_addr ]; 
 					
 					if(cpsc_entry->verb_show_ctrl.lsat_hydrog_value != cpsc_entry->verb_show_ctrl.verb_hydrog_value || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 					{
-						// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						// ¸üÐÂÒÖÖÆ
 						cpsc_entry->verb_show_ctrl.lsat_hydrog_value = cpsc_entry->verb_show_ctrl.verb_hydrog_value;
 						
-						// ï¿½Ë´ï¿½ï¿½Þ¸ï¿½Îª 805xxxï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-						sprintf((char *)temp_buff, "ï¿½ï¿½ï¿½ï¿½Å¨ï¿½ï¿½:%dPPM", cpsc_entry->verb_show_ctrl.verb_hydrog_value );
+						// ´Ë´¦ÐÞ¸ÄÎª 805xxx¸´ºÏÌ½²âÆ÷ÀàÐÍ
+						sprintf((char *)temp_buff, "ÇâÆøÅ¨¶È:%dPPM", cpsc_entry->verb_show_ctrl.verb_hydrog_value );
 						SetTextValue(temp_screen_id, 8 + screen_show_id_offset, temp_buff);
-						screen_show_id_offset++; // ï¿½Þ¸Äµï¿½Ö·Æ«ï¿½ï¿½ 
+						screen_show_id_offset++; // ÐÞ¸ÄµØÖ·Æ«ÒÆ 
 					}
 				}
 			}
-			else // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			else // ÉèÖÃÆôÓÃ µ«µôÏßÁË
 			{
 				if(show_addr != cpsc_entry->verb_show_ctrl.last_detector_id || cpsc_entry->verb_show_ctrl.force_fresh_ctrl == 1)
 				{
-					cpsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					cpsc_entry->verb_show_ctrl.last_detector_id = show_addr; // ¸üÐÂÒÖÖÆ
 					
-					sprintf((char *)temp_buff, "Ì½ï¿½ï¿½ï¿½ï¿½%d×´Ì¬:ï¿½ï¿½ï¿½ï¿½", show_addr);
-					SetTextValue(temp_screen_id, 5, temp_buff); //Ë¢ï¿½ï¿½×´Ì¬
-					SetTextValue(temp_screen_id, 6, "Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½:--"); //Ë¢ï¿½ï¿½×´Ì¬
-					SetTextValue(temp_screen_id, 7, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬:--");
-					clearTextValue(temp_screen_id , 8); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 9); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 10); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-					clearTextValue(temp_screen_id , 11); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+					sprintf((char *)temp_buff, "Ì½²âÆ÷%d×´Ì¬:µôÏß", show_addr);
+					SetTextValue(temp_screen_id, 5, temp_buff); //Ë¢ÐÂ×´Ì¬
+					SetTextValue(temp_screen_id, 6, "Ì½²âÆ÷ÐÍºÅ:--"); //Ë¢ÐÂ×´Ì¬
+					SetTextValue(temp_screen_id, 7, "´«¸ÐÆ÷ÆôÓÃ×´Ì¬:--");
+					clearTextValue(temp_screen_id , 8); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 9); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 10); //(»­ÃæID,¿Ø¼þID£©
+					clearTextValue(temp_screen_id , 11); //(»­ÃæID,¿Ø¼þID£©
 				}
 			}
 			cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 0;
 		}
-		else // Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		else // Ã»ÉèÖÃÉÏÏß
 		{
-			cpsc_entry->verb_show_ctrl.verb_detector_id = 255; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			SetTextValue(temp_screen_id, 5, "ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
-			clearTextValue(temp_screen_id , 6); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 7); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 8); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 9); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 10); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
-			clearTextValue(temp_screen_id , 11); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+			cpsc_entry->verb_show_ctrl.verb_detector_id = 255; // ¸üÐÂÒÖÖÆ
+			SetTextValue(temp_screen_id, 5, "¸ÃÌ½²âÆ÷Î´ÆôÓÃ"); //Ë¢ÐÂ×´Ì¬
+			clearTextValue(temp_screen_id , 6); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 7); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 8); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 9); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 10); //(»­ÃæID,¿Ø¼þID£©
+			clearTextValue(temp_screen_id , 11); //(»­ÃæID,¿Ø¼þID£©
 		}
 
 	}
@@ -12924,18 +12924,18 @@ static void CompositeDetectorButtonCtrlApp(CompositeShowCtrl_t *cpsc_entry, uint
 static void CompositeDetectorTextInputCtrlApp(CompositeShowCtrl_t *cpsc_entry, uint16 control_id, uint8 *str)
 {
 	int32 value=0;  			
-	sscanf((const char*)str,"%ld",&value); //ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ 
+	sscanf((const char*)str,"%ld",&value); //°Ñ×Ö·û´®×ª»»ÎªÕûÊý 
 	if(control_id == 12)    
 	{
 		cpsc_entry->verb_show_ctrl.verb_detector_id = value;
 		
-		cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+		cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // Ç¿ÖÆË¢ÐÂÒ»´Î
 	}
 }
 
 static void CompositeDetectorScreenSwitchShowApp(CompositeShowCtrl_t *cpsc_entry)
 {
-	cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Ë¢ï¿½ï¿½Ò»ï¿½ï¿½
+	cpsc_entry->verb_show_ctrl.force_fresh_ctrl = 1; // ½øÈë½çÃæºóÇ¿ÖÆË¢ÐÂÒ»´Î
 }
 
 UART_HandleTypeDef *getSimulateSirealPortSendHandle(uint8_t port_comid)
@@ -12957,7 +12957,7 @@ UART_HandleTypeDef *getSimulateSirealPortSendHandle(uint8_t port_comid)
 			break;
 		}
 		case 4:{
-			uart_handle = &huart3; // EMSï¿½ï¿½ï¿½ï¿½
+			uart_handle = &huart3; // EMS´®¿Ú
 			break;
 		}
 		case 5:{
@@ -12965,7 +12965,7 @@ UART_HandleTypeDef *getSimulateSirealPortSendHandle(uint8_t port_comid)
 			break;
 		}
 		case 6:{
-			uart_handle = NULL; /* XR5000_UART5_EXCLUSIVE_FIX_20260730 */ // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß´ï¿½ï¿½ï¿½
+			uart_handle = NULL; /* XR5000_UART5_EXCLUSIVE_FIX_20260730 */ // ¿ØÖÆ×ÜÏß´®¿Ú
 			break;
 		}
 		default:{
@@ -12995,15 +12995,15 @@ eUartOrder getSimulateSirealPortReceiveIndex(uint8_t port_comid)
 			break;
 		}
 		case 4:{
-			temp_order = EMSSITE; // EMSï¿½ï¿½ï¿½ï¿½
+			temp_order = EMSSITE; // EMS´®¿Ú
 			break;
 		}
 		case 5:{
-			temp_order = STATION_OPTICALFIBER; // ï¿½ï¿½Õ¾ï¿½ï¿½ï¿½ï¿½
+			temp_order = STATION_OPTICALFIBER; // ³¡Õ¾´®¿Ú
 			break;
 		}
 		case 6:{
-			temp_order = ERRORSITE; /* XR5000_UART5_EXCLUSIVE_FIX_20260730 */ // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß´ï¿½ï¿½ï¿½
+			temp_order = ERRORSITE; /* XR5000_UART5_EXCLUSIVE_FIX_20260730 */ // ¿ØÖÆ×ÜÏß´®¿Ú
 			break;
 		}
 		default:{
@@ -13019,48 +13019,48 @@ static void SimulationSerialPortFirstFresh(SimulationSerialPortAssistant_t *sspa
 {
 	if(sspa_entry->serial_port_state == 0)
 	{
-		SetTextValue(3, 9, "ï¿½ò¿ª´ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+		SetTextValue(3, 9, "´ò¿ª´®¿Ú"); //Ë¢ÐÂ×´Ì¬
 	}
 	else
 	{
-		SetTextValue(3, 9, "ï¿½Ø±Õ´ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+		SetTextValue(3, 9, "¹Ø±Õ´®¿Ú"); //Ë¢ÐÂ×´Ì¬
 	}
 	
 	if(sspa_entry->serial_port_comid == 0 || sspa_entry->serial_port_comid == 0xFF)
 	{
-		clearTextValue(3, 6); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+		clearTextValue(3, 6); //(»­ÃæID,¿Ø¼þID£©
 	}
 	
 	if(sspa_entry->serial_port_send_mode == 0)
 	{
-		SetTextValue(3, 32, "ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+		SetTextValue(3, 32, "×Ö·û´®·¢ËÍ"); //Ë¢ÐÂ×´Ì¬
 	}
 	else
 	{
-		SetTextValue(3, 32, "16ï¿½ï¿½ï¿½Æ·ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+		SetTextValue(3, 32, "16½øÖÆ·¢ËÍ"); //Ë¢ÐÂ×´Ì¬
 	}
 	
 	if(sspa_entry->serial_port_show_mode == 0)
 	{
-		SetTextValue(3, 36, "ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+		SetTextValue(3, 36, "×Ö·û´®½ÓÊÕ"); //Ë¢ÐÂ×´Ì¬
 	}
 	else
 	{
-		SetTextValue(3, 36, "16ï¿½ï¿½ï¿½Æ½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+		SetTextValue(3, 36, "16½øÖÆ½ÓÊÕ"); //Ë¢ÐÂ×´Ì¬
 	}
 	
 	if(sspa_entry->serial_port_send_new_row == 0)
 	{
-		SetTextValue(3, 38, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+		SetTextValue(3, 38, "²»·¢ËÍÐÂÐÐ"); //Ë¢ÐÂ×´Ì¬
 	}
 	else
 	{
-		SetTextValue(3, 38, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+		SetTextValue(3, 38, "·¢ËÍÐÂÐÐ"); //Ë¢ÐÂ×´Ì¬
 	}
 	
 	if(sspa_entry->serial_port_send_len == 0)
 	{
-		clearTextValue(3, 28); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+		clearTextValue(3, 28); //(»­ÃæID,¿Ø¼þID£©
 	}
 
 }
@@ -13071,47 +13071,47 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 	
 	switch(ctrl_id)
 	{
-		case 10: { // ï¿½ò¿ª´ï¿½ï¿½Ú°ï¿½ï¿½ï¿½
-			if(sspa_entry->serial_port_state == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½ï¿½Ç¹Ø±ï¿½×´Ì¬
+		case 10: { // ´ò¿ª´®¿Ú°´¼ü
+			if(sspa_entry->serial_port_state == 0) // Èç¹ûÏÖÔÚ´®¿ÚÊÇ¹Ø±Õ×´Ì¬
 			{
-				if(sspa_entry->serial_port_comid != 0xFF && sspa_entry->serial_port_comid != 6U) // ï¿½ï¿½ï¿½ï¿½Ë¿Úºï¿½ï¿½ï¿½È·
+				if(sspa_entry->serial_port_comid != 0xFF && sspa_entry->serial_port_comid != 6U) // Èç¹û¶Ë¿ÚºÅÕýÈ·
 				{
 					eUartOrder temp_order = ERRORSITE;
 					temp_order = getSimulateSirealPortReceiveIndex(sspa_entry->serial_port_comid);
-					if(temp_order != ERRORSITE) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ID
+					if(temp_order != ERRORSITE) // Èç¹ûÊÇÕýÈ·µÄID
 					{
 						uartbuff[temp_order].recepetion_flag = 0;
 						memset(uartbuff[temp_order].recepetion_buff, 0, BUFF_MAX);
 					}
-					sspa_entry->serial_port_state = 1; // ï¿½ò¿ª´ï¿½ï¿½ï¿½
-					SuspendTask(sspa_entry->serial_port_comid); // ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½Ú¿ï¿½ï¿½ï¿½
-					SetTextValue(3, 9, "ï¿½Ø±Õ´ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+					sspa_entry->serial_port_state = 1; // ´ò¿ª´®¿Ú
+					SuspendTask(sspa_entry->serial_port_comid); // ¹ÒÆð¶ÔÓ¦µÄÈÎÎñÊ¹´®¿Ú¿ÕÏÐ
+					SetTextValue(3, 9, "¹Ø±Õ´®¿Ú"); //Ë¢ÐÂ×´Ì¬
 				}
 			}
 			else
 			{
 				eUartOrder temp_order = ERRORSITE;
 				temp_order = getSimulateSirealPortReceiveIndex(sspa_entry->serial_port_comid);
-				if(temp_order != ERRORSITE) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ID
+				if(temp_order != ERRORSITE) // Èç¹ûÊÇÕýÈ·µÄID
 				{
 					uartbuff[temp_order].recepetion_flag = 0;
 					memset(uartbuff[temp_order].recepetion_buff, 0, BUFF_MAX);
 				}
-				sspa_entry->serial_port_state = 0; // ï¿½Ø±Õ´ï¿½ï¿½ï¿½
-				ResumeTask(sspa_entry->serial_port_comid); // ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ 
-				SetTextValue(3, 9, "ï¿½ò¿ª´ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+				sspa_entry->serial_port_state = 0; // ¹Ø±Õ´®¿Ú
+				ResumeTask(sspa_entry->serial_port_comid); // »Ö¸´´®¿Ú 
+				SetTextValue(3, 9, "´ò¿ª´®¿Ú"); //Ë¢ÐÂ×´Ì¬
 			}
 			break;
 		}
-		case 14: { // ï¿½ï¿½ï¿½Í°ï¿½ï¿½ï¿½
-			if(sspa_entry->serial_port_state == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç´ò¿ªµï¿½
+		case 14: { // ·¢ËÍ°´¼ü
+			if(sspa_entry->serial_port_state == 1) // Èç¹û´®¿ÚÊÇ´ò¿ªµÄ
 			{
-				if(sspa_entry->serial_port_send_len != 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½Ä³ï¿½ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½0
+				if(sspa_entry->serial_port_send_len != 0) // Èç¹û·¢ËÍ»º³åÇøÌáÈ¡µÄ³¤¶È²»µÈÓÚ0
 				{
 					temp_uart = getSimulateSirealPortSendHandle(sspa_entry->serial_port_comid);
 					if(temp_uart != NULL)
 					{
-						if(sspa_entry->serial_port_send_new_row == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+						if(sspa_entry->serial_port_send_new_row == 1) // ·¢ËÍÐÂÐÐ
 						{
 							uint8_t temp_send_buff[256];
 							uint8_t temp_buff_len = sspa_entry->serial_port_send_len;
@@ -13121,11 +13121,11 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 							temp_send_buff[temp_buff_len++] = '\r';
 							temp_send_buff[temp_buff_len++] = '\n';
 							
-							HAL_UART_Transmit(temp_uart, temp_send_buff, temp_buff_len, 0xff); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+							HAL_UART_Transmit(temp_uart, temp_send_buff, temp_buff_len, 0xff); // ·¢ËÍÊý¾Ý
 						}
 						else
 						{
-							HAL_UART_Transmit(temp_uart, sspa_entry->serial_port_send_buff, sspa_entry->serial_port_send_len, 0xff); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+							HAL_UART_Transmit(temp_uart, sspa_entry->serial_port_send_buff, sspa_entry->serial_port_send_len, 0xff); // ·¢ËÍÊý¾Ý
 						}
 						
 					}
@@ -13134,26 +13134,26 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 			
 			break;
 		}
-		case 30: { // ï¿½ï¿½Ñ¯È«ï¿½ï¿½ï¿½ï¿½ï¿½Ã°ï¿½ï¿½ï¿½
-			if(sspa_entry->serial_port_state == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç´ò¿ªµï¿½
+		case 30: { // ²éÑ¯È«²¿ÅäÖÃ°´¼ü
+			if(sspa_entry->serial_port_state == 1) // Èç¹û´®¿ÚÊÇ´ò¿ªµÄ
 			{
 				temp_uart = getSimulateSirealPortSendHandle(sspa_entry->serial_port_comid);
 				if(temp_uart != NULL)
 				{
 					char cxpz_buff[] = "##,CXPZ,$$\r\n";
-					HAL_UART_Transmit(temp_uart, (uint8_t *)cxpz_buff, strlen(cxpz_buff), 0xff); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					HAL_UART_Transmit(temp_uart, (uint8_t *)cxpz_buff, strlen(cxpz_buff), 0xff); // ·¢ËÍÊý¾Ý
 				}
 			}
 			break;
 		}
-		case 31: { // ï¿½Ö¸ï¿½Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-			if(sspa_entry->serial_port_state == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç´ò¿ªµï¿½
+		case 31: { // »Ö¸´Ä¬ÈÏÅäÖÃ
+			if(sspa_entry->serial_port_state == 1) // Èç¹û´®¿ÚÊÇ´ò¿ªµÄ
 			{
 				temp_uart = getSimulateSirealPortSendHandle(sspa_entry->serial_port_comid);
 				if(temp_uart != NULL)
 				{
 					char cxpz_buff[] = "##,RESETALL,$$\r\n";
-					HAL_UART_Transmit(temp_uart, (uint8_t *)cxpz_buff, strlen(cxpz_buff), 0xff); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+					HAL_UART_Transmit(temp_uart, (uint8_t *)cxpz_buff, strlen(cxpz_buff), 0xff); // ·¢ËÍÊý¾Ý
 				}
 			}
 			break;
@@ -13161,34 +13161,34 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 		case 29: {
 			eUartOrder temp_order = ERRORSITE;
 			temp_order = getSimulateSirealPortReceiveIndex(sspa_entry->serial_port_comid);
-			if(temp_order != ERRORSITE) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ID
+			if(temp_order != ERRORSITE) // Èç¹ûÊÇÕýÈ·µÄID
 			{
 				uartbuff[temp_order].recepetion_flag = 0;
 				memset(uartbuff[temp_order].recepetion_buff, 0, BUFF_MAX);
 			}
 			
-			sspa_entry->serial_port_state = 0; // ï¿½Ø±Õ´ï¿½ï¿½ï¿½
-			ResumeTask(sspa_entry->serial_port_comid); // ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ 
-			SetTextValue(3, 9, "ï¿½ò¿ª´ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+			sspa_entry->serial_port_state = 0; // ¹Ø±Õ´®¿Ú
+			ResumeTask(sspa_entry->serial_port_comid); // »Ö¸´´®¿Ú 
+			SetTextValue(3, 9, "´ò¿ª´®¿Ú"); //Ë¢ÐÂ×´Ì¬
 			break;
 		}
 		case 35: {
 			for(uint8_t i = 15; i < 28; i++)
 			{
-				clearTextValue(3 , i); //(ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ø¼ï¿½IDï¿½ï¿½
+				clearTextValue(3 , i); //(»­ÃæID,¿Ø¼þID£©
 			}
 			sspa_entry->serial_port_show_offset = 0;
 			break;
 		}
-		case 33: { // ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		case 33: { // ×Ö·û´®·¢ËÍ
 			sspa_entry->serial_port_send_mode = !sspa_entry->serial_port_send_mode;
 			if(sspa_entry->serial_port_send_mode == 0)
 			{
-				SetTextValue(3, 32, "ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+				SetTextValue(3, 32, "×Ö·û´®·¢ËÍ"); //Ë¢ÐÂ×´Ì¬
 			}
 			else
 			{
-				SetTextValue(3, 32, "16ï¿½ï¿½ï¿½Æ·ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+				SetTextValue(3, 32, "16½øÖÆ·¢ËÍ"); //Ë¢ÐÂ×´Ì¬
 			}
 			
 			
@@ -13198,11 +13198,11 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 			sspa_entry->serial_port_show_mode = !sspa_entry->serial_port_show_mode;
 			if(sspa_entry->serial_port_show_mode == 0)
 			{
-				SetTextValue(3, 36, "ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+				SetTextValue(3, 36, "×Ö·û´®½ÓÊÕ"); //Ë¢ÐÂ×´Ì¬
 			}
 			else
 			{
-				SetTextValue(3, 36, "16ï¿½ï¿½ï¿½Æ½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+				SetTextValue(3, 36, "16½øÖÆ½ÓÊÕ"); //Ë¢ÐÂ×´Ì¬
 			}
 			break;
 		}
@@ -13211,11 +13211,11 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 			
 			if(sspa_entry->serial_port_send_new_row == 0)
 			{
-				SetTextValue(3, 38, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+				SetTextValue(3, 38, "²»·¢ËÍÐÂÐÐ"); //Ë¢ÐÂ×´Ì¬
 			}
 			else
 			{
-				SetTextValue(3, 38, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"); //Ë¢ï¿½ï¿½×´Ì¬
+				SetTextValue(3, 38, "·¢ËÍÐÂÐÐ"); //Ë¢ÐÂ×´Ì¬
 			}
 			
 			break;
@@ -13228,7 +13228,7 @@ static void SimulationSerialPortButtonCtrl(SimulationSerialPortAssistant_t *sspa
 static void SimulationSerialPortMenuCtrl(SimulationSerialPortAssistant_t *sspa_entry, uint16_t ctrl_id, uint8_t item, uint8_t state)
 {
     if (ctrl_id != 8 || state != 1) {
-        return;  // ï¿½ï¿½Ç°ï¿½ï¿½ï¿½Ø£ï¿½ï¿½ï¿½ï¿½ï¿½Ç¶ï¿½×²ã¼¶
+        return;  // ÌáÇ°·µ»Ø£¬¼õÉÙÇ¶Ì×²ã¼¶
     }
 
     uint8_t new_com_id = item + 1;
@@ -13239,21 +13239,21 @@ static void SimulationSerialPortMenuCtrl(SimulationSerialPortAssistant_t *sspa_e
         return;
     }
     
-    // ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ÎºÎ²ï¿½ï¿½ï¿½
+    // Èç¹ûÑ¡ÔñµÄÊÇÍ¬Ò»¸ö´®¿Ú£¬²»ÐèÒªÈÎºÎ²Ù×÷
     if (new_com_id == current_com_id) {
         return;
     }
     
-    // Ö»ï¿½Ðµï¿½ï¿½ï¿½ï¿½Úµï¿½Ç°ï¿½Ç´ï¿½×´Ì¬Ê±ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½
+    // Ö»ÓÐµ±´®¿Úµ±Ç°ÊÇ´ò¿ª×´Ì¬Ê±²ÅÐèÒª´¦Àí¹ÒÆð/»Ö¸´²Ù×÷
     if (sspa_entry->serial_port_state == 1 && current_com_id != 0) {
-        // ï¿½Ö¸ï¿½ï¿½ï¿½Ç°Ê¹ï¿½ÃµÄ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        // »Ö¸´µ±Ç°Ê¹ÓÃµÄ´®¿ÚÈÎÎñ
         ResumeTask(current_com_id);
         
-        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        // ¹ÒÆðÐÂÑ¡ÔñµÄ´®¿ÚÈÎÎñ
         SuspendTask(new_com_id);
     }
     
-    // ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½Ä´ï¿½ï¿½ï¿½ID
+    // ¸üÐÂÑ¡ÔñµÄ´®¿ÚID
     sspa_entry->serial_port_comid = new_com_id;
 }
 
@@ -13261,12 +13261,12 @@ static void SimulationSerialPortTextCtrl(SimulationSerialPortAssistant_t *sspa_e
 {
 	UART_HandleTypeDef *temp_uart = NULL;
 	
-	if(control_id == 4) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ¸Äµï¿½Ö·ï¿½Ø¼ï¿½
+	if(control_id == 4) // Èç¹ûÊÇÐÞ¸ÄµØÖ·¿Ø¼þ
 	{
 		int slave_addr;
 		sscanf((const char *)str, "%d", &slave_addr);
 		
-		if(sspa_entry->serial_port_state == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç´ò¿ªµï¿½
+		if(sspa_entry->serial_port_state == 1) // Èç¹û´®¿ÚÊÇ´ò¿ªµÄ
 		{
 			temp_uart = getSimulateSirealPortSendHandle(sspa_entry->serial_port_comid);
 			if(temp_uart != NULL)
@@ -13274,7 +13274,7 @@ static void SimulationSerialPortTextCtrl(SimulationSerialPortAssistant_t *sspa_e
 				uint8_t buff_len;
 				uint8_t cxpz_buff[32];
 				buff_len = sprintf((char *)cxpz_buff, "##,ADR=%d,$$\r\n", slave_addr);
-				HAL_UART_Transmit(temp_uart, cxpz_buff, buff_len, 0xff); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				HAL_UART_Transmit(temp_uart, cxpz_buff, buff_len, 0xff); // ·¢ËÍÊý¾Ý
 			}
 		}
 		
@@ -13299,17 +13299,17 @@ static void SimulationSerialPortTextCtrl(SimulationSerialPortAssistant_t *sspa_e
 							continue;
 					}
 					
-					// ×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê®ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½Îªï¿½ï¿½Öµ
+					// ×ª»»µ¥¸öÊ®Áù½øÖÆ×Ö·ûÎªÊýÖµ
 					if(c >= '0' && c <= '9') value = c - '0';
 					else if(c >= 'A' && c <= 'F') value = c - 'A' + 10;
 					else if(c >= 'a' && c <= 'f') value = c - 'a' + 10;
 					else {
-							str_point++; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½Ö·ï¿½
+							str_point++; // Ìø¹ýÎÞÐ§×Ö·û
 							continue;
 					}
 					
 					if(!got_high_nibble) {
-							high_nibble = value << 4; // ï¿½ï¿½4Î»
+							high_nibble = value << 4; // ¸ß4Î»
 							got_high_nibble = 1;
 					} else {
 							sspa_entry->serial_port_send_buff[buff_point++] = high_nibble | value;
@@ -13334,12 +13334,12 @@ void HexToHexStringLight(uint8_t *data, uint8_t len, uint8_t *output)
     uint8_t pos = 0;
     
     for(uint8_t i = 0; i < len; i++) {
-        // ï¿½ï¿½4Î»
+        // ¸ß4Î»
         output[pos++] = hex_chars[(data[i] >> 4) & 0x0F];
-        // ï¿½ï¿½4Î»
+        // ¸ß4Î»
         output[pos++] = hex_chars[data[i] & 0x0F];
         
-        // Ã¿ï¿½ï¿½ï¿½Ö½Úºï¿½ï¿½ï¿½ï¿½Ó¿Õ¸ñ£¨µï¿½Ç°ï¿½ï¿½ï¿½ï¿½Ã¿2ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Ó¿Õ¸ï¿½
+        // Ã¿¸ö×Ö½ÚºóÌí¼Ó¿Õ¸ñ£¨µ±Ç°¾ÍÊÇÃ¿2¸ö×Ö·û¼Ó¿Õ¸ñ£©
         if(i < len - 1) {
             output[pos++] = ' ';
         }
@@ -13351,21 +13351,21 @@ static void SimulationSerialPortScreenShowApp(SimulationSerialPortAssistant_t *s
 {
 	eUartOrder temp_order = ERRORSITE;
 	
-	if(sspa_entry->serial_port_state == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç´ò¿ªµï¿½
+	if(sspa_entry->serial_port_state == 1) // Èç¹û´®¿ÚÊÇ´ò¿ªµÄ
 	{
 		temp_order = getSimulateSirealPortReceiveIndex(sspa_entry->serial_port_comid);
 		if(temp_order != ERRORSITE)
 		{
-			if(uartbuff[temp_order].recepetion_flag == 1) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õµï¿½ï¿½ï¿½
+			if(uartbuff[temp_order].recepetion_flag == 1) // Èç¹û½ÓÊÕµ½ÁË
 			{
-				uartbuff[temp_order].recepetion_flag = 0; // ï¿½ï¿½Õ½ï¿½ï¿½ï¿½
+				uartbuff[temp_order].recepetion_flag = 0; // Çå¿Õ½ÓÊÕ
 				
-				if(sspa_entry->serial_port_show_mode == 1) // 16ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+				if(sspa_entry->serial_port_show_mode == 1) // 16½øÖÆÏÔÊ¾
 				{
-					uint8_t serial_port_receive_buff[256]; // ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý±ï¿½ï¿½16ï¿½ï¿½ï¿½ï¿½
+					uint8_t serial_port_receive_buff[256]; // ÏÔÊ¾»º³åÇø ÓÃÀ´½«Êý¾Ý±ä³É16½øÖÆ
 					HexToHexStringLight(uartbuff[temp_order].recepetion_buff, uartbuff[temp_order].recepetion_len, serial_port_receive_buff);
 					
-					SetTextValue(3, 15 + sspa_entry->serial_port_show_offset, serial_port_receive_buff); //Ë¢ï¿½ï¿½×´Ì¬
+					SetTextValue(3, 15 + sspa_entry->serial_port_show_offset, serial_port_receive_buff); //Ë¢ÐÂ×´Ì¬
 					sspa_entry->serial_port_show_offset++;
 					sspa_entry->serial_port_show_offset %= 13;
 				}
@@ -13375,7 +13375,7 @@ static void SimulationSerialPortScreenShowApp(SimulationSerialPortAssistant_t *s
 					char *token = strtok((char *)uartbuff[temp_order].recepetion_buff, delimiter);
 					
 					while (token != NULL) {
-							SetTextValue(3, 15 + sspa_entry->serial_port_show_offset, (uint8_t *)token); //Ë¢ï¿½ï¿½×´Ì¬
+							SetTextValue(3, 15 + sspa_entry->serial_port_show_offset, (uint8_t *)token); //Ë¢ÐÂ×´Ì¬
 							token = strtok(NULL, delimiter);
 							sspa_entry->serial_port_show_offset++;
 							sspa_entry->serial_port_show_offset %= 13;
@@ -13402,42 +13402,42 @@ static void FirstAlarmInformationShowCtrl(
 	{
 		uint8_t temp_buff[64];
 		
-		sicj_entry->warn_fresh_flag = 1; // ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½×´Ì¬Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½
-		// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Ã¶ï¿½ï¿½ï¿½Ê¾
+		sicj_entry->warn_fresh_flag = 1; // ±êÖ¾ËùÓÐ×´Ì¬Ë¢ÐÂÍê³É
+		// µÚÒ»Ìõ±¨¾¯ÐÅÏ¢ÖÃ¶¥ÏÔÊ¾
 		if(pcfws_entry->detector_class[0] == PackClassID && pcfws_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first warning display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first warning display uses "µÚ3»ØÂ· XºÅ".
 			FormatRS485DetectForeWarnLine(temp_buff, 1, pcfws_entry, 0);
 		}
 		else if(pcfws_entry->detector_class[0] == PackClassID)
 		{
 			if(pcfws_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÎÂ¶È±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÑÌÎí±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws.da[0].cluster_id, pcfws.da[0].pack_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
 			}
 		}
-		else if(pcfws_entry->detector_class[0] == LinkageClassID) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸
+		else if(pcfws_entry->detector_class[0] == LinkageClassID) // Èç¹ûÊÇÍâÁªÉè±¸
 		{
 			if(pcfws_entry->alarm_type[0] == AlarmCtrlKey)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ±¨¾¯Æ÷°´ÏÂ", 1,
 					pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 					pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second);
 			}
@@ -13451,28 +13451,28 @@ static void FirstAlarmInformationShowCtrl(
 		{
 			if(pcfws_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÎÂ¶È±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÑÌÎí±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws.da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
 			}
 			else if(pcfws_entry->alarm_type[0] == Hydrogen)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÇâÆø±¨¾¯", 1,
 				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
 				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
 				pcfws_entry->da[0].cabin_id);
@@ -13481,7 +13481,7 @@ static void FirstAlarmInformationShowCtrl(
 		
 		for(uint8_t i = 0; i < 4; i++)
 		{
-			SetTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i], temp_buff); // Ë¢ï¿½Âµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i], temp_buff); // Ë¢ÐÂµÚÒ»Ìõ±¨¾¯ÄÚÈÝ
 		}
 	
 	}
@@ -13489,7 +13489,7 @@ static void FirstAlarmInformationShowCtrl(
 	{
 		for(uint8_t i = 0; i < 4; i++)
 		{
-			clearTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i]); // Ë¢ï¿½Âµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			clearTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i]); // Ë¢ÐÂµÚÒ»Ìõ±¨¾¯ÄÚÈÝ
 		}
 		sicj_entry->warn_fresh_flag = 0;
 	}
@@ -13499,31 +13499,31 @@ static void FirstAlarmInformationShowCtrl(
 		uint8_t temp_buff[64];
 		
 		sicj_entry->fire_fresh_flag = 1;
-		// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Ã¶ï¿½ï¿½ï¿½Ê¾
+		// µÚÒ»Ìõ±¨¾¯ÐÅÏ¢ÖÃ¶¥ÏÔÊ¾
 		if(pcfas_entry->detector_class[0] == PackClassID && pcfas_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first fire display uses "ï¿½ï¿½3ï¿½ï¿½Â· Xï¿½ï¿½".
+			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first fire display uses "µÚ3»ØÂ· XºÅ".
 			FormatRS485DetectFireAlarmLine(temp_buff, 1, pcfas_entry, 0);
 		}
 		else if(pcfas_entry->detector_class[0] == PackClassID)
 		{
 			if(pcfas_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÎÂ¶È±¨¾¯", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷ÑÌÎí±¨¾¯", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½%dï¿½ï¿½%dï¿½ï¿½PACKÌ½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ%d´Ø%dºÅPACKÌ½²âÆ÷Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
@@ -13533,13 +13533,13 @@ static void FirstAlarmInformationShowCtrl(
 		{
 			if(pcfas_entry->alarm_type[0] == AlarmCtrlKey)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ±¨¾¯Æ÷°´ÏÂ", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
 			}
 			else
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ÊÖ±¨°´ÏÂ±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
 			}
@@ -13554,28 +13554,28 @@ static void FirstAlarmInformationShowCtrl(
 		{
 			if(pcfas_entry->alarm_type[0] == Temperature)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½Â¶È±ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÎÂ¶È±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Smoke)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÑÌÎí±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfws.atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Carbon)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ Ò»ï¿½ï¿½ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ Ò»Ñõ»¯Ì¼±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
 			}
 			else if(pcfas_entry->alarm_type[0] == Hydrogen)
 			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d ï¿½ï¿½1ï¿½ï¿½Â· %dï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½", 1,
+				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d µÚ1»ØÂ· %dºÅ ÇâÆø±¨¾¯", 1,
 					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
 					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
 					pcfas_entry->da[0].cabin_id);
@@ -13583,14 +13583,14 @@ static void FirstAlarmInformationShowCtrl(
 		}
 		for(uint8_t i = 0; i < 4; i++)
 		{
-			SetTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i], temp_buff); // Ë¢ï¿½Âµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			SetTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i], temp_buff); // Ë¢ÐÂµÚÒ»Ìõ±¨¾¯ÄÚÈÝ
 		}
 	}
 	else if(pcfas_entry->self_bottom_point == 0 && sicj_entry->fire_fresh_flag != 0)
 	{
 		for(uint8_t i = 0; i < 4; i++)
 		{
-			clearTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i]); // Ë¢ï¿½Âµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			clearTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i]); // Ë¢ÐÂµÚÒ»Ìõ±¨¾¯ÄÚÈÝ
 		}
 		sicj_entry->fire_fresh_flag = 0;
 	}
@@ -13603,6 +13603,6 @@ static void LicenseVerificationCtrl(void)
 //	int8_t compare_value_3 = strncmp();
 //	
 //	SystemSaveInfo.curr_license_store[0] = '\0';
-//	SystemSaveInfo.last_license_store[0] = '\0'; // Ö®Ç°ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½
+//	SystemSaveInfo.last_license_store[0] = '\0'; // Ö®Ç°´æ´¢µÄÊÚÈ¨Âë
 //	SystemSaveInfo.pref_license_store[0] = '\0'; // 
 }
