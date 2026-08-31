@@ -38,6 +38,7 @@ static ControlDevFunc_t    s_control_func    = NULL;
 
 /* 检查自动模式回调函数指针，由bsp_logic_dev.c注册 */
 static CheckAutoModeFunc_t s_automode_func   = NULL;
+static LinkageEventFunc_t   s_event_func     = NULL;  /* 联动动作事件回调(黑匣子打点), 由bsp_logic_dev.c注册 */
 
 /* Test trace: previous cycle cond state per slot, print on edge only */
 static uint8_t s_prev_cond[LOGIC_RULE_MAX];
@@ -67,6 +68,10 @@ void LogicEngine_SetAutoModeFunc(CheckAutoModeFunc_t func)
 {
     s_automode_func = func;  /* 存储回调指针 */
 }
+void LogicEngine_SetEventFunc(LinkageEventFunc_t func)
+{
+    s_event_func = func;  /* 保存联动动作事件回调指针 */
+}
 
 /*--------------------------------------------------------------
  * 内部工具函数区
@@ -84,27 +89,50 @@ static uint32_t GetTickSec(void)
 }
 
 /*--------------------------------------------------------------
+ * 函数名称：EffectiveAction
+ * 功能说明：计算动作的有效执行值. 停止类模式(EXEC_STOP_ALL/STOP_PART)
+ *           统一发停止指令(0), 忽略动作表action位; 启动类模式按动作
+ *           表action位执行.
+ * 输入参数：rule - 规则结构指针, j - 动作下标
+ * 返回值  ：1=启动, 0=停止
+ *--------------------------------------------------------------*/
+static uint8_t EffectiveAction(const LogicRule_t *rule, uint8_t j)
+{
+    if ((rule->exec_mode == EXEC_STOP_ALL) || (rule->exec_mode == EXEC_STOP_PART))
+    {
+        return 0U;  /* 停止模式: 统一发停止指令 */
+    }
+    return rule->actions[j].action;
+}
+
+/*--------------------------------------------------------------
  * 函数名称：ExecuteAction
- * 功能说明：执行单个动作（启动或停止指定设备）。
+ * 功能说明：执行单个动作（启动或停止指定设备的指定通道）。
  * 输入参数：loop_no - 控制回路号
  *           dev_no  - 设备号
+ *           channel - 输出通道号(1-4具体通道, 99全部通道)
  *           action  - 1=启动, 0=停止
  * 返回值   ：0=成功, 1=失败
  *--------------------------------------------------------------*/
-static uint8_t ExecuteAction(uint8_t loop_no, uint8_t dev_no, uint8_t action)
+static uint8_t ExecuteAction(uint8_t loop_no, uint8_t dev_no, uint8_t channel, uint8_t action)
 {
     uint8_t ret;  /* callback return code */
 
     /* 检查回调函数是否已注册 */
     if (s_control_func != NULL)
     {
-        ret = s_control_func(loop_no, dev_no, action);  /* 调用注册的回调函数 */
-        DebugPrintf("[LOGIC] Exec loop=%d dev=%d %s -> %s\r\n",
-                    loop_no, dev_no, action ? "START" : "STOP", ret ? "FAIL" : "OK");
+        ret = s_control_func(loop_no, dev_no, channel, action);  /* 调用注册的回调函数 */
+        DebugPrintf("[LOGIC] Exec loop=%d dev=%d ch=%d %s -> %s\r\n",
+                    loop_no, dev_no, channel, action ? "START" : "STOP", ret ? "FAIL" : "OK");
+        /* A8-1: 控制指令受理成功(ret==0)时打点黑匣子联动事件(经回调注入, 异步不阻塞引擎) */
+        if ((ret == 0U) && (s_event_func != NULL))
+        {
+            s_event_func(loop_no, dev_no, channel, action);
+        }
         return ret;
     }
-    DebugPrintf("[LOGIC] Exec loop=%d dev=%d %s -> NO CALLBACK\r\n",
-                loop_no, dev_no, action ? "START" : "STOP");
+    DebugPrintf("[LOGIC] Exec loop=%d dev=%d ch=%d %s -> NO CALLBACK\r\n",
+                loop_no, dev_no, channel, action ? "START" : "STOP");
     return 1;  /* 未注册回调函数，返回失败 */
 }
 
@@ -213,7 +241,7 @@ static void LogicEngine_Run(void)
                         {
                             /* 延时为0，立即执行动作 */
                             ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                          rules[i].actions[j].action);
+                                          rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
                             rt[i].action_done[j] = 1;  /* 标记动作已执行 */
                         }
                     }
@@ -278,7 +306,7 @@ static void LogicEngine_Run(void)
                     if (rules[i].actions[j].delay_s == 0 && rt[i].action_done[j] == 0)
                     {
                         ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                      rules[i].actions[j].action);
+                                      rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
                         rt[i].action_done[j] = 1;
                     }
                 }
@@ -313,10 +341,11 @@ static void LogicEngine_Run(void)
                 /* 遍历所有动作，停止已启动的启动类动作（action=0表示停止） */
                 for (j = 0; j < rules[i].action_count; j++)
                 {
-                    if (rt[i].action_done[j] == 1 && rules[i].actions[j].action == 1)
+                    if (rt[i].action_done[j] == 1 && EffectiveAction(&rules[i], j) == 1)
                     {
                         /* 停止已启动的设备，传入action=0 */
-                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no, 0);
+                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
+                                      rules[i].actions[j].channel, 0);
                     }
                 }
                 memset(&rt[i], 0, sizeof(RtRuntime));
@@ -337,7 +366,7 @@ static void LogicEngine_Run(void)
                     {
                         /* 延时到期，执行动作 */
                         ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                      rules[i].actions[j].action);
+                                      rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
                         rt[i].action_done[j] = 1;  /* 标记动作已执行 */
                     }
                 }
@@ -367,10 +396,11 @@ static void LogicEngine_Run(void)
                 /* 条件消失: 停止所有已执行的启动类动作 */
                 for (j = 0; j < rules[i].action_count; j++)
                 {
-                    if (rt[i].action_done[j] == 1 && rules[i].actions[j].action == 1)
+                    if (rt[i].action_done[j] == 1 && EffectiveAction(&rules[i], j) == 1)
                     {
                         /* 停止已启动的设备，传入action=0 */
-                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no, 0);
+                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
+                                      rules[i].actions[j].channel, 0);
                     }
                 }
                 /* 所有动作已停止，进入DONE状态 */

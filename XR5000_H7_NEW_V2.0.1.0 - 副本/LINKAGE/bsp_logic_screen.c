@@ -68,7 +68,7 @@ typedef struct
     uint8_t       active;        /* 1=正在编辑规则, 0=空闲 */
     EditPhase     phase;         /* 当前编辑阶段(条件区/动作区) */
     EditStep      step;          /* 当前编辑步骤 */
-    uint8_t       digit_buf[5];  /* 5位数字输入缓冲区 */
+    uint8_t       digit_buf[7];  /* 数字输入缓冲区: 条件5位(回路2+设备3), 动作7位(回路2+设备3+通道2) */
     uint8_t       digit_count;   /* 已输入数字位数 */
     LogicRule_t   rule;          /* 当前正在构造的规则 */
     uint8_t       edit_rule_id;  /* 正在编辑的规则ID，0=新建规则 */
@@ -115,22 +115,49 @@ static uint8_t AllocRuleId(void)
 }
 
 /*--------------------------------------------------------------
+ * 函数名称：NeedDigitCount
+ * 功能说明：当前编辑阶段需要的数字位数。
+ *           EDIT_STEP_ACTION(动作阶段)需要7位, 条件阶段需要5位。
+ * 返回值  ：7=动作编码(回路2+设备3+通道2), 5=条件编码(回路2+设备3)
+ *--------------------------------------------------------------*/
+static uint8_t NeedDigitCount(void)
+{
+    return (s_edit.step == EDIT_STEP_ACTION) ? 7U : 5U;
+}
+
+/*--------------------------------------------------------------
  * 函数名称：ParseDigitBuf
- * 功能说明：将5位数字缓冲区解析为回路号和设备号。
- *           前2位=回路号, 后3位=设备号
+ * 功能说明：将数字缓冲区解析为回路号、设备号和通道号。
+ *           条件模式(5位): 前2位=回路号, 后3位=设备号, 通道=0
+ *           动作模式(7位): 前2位=回路号, 中3位=设备号, 后2位=通道号(1-4/99)
+ * 输入参数：loop_no - 输出回路号, dev_no - 输出设备号, channel - 输出通道号(可为NULL)
  * 返回值  ：1=解析成功, 0=位数不足
  *--------------------------------------------------------------*/
-static uint8_t ParseDigitBuf(uint8_t *loop_no, uint16_t *dev_no)
+static uint8_t ParseDigitBuf(uint8_t *loop_no, uint16_t *dev_no, uint8_t *channel)
 {
-    if (s_edit.digit_count != 5)
+    uint8_t need = NeedDigitCount();
+
+    if (s_edit.digit_count != need)
     {
         return 0;  /* 位数不足，解析失败 */
     }
 
     /* 前2位 = 回路号 */
     *loop_no = s_edit.digit_buf[0] * 10 + s_edit.digit_buf[1];
-    /* 后3位 = 设备号 */
+    /* 中3位 = 设备号 */
     *dev_no  = s_edit.digit_buf[2] * 100 + s_edit.digit_buf[3] * 10 + s_edit.digit_buf[4];
+    if (need == 7U)
+    {
+        /* 后2位 = 通道号 */
+        if (channel != NULL)
+        {
+            *channel = s_edit.digit_buf[5] * 10 + s_edit.digit_buf[6];
+        }
+    }
+    else if (channel != NULL)
+    {
+        *channel = 0;  /* 条件编码无通道概念 */
+    }
 
     return 1;  /* 解析成功 */
 }
@@ -237,26 +264,40 @@ static void BuildCondText(const Cond_t *cond, char *buf, uint8_t size)
 /*--------------------------------------------------------------
  * 函数名称：BuildActionText
  * 功能说明：将动作转换为中文可读描述并写入buf。
- *           动作1开启/0关闭，按"回路+设备号+设备+启停"显示。
+ *           动作1启动/0关闭，按"回路+设备号+设备+通道+启停"显示。
+ *           通道99显示"全部通道"，具体通道显示"通道N"。
  * 输入参数：act - 动作结构体, buf - 输出缓冲, size - 缓冲大小
  *--------------------------------------------------------------*/
 static void BuildActionText(const Action_t *act, char *buf, uint8_t size)
 {
+    const char *name;
+    uint16_t code;
     const char *op;
 
     (void)size;
+    op = (act->action != 0U) ? "启动" : "关闭";
     if (act->loop_no == LOGIC_WILDCARD)
     {
-        sprintf(buf, "任意回路%03d号设备%s", act->dev_no, act->action != 0U ? "开启" : "关闭");
+        sprintf(buf, "任意回路%03d号设备%s%s", act->dev_no,
+                act->channel == 99U ? "全部通道" : "", op);
     }
     else if (act->dev_no == LOGIC_WILDCARD)
     {
-        sprintf(buf, "%02d回路任意设备%s", act->loop_no, act->action != 0U ? "开启" : "关闭");
+        sprintf(buf, "%02d回路全部设备%s%s", act->loop_no,
+                act->channel == 99U ? "全部通道" : "", op);
     }
     else
     {
-        op = (act->action != 0U) ? "开启" : "关闭";
-        sprintf(buf, "%02d%03d号设备%s", act->loop_no, act->dev_no, op);
+        code = GetNationalCode(act->loop_no, act->dev_no);
+        name = DeviceRegistry_GetNameByNationalCode(code);
+        if (act->channel == 99U)
+        {
+            sprintf(buf, "%02d%03d号%s全部通道%s", act->loop_no, act->dev_no, name, op);
+        }
+        else
+        {
+            sprintf(buf, "%02d%03d号%s通道%d%s", act->loop_no, act->dev_no, name, act->channel, op);
+        }
     }
 }
 
@@ -272,8 +313,8 @@ static void CompleteConditionEx(uint8_t sensor_type, uint8_t alarm_level)
     uint8_t loop_no;    /* 解析出的回路号 */
     uint16_t dev_no;     /* 解析出的设备号 */
 
-    /* 解析5位编码 */
-    if (!ParseDigitBuf(&loop_no, &dev_no))
+    /* 解析5位编码(条件模式, 通道指针传NULL) */
+    if (!ParseDigitBuf(&loop_no, &dev_no, NULL))
     {
         return;  /* 位数不足，无法完成 */
     }
@@ -395,18 +436,36 @@ static void DeleteLastAction(void)
 
 /*--------------------------------------------------------------
  * 函数名称：SetAction
- * 功能说明：设置执行动作（解析5位编码为控制回路号+设备号）。
+ * 功能说明：设置执行动作（解析7位编码为回路号+设备号+通道号）。
+ *           动作方仅支持控制回路2, 通道1-4=具体通道/99=全部通道。
  *           多动作场景下每按一次&或确认键调用一次。
  *--------------------------------------------------------------*/
 static void SetAction(void)
 {
     uint8_t loop_no;    /* 控制回路号 */
     uint16_t dev_no;     /* 设备号 */
+    uint8_t channel;     /* 输出通道号 */
 
-    /* 解析5位编码 */
-    if (!ParseDigitBuf(&loop_no, &dev_no))
+    /* 解析7位编码(动作模式: 回路2+设备3+通道2) */
+    if (!ParseDigitBuf(&loop_no, &dev_no, &channel))
     {
         return;  /* 位数不足，无法设置 */
+    }
+
+    /* 动作方仅支持控制回路2 */
+    if (loop_no != 2U)
+    {
+        DebugPrintf("[LOGIC] +Act reject loop=%d (动作方仅支持控制回路2)\r\n", loop_no);
+        ClearDigitBuf();
+        return;
+    }
+
+    /* 通道号校验: 1-4=具体通道, 99=全部通道 */
+    if (((channel < 1U) || (channel > 4U)) && (channel != 99U))
+    {
+        DebugPrintf("[LOGIC] +Act reject ch=%d (通道1-4或99)\r\n", channel);
+        ClearDigitBuf();
+        return;
     }
 
     /* 检查是否有空间添加动作 */
@@ -418,12 +477,13 @@ static void SetAction(void)
     /* 设置动作 */
     s_edit.rule.actions[s_edit.rule.action_count].loop_no  = loop_no;
     s_edit.rule.actions[s_edit.rule.action_count].dev_no   = dev_no;
+    s_edit.rule.actions[s_edit.rule.action_count].channel  = channel;
     s_edit.rule.actions[s_edit.rule.action_count].action   = 1;  /* 默认启动 */
     s_edit.rule.actions[s_edit.rule.action_count].delay_s  = 0;  /* 默认无延时 */
     s_edit.rule.action_count++;
 
-    DebugPrintf("[LOGIC] +Act L%d D%03d start delay=%d\r\n",
-                loop_no, dev_no,
+    DebugPrintf("[LOGIC] +Act L%d D%03d ch=%d start delay=%d\r\n",
+                loop_no, dev_no, channel,
                 s_edit.rule.actions[s_edit.rule.action_count - 1].delay_s);
 
     /* 标记已设置动作，回到动作区空闲步骤等待下一个动作 */
@@ -447,24 +507,24 @@ static void SaveRule(void)
         CompleteCondition();
     }
 
-    /* 若当前在ACTION步骤且有5位输入，先完成动作 */
-    if (s_edit.step == EDIT_STEP_ACTION && s_edit.digit_count == 5)
+    /* 若当前在ACTION步骤且有7位输入，先完成动作 */
+    if (s_edit.step == EDIT_STEP_ACTION && s_edit.digit_count == NeedDigitCount())
     {
         SetAction();
     }
 
-    /* 若用户没设置动作，默认使用控制回路1设备1(声光) */
+    /* 若用户没设置动作，默认使用控制回路2设备1(声光)通道1 */
     if (s_edit.rule.action_count == 0)
     {
-        s_edit.rule.actions[0].loop_no = 1;
+        s_edit.rule.actions[0].loop_no = 2;
         s_edit.rule.actions[0].dev_no  = 1;
+        s_edit.rule.actions[0].channel = 1;
         s_edit.rule.actions[0].action  = 1;
         s_edit.rule.actions[0].delay_s = 0;
         s_edit.rule.action_count = 1;
     }
 
-    /* 设置执行模式为全部启动 */
-    s_edit.rule.exec_mode = EXEC_START_ALL;
+    /* A8-3: 执行模式保留用户在动作段用'#'键选择的值(默认START_ALL=0) */
     s_edit.rule.enable = 1;
     s_edit.rule.rule_id = AllocRuleId();
 
@@ -594,10 +654,24 @@ static void BuildExprDisplay(void)
             {
                 strcat(s_disp_buf, " & ");
             }
-            sprintf(temp, "%02d%03d",
+            /* 动作显示7位编码(回路2+设备3+通道2) */
+            sprintf(temp, "%02d%03d%02d",
                     s_edit.rule.actions[j].loop_no,
-                    s_edit.rule.actions[j].dev_no);
+                    s_edit.rule.actions[j].dev_no,
+                    s_edit.rule.actions[j].channel);
             strcat(s_disp_buf, temp);
+        }
+    }
+
+    /* A8-3: 动作段显示当前执行模式标签(START_ALL为默认不显示, 保持向后兼容) */
+    if (s_edit.phase == EDIT_ACTION)
+    {
+        switch (s_edit.rule.exec_mode)
+        {
+        case EXEC_START_PART: strcat(s_disp_buf, " [部分启动]"); break;
+        case EXEC_STOP_ALL:   strcat(s_disp_buf, " [全部停止]"); break;
+        case EXEC_STOP_PART:  strcat(s_disp_buf, " [部分停止]"); break;
+        default:              break;
         }
     }
 
@@ -747,8 +821,8 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
         {
             uint8_t digit = (control_id == 10) ? 0 : control_id;
 
-            /* 最多输入5位数字 */
-            if (s_edit.digit_count < 5)
+            /* 最多输入当前阶段所需位数: 条件5位, 动作7位 */
+            if (s_edit.digit_count < NeedDigitCount())
             {
                 s_edit.digit_buf[s_edit.digit_count++] = digit;
 
@@ -779,14 +853,21 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
         {
             CompleteCondition();
         }
+        /* A8-3: 动作段且无待定数字时, '#'键循环切换执行模式(0全启/1部启/2全停/3部停) */
+        else if (s_edit.phase == EDIT_ACTION && s_edit.digit_count == 0U)
+        {
+            s_edit.rule.exec_mode = (uint8_t)((s_edit.rule.exec_mode + 1U) & 0x03U);
+            DebugPrintf("[LOGIC] exec_mode -> %d (0全启/1部启/2全停/3部停)\r\n",
+                        s_edit.rule.exec_mode);
+        }
         break;
 
     /* === '&' 逻辑与 / 动作分隔符 === */
     case LOGIC_BTN_AND:
         if (s_edit.phase == EDIT_ACTION)
         {
-            /* 动作区: & 作为多动作分隔符，确认当前编码为动作 */
-            if (s_edit.step == EDIT_STEP_ACTION && s_edit.digit_count == 5)
+            /* 动作区: & 作为多动作分隔符，确认当前编码为动作(7位) */
+            if (s_edit.step == EDIT_STEP_ACTION && s_edit.digit_count == NeedDigitCount())
             {
                 SetAction();
             }

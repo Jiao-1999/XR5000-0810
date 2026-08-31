@@ -2843,6 +2843,8 @@ void UpdateUI(void)
 			screen_show_siren_information |= 0xF0; // 标记执行过 
 			// 记录到火警分区中 按键按下 存入FLASH在前可以少一次获取RTC操作
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, 0xFFFF);
+			/* 黑匣子: 主面板报警器控制按键(分类跟随老系统记为火警) */
+			StorageEvent_LogFire(ALARM_ANNUNCIATOR_ID, DEV_TYPE_SOUND_LIGHT, 1, 0);
 //			// 存入cache缓冲区
 //			StoragePackCabinForeWarn(&pcfws, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey);
 			// 存入火灾报警区域 
@@ -2862,6 +2864,8 @@ void UpdateUI(void)
 			setDealHandPaperState();
 			// 存入FLASH
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, HANDPOT_Package_ID, 0xFFFF);
+			/* 黑匣子: 手动报警按钮火警(GB4717 B.1.1.1 必记项) */
+			StorageEvent_LogFire(HANDPOT_Package_ID, DEV_TYPE_HAND_REPORT, 1, 0);
 			//
 		}
 		
@@ -4177,6 +4181,9 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						GetScreen();
 						SetTextValue(1, 4, "控制器复位中...请稍候...");
 						BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_RESET, LINKAGE_CLUSTER_ID, SYS_RESET_Package_ID);
+						/* 黑匣子: 复位时清除首警标志(下次火警重新记0x02首警) + 记录复位事件 */
+						StorageEvent_ResetFirstFire();
+						StorageEvent_LogReset();
 						if(ONLINE_TIMEOUT > 6)
 						{
 							kaijiyanshi = ONLINE_TIMEOUT - 6;
@@ -11435,6 +11442,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				rs485_detect_disconnect_memory[addr] = 1;
 				RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_OFFLINE, DISCONNECT);
+				StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); /* 黑匣子:Loop3离线故障(类型码待对照C.16) */
 			}
 			continue;
 		}
@@ -11442,6 +11450,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 		if(rs485_detect_disconnect_memory[addr] != 0)
 		{
 			RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_OFFLINE, DIS_RECOVERY);
+			StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1); /* 黑匣子:Loop3离线恢复 */
 			rs485_detect_disconnect_memory[addr] = 0;
 		}
 
@@ -11466,6 +11475,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				if(old_temp == 1U) RS485Loop3RemoveWarning(addr, Loop3TempWarning); force_alarm_check_new_flag = 1;
 				if((type == RS485_DETECT_TYPE_XR805 && old_temp == 9U) || (type != RS485_DETECT_TYPE_XR805 && old_temp == 3U)) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_RECOVERY);
+				if((type == RS485_DETECT_TYPE_XR805 && old_temp == 9U) || (type != RS485_DETECT_TYPE_XR805 && old_temp == 3U)) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 1); /* 黑匣子:Loop3温度传感器故障恢复 */
 				if(temp_state == 1U)
 				{
 					getBM8563TimeToSystemTime();
@@ -11476,11 +11486,13 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				{
 					getBM8563TimeToSystemTime();
 					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Temperature); fire_alarm_check_new_flag = 1;
+					StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0); /* 黑匣子:Loop3温度火警 */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE));
 				}
 				else if((type == RS485_DETECT_TYPE_XR805 && temp_state == 9U) || (type != RS485_DETECT_TYPE_XR805 && temp_state == 3U))
 				{
 					RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_FAULT);
+					StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 0); /* 黑匣子:Loop3温度传感器故障 */
 				}
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_TEMPERATURE] = temp_state;
 			}
@@ -11489,7 +11501,9 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				if(type == RS485_DETECT_TYPE_XR805 && old_smoke == 1U) RS485Loop3RemoveWarning(addr, Loop1SmokeWarning); force_alarm_check_new_flag = 1;
 				if(type == RS485_DETECT_TYPE_XR805 && old_smoke == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_RECOVERY);
+				if(type == RS485_DETECT_TYPE_XR805 && old_smoke == 9U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 1); /* 黑匣子:Loop3烟雾传感器故障恢复(仅XR805) */
 				if(type != RS485_DETECT_TYPE_XR805 && old_smoke == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_RECOVERY);
+				if(type != RS485_DETECT_TYPE_XR805 && old_smoke == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 1); /* 黑匣子:Loop3烟雾污染故障恢复(非XR805) */
 				if(type == RS485_DETECT_TYPE_XR805 && smoke_state == 1U)
 				{
 					getBM8563TimeToSystemTime();
@@ -11500,12 +11514,14 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				{
 					getBM8563TimeToSystemTime();
 					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Smoke); fire_alarm_check_new_flag = 1;
+					StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0); /* 黑匣子:Loop3烟雾火警 */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, RS485_DETECT_FLASH_ID, addr, 0xFFFF);
 				}
 				else if((type == RS485_DETECT_TYPE_XR805 && smoke_state == 9U) || (type != RS485_DETECT_TYPE_XR805 && smoke_state == 8U))
 				{
 					if(type == RS485_DETECT_TYPE_XR805) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_FAULT);
 					else RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_FAULT);
+					StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 0); /* 黑匣子:Loop3烟雾传感器/污染故障 */
 				}
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_SMOKE] = smoke_state;
 			}
@@ -11513,6 +11529,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				if(old_co == 1U) RS485Loop3RemoveWarning(addr, Carbon); force_alarm_check_new_flag = 1;
 				if(type == RS485_DETECT_TYPE_XR805 && old_co == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_CO, RS485_CO_SENSOR_RECOVERY);
+				if(type == RS485_DETECT_TYPE_XR805 && old_co == 9U) StorageEvent_LogFault(addr, DEV_TYPE_CO, 3, 0, 1); /* 黑匣子:Loop3 CO传感器故障恢复(仅XR805) */
 				if(co_state == 1U)
 				{
 					getBM8563TimeToSystemTime();
@@ -11523,9 +11540,11 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				{
 					getBM8563TimeToSystemTime();
 					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Loop3CarbonFire); fire_alarm_check_new_flag = 1;
+					StorageEvent_LogFire(addr, DEV_TYPE_CO, 3, 0); /* 黑匣子:Loop3 CO火警 */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, RS485_CO_FIRE, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO));
 				}
 				else if(type == RS485_DETECT_TYPE_XR805 && co_state == 9U) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_CO, RS485_CO_SENSOR_FAULT);
+				else if(type == RS485_DETECT_TYPE_XR805 && co_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_CO, 3, 0, 0); /* 黑匣子:Loop3 CO传感器故障 */
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_CO] = co_state;
 			}
 
@@ -11533,6 +11552,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				if(old_h2 == 1U) RS485Loop3RemoveWarning(addr, Hydrogen); force_alarm_check_new_flag = 1;
 				if(type == RS485_DETECT_TYPE_XR805 && old_h2 == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_RECOVERY);
+				if(type == RS485_DETECT_TYPE_XR805 && old_h2 == 9U) StorageEvent_LogFault(addr, DEV_TYPE_H2, 3, 0, 1); /* 黑匣子:Loop3 H2传感器故障恢复(仅XR805) */
 				if(h2_state == 1U)
 				{
 					getBM8563TimeToSystemTime();
@@ -11543,9 +11563,11 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				{
 					getBM8563TimeToSystemTime();
 					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Loop3HydrogenFire); fire_alarm_check_new_flag = 1;
+					StorageEvent_LogFire(addr, DEV_TYPE_H2, 3, 0); /* 黑匣子:Loop3 H2火警 */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, RS485_H2_FIRE, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2));
 				}
 				else if(type == RS485_DETECT_TYPE_XR805 && h2_state == 9U) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_FAULT);
+				else if(type == RS485_DETECT_TYPE_XR805 && h2_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_H2, 3, 0, 0); /* 黑匣子:Loop3 H2传感器故障 */
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_H2] = h2_state;
 			}
 
@@ -11553,6 +11575,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				if(old_voc == 1U) RS485Loop3RemoveWarning(addr, Voc); force_alarm_check_new_flag = 1;
 				if(type == RS485_DETECT_TYPE_XR805 && old_voc == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_VOC, RS485_VOC_SENSOR_RECOVERY);
+				if(type == RS485_DETECT_TYPE_XR805 && old_voc == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1); /* 黑匣子:Loop3 VOC故障恢复(仅XR805,类型码待对照C.16) */
 				if(voc_state == 1U)
 				{
 					getBM8563TimeToSystemTime();
@@ -11563,9 +11586,11 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				{
 					getBM8563TimeToSystemTime();
 					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Voc); fire_alarm_check_new_flag = 1;
+					StorageEvent_LogFire(addr, DEV_TYPE_MULTI_SENSOR, 3, 0); /* 黑匣子:Loop3 VOC火警(类型码待对照C.16) */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_VOC, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_VOC));
 				}
 				else if(type == RS485_DETECT_TYPE_XR805 && voc_state == 9U) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_VOC, RS485_VOC_SENSOR_FAULT);
+				else if(type == RS485_DETECT_TYPE_XR805 && voc_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); /* 黑匣子:Loop3 VOC传感器故障(类型码待对照C.16) */
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_VOC] = voc_state;
 			}
 
@@ -11573,6 +11598,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				if(old_ch4 == 1U) RS485Loop3RemoveWarning(addr, Methane); force_alarm_check_new_flag = 1;
 				if(old_ch4 == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_CH4, RS485_CH4_SENSOR_RECOVERY);
+				if(old_ch4 == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1); /* 黑匣子:Loop3 CH4故障恢复(类型码待对照C.16) */
 				if(ch4_state == 1U)
 				{
 					getBM8563TimeToSystemTime();
@@ -11583,9 +11609,11 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				{
 					getBM8563TimeToSystemTime();
 					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Methane); fire_alarm_check_new_flag = 1;
+					StorageEvent_LogFire(addr, DEV_TYPE_MULTI_SENSOR, 3, 0); /* 黑匣子:Loop3 CH4火警(类型码待对照C.16) */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_CH4, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CH4));
 				}
 				else if(ch4_state == 9U) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_CH4, RS485_CH4_SENSOR_FAULT);
+				else if(ch4_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); /* 黑匣子:Loop3 CH4传感器故障(类型码待对照C.16) */
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_CH4] = ch4_state;
 			}
 		}
@@ -11595,12 +11623,14 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				getBM8563TimeToSystemTime();
 				StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Temperature); fire_alarm_check_new_flag = 1;
+				StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0); /* 黑匣子:Loop3温度火警(非XR805/8303/8305分支) */
 				BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE));
 			}
 			if(smoke_state != 0U && old_smoke == 0U)
 			{
 				getBM8563TimeToSystemTime();
 				StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Smoke); fire_alarm_check_new_flag = 1;
+				StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0); /* 黑匣子:Loop3烟雾火警(非XR805/8303/8305分支) */
 				BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, RS485_DETECT_FLASH_ID, addr, 0xFFFF);
 			}
 			if(co_state != 0U && old_co == 0U)

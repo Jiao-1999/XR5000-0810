@@ -21,9 +21,10 @@
  *              通用设备状态，无传感器子级别，忽略sensor_type
  *   探测回路3(loop_no=3) → RS485探测器(bsp_rs485_detect.c)
  *              支持全7种传感器（温度/烟雾/CO/H2/VOC/CH4/压力）
- *   控制回路1(loop_no=1) → 板载继电器/风机, dev_no 1-6对应:
- *     1=声光 2=警报 3=排风 4=灭火(OutFire继电器直控)
- *     5=默认继电器 6=喷淋
+ *   控制回路2(loop_no=2) → MBus控制设备(声光报警器等),
+ *               经MBusCtrl_Request异步控制队列下发, 不直接占用UART2
+ *               channel=1-4按通道位掩码下发, 99=全部通道
+ *   控制回路1/3(loop_no=1/3) → 不支持控制(回路1板载继电器控制已删除)
  *
  * 依赖模块   :
  *   - bsp_logic_expr.h    : Cond_t, ExecMode
@@ -49,6 +50,7 @@
 #include "bsp_internal_board.h"     /* 手/自动模式查询 */
 #include "bsp_key.h"                /* getHandPaperState() */
 #include "bsp_debug.h"              /* DebugPrintf: test trace on UART4 */
+#include "bsp_storage_event.h"  /* A8-1: 黑匣子联动事件存储接口(仅集成层引用, 引擎层经回调解耦) */
 
 /*--------------------------------------------------------------
  * 第一部分：设备状态查询
@@ -441,90 +443,63 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
 
 /*--------------------------------------------------------------
  * 函数名称：LogicDev_Control
- * 功能说明：按控制回路号+设备号对执行设备进行控制（启动或停止）。
- *           5位编码: loop_no(控制回路号) + dev_no(设备号)
+ * 功能说明：按控制回路号+设备号+通道号对执行设备进行控制（启动或停止）。
+ *           7位编码: loop_no(控制回路号) + dev_no(设备号) + channel(通道号)
  *
- * 主工程路由（loop_no=1为板载继电器/风机）:
- *   loop_no=1, dev_no=1: 声光报警器(SoundLightRelayCtrl)
- *   loop_no=1, dev_no=2: 警报器(SirenRelayCtrl)
- *   loop_no=1, dev_no=3: 排风机(Fan1CtrlOpen/Close + Fan2CtrlOpen/Close)
- *   loop_no=1, dev_no=4: 灭火装置(OutFire1/OutFire2继电器直控)
- *   loop_no=1, dev_no=5: 默认继电器(DefauleRelayCtrl)
- *   loop_no=1, dev_no=6: 喷淋装置(CabinSprayRelayCtrl)
+ * 控制路由(仅支持控制回路2, 回路1板载继电器控制已删除):
+ *   loop_no=2, dev_no=设备地址, channel=1-4/99:
+ *     经MBusCtrl_Request异步控制队列下发, 不直接占用UART2。
+ *     channel=1-4: 按通道位掩码(DEVICE_OUTPUT_1~4)下发;
+ *     channel=99:  全部通道(当前映射为DEVICE_OUTPUT_1)。
+ *   loop_no=1/3: 不支持控制, 返回失败。
  *
- * 参数说明：loop_no - 控制回路号（1-N）
- *           dev_no  - 设备号（1-N）
+ * 参数说明：loop_no - 控制回路号（仅支持2）
+ *           dev_no  - 设备号（回路2设备物理地址1-63）
+ *           channel - 输出通道号(1-4=具体通道, 99=全部通道)
  *           action  - 1=启动/打开, 0=停止/关闭
- * 返回值：   0=成功, 1=失败（设备未知或条件不满足）
+ * 返回值：   0=请求已接受, 1=请求失败（设备未知/不支持/队列满）
  *--------------------------------------------------------------*/
-uint8_t LogicDev_Control(uint8_t loop_no, uint8_t dev_no, uint8_t action)
+uint8_t LogicDev_Control(uint8_t loop_no, uint8_t dev_no, uint8_t channel, uint8_t action)
 {
-    /* 将action的0/1映射为RelayState枚举JDQ_OFF/JDQ_ON */
-    RelayState relay_state = (action == 1) ? JDQ_ON : JDQ_OFF;
+    MBusCtrlRequest request;
+    uint32_t mask;
 
-    switch (loop_no)
+    /* 控制动作仅支持控制回路2(回路1板载继电器控制已删除, 回路3无控制能力) */
+    if (loop_no != 2U)
     {
-    case 1:
-        /* 控制回路1: 板载继电器/风机 */
-        switch (dev_no)
-        {
-        case 1:
-            /* 声光报警器：通过继电器控制GPIO输出 */
-            SoundLightRelayCtrl(relay_state);
-            DebugPrintf("[LOGIC-CTRL] SoundLight relay %s\r\n", action ? "ON" : "OFF");
-            return 0;  /* 成功 */
+        DebugPrintf("[LOGIC-CTRL] loop %d not controllable\r\n", loop_no);
+        return 1U;
+    }
 
-        case 2:
-            /* 警笛：通过继电器控制GPIO输出 */
-            SirenRelayCtrl(relay_state);
-            DebugPrintf("[LOGIC-CTRL] Siren relay %s\r\n", action ? "ON" : "OFF");
-            return 0;  /* 成功 */
+    /* 通道号转输出位掩码: 1-4=具体通道, 99=全部通道
+     * 说明: 当前全工程唯一支持输出控制的设备为声光(XR-SGBJQ),
+     * 仅支持 DEVICE_OUTPUT_1 通道, 故"全部通道"映射为 DEVICE_OUTPUT_1。
+     * 未来出现多通道输出设备时, 需在此扩展为该设备支持的全部通道位。 */
+    if (channel == 99U)
+    {
+        mask = DEVICE_OUTPUT_1;
+    }
+    else if ((channel >= 1U) && (channel <= 4U))
+    {
+        mask = (1UL << (channel - 1U));
+    }
+    else
+    {
+        DebugPrintf("[LOGIC-CTRL] invalid ch %d\r\n", channel);
+        return 1U;
+    }
 
-        case 3:
-            /* 风机：通过控制总线控制两路风机 */
-            DebugPrintf("[LOGIC-CTRL] Fan1+Fan2 %s\r\n", action ? "OPEN" : "CLOSE");
-            if (action == 1)
-            {
-                Fan1CtrlOpen();   /* 打开风机1 */
-                Fan2CtrlOpen();   /* 打开风机2 */
-            }
-            else
-            {
-                Fan1CtrlClose();  /* 关闭风机1 */
-                Fan2CtrlClose();  /* 关闭风机2 */
-            }
-            return 0;  /* 成功 */
+    request.addr          = (uint8_t)dev_no;
+    request.operation     = MBUS_OPERATION_SET_OUTPUT;
+    request.target_mask   = mask;
+    request.target_value  = (action != 0U) ? mask : 0U;
 
-        case 4:
-            /* 灭火：OutFire继电器直控（不经过串口状态机）
-             * 启动/停止同时控制1路和2路灭火继电器 */
-            OutFire1RelayCtrl(relay_state);
-            OutFire2RelayCtrl(relay_state);
-            DebugPrintf("[LOGIC-CTRL] OutFire1+2 relay %s\r\n", action ? "ON" : "OFF");
-            return 0;  /* 成功 */
-
-        case 5:
-            /* 默认/通用继电器控制 */
-            DefauleRelayCtrl(relay_state);
-            DebugPrintf("[LOGIC-CTRL] Default relay %s\r\n", action ? "ON" : "OFF");
-            return 0;  /* 成功 */
-
-        case 6:
-            /* 舱室喷洒继电器控制 */
-            CabinSprayRelayCtrl(relay_state);
-            DebugPrintf("[LOGIC-CTRL] CabinSpray relay %s\r\n", action ? "ON" : "OFF");
-            return 0;  /* 成功 */
-
-        default:
-            /* 未知的设备号，返回失败 */
-            DebugPrintf("[LOGIC-CTRL] UNKNOWN dev %d on loop 1\r\n", dev_no);
-            return 1;  /* 未知设备号 */
-        }
-
-    default:
-        /* 其他控制回路暂未对接，返回失败 */
-        DebugPrintf("[LOGIC-CTRL] loop %d not supported\r\n", loop_no);
-        return 1;  /* 未知控制回路 */
+    {
+        MBusCtrlResult result = MBusCtrl_Request(&request);
+        DebugPrintf("[LOGIC-CTRL] loop2 dev=%d ch=%d mask=0x%X %s ret=%d\r\n",
+                    dev_no, channel, (unsigned)mask, action ? "START" : "STOP", (int)result);
+        /* LogicDev_Control原约定: 0=请求已接受, 1=请求失败 */
+        return (result == MBUS_CTRL_ACCEPTED) ? 0U : 1U;
     }
 }
 
@@ -585,6 +560,14 @@ uint8_t LogicDev_CheckAutoMode(uint8_t exec_mode)
  *   3. LogicEngine_Init();    （初始化引擎运行时状态）
  *   4. [RTOS任务启动]          （开始周期执行引擎）
  *--------------------------------------------------------------*/
+/* A8-1: 联动动作事件包装回调 - 转发到黑匣子存储(异步队列, 不阻塞引擎100ms周期) */
+static void LinkageEventNotify(uint8_t loop_no, uint16_t dev_no,
+                               uint8_t channel, uint8_t action)
+{
+    (void)loop_no;  /* 联动控制固定回路2, 黑匣子记录无回路字段, 此处仅保留语义 */
+    StorageEvent_LogLinkageAction((uint8_t)dev_no, channel, action);
+}
+
 void LogicDev_Register(void)
 {
     /* 注册设备状态查询函数到表达式层 */
@@ -595,4 +578,7 @@ void LogicDev_Register(void)
 
     /* 注册自动模式检查函数到引擎层 */
     LogicEngine_SetAutoModeFunc(LogicDev_CheckAutoMode);
+
+    /* 注册联动动作事件回调(黑匣子打点) */
+    LogicEngine_SetEventFunc(LinkageEventNotify);
 }

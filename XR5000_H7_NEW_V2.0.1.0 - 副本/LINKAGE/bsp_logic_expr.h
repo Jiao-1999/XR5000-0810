@@ -32,7 +32,7 @@
 /* Flash 存储区 W25Q256 SPI Flash 芯片 0x080000 */
 #define LOGIC_FLASH_RULES_ADDR   0x080000U  /* 规则存储区起始地址(连续3个4KB扇区) */
 #define LOGIC_FLASH_META_ADDR   0x088000U  /* 元数据存储区地址 */
-#define LOGIC_MAGIC              0x4C4F4731U /* Flash存储魔数 LOG1 */
+#define LOGIC_MAGIC              0x4C4F4732U /* Flash存储魔数 LOG2 (结构变更:动作增加channel字段) */
 
 /*--------------------------------------------------------------
  * 2. 枚举类型定义区
@@ -118,19 +118,21 @@ typedef struct
     uint8_t cond_idx;  /* 条件数组索引（仅当type==TOK_COND时有效） */
 } __attribute__((packed)) Token_t;
 
-/* 动作结构体 - 每个动作占5字节
- * 5位编码: 前2位回路号 + 后3位设备号, 如 01002 = 回路01的002号设备
- * 示例：{loop_no=1, dev_no=2, action=1, delay_s=30}
- *       含义："30秒后启动01控制回路002号设备" */
+/* 动作结构体 - 每个动作占7字节
+ * 7位编码: 前2位回路号 + 中3位设备号 + 后2位通道号, 如 0200101 = 回路02的001号设备通道01
+ * channel: 1-4=具体输出通道, 99=全部通道(该设备支持的所有输出)
+ * 示例：{loop_no=2, dev_no=1, channel=1, action=1, delay_s=30}
+ *       含义："30秒后启动02控制回路001号设备通道01" */
 typedef struct
 {
-    uint8_t  loop_no;   /* 控制回路号（1-N） */
+    uint8_t  loop_no;   /* 控制回路号（固定为2） */
     uint16_t dev_no;    /* 设备号（3位编码000-999） */
+    uint8_t  channel;   /* 输出通道号 1-4=具体通道, 99=全部通道 */
     uint8_t  action;    /* 0=停止, 1=启动 */
     uint16_t delay_s;   /* 延时秒数，0=无延时立即执行，上限=600 */
 } __attribute__((packed)) Action_t;
 
-/* 规则结构体 - 每条规则占138字节（packed紧凑）
+/* 规则结构体 - 每条规则占142字节（packed紧凑, Action_t增加channel后）
  * 结构 = 元信息 + 条件 + 表达式 + 动作
  * 表达式由TOK_COND Token引用条件数组，不重复存储条件数据 */
 typedef struct

@@ -32,11 +32,17 @@
  *    实现位于 bsp_logic_dev.c。
  *--------------------------------------------------------------*/
 
-/* 控制设备（启动/停止指定回路指定设备） */
-typedef uint8_t (*ControlDevFunc_t)(uint8_t loop_no, uint8_t dev_no, uint8_t action);
+/* 控制设备（启动/停止指定回路指定设备的指定通道）
+ * channel: 1-4=具体输出通道, 99=全部通道 */
+typedef uint8_t (*ControlDevFunc_t)(uint8_t loop_no, uint8_t dev_no, uint8_t channel, uint8_t action);
 
 /* 检查给定exec_mode下是否允许自动模式 */
 typedef uint8_t (*CheckAutoModeFunc_t)(uint8_t exec_mode);
+/* 联动动作事件通知回调 - 动作执行成功(控制受理)后由引擎调用, 用于黑匣子打点等观测
+ * 参数: loop_no=控制回路, dev_no=被控设备地址, channel=动作通道,
+ *       action=1启动/0停止. 注册方: bsp_logic_dev.c LogicDev_Register() */
+typedef void (*LinkageEventFunc_t)(uint8_t loop_no, uint16_t dev_no,
+                                   uint8_t channel, uint8_t action);
 
 /*--------------------------------------------------------------
  * API：函数指针注册
@@ -45,6 +51,7 @@ typedef uint8_t (*CheckAutoModeFunc_t)(uint8_t exec_mode);
 
 void LogicEngine_SetControlFunc(ControlDevFunc_t func);
 void LogicEngine_SetAutoModeFunc(CheckAutoModeFunc_t func);
+void LogicEngine_SetEventFunc(LinkageEventFunc_t func);   /* 注册联动动作事件回调 */
 
 /*--------------------------------------------------------------
  * API：初始化

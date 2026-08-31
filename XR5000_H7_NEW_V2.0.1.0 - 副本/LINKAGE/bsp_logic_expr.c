@@ -163,13 +163,26 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
         return 0;  /* 无效执行模式 */
     }
 
-    /* 检查每个动作的延时是否在有效范围内 */
+    /* 检查每个动作的延时与通道是否在有效范围内 */
     for (i = 0; i < rule->action_count; i++)
     {
         /* 动作延时时长不能超过600秒 */
         if (rule->actions[i].delay_s > LOGIC_DELAY_MAX_S)
         {
             return 0;  /* 延时超出上限 */
+        }
+        /* 动作方仅支持控制回路2(回路1板载继电器控制已删除,回路3无控制能力) */
+        if (rule->actions[i].loop_no != 2U)
+        {
+            return 0;  /* 动作回路非法:仅允许控制回路2 */
+        }
+        /* 通道号1-4为具体通道, 99为全部通道, 其余非法 */
+        if ((rule->actions[i].channel < 1U) || (rule->actions[i].channel > 4U))
+        {
+            if (rule->actions[i].channel != 99U)
+            {
+                return 0;  /* 通道号非法 */
+            }
         }
     }
 
@@ -851,8 +864,9 @@ static void LoadDefault(void)
     rule.tokens[2].type = TOK_COND;  rule.tokens[2].cond_idx = 1;
     rule.exec_mode = EXEC_START_ALL;
     rule.action_count = 1;
-    rule.actions[0].loop_no = 1;
+    rule.actions[0].loop_no = 2;
     rule.actions[0].dev_no = 1;
+    rule.actions[0].channel = 1;
     rule.actions[0].action = 1;
     rule.actions[0].delay_s = 0;
     rule.crc = CalcRuleCRC(&rule);
@@ -872,8 +886,9 @@ static void LoadDefault(void)
     rule.tokens[0].type = TOK_COND;  rule.tokens[0].cond_idx = 0;
     rule.exec_mode = EXEC_START_PART;
     rule.action_count = 1;
-    rule.actions[0].loop_no = 1;
+    rule.actions[0].loop_no = 2;
     rule.actions[0].dev_no = 3;
+    rule.actions[0].channel = 1;
     rule.actions[0].action = 1;
     rule.actions[0].delay_s = 0;
     rule.crc = CalcRuleCRC(&rule);
@@ -893,8 +908,9 @@ static void LoadDefault(void)
     rule.tokens[0].type = TOK_COND;  rule.tokens[0].cond_idx = 0;
     rule.exec_mode = EXEC_START_PART;
     rule.action_count = 1;
-    rule.actions[0].loop_no = 1;
+    rule.actions[0].loop_no = 2;
     rule.actions[0].dev_no = 3;
+    rule.actions[0].channel = 1;
     rule.actions[0].action = 1;
     rule.actions[0].delay_s = 0;
     rule.crc = CalcRuleCRC(&rule);
@@ -926,8 +942,9 @@ static void LoadDefault(void)
     rule.tokens[4].type = TOK_COND;  rule.tokens[4].cond_idx = 2;
     rule.exec_mode = EXEC_START_ALL;
     rule.action_count = 1;
-    rule.actions[0].loop_no = 1;
+    rule.actions[0].loop_no = 2;
     rule.actions[0].dev_no = 5;
+    rule.actions[0].channel = 1;
     rule.actions[0].action = 1;
     rule.actions[0].delay_s = 0;
     rule.crc = CalcRuleCRC(&rule);
@@ -947,8 +964,9 @@ static void LoadDefault(void)
     rule.tokens[0].type = TOK_COND;  rule.tokens[0].cond_idx = 0;
     rule.exec_mode = EXEC_START_ALL;
     rule.action_count = 1;
-    rule.actions[0].loop_no = 1;
+    rule.actions[0].loop_no = 2;
     rule.actions[0].dev_no = 1;
+    rule.actions[0].channel = 1;
     rule.actions[0].action = 1;
     rule.actions[0].delay_s = 0;
     rule.crc = CalcRuleCRC(&rule);

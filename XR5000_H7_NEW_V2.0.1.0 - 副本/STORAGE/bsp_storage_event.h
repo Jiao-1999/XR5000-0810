@@ -1,3 +1,4 @@
+/* 编码测试：中文注释显示正常(GB2312) */
 /**
  * @file    bsp_storage_event.h
  * @brief   黑匣子存储事件接入层 - 为业务代码提供统一的火警/故障/反馈记录接口
@@ -187,6 +188,19 @@ void StorageEvent_LogSelfCheck(uint8_t is_fail);
  */
 void StorageEvent_LogSupervise(uint8_t dev_no, uint16_t dev_type,
                                uint8_t is_release);
+
+/**
+ * @brief  记录联动动作执行事件(上黑匣子, 0x01普通队列) - 2026-08-31 A8-1新增
+ * @param  dev_no:   被控设备地址(回路2设备, 1-63)
+ * @param  channel:  动作通道号(1-4具体通道, 99=全部通道, 按原值记录)
+ * @param  action:   1=联动启动(EVT_START=19), 0=联动停止(EVT_STOP=29)
+ * @note   调用处: LINKAGE/bsp_logic_dev.c 包装回调 LinkageEventNotify(经
+ *         LogicEngine_SetEventFunc注入引擎), 仅在控制指令受理成功时打点;
+ *         dev_type固定为DEV_TYPE_CONTROL_DEV(163);
+ *         state=0时FillStateMask自动填bit4(启动状态), 停止事件位图填0.
+ */
+void StorageEvent_LogLinkageAction(uint8_t dev_no, uint8_t channel,
+                                   uint8_t action);
 
 #ifdef __cplusplus
 }

@@ -44,7 +44,7 @@ extern "C" {
 #define STX_FRAME_HEAD      0xA5    /* 帧头 */
 #define STX_FRAME_TAIL      0x5A    /* 帧尾 */
 #define STX_MAX_PAYLOAD     255     /* 最大数据载荷长度 */
-#define STX_TIMEOUT_MS      100     /* 应答超时(ms) */
+#define STX_TIMEOUT_MS      1500    /* 应答超时(ms): P1-1原500ms + 实测修订1500ms, 覆盖风暴期MetaSave切库同步擦典型延迟(最坏兜底3.2s仍超, 根治=切库延后化) */
 #define STX_RETRY_COUNT     3       /* 发送失败重试次数 */
 #define STX_QUEUE_DEPTH     32      /* 发送队列深度(条数) */
 
@@ -55,12 +55,14 @@ extern "C" {
 #define STX_CMD_STORE_FAULT        0x04    /* 存储故障(独立区段) */
 #define STX_CMD_QUERY_CAPACITY     0x05    /* 查询剩余容量 */
 #define STX_CMD_HEARTBEAT          0x06    /* 心跳 */
+#define STX_CMD_TEST_LOG           0x07    /* 测试日志透传(不写Flash, USB转发) */
 
 /* 应答码 */
 #define STX_ACK_OK          0x00    /* 成功 */
 #define STX_ACK_ERR_CRC     0x01    /* 校验错误 */
 #define STX_ACK_ERR_FULL    0x02    /* 存储已满 */
 #define STX_ACK_ERR_BUSY    0x03    /* 忙 */
+#define STX_ACK_ERR_VERIFY  0x04    /* 写后读回校验失败(与存储侧bsp_storage_rx.h对齐) */
 
 /*==============================================================
  * 事件记录结构 - 符合GB4717-2024附录B表B.2
@@ -159,6 +161,12 @@ uint8_t StorageTx_SendRecord(uint8_t cmd, const EventRecord_t *record);
  * @note   适合中断/任务调用, 真正发送由StorageTxTask完成
  */
 uint8_t StorageTx_QueueRecord(uint8_t cmd, const EventRecord_t *record);
+
+/**
+ * @brief  发送测试日志到存储侧(同步发送+等ACK, 存储侧USB转发不写Flash)
+ * @note   仅测试构建(STX_TEST_ENABLE=1), 仅限StorageTxTask上下文调用
+ */
+uint8_t StorageTx_SendTestLog(const char *text);
 
 /**
  * @brief  存储发送任务主循环(需在专用FreeRTOS任务中调用)

@@ -28,6 +28,7 @@
  *     StorageTx_TaskLoop()     在FreeRTOS任务中循环(阻塞等待队列)
  */
 #include "bsp_storage_tx.h"
+#include "bsp_storage_test.h"   /* 测试模块(STX_TEST_ENABLE=0时为空实现) */
 #include "bsp_rtc.h"            /* SystemTime, getBM8563TimeToSystemTime() */
 #include "bsp_debug.h"          /* XR5000_STX_DIAG_20260811: 调试打印输出(COM4) */
 #include "usart.h"
@@ -436,6 +437,38 @@ uint8_t StorageTx_QueryCapacity(uint32_t *remaining)
 }
 
 /**
+ * @brief   发送测试日志到存储侧(经USB CDC转发, 不写Flash)
+ * @param   text: 待透传的ASCII文本(建议<=60字节)
+ * @retval  0=成功, 1=失败/未初始化
+ * @note    帧格式: [0xA5][len][0x07][文本...][CRC16][0x5A], len=1+文本长度
+ *          同步等ACK, 与SendRecord同上下文(StorageTxTask)调用, 天然串行不撞帧. 
+ */
+uint8_t StorageTx_SendTestLog(const char *text)
+{
+    uint8_t head, len, cmd_echo, ack_code, dummy;
+
+    if (!s_initialized || text == NULL) {
+        return 1;
+    }
+
+    StorageTx_FlushRx();
+    StorageTx_SendFrame(STX_CMD_TEST_LOG, (const uint8_t *)text, strlen(text));
+
+    /* 等ACK: [0xA5][len][0x07][ack][CRC2][0x5A] */
+    if (StorageTx_WaitByte(&head, STX_TIMEOUT_MS) != 0)      return 1;
+    if (head != STX_FRAME_HEAD)                              return 1;
+    if (StorageTx_WaitByte(&len, STX_TIMEOUT_MS) != 0)       return 1;
+    if (StorageTx_WaitByte(&cmd_echo, STX_TIMEOUT_MS) != 0)  return 1;
+    if (cmd_echo != STX_CMD_TEST_LOG)                        return 1;
+    if (StorageTx_WaitByte(&ack_code, STX_TIMEOUT_MS) != 0)  return 1;
+    StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);  /* CRC低 */
+    StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);  /* CRC高 */
+    StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);  /* 帧尾 */
+    return (ack_code == STX_ACK_OK) ? 0U : 1U;
+}
+
+
+/**
  * @brief   发送心跳到存储端(无应答等待)
  * @retval  0=已发送, 1=未初始化
  * @note    只发送帧不等待应答, 发送后立即返回.
@@ -458,18 +491,20 @@ uint8_t StorageTx_Heartbeat(void)
  */
 void StorageTx_FillTimestamp(EventRecord_t *rec)
 {
+    BM8563_TimeTypeDef rtc;
+
     if (rec == NULL) return;
 
-    /* 读取RTC(BM8563)到SystemTime */
-    getBM8563TimeToSystemTime();
+    /* 修复: getBM8563TimeToSystemTime()实际不写SystemTime(函数名误导), 时间戳被冻结在编译初值
+     * 改为直接读取RTC芯片到局部结构体; BM8563年份寄存器本就是2位(如26), 与记录字段语义一致 */
+    BM8563_Soft_I2C_GetTime(&rtc);
 
-    /* 填充时间值(年 = 公历年 - 2000, 如 2026 -> 26) */
-    rec->year   = (uint8_t)(SystemTime.year - 2000);
-    rec->month  = SystemTime.month;
-    rec->day    = SystemTime.day;
-    rec->hour   = SystemTime.hours;
-    rec->minute = SystemTime.minutes;
-    rec->second = SystemTime.seconds;
+    rec->year   = rtc.year;
+    rec->month  = rtc.month;
+    rec->day    = rtc.day;
+    rec->hour   = rtc.hours;
+    rec->minute = rtc.minutes;
+    rec->second = rtc.seconds;
 }
 
 /**
@@ -637,10 +672,19 @@ void StorageTx_TaskLoop(void)
         return;
     }
 
+#if STX_TEST_ENABLE
+    /* 测试构建: 空闲期每100ms驱动一次测试节拍(阶段调度+注入), 与真实发送同上下文串行 */
+    StorageTest_Tick();
+#endif
+
     StorageTx_QueueItem_t item;
 
-    /* 阻塞等待队列消息 */
+    /* 阻塞等待队列消息(测试构建带100ms超时, 空闲也驱动节拍) */
+#if STX_TEST_ENABLE
+    if (xQueueReceive(s_tx_queue, &item, 100) == pdTRUE) {
+#else
     if (xQueueReceive(s_tx_queue, &item, portMAX_DELAY) == pdTRUE) {
+#endif
         uint8_t send_ret;
 
         /* 发送记录(内含等待应答) */

@@ -303,3 +303,15 @@ void StorageEvent_LogSupervise(uint8_t dev_no, uint16_t dev_type,
                          dev_no, dev_type, 1U, 0U,
                          event_code, 0U);
 }
+
+void StorageEvent_LogLinkageAction(uint8_t dev_no, uint8_t channel,
+                                   uint8_t action)
+{
+    /* 联动动作执行记录: 启动=EVT_START(19)/停止=EVT_STOP(29), 走0x01普通队列
+     * dev_type=控制设备(163); unit=1; channel_no=动作通道(99全通道按原值);
+     * 启动事件(19)由FillStateMask自动置bit4启动状态位
+     * 调用链: LINKAGE引擎ExecuteAction受理成功 -> LinkageEventNotify包装 -> 本API */
+    StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
+                         dev_no, DEV_TYPE_CONTROL_DEV, 1U, channel,
+                         (action != 0U) ? EVT_START : EVT_STOP, 0U);
+}
