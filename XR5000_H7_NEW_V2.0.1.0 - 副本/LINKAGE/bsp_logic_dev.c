@@ -568,6 +568,16 @@ static void LinkageEventNotify(uint8_t loop_no, uint16_t dev_no,
     StorageEvent_LogLinkageAction((uint8_t)dev_no, channel, action);
 }
 
+/* A9: 手动启动键查询回调 - 返回"外联设备启动"键状态(由cmd_process.c的LINKAGE_START_KEY
+ * 按键分支/StartupLinkageDevice()置位). 手动模式下引擎据此放行条件已满足的联动规则.
+ * 注意: 本回调只读查询不清零, 标志由风机控制链路(BspFanStartCrtlApp)负责消费/清除,
+ * 避免与风机手动启动抢消费权 */
+static uint8_t LinkageManualStartQuery(void)
+{
+    extern uint8_t linkage_start_key_press_flag;  /* cmd_process.c定义的外联启动键标志 */
+    return (linkage_start_key_press_flag == 1U) ? 1U : 0U;
+}
+
 void LogicDev_Register(void)
 {
     /* 注册设备状态查询函数到表达式层 */
@@ -581,4 +591,7 @@ void LogicDev_Register(void)
 
     /* 注册联动动作事件回调(黑匣子打点) */
     LogicEngine_SetEventFunc(LinkageEventNotify);
+
+    /* 注册手动启动键查询回调(手动模式联动入口) */
+    LogicEngine_SetManualStartFunc(LinkageManualStartQuery);
 }

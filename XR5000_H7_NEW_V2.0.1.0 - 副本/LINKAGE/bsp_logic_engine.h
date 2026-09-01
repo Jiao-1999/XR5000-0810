@@ -44,6 +44,11 @@ typedef uint8_t (*CheckAutoModeFunc_t)(uint8_t exec_mode);
 typedef void (*LinkageEventFunc_t)(uint8_t loop_no, uint16_t dev_no,
                                    uint8_t channel, uint8_t action);
 
+/* 手动启动键查询回调 - 手动模式下引擎查询"外联设备启动"键是否按下
+ * 返回值: 1=键已按下(允许手动执行联动), 0=未按下
+ * 注册方: bsp_logic_dev.c LogicDev_Register() */
+typedef uint8_t (*ManualStartFunc_t)(void);
+
 /*--------------------------------------------------------------
  * API：函数指针注册
  *    在初始化期间由LogicDev_Register()调用。
@@ -52,6 +57,7 @@ typedef void (*LinkageEventFunc_t)(uint8_t loop_no, uint16_t dev_no,
 void LogicEngine_SetControlFunc(ControlDevFunc_t func);
 void LogicEngine_SetAutoModeFunc(CheckAutoModeFunc_t func);
 void LogicEngine_SetEventFunc(LinkageEventFunc_t func);   /* 注册联动动作事件回调 */
+void LogicEngine_SetManualStartFunc(ManualStartFunc_t func); /* 注册手动启动键查询回调 */
 
 /*--------------------------------------------------------------
  * API：初始化

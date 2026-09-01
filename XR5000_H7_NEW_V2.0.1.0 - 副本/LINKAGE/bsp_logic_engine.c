@@ -39,6 +39,7 @@ static ControlDevFunc_t    s_control_func    = NULL;
 /* 检查自动模式回调函数指针，由bsp_logic_dev.c注册 */
 static CheckAutoModeFunc_t s_automode_func   = NULL;
 static LinkageEventFunc_t   s_event_func     = NULL;  /* 联动动作事件回调(黑匣子打点), 由bsp_logic_dev.c注册 */
+static ManualStartFunc_t    s_manualstart_func = NULL;  /* 手动启动键查询回调(手动模式联动入口), 由bsp_logic_dev.c注册 */
 
 /* Test trace: previous cycle cond state per slot, print on edge only */
 static uint8_t s_prev_cond[LOGIC_RULE_MAX];
@@ -71,6 +72,10 @@ void LogicEngine_SetAutoModeFunc(CheckAutoModeFunc_t func)
 void LogicEngine_SetEventFunc(LinkageEventFunc_t func)
 {
     s_event_func = func;  /* 保存联动动作事件回调指针 */
+}
+void LogicEngine_SetManualStartFunc(ManualStartFunc_t func)
+{
+    s_manualstart_func = func;  /* 保存手动启动键查询回调指针 */
 }
 
 /*--------------------------------------------------------------
@@ -170,6 +175,7 @@ static void LogicEngine_Run(void)
     uint32_t now_sec;    /* 当前时间戳（秒） */
     uint8_t  cond_met;   /* 条件是否满足标志 */
     uint8_t  all_done;   /* 所有动作是否都已执行完毕 */
+    uint8_t  exec_now;    /* 本周期允许执行标志(自动模式允许 或 手动启动键按下) */
     LogicRule_t *rules;  /* 规则表首地址 */
     RtRuntime   *rt;     /* 运行时状态数组首地址 */
 
@@ -218,7 +224,19 @@ static void LogicEngine_Run(void)
             if (cond_met)
             {
                 /* 条件满足，检查是否允许自动执行 */
-                if (CheckAutoAllowed(rules[i].exec_mode))
+                exec_now = CheckAutoAllowed(rules[i].exec_mode);
+                if (exec_now == 0U)
+                {
+                    /* A9: 手动模式联动入口 - 自动不允许时查询外联设备启动键
+                     * 手动启动键按下且条件满足才执行, 条件不满足时按键无效 */
+                    if ((s_manualstart_func != NULL) && (s_manualstart_func() != 0U))
+                    {
+                        exec_now = 1U;  /* 手动启动键按下, 放行执行(与自动路径一致) */
+                        DebugPrintf("[LOGIC] R%d manual START key -> exec\r\n",
+                                    rules[i].rule_id);
+                    }
+                }
+                if (exec_now)
                 {
                     /* 允许执行，进入ARMED状态 */
                     rt[i].state = RT_ARMED;

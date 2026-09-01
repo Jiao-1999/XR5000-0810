@@ -68,7 +68,7 @@ typedef struct
     uint8_t       active;        /* 1=正在编辑规则, 0=空闲 */
     EditPhase     phase;         /* 当前编辑阶段(条件区/动作区) */
     EditStep      step;          /* 当前编辑步骤 */
-    uint8_t       digit_buf[7];  /* 数字输入缓冲区: 条件5位(回路2+设备3), 动作7位(回路2+设备3+通道2) */
+    uint8_t       digit_buf[10]; /* 数字输入缓冲区: 条件5位, 动作7位+可选3位延时 */
     uint8_t       digit_count;   /* 已输入数字位数 */
     LogicRule_t   rule;          /* 当前正在构造的规则 */
     uint8_t       edit_rule_id;  /* 正在编辑的规则ID，0=新建规则 */
@@ -126,26 +126,48 @@ static uint8_t NeedDigitCount(void)
 }
 
 /*--------------------------------------------------------------
+ * 函数名称：InputMaxDigits
+ * 功能说明：当前阶段允许输入的最大位数(区别于NeedDigitCount的解析位数):
+ *           动作段最多10位(7位动作+可选3位延时), 其余阶段5位.
+ *--------------------------------------------------------------*/
+static uint8_t InputMaxDigits(void)
+{
+    return (s_edit.phase == EDIT_ACTION) ? 10U : 5U;
+}
+
+/*--------------------------------------------------------------
  * 函数名称：ParseDigitBuf
- * 功能说明：将数字缓冲区解析为回路号、设备号和通道号。
- *           条件模式(5位): 前2位=回路号, 后3位=设备号, 通道=0
+ * 功能说明：将数字缓冲区解析为回路号、设备号、通道号和延时秒。
+ *           条件模式(5位): 前2位=回路号, 后3位=设备号, 通道=0, 延时=0
  *           动作模式(7位): 前2位=回路号, 中3位=设备号, 后2位=通道号(1-4/99)
- * 输入参数：loop_no - 输出回路号, dev_no - 输出设备号, channel - 输出通道号(可为NULL)
+ *           动作模式(10位): 前7位同上, 后3位=延时秒(000-600)
+ * 输入参数：loop_no - 输出回路号, dev_no - 输出设备号, channel - 输出通道号(可为NULL),
+ *           delay_s - 输出延时秒(可为NULL)
  * 返回值  ：1=解析成功, 0=位数不足
  *--------------------------------------------------------------*/
-static uint8_t ParseDigitBuf(uint8_t *loop_no, uint16_t *dev_no, uint8_t *channel)
+static uint8_t ParseDigitBuf(uint8_t *loop_no, uint16_t *dev_no,
+                             uint8_t *channel, uint16_t *delay_s)
 {
     uint8_t need = NeedDigitCount();
 
-    if (s_edit.digit_count != need)
+    /* 条件段必须精确5位; 动作段允许7位(无延时)或10位(后3位延时秒) */
+    if (need == 7U)
     {
-        return 0;  /* 位数不足，解析失败 */
+        if ((s_edit.digit_count != 7U) && (s_edit.digit_count != 10U))
+        {
+            return 0;  /* 位数不符，解析失败 */
+        }
+    }
+    else if (s_edit.digit_count != need)
+    {
+        return 0;  /* 位数不符，解析失败 */
     }
 
     /* 前2位 = 回路号 */
     *loop_no = s_edit.digit_buf[0] * 10 + s_edit.digit_buf[1];
     /* 中3位 = 设备号 */
     *dev_no  = s_edit.digit_buf[2] * 100 + s_edit.digit_buf[3] * 10 + s_edit.digit_buf[4];
+
     if (need == 7U)
     {
         /* 后2位 = 通道号 */
@@ -153,10 +175,32 @@ static uint8_t ParseDigitBuf(uint8_t *loop_no, uint16_t *dev_no, uint8_t *channe
         {
             *channel = s_edit.digit_buf[5] * 10 + s_edit.digit_buf[6];
         }
+        /* C3: 输满10位时后3位为延时秒, 7位则延时0 */
+        if (delay_s != NULL)
+        {
+            if (s_edit.digit_count == 10U)
+            {
+                *delay_s = (uint16_t)(s_edit.digit_buf[7] * 100 +
+                                      s_edit.digit_buf[8] * 10 +
+                                      s_edit.digit_buf[9]);
+            }
+            else
+            {
+                *delay_s = 0U;
+            }
+        }
     }
-    else if (channel != NULL)
+    else
     {
-        *channel = 0;  /* 条件编码无通道概念 */
+        /* 条件段无通道/延时字段 */
+        if (channel != NULL)
+        {
+            *channel = 0;
+        }
+        if (delay_s != NULL)
+        {
+            *delay_s = 0U;
+        }
     }
 
     return 1;  /* 解析成功 */
@@ -314,7 +358,7 @@ static void CompleteConditionEx(uint8_t sensor_type, uint8_t alarm_level)
     uint16_t dev_no;     /* 解析出的设备号 */
 
     /* 解析5位编码(条件模式, 通道指针传NULL) */
-    if (!ParseDigitBuf(&loop_no, &dev_no, NULL))
+    if (!ParseDigitBuf(&loop_no, &dev_no, NULL, NULL))
     {
         return;  /* 位数不足，无法完成 */
     }
@@ -445,9 +489,10 @@ static void SetAction(void)
     uint8_t loop_no;    /* 控制回路号 */
     uint16_t dev_no;     /* 设备号 */
     uint8_t channel;     /* 输出通道号 */
+    uint16_t delay_s;    /* 延时秒(0-600), C3: 从10位输入解析 */
 
     /* 解析7位编码(动作模式: 回路2+设备3+通道2) */
-    if (!ParseDigitBuf(&loop_no, &dev_no, &channel))
+    if (!ParseDigitBuf(&loop_no, &dev_no, &channel, &delay_s))
     {
         return;  /* 位数不足，无法设置 */
     }
@@ -468,6 +513,14 @@ static void SetAction(void)
         return;
     }
 
+    /* C3: 延时上限校验(600秒, 超限拒绝并清缓冲) */
+    if (delay_s > LOGIC_DELAY_MAX_S)
+    {
+        DebugPrintf("[LOGIC] +Act reject delay=%d (limit 600)\r\n", delay_s);
+        ClearDigitBuf();
+        return;
+    }
+
     /* 检查是否有空间添加动作 */
     if (s_edit.rule.action_count >= LOGIC_ACTION_MAX)
     {
@@ -479,7 +532,7 @@ static void SetAction(void)
     s_edit.rule.actions[s_edit.rule.action_count].dev_no   = dev_no;
     s_edit.rule.actions[s_edit.rule.action_count].channel  = channel;
     s_edit.rule.actions[s_edit.rule.action_count].action   = 1;  /* 默认启动 */
-    s_edit.rule.actions[s_edit.rule.action_count].delay_s  = 0;  /* 默认无延时 */
+    s_edit.rule.actions[s_edit.rule.action_count].delay_s  = delay_s;  /* C3: 使用解析值(7位=0, 10位=用户输入) */
     s_edit.rule.action_count++;
 
     DebugPrintf("[LOGIC] +Act L%d D%03d ch=%d start delay=%d\r\n",
@@ -508,7 +561,7 @@ static void SaveRule(void)
     }
 
     /* 若当前在ACTION步骤且有7位输入，先完成动作 */
-    if (s_edit.step == EDIT_STEP_ACTION && s_edit.digit_count == NeedDigitCount())
+    if (s_edit.step == EDIT_STEP_ACTION && (s_edit.digit_count == 7U || s_edit.digit_count == 10U))
     {
         SetAction();
     }
@@ -822,7 +875,7 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
             uint8_t digit = (control_id == 10) ? 0 : control_id;
 
             /* 最多输入当前阶段所需位数: 条件5位, 动作7位 */
-            if (s_edit.digit_count < NeedDigitCount())
+            if (s_edit.digit_count < InputMaxDigits())
             {
                 s_edit.digit_buf[s_edit.digit_count++] = digit;
 
@@ -867,7 +920,7 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
         if (s_edit.phase == EDIT_ACTION)
         {
             /* 动作区: & 作为多动作分隔符，确认当前编码为动作(7位) */
-            if (s_edit.step == EDIT_STEP_ACTION && s_edit.digit_count == NeedDigitCount())
+            if (s_edit.step == EDIT_STEP_ACTION && (s_edit.digit_count == 7U || s_edit.digit_count == 10U))
             {
                 SetAction();
             }
