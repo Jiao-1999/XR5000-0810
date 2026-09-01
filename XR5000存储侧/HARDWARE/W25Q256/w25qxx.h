@@ -1,12 +1,12 @@
-/**
+ï»¿/**
  * @file    w25qxx.h
- * @brief   W25Q256 SPI Flash Çı¶¯Í·ÎÄ¼ş (ÊÊÅäSTM32F10x±ê×¼ÍâÉè¿â)
- * @details Ó²¼şÁ¬½Ó: SPI2
- *          CS  -> PB12 (Èí¼ş¿ØÖÆ)
+ * @brief   W25Q256 SPI Flash é©±åŠ¨å¤´æ–‡ä»¶ (é€‚é…STM32F10xæ ‡å‡†å¤–è®¾åº“)
+ * @details ç¡¬ä»¶è¿æ¥: SPI2
+ *          CS  -> PB12 (è½¯ä»¶æ§åˆ¶)
  *          CLK -> PB13 (SPI2_SCK)
  *          MISO-> PB14 (SPI2_MISO)
  *          MOSI-> PB15 (SPI2_MOSI)
- *          W25Q256ÈİÁ¿32MB, 4×Ö½ÚµØÖ·Ä£Ê½
+ *          W25Q256å®¹é‡32MB, 4å­—èŠ‚åœ°å€æ¨¡å¼
  */
 #ifndef __W25QXX_H
 #define __W25QXX_H
@@ -14,7 +14,7 @@
 #include "sys.h"
 
 /*==============================================================
- * Ğ¾Æ¬ĞÍºÅ¶¨Òå (³§ÉÌ´úºÅEF)
+ * èŠ¯ç‰‡å‹å·å®šä¹‰ (å‚å•†ä»£å·EF)
  *============================================================*/
 #define W25Q80    0XEF13
 #define W25Q16    0XEF14
@@ -24,14 +24,14 @@
 #define W25Q256   0XEF18
 #define W25Q512   0xEF19
 
-/* W25Q256 ÆğÊ¼µØÖ· */
+/* W25Q256 èµ·å§‹åœ°å€ */
 #define EX_FLASH_ADD 0x000000
 
-/* Íâ²¿È«¾Ö±äÁ¿ */
-extern uint16_t W25QXX_TYPE;  /* ¶¨ÒåW25QXXĞ¾Æ¬ĞÍºÅ */
+/* å¤–éƒ¨å…¨å±€å˜é‡ */
+extern uint16_t W25QXX_TYPE;  /* å®šä¹‰W25QXXèŠ¯ç‰‡å‹å· */
 
 /*==============================================================
- * W25X Ö¸Áî±í
+ * W25X æŒ‡ä»¤è¡¨
  *============================================================*/
 #define W25X_WriteEnable         0x06
 #define W25X_WriteDisable        0x04
@@ -57,55 +57,55 @@ extern uint16_t W25QXX_TYPE;  /* ¶¨ÒåW25QXXĞ¾Æ¬ĞÍºÅ */
 #define W25X_Exit4ByteAddr       0xE9
 
 /*==============================================================
- * APIÉùÃ÷
+ * APIå£°æ˜
  *============================================================*/
 
-/* SPI2×ÜÏßµ×²ã¶ÁĞ´Ò»¸ö×Ö½Ú */
+/* SPI2æ€»çº¿åº•å±‚è¯»å†™ä¸€ä¸ªå­—èŠ‚ */
 uint8_t SPI2_ReadWriteByte(uint8_t TxData);
 
-/* W25QXXÆ¬Ñ¡Òı½Å¿ØÖÆ (0=Ñ¡ÖĞ, ÆäËû=ÊÍ·Å) */
+/* W25QXXç‰‡é€‰å¼•è„šæ§åˆ¶ (0=é€‰ä¸­, å…¶ä»–=é‡Šæ”¾) */
 void W25QXX_CS(uint8_t a);
 
-/* ³õÊ¼»¯W25QXX (º¬SPI2ºÍGPIOÅäÖÃ) ·µ»Ø0=³É¹¦, 1=Ê§°Ü */
+/* åˆå§‹åŒ–W25QXX (å«SPI2å’ŒGPIOé…ç½®) è¿”å›0=æˆåŠŸ, 1=å¤±è´¥ */
 uint8_t W25QXX_Init(void);
 
-/* ¶ÁÈ¡FLASH ID */
+/* è¯»å–FLASH ID */
 uint16_t W25QXX_ReadID(void);
 
-/* ¶ÁÈ¡×´Ì¬¼Ä´æÆ÷ regno:1~3 */
+/* è¯»å–çŠ¶æ€å¯„å­˜å™¨ regno:1~3 */
 uint8_t W25QXX_ReadSR(uint8_t regno);
 
-/* Ğ´×´Ì¬¼Ä´æÆ÷ */
+/* å†™çŠ¶æ€å¯„å­˜å™¨ */
 void W25QXX_Write_SR(uint8_t regno, uint8_t sr);
 
-/* Ğ´Ê¹ÄÜ */
+/* å†™ä½¿èƒ½ */
 void W25QXX_Write_Enable(void);
 
-/* Ğ´½ûÖ¹ */
+/* å†™ç¦æ­¢ */
 void W25QXX_Write_Disable(void);
 
-/* ÎŞĞ£ÑéĞ´SPI FLASH (¾ßÓĞ×Ô¶¯»»Ò³¹¦ÄÜ, È·±£µØÖ·²»Ô½½ç) */
+/* æ— æ ¡éªŒå†™SPI FLASH (å…·æœ‰è‡ªåŠ¨æ¢é¡µåŠŸèƒ½, ç¡®ä¿åœ°å€ä¸è¶Šç•Œ) */
 void W25QXX_Write_NoCheck(uint8_t* pBuffer, uint32_t WriteAddr, uint16_t NumByteToWrite);
 
-/* ¶ÁÈ¡SPI FLASH */
+/* è¯»å–SPI FLASH */
 void W25QXX_Read(uint8_t* pBuffer, uint32_t ReadAddr, uint16_t NumByteToRead);
 
-/* Ğ´SPI FLASH (´ø²Á³ı²Ù×÷) */
+/* å†™SPI FLASH (å¸¦æ“¦é™¤æ“ä½œ) */
 void W25QXX_Write(uint8_t* pBuffer, uint32_t WriteAddr, uint16_t NumByteToWrite);
 
-/* ²Á³ıÕû¸öĞ¾Æ¬ */
+/* æ“¦é™¤æ•´ä¸ªèŠ¯ç‰‡ */
 void W25QXX_Erase_Chip(void);
 
-/* ²Á³ıÒ»¸öÉÈÇø (Dst_Addr: ÉÈÇøºÅ) */
+/* æ“¦é™¤ä¸€ä¸ªæ‰‡åŒº (Dst_Addr: æ‰‡åŒºå·) */
 void W25QXX_Erase_Sector(uint32_t Dst_Addr);
 
-/* µÈ´ı¿ÕÏĞ */
+/* ç­‰å¾…ç©ºé—² */
 void W25QXX_Wait_Busy(void);
 
-/* ½øÈëµôµçÄ£Ê½ */
+/* è¿›å…¥æ‰ç”µæ¨¡å¼ */
 void W25QXX_PowerDown(void);
 
-/* »½ĞÑ */
+/* å”¤é†’ */
 void W25QXX_WAKEUP(void);
 
 #endif /* __W25QXX_H */

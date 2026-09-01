@@ -1,59 +1,59 @@
-/**
+ï»¿/**
  * @file    usb_cdc.c
- * @brief   USB CDC ÐéÄâ´®¿Ú·â×°²ãÊµÏÖ (»ùÓÚ ST ¹Ù·½ USB-FS-Device_Driver)
- * @details ±¾ÎÄ¼þ·â×° ST ¹Ù·½ USB-FS-Device_Driver, ¶ÔÍâÌá¹©Óë¾É°æ usb_cdc
- *          ÍêÈ«Ò»ÖÂµÄ½Ó¿Ú. ½ÓÊÕÂ·¾¶¸ÄÓÃ×Ö½ÚÁ÷»·ÐÎ»º³åÇø(²»ÔÙÒÀÀµ\r\n·ÖÖ¡),
- *          ÒÔÊÊÅä´æ´¢²àÏîÄ¿µÄ GB4717 Ð­ÒéÍ¸´«ÐèÇó.
+ * @brief   USB CDC è™šæ‹Ÿä¸²å£å°è£…å±‚å®žçŽ° (åŸºäºŽ ST å®˜æ–¹ USB-FS-Device_Driver)
+ * @details æœ¬æ–‡ä»¶å°è£… ST å®˜æ–¹ USB-FS-Device_Driver, å¯¹å¤–æä¾›ä¸Žæ—§ç‰ˆ usb_cdc
+ *          å®Œå…¨ä¸€è‡´çš„æŽ¥å£. çŽ¯å½¢æŽ¥æ”¶åŒºç”¨å­—èŠ‚æµä½Žä½å¾ªçŽ¯(é˜²æ­¢å¸§é”™ä½\r\næ‹†å¸§),
+ *          é€ä¼ ç»™ä¸»æœºä¾§ç›®æ ‡ä¸º GB4717 åè®®é€ä¼ å¤„ç†.
  */
 #include "usb_cdc.h"
 #include "delay.h"
 #include "hw_config.h"
 #include "usb_lib.h"
 #include "usb_pwr.h"
-#include "usb_istr.h"   /* USB_Istr() ÉùÃ÷ */
+#include "usb_istr.h" /* USB_Istr() å£°æ˜Ž */
 
 /*==============================================================
- * Íâ²¿±äÁ¿ (¹© main.c µ÷ÊÔ LED Ö¸Ê¾ USB ISR »î¶¯)
+ * å¤–éƒ¨å˜é‡ (ä¾› main.c è°ƒè¯• LED æŒ‡ç¤º USB ISR æ´»åŠ¨)
  *============================================================*/
 volatile uint32_t g_usb_isr_count   = 0;
 volatile uint32_t g_usb_reset_count = 0;
 
 /*==============================================================
- * ½ÓÊÕ»·ÐÎ»º³åÇø (×Ö½ÚÁ÷, ²»·ÖÖ¡)
+ * æŽ¥æ”¶çŽ¯å½¢ç¼“å†² (å­—èŠ‚æµåž‹, å­˜æ”¾å¸§)
  *============================================================*/
 static volatile uint8_t  s_rx_buf[USB_CDC_RX_BUF_SIZE];
-static volatile uint16_t s_rx_head = 0;   /* Ð´ÈëÎ»ÖÃ */
-static volatile uint16_t s_rx_tail = 0;   /* ¶ÁÈ¡Î»ÖÃ */
-static volatile uint16_t s_rx_count = 0;  /* µ±Ç°×Ö½ÚÊý */
+static volatile uint16_t s_rx_head = 0; /* å†™å…¥ä½ç½® */
+static volatile uint16_t s_rx_tail = 0; /* è¯»å–ä½ç½® */
+static volatile uint16_t s_rx_count = 0; /* å½“å‰å­—èŠ‚æ•° */
 
 /*==============================================================
- * ÄÚ²¿º¯ÊýÉùÃ÷
+ * å†…éƒ¨å‡½æ•°å£°æ˜Ž
  *============================================================*/
-void RESET_Callback(void);  /* ¹© usb_istr.c Í¨¹ý RESET_CALLBACK ºêµ÷ÓÃ */
+void RESET_Callback(void); /* ä¾› usb_istr.c é€šè¿‡ RESET_CALLBACK å®è°ƒç”¨ */
 
 /*==============================================================
- * API ÊµÏÖ
+ * API å®žçŽ°
  *============================================================*/
 
 void USB_CDC_Init(void)
 {
-    /* USB Èí¶Ï¿ª -> ÑÓÊ± -> ÈíÖØÁ¬, Ä£Äâ°Î²å, ´¥·¢ PC ÖØÐÂÃ¶¾Ù */
+    /* USB è½¯æ–­å¼€ -> å»¶æ—¶ -> è½¯é‡è¿ž, æ¨¡æ‹Ÿæ‹”æ’, è§¦å‘ PC é‡æ–°æžšä¸¾ */
     USB_Port_Set(0);
     delay_ms(700);
     USB_Port_Set(1);
 
-    /* ÅäÖÃ USB 48MHz Ê±ÖÓ (PLL/1.5 = 48MHz) */
+    /* é…ç½® USB 48MHz æ—¶é’Ÿ (PLL/1.5 = 48MHz) */
     Set_USBClock();
 
-    /* ÅäÖÃ USB µÍÓÅÏÈ¼¶ÖÐ¶Ï + »½ÐÑÖÐ¶Ï (EXTI Line18) */
+    /* é…ç½® USB ä½Žä¼˜å…ˆçº§ä¸­æ–­ + å”¤é†’ä¸­æ–­ (EXTI Line18) */
     USB_Interrupts_Config();
 
-    /* ³õÊ¼»¯½ÓÊÕ»º³åÇø */
+    /* åˆå§‹åŒ–æŽ¥æ”¶ç¼“å†²åŒº */
     s_rx_head  = 0;
     s_rx_tail  = 0;
     s_rx_count = 0;
 
-    /* Æô¶¯ USB Ð­ÒéÕ» (½øÈëÃ¶¾ÙÁ÷³Ì) */
+    /* åˆå§‹åŒ– USB åè®®æ ˆ (å«æžšä¸¾å¤„ç†) */
     USB_Init();
 }
 
@@ -86,6 +86,16 @@ uint16_t USB_CDC_ReadByte(void)
     return (uint16_t)b;
 }
 
+/* P1-6: peek API: GB4717 (0x40 frames) vs character command (R/C) byte stream splitting */
+uint16_t USB_CDC_PeekByte(void)
+{
+    if (s_rx_count == 0)
+    {
+        return 0xFFFF;
+    }
+    return (uint16_t)s_rx_buf[s_rx_tail];
+}
+
 void USB_CDC_ISR(void)
 {
     g_usb_isr_count++;
@@ -94,7 +104,7 @@ void USB_CDC_ISR(void)
 
 void USB_CDC_Poll(void)
 {
-    /* ÊÕ·¢¾ùÓÉ USB ÖÐ¶ÏÒì²½Çý¶¯, ´Ë´¦ÎÞÐè´¦Àí */
+    /* æŽ¥æ”¶åœ¨ USB ä¸­æ–­å¼‚æ­¥å›žè°ƒ, æ­¤å¤„æ— éœ€å¤„ç† */
 }
 
 uint8_t USB_CDC_IsConfigured(void)
@@ -106,7 +116,7 @@ void USB_CDC_PushRx(uint8_t b)
 {
     if (s_rx_count >= USB_CDC_RX_BUF_SIZE)
     {
-        /* »º³åÇøÂú, ¶ªÆú×îÐÂ×Ö½Ú */
+        /* ç¼“å†²å·²æ»¡, ä¸¢å¼ƒå½“å‰å­—èŠ‚ */
         return;
     }
     s_rx_buf[s_rx_head] = b;
@@ -117,8 +127,8 @@ void USB_CDC_PushRx(uint8_t b)
 }
 
 /*==============================================================
- * USB RESET »Øµ÷ (ÓÉ usb_istr.c Í¨¹ý RESET_CALLBACK ºêµ÷ÓÃ)
- * ÓÃÓÚÍ³¼Æ USB ¸´Î»´ÎÊý, ·½±ãµ÷ÊÔ
+ * USB RESET å›žè°ƒ (ç”± usb_istr.c é€šè¿‡ RESET_CALLBACK å®è°ƒç”¨)
+ * ç´¯è®¡ç»Ÿè®¡ USB å¤ä½æ¬¡æ•°, ä¾¿äºŽè°ƒè¯•ç›‘æŽ§
  *============================================================*/
 void RESET_Callback(void)
 {

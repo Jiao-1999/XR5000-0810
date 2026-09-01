@@ -269,10 +269,10 @@ enum EP_BUF_NUM
 #define _SetEPTxStatus(bEpNum,wState) {\
     register uint16_t _wRegVal;       \
     _wRegVal = _GetENDPOINT(bEpNum) & EPTX_DTOGMASK;\
-    /* toggle first bit ? */     \
+    /* toggle first bit */     \
     if((EPTX_DTOG1 & wState)!= 0)      \
       _wRegVal ^= EPTX_DTOG1;        \
-    /* toggle second bit ?  */         \
+    /* toggle second bit */          \
     if((EPTX_DTOG2 & wState)!= 0)      \
       _wRegVal ^= EPTX_DTOG2;        \
     _SetENDPOINT(bEpNum, (_wRegVal | EP_CTR_RX|EP_CTR_TX));    \
@@ -290,10 +290,10 @@ enum EP_BUF_NUM
     register uint16_t _wRegVal;   \
     \
     _wRegVal = _GetENDPOINT(bEpNum) & EPRX_DTOGMASK;\
-    /* toggle first bit ? */  \
+    /* toggle first bit */  \
     if((EPRX_DTOG1 & wState)!= 0) \
       _wRegVal ^= EPRX_DTOG1;  \
-    /* toggle second bit ? */  \
+    /* toggle second bit */  \
     if((EPRX_DTOG2 & wState)!= 0) \
       _wRegVal ^= EPRX_DTOG2;  \
     _SetENDPOINT(bEpNum, (_wRegVal | EP_CTR_RX|EP_CTR_TX)); \
@@ -312,16 +312,16 @@ enum EP_BUF_NUM
     register uint32_t _wRegVal;   \
     \
     _wRegVal = _GetENDPOINT(bEpNum) & (EPRX_DTOGMASK |EPTX_STAT) ;\
-    /* toggle first bit ? */  \
+    /* toggle first bit */  \
     if((EPRX_DTOG1 & wStaterx)!= 0) \
       _wRegVal ^= EPRX_DTOG1;  \
-    /* toggle second bit ? */  \
+    /* toggle second bit */  \
     if((EPRX_DTOG2 & wStaterx)!= 0) \
       _wRegVal ^= EPRX_DTOG2;  \
-    /* toggle first bit ? */     \
+    /* toggle first bit */     \
     if((EPTX_DTOG1 & wStatetx)!= 0)      \
       _wRegVal ^= EPTX_DTOG1;        \
-    /* toggle second bit ?  */         \
+    /* toggle second bit */          \
     if((EPTX_DTOG2 & wStatetx)!= 0)      \
       _wRegVal ^= EPTX_DTOG2;        \
     _SetENDPOINT(bEpNum, _wRegVal | EP_CTR_RX|EP_CTR_TX);    \

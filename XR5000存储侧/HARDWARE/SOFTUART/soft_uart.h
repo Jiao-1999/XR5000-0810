@@ -1,11 +1,11 @@
-/**
+ï»¿/**
  * @file    soft_uart.h
- * @brief   Èí¼þ´®¿ÚÄ£¿é - PA12(TX)/PA11(RX), 9600 8N1
- * @details Ê¹ÓÃTIM3 3±¶¹ý²ÉÑùÊµÏÖÈ«Ë«¹¤Èí¼þ´®¿Ú, Ìá¹©¶îÍâµÄ´®¿ÚÍ¨ÐÅÍ¨µÀ.
- *          PA11/PA12ÓëUSB D-/D+¸´ÓÃ, µ±USB CDCÎ´ÆôÓÃÊ±¿É×÷Îª±¸ÓÃ´®¿ÚÊ¹ÓÃ.
- *          PA12(TX)ÍÆÍìÊä³ö, PA11(RX)ÉÏÀ­ÊäÈë
- *          TIM3ÖÐ¶ÏÆµÂÊ = 3 * 9600 = 28800Hz
- *          Ö¡¸ñÊ½: ÆðÊ¼Î»(0) + 8Êý¾ÝÎ»(LSBÏÈ) + Í£Ö¹Î»(1), ÎÞÐ£ÑéÎ»
+ * @brief   è½¯ä»¶ä¸²å£æ¨¡å— - PA12(TX)/PA11(RX), 9600 8N1
+ * @details ä½¿ç”¨TIM3 3å€è¿‡é‡‡æ ·å®žçŽ°å…¨åŒå·¥è½¯ä»¶ä¸²å£, æä¾›é¢å¤–çš„ä¸²å£é€šä¿¡é€šé“.
+ *          PA11/PA12ä¸ŽUSB D-/D+å¤ç”¨, å½“USB CDCæœªå¯ç”¨æ—¶å¯ä½œä¸ºå¤‡ç”¨ä¸²å£ä½¿ç”¨.
+ *          PA12(TX)æŽ¨æŒ½è¾“å‡º, PA11(RX)ä¸Šæ‹‰è¾“å…¥
+ *          TIM3ä¸­æ–­é¢‘çŽ‡ = 3 * 9600 = 28800Hz
+ *          å¸§æ ¼å¼: èµ·å§‹ä½(0) + 8æ•°æ®ä½(LSBå…ˆ) + åœæ­¢ä½(1), æ— æ ¡éªŒä½
  */
 #ifndef __SOFT_UART_H
 #define __SOFT_UART_H
@@ -13,41 +13,41 @@
 #include "sys.h"
 
 #define SOFT_UART_BAUD      9600
-#define SOFT_UART_RX_BUF_SIZE  64   /* ½ÓÊÕ»·ÐÎ»º³å´óÐ¡ */
+#define SOFT_UART_RX_BUF_SIZE  64   /* æŽ¥æ”¶çŽ¯å½¢ç¼“å†²å¤§å° */
 
 /**
- * @brief  ³õÊ¼»¯Èí¼þ´®¿Ú (ÅäÖÃGPIO/TIM3/NVIC²¢Æô¶¯¶¨Ê±Æ÷)
+ * @brief  åˆå§‹åŒ–è½¯ä»¶ä¸²å£ (é…ç½®GPIO/TIM3/NVICå¹¶å¯åŠ¨å®šæ—¶å™¨)
  */
 void SoftUART_Init(void);
 
 /**
- * @brief  ·¢ËÍÒ»¸ö×Ö½Ú (×èÈûµÈ´ý·¢ËÍÍê³É)
- * @param  data: ´ý·¢ËÍ×Ö½Ú
+ * @brief  å‘é€ä¸€ä¸ªå­—èŠ‚ (é˜»å¡žç­‰å¾…å‘é€å®Œæˆ)
+ * @param  data: å¾…å‘é€å­—èŠ‚
  */
 void SoftUART_SendByte(uint8_t data);
 
 /**
- * @brief  ·¢ËÍ¶à×Ö½Ú
- * @param  data: Êý¾ÝÖ¸Õë
- * @param  len:  ×Ö½ÚÊý
+ * @brief  å‘é€å¤šå­—èŠ‚
+ * @param  data: æ•°æ®æŒ‡é’ˆ
+ * @param  len:  å­—èŠ‚æ•°
  */
 void SoftUART_SendData(const uint8_t *data, uint16_t len);
 
 /**
- * @brief  ²éÑ¯½ÓÊÕ»º³åÖÐ¿ÉÓÃ×Ö½ÚÊý
- * @retval ¿É¶Á×Ö½ÚÊý
+ * @brief  æŸ¥è¯¢æŽ¥æ”¶ç¼“å†²ä¸­å¯ç”¨å­—èŠ‚æ•°
+ * @retval å¯è¯»å­—èŠ‚æ•°
  */
 uint16_t SoftUART_Available(void);
 
 /**
- * @brief  ¶ÁÈ¡Ò»¸ö×Ö½Ú (ÎÞÊý¾Ý·µ»Ø0xFFFF)
- * @retval ¶ÁÈ¡µ½µÄ×Ö½Ú; 0xFFFF±íÊ¾»º³åÎª¿Õ
+ * @brief  è¯»å–ä¸€ä¸ªå­—èŠ‚ (æ— æ•°æ®è¿”å›ž0xFFFF)
+ * @retval è¯»å–åˆ°çš„å­—èŠ‚; 0xFFFFè¡¨ç¤ºç¼“å†²ä¸ºç©º
  */
 uint16_t SoftUART_ReadByte(void);
 
 /**
- * @brief  TIM3ÖÐ¶Ï·þÎñº¯Êý (ÓÉstm32f10x_it.cµÄTIM3_IRQHandlerµ÷ÓÃ)
- * @note   Ã¿´ÎÖÐ¶ÏÍ¬Ê±´¦ÀíTX·¢ËÍÒÆÎ»ºÍRX½ÓÊÕ²ÉÑù
+ * @brief  TIM3ä¸­æ–­æœåŠ¡å‡½æ•° (ç”±stm32f10x_it.cçš„TIM3_IRQHandlerè°ƒç”¨)
+ * @note   æ¯æ¬¡ä¸­æ–­åŒæ—¶å¤„ç†TXå‘é€ç§»ä½å’ŒRXæŽ¥æ”¶é‡‡æ ·
  */
 void SoftUART_TIM3_ISR(void);
 

@@ -1,4 +1,4 @@
-/**
+ï»¿/**
   ******************************************************************************
   * @file    usb_conf.h
   * @author  MCD Application Team
@@ -77,7 +77,7 @@
 /*#define ERR_CALLBACK*/
 /*#define WKUP_CALLBACK*/
 /*#define SUSP_CALLBACK*/
-#define RESET_CALLBACK    /* ÒÆÖ²: ÆôÓÃ RESET »Øµ÷, ÓÃÓÚÍ³¼Æ g_usb_reset_count */
+#define RESET_CALLBACK    /* ç§»æ¤: å¯ç”¨ RESET å›è°ƒ, ç”¨äºç»Ÿè®¡ g_usb_reset_count */
 #define SOF_CALLBACK
 /*#define ESOF_CALLBACK*/
 /* CTR service routines */

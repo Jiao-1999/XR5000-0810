@@ -1,4 +1,4 @@
-#include "exti.h"
+ï»¿#include "exti.h"
 
 #include "delay.h"
 #include "usart.h"	
@@ -9,7 +9,7 @@ void EXTIX_Init(void)
 		EXTI_InitTypeDef EXTI_InitStructure;
 		NVIC_InitTypeDef NVIC_InitStructure;
 
-  	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);	//Ê¹ÄÜ¸´ÓÃ¹¦ÄÜÊ±ÖÓ 
+  	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);	//ä½¿èƒ½å¤ç”¨åŠŸèƒ½æ—¶é’Ÿ 
 
   	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA,GPIO_PinSource7);
 
@@ -20,17 +20,17 @@ void EXTIX_Init(void)
   	EXTI_Init(&EXTI_InitStructure);	 	
 
   	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;			
-  	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x02;	//ÇÀÕ¼ÓÅÏÈ¼¶2£¬ 
-  	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x02;					//×ÓÓÅÏÈ¼¶3
-  	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;								//Ê¹ÄÜÍâ²¿ÖĞ¶ÏÍ¨µÀ
+  	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x02;	//æŠ¢å ä¼˜å…ˆçº§2ï¼Œ 
+  	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x02;					//å­ä¼˜å…ˆçº§3
+  	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;								//ä½¿èƒ½å¤–éƒ¨ä¸­æ–­é€šé“
   	NVIC_Init(&NVIC_InitStructure);
 }
 
-//Íâ²¿ÖĞ¶Ï0·şÎñ³ÌĞò 
+//å¤–éƒ¨ä¸­æ–­0æœåŠ¡ç¨‹åº 
 void EXTI7_IRQHandler(void)
 {
 	
-	EXTI_ClearITPendingBit(EXTI_Line7); //Çå³ıLINE0ÉÏµÄÖĞ¶Ï±êÖ¾Î»  
+	EXTI_ClearITPendingBit(EXTI_Line7); //æ¸…é™¤LINE0ä¸Šçš„ä¸­æ–­æ ‡å¿—ä½  
 }
  
  

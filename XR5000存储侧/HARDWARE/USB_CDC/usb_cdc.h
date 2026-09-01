@@ -1,15 +1,15 @@
-/**
+ï»¿/**
  * @file    usb_cdc.h
- * @brief   USB CDC ĞéÄâ´®¿Ú·â×°²ã (»ùÓÚ ST ¹Ù·½ USB-FS-Device_Driver)
- * @details ±¾ÎÄ¼ş¶ÔÍâÌá¹©Óë¾É°æ usb_cdc ÍêÈ«Ò»ÖÂµÄ½Ó¿Ú, ÄÚ²¿¸ÄÓÃ ST ¹Ù·½
- *          USB-FS-Device_Driver + CDC ÀàÊµÏÖ, Ìæ»»Ö®Ç°ÊÖĞ´µÄ USB Ğ­ÒéÕ».
- *          Ó²¼şÁ¬½Ó:
+ * @brief   USB CDC è™šæ‹Ÿä¸²å£å°è£…å±‚ (åŸºäº ST å®˜æ–¹ USB-FS-Device_Driver)
+ * @details æœ¬æ–‡ä»¶å¯¹å¤–æä¾›ä¸æ—§ç‰ˆ usb_cdc å®Œå…¨ä¸€è‡´çš„æ¥å£, å†…éƒ¨æ”¹ç”¨ ST å®˜æ–¹
+ *          USB-FS-Device_Driver + CDC ç±»å®ç°, æ›¿æ¢ä¹‹å‰æ‰‹å†™çš„ USB åè®®æ ˆ.
+ *         ç¡¬ä»¶æ¥å£:
  *            PA11 = USB D- (USBDM)
  *            PA12 = USB D+ (USBDP)
- *          Êı¾İÁ÷:
- *            ½ÓÊÕ(PC->MCU): EP3 OUT ÖĞ¶Ï -> ×Ö½ÚÁ÷»·ĞÎ»º³å -> USB_CDC_ReadByte
- *            ·¢ËÍ(MCU->PC): USB_CDC_SendData -> TX FIFO -> SOF ÖĞ¶ÏÖÜÆÚ´¥·¢ EP1 IN
- *          ×¢Òâ: ±¾·â×°²»Õ¼ÓÃ USART1, ²»Ó°Ïì´æ´¢²à°åÍ¨ĞÅ.
+ *         å‘½ä»¤è¯´æ˜:
+ *            æ¥æ”¶(PC->MCU): EP3 OUT ä¸­æ–­ -> å­—èŠ‚æµç¯å½¢ç¼“å†² -> USB_CDC_ReadByte
+ *            å‘é€(MCU->PC): USB_CDC_SendData -> TX FIFO -> SOF ä¸­æ–­å‘¨æœŸè§¦å‘ EP1 IN
+ *         æ³¨æ„: æœ¬æ¨¡å—å ç”¨ USART1, ä¸å½±å“å­˜å‚¨ä¾§é€šä¿¡.
  */
 #ifndef __USB_CDC_H
 #define __USB_CDC_H
@@ -17,64 +17,67 @@
 #include "sys.h"
 
 /*==============================================================
- * ÅäÖÃ
+ * å†…éƒ¨å˜é‡
  *============================================================*/
-#define USB_CDC_RX_BUF_SIZE     256     /* ½ÓÊÕ»·ĞÎ»º³åÇø´óĞ¡(×Ö½Ú) */
-#define USB_CDC_TX_FIFO_SIZE    1024    /* ·¢ËÍ FIFO ´óĞ¡(×Ö½Ú, Óë hw_config.h Ò»ÖÂ) */
+#define USB_CDC_RX_BUF_SIZE     256 /* æ¥æ”¶ç¯å½¢ç¼“å†²åŒºå¤§å°(å­—èŠ‚) */
+#define USB_CDC_TX_FIFO_SIZE    1024 /* å‘é€ FIFO å¤§å°(å­—èŠ‚, ä¸ hw_config.h ä¸€è‡´) */
 
 /*==============================================================
- * API (Óë¾É°æ½Ó¿ÚÍêÈ«Ò»ÖÂ, main.c ÎŞĞèĞŞ¸Ä)
+ * API (ä¸æ—§ç‰ˆæ¥å£å®Œå…¨ä¸€è‡´, main.c æ— éœ€ä¿®æ”¹)
  *============================================================*/
 
 /**
- * @brief  ³õÊ¼»¯ USB CDC ĞéÄâ´®¿Ú
- * @note   ÄÚ²¿Ö´ĞĞ: USB Èí¶Ï¿ª/ÖØÁ¬ -> ÉèÖÃ USB Ê±ÖÓ -> ÅäÖÃ USB ÖĞ¶Ï -> USB_Init
- *         ³É¹¦ºó PC ¶Ë»áÃ¶¾Ù³öĞÂµÄ COM ¿Ú
+ * @brief  åˆå§‹åŒ– USB CDC è™šæ‹Ÿä¸²å£
+ * @note   å†…éƒ¨æ‰§è¡Œ: USB è½¯æ–­å¼€/é‡è¿ -> è®¾ç½® USB æ—¶é’Ÿ -> é…ç½® USB ä¸­æ–­ -> USB_Init
+ *         æˆåŠŸå PC ç«¯ä¼šæšä¸¾å‡ºæ–°çš„ COM å£
  */
 void USB_CDC_Init(void);
 
 /**
- * @brief  ·¢ËÍÊı¾İµ½ PC (·Ç×èÈû, Ğ´Èë FIFO ºóÓÉ SOF ÖĞ¶Ï×Ô¶¯·¢³ö)
- * @param  data: Êı¾İÖ¸Õë
- * @param  len:  Êı¾İ³¤¶È
+ * @brief  å‘é€æ•°æ®åˆ° PC (éé˜»å¡, å†™å…¥ FIFO åç”± SOF ä¸­æ–­è‡ªåŠ¨å‘å‡º)
+ * @param  data: æ•°æ®æŒ‡é’ˆ
+ * @param  len:  æ•°æ®é•¿åº¦
  */
 void USB_CDC_SendData(const uint8_t *data, uint16_t len);
 
 /**
- * @brief  ²éÑ¯½ÓÊÕ»º³åÇøÖĞ¿É¶Á×Ö½ÚÊı
- * @retval ¿É¶Á×Ö½ÚÊı
+ * @brief  æŸ¥è¯¢æ¥æ”¶ç¼“å†²åŒºä¸­å¯è¯»å­—èŠ‚æ•°
+ * @retval å¯è¯»å­—èŠ‚æ•°
  */
 uint16_t USB_CDC_Available(void);
 
 /**
- * @brief  ´Ó½ÓÊÕ»º³åÇø¶ÁÈ¡Ò»¸ö×Ö½Ú
- * @retval 0x00-0xFF = ¶Áµ½µÄ×Ö½Ú, 0xFFFF = »º³åÇøÎª¿Õ
+ * @brief  ä»æ¥æ”¶ç¼“å†²åŒºè¯»å–ä¸€ä¸ªå­—èŠ‚
+ * @retval 0x00-0xFF = è¯»åˆ°çš„å­—èŠ‚, 0xFFFF = ç¼“å†²åŒºä¸ºç©º
  */
 uint16_t USB_CDC_ReadByte(void);
 
 /**
- * @brief  USB µÍÓÅÏÈ¼¶ÖĞ¶Ï·şÎñº¯Êı (ÓÉ stm32f10x_it.c µÄ USB_LP_CAN1_RX0_IRQHandler µ÷ÓÃ)
- * @note   ÄÚ²¿µ÷ÓÃ ST ¹Ù·½ USB_Istr(), ²¢¸üĞÂ g_usb_isr_count ÓÃÓÚµ÷ÊÔ
+ * @brief  USB ä½ä¼˜å…ˆçº§ä¸­æ–­æœåŠ¡å‡½æ•° (ç”± stm32f10x_it.c çš„ USB_LP_CAN1_RX0_IRQHandler è°ƒç”¨)
+ * @note   å†…éƒ¨è°ƒç”¨ ST å®˜æ–¹ USB_Istr(), å¹¶æ›´æ–° g_usb_isr_count ç”¨äºè°ƒè¯•
  */
 void USB_CDC_ISR(void);
 
 /**
- * @brief  USB CDC Ö÷Ñ­»·´¦Àí (ÔÚ main while(1) ÖĞµ÷ÓÃ)
- * @note   µ±Ç°ÊµÏÖÎª¿Õ, ÊÕ·¢¾ùÓÉ USB ÖĞ¶ÏÒì²½Çı¶¯, ´Ëº¯Êı±£ÁôÒÔ¼æÈİ¾É½Ó¿Ú
+ * @brief  USB CDC ä¸»å¾ªç¯å¤„ç† (åœ¨ main while(1) ä¸­è°ƒç”¨)
+ * @note   å½“å‰å®ç°ä¸ºç»„åˆ, æ”¶æ•°æ®åœ¨ USB ä¸­æ–­å¼‚æ­¥å›è°ƒ, æ­¤æ¥å£ä¿ç•™å…¼å®¹æ—§æ¥å£
  */
 void USB_CDC_Poll(void);
 
 /**
- * @brief  ²éÑ¯ USB ÊÇ·ñÒÑÅäÖÃÍê³É(PC ¶ËÒÑ´ò¿ª COM ¿Ú»á´¥·¢Ã¶¾ÙÍê³É)
- * @retval 1 = ÒÑÅäÖÃ(CONFIGURED), 0 = Î´ÅäÖÃ
+ * @brief  æŸ¥è¯¢ USB æ˜¯å¦å·²é…ç½®å®Œæˆ(PC ç«¯å·²æ‰“å¼€ COM å£ä¼šè§¦å‘æšä¸¾å®Œæˆ)
+ * @retval 1 = å·²é…ç½®(CONFIGURED), 0 = æœªé…ç½®
  */
 uint8_t USB_CDC_IsConfigured(void);
 
 /**
- * @brief  ½«Ò»¸ö×Ö½ÚÑ¹Èë½ÓÊÕ»·ĞÎ»º³åÇø (¹© usb_endp.c µÄ EP3_OUT_Callback µ÷ÓÃ)
- * @param  b: ´ıÑ¹ÈëµÄ×Ö½Ú
- * @note   »º³åÇøÂúÊ±¶ªÆú×îĞÂ×Ö½Ú
+ * @brief  å°†ä¸€ä¸ªå­—èŠ‚å‹å…¥æ¥æ”¶ç¯å½¢ç¼“å†²åŒº (ä¾› usb_endp.c çš„ EP3_OUT_Callback è°ƒç”¨)
+ * @param  b: å¾…å‹å…¥çš„å­—èŠ‚
+ * @note   å‘é€æˆåŠŸæ—¶è¿”å›å·²å‘é€å­—èŠ‚æ•°
  */
+/* P1-6: peek API - for main loop byte stream routing (0x40 frames go to GB4717) */
+uint16_t USB_CDC_PeekByte(void);
+
 void USB_CDC_PushRx(uint8_t b);
 
 #endif /* __USB_CDC_H */

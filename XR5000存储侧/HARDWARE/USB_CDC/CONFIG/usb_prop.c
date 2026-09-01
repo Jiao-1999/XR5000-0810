@@ -1,4 +1,4 @@
-/**
+ï»¿/**
   ******************************************************************************
   * @file    usb_prop.c
   * @author  MCD Application Team
@@ -134,7 +134,7 @@ void Virtual_Com_Port_init(void)
   USB_SIL_Init();
 
   /* configure the USART to the default settings */
-  //USART_Config_Default();//±¾Àý³ÌÎ´ÓÃµ½
+  //USART_Config_Default();//æœ¬ä¾‹ç¨‹æœªç”¨åˆ°
 
   bDeviceState = UNCONNECTED;
 }

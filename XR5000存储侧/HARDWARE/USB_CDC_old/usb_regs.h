@@ -1,13 +1,13 @@
-/**
+﻿/**
  * @file    usb_regs.h
- * @brief   STM32F103 USB ????��?????????
- * @details stm32f10x.h ????? USB ?????��????, ��?? USB_TypeDef ?????????,
- *          ????????????????????????��??? PMA(????????)???????.
+ * @brief   STM32F103 USB 全速设备寄存器定义
+ * @details stm32f10x.h 提供的 USB 外设寄存器访问宏不够用, 此处直接定义
+ *          USB_TypeDef 寄存器映射, 并补充寄存器位定义和 PMA(包缓冲区)访问宏.
  *
- *   USB ??????: 0x40005C00 (APB1)
- *   PMA ???:     0x40006000 (512 ???)
+ *   USB 基地址: 0x40005C00 (APB1)
+ *   PMA 基地址: 0x40006000 (512 字节)
  *
- *   ????????:
+ *   寄存器偏移:
  *     USB_EP0R..EP7R : 0x00 + 4*n
  *     USB_CNTR       : 0x40
  *     USB_ISTR       : 0x44
@@ -21,13 +21,13 @@
 #include "stm32f10x.h"
 
 /*==============================================================
- * ??????
+ * 基地址
  *============================================================*/
 #define USB_BASE                (0x40005C00u)
 #define USB_PMA_BASE            (0x40006000u)
 
 /*==============================================================
- * ???????��??
+ * 寄存器访问宏
  *============================================================*/
 #define REG16(addr)             (*((volatile uint16_t *)(addr)))
 
@@ -41,18 +41,18 @@
 #define USB_EP(n)               REG16(USB_BASE + 0x00 + 4u*(n))
 
 /*==============================================================
- * ???????
+ * 端点类型
  *============================================================*/
 #define EP_TYPE_BULK            0x0000u
 #define EP_TYPE_CONTROL         0x0200u
 #define EP_TYPE_ISO             0x0400u
 #define EP_TYPE_INTERRUPT       0x0600u
 
-/* ?????�� (STAT_TX/STAT_RX) */
-#define EP_STAT_DIS             0x0000u     /* ???? */
-#define EP_STAT_STALL           0x0010u     /* ?? (TX) / 0x1000 (RX) */
+/* 端点状态位 (STAT_TX/STAT_RX) */
+#define EP_STAT_DIS             0x0000u     /* 禁用 */
+#define EP_STAT_STALL           0x0010u     /* STALL (TX) / 0x1000 (RX) */
 #define EP_STAT_NAK             0x0020u     /* NAK (TX) / 0x2000 (RX) */
-#define EP_STAT_VALID           0x0030u     /* ??�� (TX) / 0x3000 (RX) */
+#define EP_STAT_VALID           0x0030u     /* 有效 (TX) / 0x3000 (RX) */
 
 #define EP_STAT_TX_VALID        0x0030u
 #define EP_STAT_TX_NAK          0x0020u
@@ -64,11 +64,11 @@
 #define EP_STAT_RX_STALL        0x1000u
 #define EP_STAT_RX_DIS          0x0000u
 
-/* EP_KIND ????�� */
+/* EP_KIND 功能位 */
 #define EP_KIND_DBL_BUF         0x0100u
 #define EP_KIND_STATUS_OUT      0x0100u
 
-/* ??????????? (�� EPnR ?????????��) */
+/* 状态机位掩码 (写 EPnR 时保持不变的位) */
 #define EP_T_MASK               (0x0030u)   /* STAT_TX */
 #define EP_R_MASK               (0x3000u)   /* STAT_RX */
 #define EP_T_TOGGLE             (0x0040u)   /* DTOG_TX */
@@ -77,25 +77,25 @@
 #define EP_CTR_RX               (0x8000u)
 #define EP_SETUP                (0x0800u)
 
-#define EP_MASK_REG             (0x0F1Fu)   /* ????/KIND/???, ??????/DTOG/CTR */
+#define EP_MASK_REG             (0x0F1Fu)   /* 保留位: EA/STAT_TX0/KIND/类型/SETUP */
 
 /*==============================================================
- * PMA(��������)���ʺ�
- *   STM32F103 PMA Ϊ 16 λ��, �� CPU ͨ�� APB1 ������ 32 λ�������,
- *   ÿ�� 16 λ PMA ��ռ�� 4 �ֽ� CPU ��ַ�ռ� (2 �ֽ����� + 2 �ֽ����)��
- *   ���: CPU ��ַ = USB_PMA_BASE + 4 * PMA������
- *   BTABLE ADDR �ֶδ洢���� PMA ������ (�����ֽ�ƫ��)��
+ * PMA(包缓冲区)访问宏
+ *   STM32F103 PMA 为 16 位宽, 但 CPU 通过 APB1 总线以 32 位对齐访问,
+ *   每个 16 位 PMA 字占用 4 字节 CPU 地址空间 (2 字节数据 + 2 字节填充)。
+ *   因此: CPU 地址 = USB_PMA_BASE + 4 * PMA字索引
+ *   BTABLE ADDR 字段存储的是 PMA 字索引 (不是字节偏移)。
  *============================================================*/
 #define PMA_BUF(offset)         REG16(USB_PMA_BASE + 4u*(offset))
 
-/* BTABLE ��ÿ���˵�ռ 4 �� 16 λ�� (4��4=16 �ֽ� CPU ��ַ�ռ�) */
+/* BTABLE 中每个端点占 4 个 16 位字 (4×4=16 字节 CPU 地址空间) */
 #define PMA_ADDR_TX(ep)         REG16(USB_PMA_BASE + 16u*(ep) + 0u)
 #define PMA_COUNT_TX(ep)        REG16(USB_PMA_BASE + 16u*(ep) + 4u)
 #define PMA_ADDR_RX(ep)         REG16(USB_PMA_BASE + 16u*(ep) + 8u)
 #define PMA_COUNT_RX(ep)        REG16(USB_PMA_BASE + 16u*(ep) + 12u)
 
 /*==============================================================
- * USB_TypeDef ???? (???? USB ??????????)
+ * USB_TypeDef 寄存器映射 (与 stm32f10x.h 保持一致)
  *============================================================*/
 typedef struct {
     volatile uint16_t EP0R;      /* 0x00 */

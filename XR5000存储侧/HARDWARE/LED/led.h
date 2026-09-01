@@ -1,10 +1,10 @@
-#ifndef __LED_H
+ï»¿#ifndef __LED_H
 #define __LED_H	 
 #include "sys.h"
 
 #define 	RUN_LED  PCout(14)
 
-void LED_Init(void);//³õÊ¼»¯
+void LED_Init(void);//åˆå§‹åŒ–
 
 				    
 #endif

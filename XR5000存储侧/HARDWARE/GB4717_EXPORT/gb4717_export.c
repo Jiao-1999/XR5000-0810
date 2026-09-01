@@ -1,108 +1,108 @@
-/**
+ï»¿/**
  * @file    gb4717_export.c
- * @brief   GB4717-2024¸½Â¼B »ğÔÖ±¨¾¯¿ØÖÆÆ÷¼ÇÂ¼µ¼³öĞ­ÒéÊµÏÖ
- * @details Í¨¹ıUSB CDCĞéÄâ´®¿Ú(PA11-D-/PA12-D+)ÏòPCµ¼³ö´æ´¢²à¼ÇÂ¼,
- *          ÊµÏÖGB4717-2024¸½Â¼BµÄB.1/B.3/B.4¼ÇÂ¼¶ÁÈ¡Ğ­Òé.
- *          µ×²ãµ÷ÓÃUSB_CDC½Ó¿ÚÊÕ·¢Êı¾İ, Ğ­ÒéÖ¡½âÎö/CRC16/¼ÇÂ¼¶ÁÈ¡¾ùÔÚ±¾Ä£¿éÍê³É.
+ * @brief   GB4717-2024é™„å½•B ç«ç¾æŠ¥è­¦æ§åˆ¶å™¨è®°å½•å¯¼å‡ºåè®®å®ç°
+ * @details é€šè¿‡USB CDCè™šæ‹Ÿä¸²å£(PA11-D-/PA12-D+)å‘PCå¯¼å‡ºå­˜å‚¨ä¾§è®°å½•,
+ *          å®ç°GB4717-2024é™„å½•Bçš„B.1/B.3/B.4è®°å½•è¯»å–åè®®.
+ *          åº•å±‚è°ƒç”¨USB_CDCæ¥å£æ”¶å‘æ•°æ®, åè®®å¸§è§£æ/CRC16/è®°å½•è¯»å–å‡åœ¨æœ¬æ¨¡å—å®Œæˆ.
  *
- *   Í¨ĞÅÓ²¼ş: USB CDCĞéÄâ´®¿Ú(Ó³ÉäÎªPC¶ËCOM17), 115200 8N1
- *   Ğ­ÒéÖ¡Í·/Ö¡Î²: ¾ùÎª0x40
- *   CRC16: MODBUS¶àÏîÊ½0xA001, µÍ×Ö½ÚÔÚÇ°
+ *   é€šä¿¡ç¡¬ä»¶: USB CDCè™šæ‹Ÿä¸²å£(æ˜ å°„ä¸ºPCç«¯COM17), 115200 8N1
+ *   åè®®å¸§å¤´/å¸§å°¾: å‡ä¸º0x40
+ *   CRC16: MODBUSå¤šé¡¹å¼0xA001, ä½å­—èŠ‚åœ¨å‰
  *
- *   ÇëÇóÖ¡(PC->´æ´¢²à):
- *     [0x40][Éè±¸ID 8×Ö½Ú][°æ±¾1][µØÖ·1][ÀàĞÍ1][ÃüÁî³¤¶È1][ÃüÁîÊı¾İn][CRC16µÍ][CRC16¸ß][0x40]
- *     ÆäÖĞÉè±¸ID=0x00¡Á8, °æ±¾=0x02, µØÖ·=0x7E, ÀàĞÍ=0x7F
+ *   è¯·æ±‚å¸§(PC->å­˜å‚¨ä¾§):
+ *     [0x40][è®¾å¤‡ID 8å­—èŠ‚][ç‰ˆæœ¬1][åœ°å€1][ç±»å‹1][å‘½ä»¤é•¿åº¦1][å‘½ä»¤æ•°æ®n][CRC16ä½][CRC16é«˜][0x40]
+ *     å…¶ä¸­è®¾å¤‡ID=0x00Ã—8, ç‰ˆæœ¬=0x02, åœ°å€=0x7E, ç±»å‹=0x7F
  *
- *   ÏìÓ¦Ö¡(´æ´¢²à->PC):
- *     [0x40][¼ÇÂ¼×ÜÊı3×Ö½Ú´ó¶Ë][¿ØÖÆÆ÷µØÖ·1][¿ØÖÆÆ÷ÀàĞÍ2][²úÆ·±àºÅ20×Ö½ÚASCII]
- *     [ÊÂ¼ş¼ÇÂ¼17×Ö½Ú(¿ÉÑ¡)][CRC16µÍ][CRC16¸ß][0x40]
+ *   å“åº”å¸§(å­˜å‚¨ä¾§->PC):
+ *     [0x40][è®°å½•æ€»æ•°3å­—èŠ‚å¤§ç«¯][æ§åˆ¶å™¨åœ°å€1][æ§åˆ¶å™¨ç±»å‹2][äº§å“ç¼–å·20å­—èŠ‚ASCII]
+ *     [äº‹ä»¶è®°å½•17å­—èŠ‚(å¯é€‰)][CRC16ä½][CRC16é«˜][0x40]
  *
- *   ÃüÁîÂë:
- *     0x01=Ë³Ğò¶ÁÈ¡¼ÇÂ¼, 0x02=ÖØ·¢ÉÏÒ»Ö¡, 0x03=¶ÁÊ×¾¯(event_code=2), 0x04=¶Á»ğ¾¯(event_code=3)
+ *   å‘½ä»¤è¯´æ˜:
+ *     0x01=é¡ºåºè¯»å–è®°å½•, 0x02=é‡å‘ä¸Šä¸€å¸§, 0x03=è¯»é¦–è­¦(event_code=2), 0x04=è¯»ç«è­¦(event_code=3)
  */
 #include "gb4717_export.h"
 #include "usb_cdc.h"
 #include <string.h>
 
 /*==============================================================
- * Ğ­Òé³£Á¿¶¨Òå (GB4717-2024¸½Â¼B)
+ * åè®®å¸¸é‡å®šä¹‰ (GB4717-2024é™„å½•B)
  *============================================================*/
-#define GB4717_START_MARK       0x40    /* Ö¡Í·/Ö¡Î²±êÖ¾×Ö½Ú */
-#define GB4717_VERSION          0x02    /* Ğ­Òé°æ±¾ºÅ */
-#define GB4717_TOOL_ADDR        0x7E    /* ¹¤¾ß(ÉÏÎ»»ú)µØÖ· */
-#define GB4717_TOOL_TYPE        0x7F    /* ¹¤¾ß(ÉÏÎ»»ú)ÀàĞÍ */
+#define GB4717_START_MARK       0x40 /* å¸§å¤´/å¸§å°¾æ ‡å¿—å­—èŠ‚ */
+#define GB4717_VERSION          0x02 /* åè®®ç‰ˆæœ¬å· */
+#define GB4717_TOOL_ADDR        0x7E /* å·¥å…·(ä¸Šä½æœº)åœ°å€ */
+#define GB4717_TOOL_TYPE        0x7F /* å·¥å…·(ä¸Šä½æœº)ç±»å‹ */
 
-#define GB4717_CMD_READ_DATA    1       /* ÃüÁîÂë: Ë³Ğò¶ÁÈ¡¼ÇÂ¼ */
-#define GB4717_CMD_RESEND       2       /* ÃüÁîÂë: ÖØ·¢ÉÏÒ»Ö¡ÏìÓ¦ */
-#define GB4717_CMD_READ_FIRST   3       /* ÃüÁîÂë: ¶ÁÈ¡Ê×¾¯¼ÇÂ¼(event_code=2) */
-#define GB4717_CMD_READ_FIRE    4       /* ÃüÁîÂë: ¶ÁÈ¡»ğ¾¯¼ÇÂ¼(event_code=3) */
+#define GB4717_CMD_READ_DATA    1 /* å‘½ä»¤ç : é¡ºåºè¯»å–è®°å½• */
+#define GB4717_CMD_RESEND       2 /* å‘½ä»¤ç : é‡å‘ä¸Šä¸€å¸§å“åº” */
+#define GB4717_CMD_READ_FIRST   3 /* å‘½ä»¤ç : è¯»å–é¦–è­¦è®°å½•(event_code=2) */
+#define GB4717_CMD_READ_FIRE    4 /* å‘½ä»¤ç : è¯»å–ç«è­¦è®°å½•(event_code=3) */
 
-#define GB4717_CONTROLLER_ADDR  0x01    /* ±¾¿ØÖÆÆ÷µØÖ· */
-#define GB4717_CONTROLLER_TYPE  0x0001  /* ±¾¿ØÖÆÆ÷ÀàĞÍ */
+#define GB4717_CONTROLLER_ADDR  0x01 /* æœ¬æ§åˆ¶å™¨åœ°å€ */
+#define GB4717_CONTROLLER_TYPE  0x0001 /* æœ¬æ§åˆ¶å™¨ç±»å‹ */
 
-#define GB4717_CMD_READ_FAULT   5       /* ÃüÁîÂë: ¶ÁÈ¡¹ÊÕÏ¼ÇÂ¼(P1-5Õû¸Ä, ·ÖÇøÖ±¶Á) */
+#define GB4717_CMD_READ_FAULT   5 /* å‘½ä»¤ç : è¯»å–æ•…éšœè®°å½•(P1-5æ•´æ”¹, åˆ†åŒºç›´è¯») */
 
-/* P0-3Õû¸Ä: µ¼³öÊÚÈ¨Token(8×Ö½ÚÉè±¸Ê¶±ğÂë).
- * ÇëÇóÖ¡µÄÉè±¸ID×Ö¶ÎÓë±¾TokenÆ¥Åä²ÅÊÓÎªÊÚÈ¨µ¼³ö×°ÖÃ, ²»Æ¥ÅäÔò¾²Ä¬¶ªÆú.
- * TokenÖµ¿É°´ĞèĞŞ¸Ä(ĞëÓëÉÏÎ»»úµ¼³ö¹¤¾ßÅäÖÃÒ»ÖÂ). */
+/* P0-3æ•´æ”¹: è®¾å¤‡æˆæƒToken(8å­—èŠ‚è®¾å¤‡è¯†åˆ«ç ).
+ * è¯·æ±‚å¸§çš„è®¾å¤‡IDå­—æ®µä¸æœ¬TokenåŒ¹é…æ‰è§†ä¸ºæˆæƒå‘½ä»¤, ä¸åŒ¹é…åˆ™é»˜è®¤å¿½ç•¥.
+ * Tokenå€¼å¯è‡ªè¡Œä¿®æ”¹(ç”Ÿäº§ä½çƒ§å½•æˆ–ç¨‹åºå†…å®šä¹‰, ä¸ä¸»æœºä¿æŒä¸€è‡´). */
 static const uint8_t GB4717_AUTH_TOKEN[8] = {
     'X', 'R', '5', '0', '0', '0', '-', 'A'
 };
 
-/* ²úÆ·±àºÅ(20×Ö½ÚASCII, ÓÃÓÚÏìÓ¦Ö¡ÖĞµÄÉè±¸±êÊ¶) */
+/* äº§å“ç¼–å·(20å­—èŠ‚ASCII, ç”¨äºå“åº”å¸§ä¸­çš„è®¾å¤‡æ ‡è¯†) */
 static const uint8_t s_product_no[20] = {
     'X','R','5','0','0','0','-','S','T','O',
     'R','A','G','E','-','V','1','.','0','\0'
 };
 
 /*==============================================================
- * ÄÚ²¿±äÁ¿
+ * å†…éƒ¨å˜é‡
  *============================================================*/
-/* ½ÓÊÕ×´Ì¬»ú×´Ì¬Ã¶¾Ù: ÓÃÓÚ½âÎöPC·¢À´µÄÇëÇóÖ¡ */
+/* æ¥æ”¶çŠ¶æ€æœºçŠ¶æ€æšä¸¾: ç”¨äºæ¥æ”¶PCå‘æ¥çš„è¯·æ±‚å¸§ */
 typedef enum {
-    RX_STATE_WAIT_START = 0,  /* µÈ´ıÖ¡Í·0x40 */
-    RX_STATE_DEVICE_ID,       /* ½ÓÊÕ8×Ö½ÚÉè±¸ID */
-    RX_STATE_VERSION,         /* ½ÓÊÕ°æ±¾ºÅ */
-    RX_STATE_ADDR,            /* ½ÓÊÕµØÖ· */
-    RX_STATE_TYPE,            /* ½ÓÊÕÀàĞÍ */
-    RX_STATE_CMD_LEN,         /* ½ÓÊÕÃüÁî³¤¶È */
-    RX_STATE_CMD_DATA,        /* ½ÓÊÕÃüÁîÊı¾İ */
-    RX_STATE_CRC_LO,          /* ½ÓÊÕCRCµÍ×Ö½Ú */
-    RX_STATE_CRC_HI,          /* ½ÓÊÕCRC¸ß×Ö½Ú */
-    RX_STATE_END_MARK         /* µÈ´ıÖ¡Î²0x40 */
+    RX_STATE_WAIT_START = 0, /* ç­‰å¾…å¸§å¤´0x40 */
+    RX_STATE_DEVICE_ID, /* æ¥æ”¶8å­—èŠ‚è®¾å¤‡ID */
+    RX_STATE_VERSION, /* æ¥æ”¶ç‰ˆæœ¬å· */
+    RX_STATE_ADDR, /* æ¥æ”¶åœ°å€ */
+    RX_STATE_TYPE, /* æ¥æ”¶ç±»å‹ */
+    RX_STATE_CMD_LEN, /* æ¥æ”¶å‘½ä»¤é•¿åº¦ */
+    RX_STATE_CMD_DATA, /* æ¥æ”¶å‘½ä»¤æ•°æ® */
+    RX_STATE_CRC_LO, /* æ¥æ”¶CRCä½å­—èŠ‚ */
+    RX_STATE_CRC_HI, /* æ¥æ”¶CRCé«˜å­—èŠ‚ */
+    RX_STATE_END_MARK /* ç­‰å¾…å¸§å°¾0x40 */
 } RxState_t;
 
-static RxState_t s_rx_state = RX_STATE_WAIT_START;  /* µ±Ç°½ÓÊÕ×´Ì¬ */
-static uint8_t  s_rx_idx = 0;          /* ½ÓÊÕ×Ö½Ú¼ÆÊı(ÓÃÓÚÉè±¸ID/ÃüÁîÊı¾İ) */
-static uint8_t  s_cmd_len = 0;         /* µ±Ç°ÇëÇóµÄÃüÁî³¤¶È×Ö¶Î */
-static uint8_t  s_cmd_data = 0;        /* µ±Ç°ÇëÇóµÄÃüÁîÊı¾İ(ÃüÁîÂë) */
-static uint8_t  s_cmd_ready = 0;       /* ÃüÁî½ÓÊÕÍê³É±êÖ¾ */
+static RxState_t s_rx_state = RX_STATE_WAIT_START; /* å½“å‰æ¥æ”¶çŠ¶æ€ */
+static uint8_t  s_rx_idx = 0; /* æ¥æ”¶å­—èŠ‚è®¡æ•°(ç”¨äºè®¾å¤‡ID/å‘½ä»¤æ•°æ®) */
+static uint8_t  s_cmd_len = 0; /* å½“å‰è¯·æ±‚çš„å‘½ä»¤é•¿åº¦å­—æ®µ */
+static uint8_t  s_cmd_data = 0; /* å½“å‰è¯·æ±‚çš„å‘½ä»¤æ•°æ®(å‘½ä»¤ç ) */
+static uint8_t  s_cmd_ready = 0; /* å‘½ä»¤æ¥æ”¶å®Œæˆæ ‡å¿— */
 
-static uint32_t s_read_index_first = 0;/* Ê×¾¯¶ÁÈ¡ÓÎ±ê(·ÖÇøÖ±¶Á) */
-static uint32_t s_read_index_fire = 0; /* »ğ¾¯¶ÁÈ¡ÓÎ±ê(·ÖÇøÖ±¶Á) */
+static uint32_t s_read_index_first = 0; /* é¦–è­¦è¯»å–æ¸¸æ ‡(åˆ†åŒºç›´è¯») */
+static uint32_t s_read_index_fire = 0; /* ç«è­¦è¯»å–æ¸¸æ ‡(åˆ†åŒºç›´è¯») */
 
-static uint8_t  s_last_resp[64];       /* ÉÏÒ»´ÎÏìÓ¦Ö¡»º´æ(ÓÃÓÚCMD_RESENDÖØ·¢) */
-static uint16_t s_last_resp_len = 0;   /* ÉÏÒ»´ÎÏìÓ¦Ö¡³¤¶È */
+static uint8_t  s_last_resp[64]; /* ä¸Šä¸€æ¬¡å“åº”å¸§ç¼“å­˜(ç”¨äºCMD_RESENDé‡å‘) */
+static uint16_t s_last_resp_len = 0; /* ä¸Šä¸€æ¬¡å“åº”å¸§é•¿åº¦ */
 
-/* P1-4Õû¸Ä: ÇëÇóÖ¡Ğ£Ñé»º´æ(Éè±¸ID/°æ±¾/µØÖ·/ÀàĞÍ/CRCÖğ×Ö¶ÎĞ£Ñé) */
-static uint8_t  s_devid[8];            /* ÊÕµ½µÄÉè±¸Ê¶±ğÂë(ÓëÊÚÈ¨Token±È¶Ô) */
-static uint8_t  s_frame[280];          /* CRC¼ÆËã»º´æ(ID~ÃüÁîÊı¾İ) */
-static uint16_t s_frame_len = 0;       /* »º´æ³¤¶È */
-static uint16_t s_crc_recv = 0;        /* ÊÕµ½µÄCRC16 */
+/* P1-4æ•´æ”¹: è¯·æ±‚å¸§æ ¡éªŒç¼“å­˜(è®¾å¤‡ID/ç‰ˆæœ¬/åœ°å€/ç±»å‹/CRCé€å­—æ®µæ ¡éªŒ) */
+static uint8_t  s_devid[8]; /* æ”¶åˆ°çš„è®¾å¤‡è¯†åˆ«ç (ä¸æˆæƒTokenæ¯”å¯¹) */
+static uint8_t  s_frame[280]; /* CRCè®¡ç®—ç¼“å­˜(ID~å‘½ä»¤æ•°æ®) */
+static uint16_t s_frame_len = 0; /* ç¼“å­˜é•¿åº¦ */
+static uint16_t s_crc_recv = 0; /* æ”¶åˆ°çš„CRC16 */
 
-/* P1-5Õû¸Ä: ·ÖÇø¶ÁÈ¡ÓÎ±ê */
-static uint32_t s_read_index_fault = 0;/* ¹ÊÕÏ¶ÁÈ¡ÓÎ±ê(·ÖÇøÖ±¶Á) */
-static uint32_t s_seq_cursor[STX_ZONE_COUNT];  /* Ë³Ğò¶ÁÓÎ±ê(4ÇøÊ±¼ä¹é²¢) */
+/* P1-5æ•´æ”¹: åˆ†åŒºè¯»å–æ¸¸æ ‡ */
+static uint32_t s_read_index_fault = 0; /* æ•…éšœè¯»å–æ¸¸æ ‡(åˆ†åŒºç›´è¯») */
+static uint32_t s_seq_cursor[STX_ZONE_COUNT]; /* é¡ºåºè¯»æ¸¸æ ‡(4åŒºæ—¶é—´å½’å¹¶) */
 
 /*==============================================================
- * ÄÚ²¿º¯Êı
+ * å†…éƒ¨å‡½æ•°
  *============================================================*/
 /**
- * @brief  ¼ÆËãMODBUS CRC16 (¶àÏîÊ½0xA001, µÍ×Ö½ÚÔÚÇ°)
- * @param  data: ²ÎÓë¼ÆËãµÄÊı¾İÖ¸Õë
- * @param  len:  Êı¾İ³¤¶È
- * @retval CRC16Öµ(µÍ×Ö½ÚÔÚÇ°´æ·Å)
- * @note   Óëbsp_storage_rxµÄCRCËã·¨Ò»ÖÂ, ÓÃÓÚÇëÇó/ÏìÓ¦Ö¡Ğ£Ñé
+ * @brief  è®¡ç®—MODBUS CRC16 (å¤šé¡¹å¼0xA001, ä½å­—èŠ‚åœ¨å‰)
+ * @param  data: å‚ä¸è®¡ç®—çš„æ•°æ®æŒ‡é’ˆ
+ * @param  len:  æ•°æ®é•¿åº¦
+ * @retval CRC16å€¼(ä½å­—èŠ‚åœ¨å‰å­˜æ”¾)
+ * @note   ä¸bsp_storage_rxçš„CRCç®—æ³•ä¸€è‡´, ç”¨äºè¯·æ±‚/å“åº”å¸§æ ¡éªŒ
  */
 static uint16_t GB4717_CRC16(const uint8_t *data, uint16_t len)
 {
@@ -123,28 +123,37 @@ static uint16_t GB4717_CRC16(const uint8_t *data, uint16_t len)
 }
 
 /**
- * @brief  ´ò°ü²¢·¢ËÍGB4717ÏìÓ¦Ö¡µ½PC
- * @param  cmd: ÃüÁîÂë(½öÓÃÓÚ¼ÇÂ¼, Êµ¼Ê²»·ÅÈëÏìÓ¦Ö¡)
- * @param  rec: Òª·¢ËÍµÄÊÂ¼ş¼ÇÂ¼Ö¸Õë; ÎªNULL±íÊ¾ÎŞ¼ÇÂ¼(Èç¶ÁÈ¡µ½Ä©Î²)
- * @note   ÏìÓ¦Ö¡×Ö½Ú²¼¾Ö:
- *           [0]  0x40 Ö¡Í·
- *           [1-3] ¼ÇÂ¼×ÜÊı(3×Ö½Ú´ó¶Ë, ¸ß×Ö½ÚÔÚÇ°)
- *           [4]  ¿ØÖÆÆ÷µØÖ·(0x01)
- *           [5-6] ¿ØÖÆÆ÷ÀàĞÍ(0x0001, ´ó¶Ë)
- *           [7-26] ²úÆ·±àºÅ(20×Ö½ÚASCII)
- *           [27-43] ÊÂ¼ş¼ÇÂ¼(17×Ö½ÚEventRecord_t, rec!=NULLÊ±²ÅÓĞ)
- *           [N]  CRC16µÍ×Ö½Ú
- *           [N+1] CRC16¸ß×Ö½Ú
- *           [N+2] 0x40 Ö¡Î²
- *         CRC·¶Î§: ´Ó¼ÇÂ¼×ÜÊıµ½ÊÂ¼ş¼ÇÂ¼(¼´buf[1]~buf[idx-1])
- *         Í¬Ê±»º´æ±¾Ö¡µ½s_last_resp, ¹©CMD_RESENDÖØ·¢
+ * @brief  æ‰“åŒ…å¹¶å‘é€GB4717å“åº”å¸§åˆ°PC
+ * @param  cmd: å‘½ä»¤ç (ä»…ç”¨äºè®°å½•, å®é™…ä¸æ”¾å…¥å“åº”å¸§)
+ * @param  rec: è¦å‘é€çš„äº‹ä»¶è®°å½•æŒ‡é’ˆ; ä¸ºNULLè¡¨ç¤ºæ— è®°å½•(å¦‚è¯»å–åˆ°æœ«å°¾)
+ * @note   å“åº”å¸§å­—èŠ‚å¸ƒå±€:
+ *           [0]  0x40 å¸§å¤´
+ *           [1-3] è®°å½•æ€»æ•°(3å­—èŠ‚å¤§ç«¯, é«˜å­—èŠ‚åœ¨å‰)
+ *           [4]  æ§åˆ¶å™¨åœ°å€(0x01)
+ *           [5-6] æ§åˆ¶å™¨ç±»å‹(0x0001, å¤§ç«¯)
+ *           [7-26] äº§å“ç¼–å·(20å­—èŠ‚ASCII)
+ *           [27-43] äº‹ä»¶è®°å½•(17å­—èŠ‚EventRecord_t, rec!=NULLæ—¶æ‰æœ‰)
+ *           [N]  CRC16ä½å­—èŠ‚
+ *           [N+1] CRC16é«˜å­—èŠ‚
+ *           [N+2] 0x40 å¸§å°¾
+ *         CRCèŒƒå›´: ä»è®°å½•æ€»æ•°åˆ°äº‹ä»¶è®°å½•(å³buf[1]~buf[idx-1])
+ *         åŒæ—¶ç¼“å­˜æœ¬å¸§åˆ°s_last_resp, ä¾›CMD_RESENDé‡å‘
  */
 static void GB4717_SendResponse(uint8_t cmd, const EventRecord_t *rec)
 {
     uint8_t buf[64];
     uint16_t idx = 0;
     uint16_t crc;
-    uint32_t total = StorageRx_GetTotalCount();  /* P1-5Õû¸Ä: 4·ÖÇø×ÜÌõÊı */
+    /* P1-Cä¿®å¤: åˆ†åŒºè¯»å–æ—¶è®°å½•æ€»æ•°åº”ä¸ºè¯¥åˆ†åŒºæ•°é‡, é¡ºåºè¯»å–ä¸º4åŒºæ€»å’Œ */
+    uint32_t total;
+    if (cmd == GB4717_CMD_READ_FIRST)
+        total = StorageRx_GetRecordCount(STX_ZONE_FIRST);
+    else if (cmd == GB4717_CMD_READ_FIRE)
+        total = StorageRx_GetRecordCount(STX_ZONE_FIRE);
+    else if (cmd == GB4717_CMD_READ_FAULT)
+        total = StorageRx_GetRecordCount(STX_ZONE_FAULT);
+    else
+        total = StorageRx_GetTotalCount();
     uint8_t has_record = (rec != NULL) ? 1 : 0;
 
     buf[idx++] = GB4717_START_MARK;
@@ -176,8 +185,8 @@ static void GB4717_SendResponse(uint8_t cmd, const EventRecord_t *rec)
 }
 
 /**
- * @brief  ¼ÇÂ¼Ê±¼ä¼ü(ÓÃÓÚË³Ğò¶ÁµÄ4ÇøÊ±¼ä¹é²¢, P1-5Õû¸Ä)
- * @note   ÄêÔÂÈÕÊ±·ÖÃë´ò°üÎªuint32, ÊıÖµ´ó=Ê±¼äÍí
+ * @brief  è®°å½•æ—¶é—´é”®(ç”¨äºé¡ºåºè¯»çš„4åŒºæ—¶é—´å½’å¹¶, P1-5æ•´æ”¹)
+ * @note   å¹´æœˆæ—¥æ—¶åˆ†ç§’æ‰“åŒ…ä¸ºuint32, æ•°å€¼å¤§=æ—¶é—´æ™š
  */
 static uint32_t GB4717_TimeKey(const EventRecord_t *rec)
 {
@@ -187,11 +196,11 @@ static uint32_t GB4717_TimeKey(const EventRecord_t *rec)
 }
 
 /**
- * @brief  ·ÖÇøÖ±¶ÁÏÂÒ»Ìõ¼ÇÂ¼(Ìæ´úÔ­È«Á¿É¨Ãè, P1-5Õû¸Ä)
- * @param  zone: ·ÖÇøË÷Òı(STX_ZONE_xxx)
- * @param  cursor: ¶ÁÈ¡ÓÎ±ê(ÊäÈëÊä³ö, ÃüÖĞºó+1, ¶ÁÍê¹éÁã)
- * @param  rec: Êä³ö¼ÇÂ¼
- * @retval 0=¶Áµ½Ò»Ìõ, 1=¸ÃÇø¶ÁÍê(ÓÎ±êÒÑ¹éÁã)
+ * @brief  åˆ†åŒºç›´è¯»ä¸‹ä¸€æ¡è®°å½•(æ›¿ä»£åŸå…¨é‡æ‰«æ, P1-5æ•´æ”¹)
+ * @param  zone: åˆ†åŒºç´¢å¼•(STX_ZONE_xxx)
+ * @param  cursor: è¯»å–æ¸¸æ ‡(è¾“å…¥è¾“å‡º, å‘½ä¸­å+1, è¯»å®Œå½’é›¶)
+ * @param  rec: è¾“å‡ºè®°å½•
+ * @retval 0=è¯»åˆ°ä¸€æ¡, 1=è¯¥åŒºè¯»å®Œ(æ¸¸æ ‡å·²å½’é›¶)
  */
 static uint8_t GB4717_ReadZone(uint8_t zone, uint32_t *cursor, EventRecord_t *rec)
 {
@@ -208,8 +217,8 @@ static uint8_t GB4717_ReadZone(uint8_t zone, uint32_t *cursor, EventRecord_t *re
 }
 
 /**
- * @brief  Ë³Ğò¶ÁÏÂÒ»Ìõ(4Çø°´Ê±¼ä´Á¹é²¢, È«¾ÖÊ±¼äÉıĞò, P1-5Õû¸Ä)
- * @retval 0=¶Áµ½Ò»Ìõ, 1=È«²¿¶ÁÍê(ÓÎ±ê¹éÁã, ÏÂÂÖ´ÓÍ·)
+ * @brief  é¡ºåºè¯»ä¸‹ä¸€æ¡(4åŒºæŒ‰æ—¶é—´æˆ³å½’å¹¶, å…¨å±€æ—¶é—´å‡åº, P1-5æ•´æ”¹)
+ * @retval 0=è¯»åˆ°ä¸€æ¡, 1=å…¨éƒ¨è¯»å®Œ(æ¸¸æ ‡å½’é›¶, ä¸‹è½®ä»å¤´)
  */
 static uint8_t GB4717_SeqReadNext(EventRecord_t *rec)
 {
@@ -218,7 +227,7 @@ static uint8_t GB4717_SeqReadNext(EventRecord_t *rec)
     uint32_t best_time = 0;
     EventRecord_t tmp;
 
-    /* ÔÚ4Çøµ±Ç°ÓÎ±êÎ»ÖÃÖĞÕÒÊ±¼ä´Á×îĞ¡(×îÔç)µÄ¼ÇÂ¼ */
+    /* å–4ä¸ªåŒºå½“å‰æ¸¸æ ‡ä½ç½®å¤„æ—¶é—´æœ€å°çš„è®°å½• */
     for (z = 0; z < STX_ZONE_COUNT; z++)
     {
         if (s_seq_cursor[z] < StorageRx_GetRecordCount(z))
@@ -237,7 +246,7 @@ static uint8_t GB4717_SeqReadNext(EventRecord_t *rec)
 
     if (best == 0xFF)
     {
-        /* 4ÇøÈ«²¿¶ÁÍê: ÓÎ±ê¹éÁã */
+        /* 4ä¸ªåŒºå…¨éƒ¨è¯»å®Œ: æ¸¸æ ‡å½’é›¶ */
         for (z = 0; z < STX_ZONE_COUNT; z++)
         {
             s_seq_cursor[z] = 0;
@@ -251,39 +260,39 @@ static uint8_t GB4717_SeqReadNext(EventRecord_t *rec)
 }
 
 /**
- * @brief  Ö´ĞĞGB4717ÃüÁî´¦Àí(¸ù¾İÃüÁîÂë¶ÁÈ¡¼ÇÂ¼²¢·¢ËÍÏìÓ¦)
- * @param  cmd: ÃüÁîÂë
- *           GB4717_CMD_READ_DATA(1): Ë³Ğò¶ÁÈ¡ÏÂÒ»Ìõ¼ÇÂ¼, ÓÎ±ês_read_index_seq×ÔÔö,
- *                                    ¶Áµ½Ä©Î²Ôò¹éÁã²¢·¢ËÍ¿Õ¼ÇÂ¼ÏìÓ¦;
- *           GB4717_CMD_READ_FIRST(3): °´event_code=2É¸Ñ¡Ê×¾¯¼ÇÂ¼;
- *           GB4717_CMD_READ_FIRE(4):  °´event_code=3É¸Ñ¡»ğ¾¯¼ÇÂ¼;
- *           GB4717_CMD_RESEND(2):     ÖØ·¢ÉÏÒ»Ö¡ÏìÓ¦(´Ós_last_resp»º´æ);
- *           ÆäËû:                     ·¢ËÍ¿Õ¼ÇÂ¼ÏìÓ¦.
+ * @brief  æ‰§è¡ŒGB4717å‘½ä»¤å¤„ç†(æ ¹æ®å‘½ä»¤ç è¯»å–è®°å½•å¹¶å‘é€å“åº”)
+ * @param  cmd: å‘½ä»¤ç 
+ *           GB4717_CMD_READ_DATA(1): é¡ºåºè¯»å–ä¸‹ä¸€æ¡è®°å½•, æ¸¸æ ‡s_read_index_seqè‡ªå¢,
+ *                                    è¯»è‡³æœ«å°¾åˆ™æ¸…0å¹¶å‘é€ç©ºè®°å½•å“åº”;
+ *           GB4717_CMD_READ_FIRST(3): æŒ‰event_code=2ç­›é€‰é¦–è­¦è®°å½•;
+ *           GB4717_CMD_READ_FIRE(4):  æŒ‰event_code=3ç­›é€‰ç«è­¦è®°å½•;
+ *           GB4717_CMD_RESEND(2):     é‡å‘ä¸Šä¸€å¸§å“åº”(ä»s_last_respç¼“å­˜);
+ *           å…¶ä»–:                     å‘é€ç©ºè®°å½•å“åº”.
  */
 static void GB4717_ProcessCommand(uint8_t cmd)
 {
     EventRecord_t rec;
     switch (cmd)
     {
-        case GB4717_CMD_READ_DATA:      /* Ë³Ğò¶Á: 4ÇøÊ±¼ä¹é²¢(P1-5Õû¸Ä) */
+        case GB4717_CMD_READ_DATA: /* é¡ºåºè¯»: 4åŒºæ—¶é—´å½’å¹¶(P1-5æ•´æ”¹) */
             if (GB4717_SeqReadNext(&rec) == 0)
                 GB4717_SendResponse(cmd, &rec);
             else
                 GB4717_SendResponse(cmd, NULL);
             break;
-        case GB4717_CMD_READ_FIRST:     /* Ê×¾¯: ·ÖÇøÖ±¶Á(P1-5Õû¸Ä) */
+        case GB4717_CMD_READ_FIRST: /* é¦–è­¦: åˆ†åŒºç›´è¯»(P1-5æ•´æ”¹) */
             if (GB4717_ReadZone(STX_ZONE_FIRST, &s_read_index_first, &rec) == 0)
                 GB4717_SendResponse(cmd, &rec);
             else
                 GB4717_SendResponse(cmd, NULL);
             break;
-        case GB4717_CMD_READ_FIRE:      /* »ğ¾¯: ·ÖÇøÖ±¶Á(P1-5Õû¸Ä) */
+        case GB4717_CMD_READ_FIRE: /* ç«è­¦: åˆ†åŒºç›´è¯»(P1-5æ•´æ”¹) */
             if (GB4717_ReadZone(STX_ZONE_FIRE, &s_read_index_fire, &rec) == 0)
                 GB4717_SendResponse(cmd, &rec);
             else
                 GB4717_SendResponse(cmd, NULL);
             break;
-        case GB4717_CMD_READ_FAULT:     /* ¹ÊÕÏ: ·ÖÇøÖ±¶Á(P1-5Õû¸ÄĞÂÔö) */
+        case GB4717_CMD_READ_FAULT: /* æ•…éšœ: åˆ†åŒºç›´è¯»(P1-5æ•´æ”¹æ–°å¢) */
             if (GB4717_ReadZone(STX_ZONE_FAULT, &s_read_index_fault, &rec) == 0)
                 GB4717_SendResponse(cmd, &rec);
             else
@@ -300,12 +309,12 @@ static void GB4717_ProcessCommand(uint8_t cmd)
 }
 
 /*==============================================================
- * ¶ÔÍâ½Ó¿Ú
+ * å¯¹å¤–æ¥å£
  *============================================================*/
 /**
- * @brief  ³õÊ¼»¯GB4717µ¼³öÄ£¿é
- * @note   ¸´Î»½ÓÊÕ×´Ì¬»ú¡¢ÃüÁî»º´æ¡¢¸÷¶ÁÈ¡ÓÎ±êºÍÏìÓ¦»º´æ.
- *         ÔÚÖ÷³ÌĞòÆô¶¯Ê±µ÷ÓÃÒ»´Î.
+ * @brief  åˆå§‹åŒ–GB4717å¯¼å‡ºæ¨¡å—
+ * @note   å¤ä½æ¥æ”¶çŠ¶æ€æœºã€æ¸…ç©ºå‘½ä»¤ç¼“å­˜ã€æ¸…ç©ºè¯»å–æ¸¸æ ‡å’Œå“åº”ç¼“å­˜.
+ *         ä¸»æœºä¸Šç”µæˆ–é‡è¿æ—¶åº”è°ƒç”¨ä¸€æ¬¡.
  */
 void GB4717_ExportInit(void)
 {
@@ -324,18 +333,18 @@ void GB4717_ExportInit(void)
 }
 
 /*==============================================================
- * GB4717µ¼³öÖ÷Ñ­»·´¦Àí - ´ÓUSB CDC¶ÁÈ¡×Ö½Ú²¢°´×´Ì¬»ú½âÎö
+ * GB4717å¯¼å‡ºä¸»å¾ªç¯å¤„ç† - ä»USB CDCè¯»å–å­—èŠ‚å¹¶æŒ‰çŠ¶æ€æœºè§£æ
  *============================================================*/
 /**
- * @brief  GB4717µ¼³öÖ÷Ñ­»·´¦Àí
- * @note   ÔÚmainµÄwhile(1)ÖĞµ÷ÓÃ. Íê³ÉÁ½¼şÊÂ:
- *         1) ÈôÉÏÒ»ÂÖÒÑÊÕµ½ÍêÕûÃüÁî(s_cmd_ready=1), ÔòÖ´ĞĞÃüÁî´¦Àí;
- *         2) ·ñÔò´ÓUSB CDCÖğ×Ö½Ú¶ÁÈ¡²¢Î¹Èë½ÓÊÕ×´Ì¬»ú, Ö±µ½ÃüÁîÍêÕû»ò»º³å¿Õ.
+ * @brief  GB4717å¯¼å‡ºä¸»å¾ªç¯å¤„ç†
+ * @note   åœ¨mainçš„while(1)ä¸­è°ƒç”¨. å®Œæˆä¸¤ä»¶äº‹:
+ *         1) è‹¥ä¸Šä¸€è½®å·²æ”¶åˆ°å®Œæ•´å‘½ä»¤(s_cmd_ready=1), åˆ™æ‰§è¡Œå‘½ä»¤å¤„ç†;
+ *         2) ä»USB CDCè¯»å­—èŠ‚æŒ‰çŠ¶æ€æœºè§£æ, ç›´åˆ°ç¼“å†²åŒºæ— æ•°æ®æˆ–å‘½ä»¤å°±ç»ª.
  *
- *   ÇëÇóÖ¡½âÎöÁ÷³Ì(×´Ì¬»ú):
- *     WAIT_START -> ÊÕµ½0x40 -> DEVICE_ID(¶Á8×Ö½Ú) -> VERSION(1) -> ADDR(1)
+ *   å‘½ä»¤å¸§è§£ææµç¨‹(çŠ¶æ€æœº):
+ *     WAIT_START -> æ”¶åˆ°0x40 -> DEVICE_ID(è¯»8å­—èŠ‚) -> VERSION(1) -> ADDR(1)
  *     -> TYPE(1) -> CMD_LEN(1) -> CMD_DATA(n) -> CRC_LO(1) -> CRC_HI(1)
- *     -> END_MARK(ÊÕµ½0x40ÔòÖÃÎ»s_cmd_ready) -> »Øµ½WAIT_START
+ *     -> END_MARK(æ”¶åˆ°0x40åˆ™ç½®ä½s_cmd_ready) -> å›åˆ°WAIT_START
  */
 void GB4717_ExportProcess(void)
 {
@@ -350,6 +359,13 @@ void GB4717_ExportProcess(void)
 
     while (USB_CDC_Available() > 0)
     {
+        /* P1-6: WAIT_START state only consumes 0x40 frame headers; other bytes
+         * (e.g. 'R'/'C' debug commands) stay in the buffer for main.c handlers.
+         * This gives the debug commands a deterministic route instead of a race. */
+        if (s_rx_state == RX_STATE_WAIT_START && USB_CDC_PeekByte() != GB4717_START_MARK)
+        {
+            break;
+        }
         byte = USB_CDC_ReadByte();
         if (byte == 0xFFFF) break;
 
@@ -364,14 +380,14 @@ void GB4717_ExportProcess(void)
                 }
                 break;
             case RX_STATE_DEVICE_ID:
-                /* P0-3: ÊÕ¼¯Éè±¸Ê¶±ğÂë(Ö¡Î²´¦ÓëÊÚÈ¨Token±È¶Ô) */
+                /* P0-3: æ”¶é›†è®¾å¤‡è¯†åˆ«ç (å¸§å°¾å¤„ä¸æˆæƒTokenæ¯”å¯¹) */
                 s_devid[s_rx_idx] = (uint8_t)byte;
                 s_frame[s_frame_len++] = (uint8_t)byte;
                 s_rx_idx++;
                 if (s_rx_idx >= 8) s_rx_state = RX_STATE_VERSION;
                 break;
             case RX_STATE_VERSION:
-                /* P1-4Õû¸Ä: °æ±¾ºÅĞ£Ñé(¹Ì¶¨0x02), ²»·û¶ªÖ¡ */
+                /* P1-4æ•´æ”¹: ç‰ˆæœ¬å·æ ¡éªŒ(å›ºå®š0x02), ä¸ç¬¦ä¸¢å¸§ */
                 if ((uint8_t)byte != GB4717_VERSION)
                 {
                     s_rx_state = RX_STATE_WAIT_START;
@@ -381,7 +397,7 @@ void GB4717_ExportProcess(void)
                 s_rx_state = RX_STATE_ADDR;
                 break;
             case RX_STATE_ADDR:
-                /* P1-4Õû¸Ä: µØÖ·Ğ£Ñé(¹Ì¶¨0x7E), ²»·û¶ªÖ¡ */
+                /* P1-4æ•´æ”¹: åœ°å€æ ¡éªŒ(å›ºå®š0x7E), ä¸ç¬¦ä¸¢å¸§ */
                 if ((uint8_t)byte != GB4717_TOOL_ADDR)
                 {
                     s_rx_state = RX_STATE_WAIT_START;
@@ -391,7 +407,7 @@ void GB4717_ExportProcess(void)
                 s_rx_state = RX_STATE_TYPE;
                 break;
             case RX_STATE_TYPE:
-                /* P1-4Õû¸Ä: ÀàĞÍĞ£Ñé(¹Ì¶¨0x7F), ²»·û¶ªÖ¡ */
+                /* P1-4æ•´æ”¹: ç±»å‹æ ¡éªŒ(å›ºå®š0x7F), ä¸ç¬¦ä¸¢å¸§ */
                 if ((uint8_t)byte != GB4717_TOOL_TYPE)
                 {
                     s_rx_state = RX_STATE_WAIT_START;
@@ -414,28 +430,28 @@ void GB4717_ExportProcess(void)
                 if (s_rx_idx >= s_cmd_len) s_rx_state = RX_STATE_CRC_LO;
                 break;
             case RX_STATE_CRC_LO:
-                /* P1-4Õû¸Ä: ÊÕ¼¯CRC16µÍ×Ö½Ú */
+                /* P1-4æ•´æ”¹: æ”¶é›†CRC16ä½å­—èŠ‚ */
                 s_crc_recv = (uint16_t)byte;
                 s_rx_state = RX_STATE_CRC_HI;
                 break;
             case RX_STATE_CRC_HI:
-                /* P1-4Õû¸Ä: ÊÕ¼¯CRC16¸ß×Ö½Ú */
+                /* P1-4æ•´æ”¹: æ”¶é›†CRC16é«˜å­—èŠ‚ */
                 s_crc_recv |= (uint16_t)((uint16_t)byte << 8);
                 s_rx_state = RX_STATE_END_MARK;
                 break;
             case RX_STATE_END_MARK:
                 if ((uint8_t)byte == GB4717_START_MARK)
                 {
-                    /* P0-3Õû¸Ä: Éè±¸IDĞëÓëÊÚÈ¨TokenÒ»ÖÂ */
+                    /* P0-3æ•´æ”¹: è®¾å¤‡IDé¡»ä¸æˆæƒTokenä¸€è‡´ */
                     uint8_t auth_ok = (memcmp(s_devid, GB4717_AUTH_TOKEN, 8) == 0) ? 1 : 0;
-                    /* P1-4Õû¸Ä: CRC16Ğ£Ñé(·¶Î§: Éè±¸ID~ÃüÁîÊı¾İ) */
+                    /* P1-4æ•´æ”¹: CRC16æ ¡éªŒ(èŒƒå›´: è®¾å¤‡ID~å‘½ä»¤æ•°æ®) */
                     uint16_t crc_calc = GB4717_CRC16(s_frame, s_frame_len);
 
                     if (auth_ok != 0 && (crc_calc == s_crc_recv))
                     {
                         s_cmd_ready = 1;
                     }
-                    /* ÊÚÈ¨²»Í¨¹ı»òCRC´í: ¾²Ä¬¶ªÆú(²»ÏìÓ¦Î´ÊÚÈ¨/Ëğ»µÖ¡) */
+                    /* æˆæƒä¸é€šæˆ–CRCé”™: é»˜è®¤å¿½ç•¥(ä¸å“åº”æœªæˆæƒ/åå¸§) */
                 }
                 s_rx_state = RX_STATE_WAIT_START;
                 break;
@@ -446,4 +462,12 @@ void GB4717_ExportProcess(void)
 
         if (s_cmd_ready) break;
     }
+}
+
+/* P1-6: idle query - 1 when the receiver state machine is in WAIT_START
+ * (no frame being reassembled). main.c uses this to gate the 'R'/'C' debug
+ * command block so it never steals mid-frame GB4717 payload bytes. */
+uint8_t GB4717_IsIdle(void)
+{
+    return (s_rx_state == RX_STATE_WAIT_START) ? 1U : 0U;
 }

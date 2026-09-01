@@ -1,4 +1,4 @@
-/**
+ï»¿/**
   ******************************************************************************
   * @file    Project/STM32F10x_StdPeriph_Template/stm32f10x_it.c 
   * @author  MCD Application Team
@@ -146,8 +146,8 @@ void SysTick_Handler(void)
 
 /**
   * @brief  This function handles USB Low Priority or CAN RX0 interrupts.
-  *         USB CDC µÍÓÅÏÈ¼¶ÖĞ¶Ï (PA11/PA12, USB Éè±¸Ä£Ê½)
-  *         ´ËÖĞ¶ÏÓÅÏÈ¼¶µÍÓÚ USART1, ²»Ó°Ïì´æ´¢²à°åÍ¨ĞÅ.
+  *         USB CDC ä½ä¼˜å…ˆçº§ä¸­æ–­ (PA11/PA12, USB è®¾å¤‡æ¨¡å¼)
+  *         æ­¤ä¸­æ–­ä¼˜å…ˆçº§ä½äº USART1, ä¸å½±å“å­˜å‚¨ä¾§æ¿é€šä¿¡.
   * @param  None
   * @retval None
   */
@@ -158,24 +158,24 @@ void USB_LP_CAN1_RX0_IRQHandler(void)
 
 /**
   * @brief  This function handles USB WakeUp interrupt.
-  *         USB »½ĞÑÖĞ¶Ï (EXTI Line18), ÓÃÓÚ´Ó suspend Ä£Ê½»Ö¸´.
+  *         USB å”¤é†’ä¸­æ–­ (EXTI Line18), ç”¨äºä» suspend æ¨¡å¼æ¢å¤.
   * @param  None
   * @retval None
   */
 void USBWakeUp_IRQHandler(void)
 {
-    EXTI_ClearITPendingBit(EXTI_Line18);   /* Çå³ı USB »½ĞÑÖĞ¶Ï¹ÒÆğÎ» */
+    EXTI_ClearITPendingBit(EXTI_Line18);   /* æ¸…é™¤ USB å”¤é†’ä¸­æ–­æŒ‚èµ·ä½ */
 }
 
 /**
   * @brief  This function handles USB High Priority or CAN TX interrupts.
-  *         USB CDC µ±Ç°Î´Ê¹ÓÃ¸ßÓÅÏÈ¼¶ÖĞ¶Ï, ±£Áô¿ÕÊµÏÖ.
+  *         USB CDC å½“å‰æœªä½¿ç”¨é«˜ä¼˜å…ˆçº§ä¸­æ–­, ä¿ç•™ç©ºå®ç°.
   * @param  None
   * @retval None
   */
 void USB_HP_CAN1_TX_IRQHandler(void)
 {
-    /* USB CDC µ±Ç°Î´Ê¹ÓÃ¸ßÓÅÏÈ¼¶ÖĞ¶Ï, ±£Áô¿ÕÊµÏÖ */
+    /* USB CDC å½“å‰æœªä½¿ç”¨é«˜ä¼˜å…ˆçº§ä¸­æ–­, ä¿ç•™ç©ºå®ç° */
 }
 
 /**

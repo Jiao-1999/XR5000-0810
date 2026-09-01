@@ -1,4 +1,4 @@
-/**
+﻿/**
   ******************************************************************************
   * @file    platform_config.h
   * @author  MCD Application Team
@@ -39,7 +39,7 @@
 /* Uncomment the line corresponding to the STMicroelectronics evaluation board
    used to run the example */
    
-#define USE_STM3210E_EVAL 	//ALIENTEK ս��STM32 V3 ʹ�õİ汾
+#define USE_STM3210E_EVAL 	//ALIENTEK 战舰STM32 V3 使用的版本
 
 
 

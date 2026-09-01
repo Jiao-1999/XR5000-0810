@@ -1,4 +1,4 @@
-/**
+ï»¿/**
   ******************************************************************************
   * @file    usb_endp.c
   * @author  MCD Application Team
@@ -33,7 +33,7 @@
 #include "hw_config.h"
 #include "usb_istr.h"
 #include "usb_pwr.h"
-#include "usb_cdc.h"   /* ÒÆÖ²: ÒıÈë USB_CDC_PushRx ×Ö½ÚÁ÷»·ĞÎ»º³å */
+#include "usb_cdc.h"   /* ç§»æ¤: å¼•å…¥ USB_CDC_PushRx å­—èŠ‚æµç¯å½¢ç¼“å†² */
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -50,8 +50,8 @@ uint8_t USB_Rx_Buffer[VIRTUAL_COM_PORT_DATA_SIZE];
 
 /*******************************************************************************
 * Function Name  : EP1_IN_Callback
-* Description    : EP1 IN ¶Ëµã»Øµ÷ - ´Ó TX FIFO È¡Êı¾İ·¢Íù USB Ö÷»ú
-*                  ÓÉ SOF ÖĞ¶ÏÃ¿ 5ms ´¥·¢Ò»´Î (bDeviceState==CONFIGURED Ê±)
+* Description    : EP1 IN ç«¯ç‚¹å›è°ƒ - ä» TX FIFO å–æ•°æ®å‘å¾€ USB ä¸»æœº
+*                  ç”± SOF ä¸­æ–­æ¯ 5ms è§¦å‘ä¸€æ¬¡ (bDeviceState==CONFIGURED æ—¶)
 * Input          : None.
 * Output         : None.
 * Return         : None.
@@ -60,24 +60,24 @@ void EP1_IN_Callback (void)
 {
 	u16 USB_Tx_ptr;
 	u16 USB_Tx_length;
-	if(uu_txfifo.readptr==uu_txfifo.writeptr)		//ÎŞÈÎºÎÊı¾İÒª·¢ËÍ,Ö±½ÓÍË³ö
+	if(uu_txfifo.readptr==uu_txfifo.writeptr)		//æ— ä»»ä½•æ•°æ®è¦å‘é€,ç›´æ¥é€€å‡º
 	{
 		return;
 	}
-	if(uu_txfifo.readptr<uu_txfifo.writeptr)		//Ã»ÓĞ³¬¹ıÊı×é,¶ÁÖ¸Õë<Ğ´Ö¸Õë
+	if(uu_txfifo.readptr<uu_txfifo.writeptr)		//æ²¡æœ‰è¶…è¿‡æ•°ç»„,è¯»æŒ‡é’ˆ<å†™æŒ‡é’ˆ
 	{
-		USB_Tx_length=uu_txfifo.writeptr-uu_txfifo.readptr;//µÃµ½Òª·¢ËÍµÄÊı¾İ³¤¶È
-	}else											//³¬¹ıÊı×éÁË ¶ÁÖ¸Õë>Ğ´Ö¸Õë
+		USB_Tx_length=uu_txfifo.writeptr-uu_txfifo.readptr;//å¾—åˆ°è¦å‘é€çš„æ•°æ®é•¿åº¦
+	}else											//è¶…è¿‡æ•°ç»„äº† è¯»æŒ‡é’ˆ>å†™æŒ‡é’ˆ
 	{
-		USB_Tx_length=USB_USART_TXFIFO_SIZE-uu_txfifo.readptr;//µÃµ½Òª·¢ËÍµÄÊı¾İ³¤¶È
+		USB_Tx_length=USB_USART_TXFIFO_SIZE-uu_txfifo.readptr;//å¾—åˆ°è¦å‘é€çš„æ•°æ®é•¿åº¦
 	}
-	if(USB_Tx_length>VIRTUAL_COM_PORT_DATA_SIZE)	//³¬¹ı64×Ö½Ú?
+	if(USB_Tx_length>VIRTUAL_COM_PORT_DATA_SIZE)	//è¶…è¿‡64å­—èŠ‚?
 	{
-		USB_Tx_length=VIRTUAL_COM_PORT_DATA_SIZE;	//´Ë´Î·¢ËÍÊı¾İÁ¿
+		USB_Tx_length=VIRTUAL_COM_PORT_DATA_SIZE;	//æ­¤æ¬¡å‘é€æ•°æ®é‡
 	}
-	USB_Tx_ptr=uu_txfifo.readptr;					//·¢ËÍÆğÊ¼µØÖ·
-	uu_txfifo.readptr+=USB_Tx_length;				//¶ÁÖ¸ÕëÆ«ÒÆ
-	if(uu_txfifo.readptr>=USB_USART_TXFIFO_SIZE)	//¶ÁÖ¸Õë¹éÁã
+	USB_Tx_ptr=uu_txfifo.readptr;					//å‘é€èµ·å§‹åœ°å€
+	uu_txfifo.readptr+=USB_Tx_length;				//è¯»æŒ‡é’ˆåç§»
+	if(uu_txfifo.readptr>=USB_USART_TXFIFO_SIZE)	//è¯»æŒ‡é’ˆå½’é›¶
 	{
 		uu_txfifo.readptr=0;
 	}
@@ -88,11 +88,11 @@ void EP1_IN_Callback (void)
 
 /*******************************************************************************
 * Function Name  : EP3_OUT_Callback
-* Description    : EP3 OUT ¶Ëµã»Øµ÷ - PC -> MCU ½ÓÊÕÂ·¾¶
-*                  ÒÆÖ²¸ÄÔì: Ô­Àı³Ìµ÷ÓÃ USB_To_USART_Send_Data ÓÃ \r\n ·ÖÖ¡,
-*                  ÏÖ¸ÄÎªÖ±½Óµ÷ÓÃ USB_CDC_PushRx °ÑÃ¿¸ö×Ö½ÚÑ¹Èë×Ö½ÚÁ÷»·ĞÎ»º³å,
-*                  ¹© main.c Í¨¹ı USB_CDC_ReadByte/Available °´×Ö½ÚÁ÷¶ÁÈ¡,
-*                  ÒÔÊÊÅä GB4717 Ğ­ÒéÍ¸´«ĞèÇó.
+* Description    : EP3 OUT ç«¯ç‚¹å›è°ƒ - PC -> MCU æ¥æ”¶è·¯å¾„
+*                  ç§»æ¤æ”¹é€ : åŸä¾‹ç¨‹è°ƒç”¨ USB_To_USART_Send_Data ç”¨ \r\n åˆ†å¸§,
+*                  ç°æ”¹ä¸ºç›´æ¥è°ƒç”¨ USB_CDC_PushRx æŠŠæ¯ä¸ªå­—èŠ‚å‹å…¥å­—èŠ‚æµç¯å½¢ç¼“å†²,
+*                  ä¾› main.c é€šè¿‡ USB_CDC_ReadByte/Available æŒ‰å­—èŠ‚æµè¯»å–,
+*                  ä»¥é€‚é… GB4717 åè®®é€ä¼ éœ€æ±‚.
 * Input          : None.
 * Output         : None.
 * Return         : None.
@@ -101,19 +101,19 @@ void EP3_OUT_Callback(void)
 {
 	u16 USB_Rx_Cnt;
 	u16 i;
-	USB_Rx_Cnt = USB_SIL_Read(EP3_OUT, USB_Rx_Buffer); //µÃµ½USB½ÓÊÕµ½µÄÊı¾İ¼°Æä³¤¶È
+	USB_Rx_Cnt = USB_SIL_Read(EP3_OUT, USB_Rx_Buffer); //å¾—åˆ°USBæ¥æ”¶åˆ°çš„æ•°æ®åŠå…¶é•¿åº¦
 	for (i = 0; i < USB_Rx_Cnt; i++)
 	{
-		USB_CDC_PushRx(USB_Rx_Buffer[i]);              //Öğ×Ö½ÚÑ¹Èë½ÓÊÕ»·ĞÎ»º³å
+		USB_CDC_PushRx(USB_Rx_Buffer[i]);              //é€å­—èŠ‚å‹å…¥æ¥æ”¶ç¯å½¢ç¼“å†²
 	}
-	SetEPRxValid(ENDP3);                               //ÖØĞÂÊ¹ÄÜ¶Ëµã3µÄÊı¾İ½ÓÊÕ
+	SetEPRxValid(ENDP3);                               //é‡æ–°ä½¿èƒ½ç«¯ç‚¹3çš„æ•°æ®æ¥æ”¶
 }
 
 
 /*******************************************************************************
 * Function Name  : SOF_Callback / INTR_SOFINTR_Callback
-* Description    : Start-of-Frame ÖĞ¶Ï»Øµ÷ (Ã¿ 1ms Ò»´Î)
-*                  Ã¿ VCOMPORT_IN_FRAME_INTERVAL(=5) Ö¡´¥·¢Ò»´Î EP1 IN ·¢ËÍ
+* Description    : Start-of-Frame ä¸­æ–­å›è°ƒ (æ¯ 1ms ä¸€æ¬¡)
+*                  æ¯ VCOMPORT_IN_FRAME_INTERVAL(=5) å¸§è§¦å‘ä¸€æ¬¡ EP1 IN å‘é€
 * Input          : None.
 * Output         : None.
 * Return         : None.
@@ -130,7 +130,7 @@ void SOF_Callback(void)
 			FrameCount = 0;
 
 			/* Check the data to be sent through IN pipe */
-			EP1_IN_Callback();//Í¨¹ıEP1_IN_Callbackº¯ÊıÊµÏÖTXÊı¾İ·¢ËÍ¸øUSB
+			EP1_IN_Callback();//é€šè¿‡EP1_IN_Callbackå‡½æ•°å®ç°TXæ•°æ®å‘é€ç»™USB
 		}
 	}
 }

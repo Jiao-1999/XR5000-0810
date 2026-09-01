@@ -1,4 +1,4 @@
-/**
+ï»¿/**
  * @file    usb_cdc.c
  * @brief   STM32F103 USB CDC virtual serial port driver (register-level)
  * @details STM32F103 USB full-speed device peripheral, CDC ACM class.
@@ -494,8 +494,8 @@ static void EP0_HandleSetup(void)
         }
     }
 
-    /* Î´´¦ÀíµÄÇëÇó: STALL EP0 TX·½Ïò
-     * USB¹æ·¶ÒªÇóEP0ÔÚSTALLºóÈÔÄÜ½ÓÊÕĞÂSETUP°ü, Òò´ËRX±£³ÖVALID */
+    /* æœªå¤„ç†çš„è¯·æ±‚: STALL EP0 TXæ–¹å‘
+     * USBè§„èŒƒè¦æ±‚EP0åœ¨STALLåä»èƒ½æ¥æ”¶æ–°SETUPåŒ…, å› æ­¤RXä¿æŒVALID */
     EP_SetTxStatus(0, EP_STAT_TX_STALL);
     EP_SetRxStatus(0, EP_STAT_RX_VALID);
 }
@@ -783,9 +783,9 @@ uint16_t USB_CDC_ReadByte(void)
 
 void USB_CDC_Poll(void)
 {
-    /* ·ÀÓù: È·±£USBÖĞ¶ÏÆÁ±ÎÎ»ÕıÈ· (CTRM|RESETM|SUSPM|ERRM)
-     * Ä³Ğ©Î´ÖªÌõ¼ş¿ÉÄÜÇå³ıCTRM, µ¼ÖÂSETUP°üµ½´ïÊ±ÎŞ·¨´¥·¢CTRÖĞ¶Ï
-     * Ã¿´ÎPoll¼ì²é²¢ÔÚCTRM±»Çå³ıÊ±»Ö¸´ÕıÈ·µÄÖĞ¶ÏÆÁ±ÎÅäÖÃ */
+    /* é˜²å¾¡: ç¡®ä¿USBä¸­æ–­å±è”½ä½æ­£ç¡® (CTRM|RESETM|SUSPM|ERRM)
+     * æŸäº›æœªçŸ¥æ¡ä»¶å¯èƒ½æ¸…é™¤CTRM, å¯¼è‡´SETUPåŒ…åˆ°è¾¾æ—¶æ— æ³•è§¦å‘CTRä¸­æ–­
+     * æ¯æ¬¡Pollæ£€æŸ¥å¹¶åœ¨CTRMè¢«æ¸…é™¤æ—¶æ¢å¤æ­£ç¡®çš„ä¸­æ–­å±è”½é…ç½® */
     if ((USB_CNTR & USB_CNTR_CTRM) == 0)
     {
         USB_CNTR = USB_CNTR_CTRM | USB_CNTR_RESETM | USB_CNTR_SUSPM | USB_CNTR_ERRM;
@@ -803,9 +803,9 @@ void USB_CDC_Poll(void)
         EP_SetTxStatus(3, EP_STAT_TX_VALID);
     }
 
-    /* ×Ô¶¯ÖØĞÂÃ¶¾Ù: ½öÔÚ´ÓÎ´ÊÕµ½USB RESETÊ±´¥·¢
-     * (Ö÷»úÍêÈ«Î´¼ì²âµ½Éè±¸D+ÉÏÀ­). Ò»µ©ÊÕµ½RESET, Ö÷»úÒÑÖªÉè±¸´æÔÚ,
-     * ºóĞøSETUP/Ã¶¾ÙÓÉÖ÷»úÖ÷µ¼, ²»ÔÙÇ¿ÖÆ¶Ï¿ªÖØÁ¬, ±ÜÃâ¸ÉÈÅÃ¶¾Ù¹ı³Ì */
+    /* è‡ªåŠ¨é‡æ–°æšä¸¾: ä»…åœ¨ä»æœªæ”¶åˆ°USB RESETæ—¶è§¦å‘
+     * (ä¸»æœºå®Œå…¨æœªæ£€æµ‹åˆ°è®¾å¤‡D+ä¸Šæ‹‰). ä¸€æ—¦æ”¶åˆ°RESET, ä¸»æœºå·²çŸ¥è®¾å¤‡å­˜åœ¨,
+     * åç»­SETUP/æšä¸¾ç”±ä¸»æœºä¸»å¯¼, ä¸å†å¼ºåˆ¶æ–­å¼€é‡è¿, é¿å…å¹²æ‰°æšä¸¾è¿‡ç¨‹ */
     if (g_usb_reset_count == 0)
     {
         static uint32_t s_no_reset_timer = 0;
@@ -815,16 +815,16 @@ void USB_CDC_Poll(void)
             uint32_t crh_save;
             s_no_reset_timer = 0;
 
-            /* ¶Ï¿ª: GPIOÇı¶¯PA12(D+)À­µÍ, ¸²¸ÇÄÚ²¿ÉÏÀ­ */
+            /* æ–­å¼€: GPIOé©±åŠ¨PA12(D+)æ‹‰ä½, è¦†ç›–å†…éƒ¨ä¸Šæ‹‰ */
             crh_save = GPIOA->CRH;
-            GPIOA->CRH = (crh_save & 0xFFF0FFFF) | 0x00010000; /* PA12ÍÆÍìÊä³ö10MHz */
-            GPIOA->BRR = (1 << 12);  /* PA12=0 (D+µÍ=¶Ï¿ª) */
-            for (j = 0; j < 50000u; j++);  /* ~700us¶Ï¿ª */
+            GPIOA->CRH = (crh_save & 0xFFF0FFFF) | 0x00010000; /* PA12æ¨æŒ½è¾“å‡º10MHz */
+            GPIOA->BRR = (1 << 12);  /* PA12=0 (D+ä½=æ–­å¼€) */
+            for (j = 0; j < 50000u; j++);  /* ~700usæ–­å¼€ */
 
-            /* ÖØÁ¬: »Ö¸´PA12ÎªÊäÈë(ÄÚ²¿ÉÏÀ­¼¤»î) */
-            GPIOA->BSRR = (1 << 12);  /* PA12=1(Ô¤³äµç) */
-            GPIOA->CRH = crh_save;    /* »Ö¸´Ô­Ê¼ÅäÖÃ */
-            for (j = 0; j < 50000u; j++);  /* ~700usÎÈ¶¨ */
+            /* é‡è¿: æ¢å¤PA12ä¸ºè¾“å…¥(å†…éƒ¨ä¸Šæ‹‰æ¿€æ´») */
+            GPIOA->BSRR = (1 << 12);  /* PA12=1(é¢„å……ç”µ) */
+            GPIOA->CRH = crh_save;    /* æ¢å¤åŸå§‹é…ç½® */
+            for (j = 0; j < 50000u; j++);  /* ~700usç¨³å®š */
         }
     }
 }
