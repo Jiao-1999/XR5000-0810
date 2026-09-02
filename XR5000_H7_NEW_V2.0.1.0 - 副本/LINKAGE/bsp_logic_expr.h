@@ -26,7 +26,6 @@
 #define LOGIC_COND_MAX           12      /* 每条规则最多条件数（即探测器数） */
 #define LOGIC_TOKEN_MAX          31      /* 每条规则最多Token数（12个条件 + 19个操作符/括号） */
 #define LOGIC_ACTION_MAX         4       /* 每条规则最多执行动作数 */
-#define LOGIC_DELAY_MAX_S        600     /* 动作延时时长上限（秒，10分钟） */
 #define LOGIC_WILDCARD           0xFF    /* 通配符：匹配任意探测器编号 */
 
 /* Flash 存储区 W25Q256 SPI Flash 芯片 0x080000 */
@@ -66,7 +65,7 @@ typedef enum
 /* 执行模式枚举 - 控制动作启动/停止行为 */
 typedef enum
 {
-    EXEC_START_ALL  = 0,  /* 全部启动：启动所有配置的动作（延时参数生效） */
+    EXEC_START_ALL  = 0,  /* 全部启动：启动所有配置的动作 */
     EXEC_START_PART = 1,  /* 部分启动：仅启动指定编号的动作 */
     EXEC_STOP_ALL   = 2,  /* 全部停止：停止所有正在执行的动作 */
     EXEC_STOP_PART  = 3,  /* 部分停止：仅停止指定编号的动作 */
@@ -87,10 +86,8 @@ typedef enum
 typedef enum
 {
     RT_IDLE     = 0,  /* 空闲中：规则未激活或条件未满足 */
-    RT_ARMED    = 1,  /* 已布防：规则激活，正在监控条件 */
-    RT_DELAYING = 2,  /* 延时中：条件满足，正在延时等待执行 */
-    RT_EXECUTED = 3,  /* 已执行：所有延时动作已全部执行完毕 */
-    RT_DONE     = 4,  /* 已完成：动作执行完毕，等待复位清除 */
+    RT_EXECUTED = 1,  /* 已执行：条件成立后全部动作已立即执行 */
+    RT_DONE     = 2,  /* 已完成：条件消失后动作已停止，等待复位清除 */
 } RtState;
 
 /*--------------------------------------------------------------
@@ -118,21 +115,20 @@ typedef struct
     uint8_t cond_idx;  /* 条件数组索引（仅当type==TOK_COND时有效） */
 } __attribute__((packed)) Token_t;
 
-/* 动作结构体 - 每个动作占7字节
+/* 动作结构体 - 每个动作占5字节
  * 7位编码: 前2位回路号 + 中3位设备号 + 后2位通道号, 如 0200101 = 回路02的001号设备通道01
  * channel: 1-4=具体输出通道, 99=全部通道(该设备支持的所有输出)
- * 示例：{loop_no=2, dev_no=1, channel=1, action=1, delay_s=30}
- *       含义："30秒后启动02控制回路001号设备通道01" */
+ * 示例：{loop_no=2, dev_no=1, channel=1, action=1}
+ *       含义："启动02控制回路001号设备通道01" */
 typedef struct
 {
     uint8_t  loop_no;   /* 控制回路号（固定为2） */
     uint16_t dev_no;    /* 设备号（3位编码000-999） */
     uint8_t  channel;   /* 输出通道号 1-4=具体通道, 99=全部通道 */
     uint8_t  action;    /* 0=停止, 1=启动 */
-    uint16_t delay_s;   /* 延时秒数，0=无延时立即执行，上限=600 */
 } __attribute__((packed)) Action_t;
 
-/* 规则结构体 - 每条规则占142字节（packed紧凑, Action_t增加channel后）
+/* 规则结构体 - 每条规则占150字节（packed紧凑, Action_t删除延时字段后）
  * 结构 = 元信息 + 条件 + 表达式 + 动作
  * 表达式由TOK_COND Token引用条件数组，不重复存储条件数据 */
 typedef struct
@@ -157,8 +153,6 @@ typedef struct
 typedef struct
 {
     RtState  state;                  /* 当前运行时状态 */
-    uint32_t arm_timestamp;          /* 布防时间戳（用于复位判定） */
-    uint32_t delay_expire[LOGIC_ACTION_MAX]; /* 各动作延时到期时间戳 */
     uint8_t  action_done[LOGIC_ACTION_MAX];  /* 1=动作已执行, 0=未执行 */
 } RtRuntime;
 

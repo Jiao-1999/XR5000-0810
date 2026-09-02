@@ -163,14 +163,9 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
         return 0;  /* 无效执行模式 */
     }
 
-    /* 检查每个动作的延时与通道是否在有效范围内 */
+    /* 校验每个动作的回路与通道是否在有效范围内 */
     for (i = 0; i < rule->action_count; i++)
     {
-        /* 动作延时时长不能超过600秒 */
-        if (rule->actions[i].delay_s > LOGIC_DELAY_MAX_S)
-        {
-            return 0;  /* 延时超出上限 */
-        }
         /* 动作方仅支持控制回路2(回路1板载继电器控制已删除,回路3无控制能力) */
         if (rule->actions[i].loop_no != 2U)
         {
@@ -576,10 +571,9 @@ uint8_t LogicRule_SaveAll(void)
 /*--------------------------------------------------------------
  * 函数名称：LogicRule_WipeAllPersistent
  * 功能描述：一次性持久化清空所有联动规则（RAM + Flash）
- *           清空后重启不会从Flash加载回旧规则，也不会触发默认规则回填
  *           （因为SaveAll会写入 magic=LOGIC_MAGIC + rule_count=0 的元数据，
- *            LoadAll校验通过且循环0次，LogicExpr_Init不会走LoadDefault路径）
- * 用法     ：在 main.c 的 LogicExpr_Init() 之后调用一次，烧录运行后注释掉
+ *            LoadAll校验通过且循环0次，开机后保持空表）
+ * 用法     ：在 main.c 的 LogicExpr_Init() 之后调用一次，清除已配置的规则
  *--------------------------------------------------------------*/
 void LogicRule_WipeAllPersistent(void)
 {
@@ -832,149 +826,6 @@ uint8_t LogicExpr_Evaluate(const LogicRule_t *rule)
 }
 
 /*--------------------------------------------------------------
- * 默认规则部分（出厂配置）
- *--------------------------------------------------------------*/
-
-/*--------------------------------------------------------------
- * 函数名称：LoadDefault
- * 功能描述：加载5条出厂默认规则到规则表
- * 当Flash中无有效数据时调用本函数初始化典型联动场景
- *--------------------------------------------------------------*/
-static void LoadDefault(void)
-{
-    LogicRule_t rule;  /* 临时规则结构体 */
-
-    memset(&rule, 0, sizeof(LogicRule_t));
-
-    /*--- 默认规则1：(回路1任意设备) & (回路1任意设备) → 控制回路1设备1(声光) ---*/
-    rule.enable = 1;
-    rule.rule_id = 1;
-    rule.cond_count = 2;
-    rule.conditions[0].loop_no = 1;
-    rule.conditions[0].dev_no = LOGIC_WILDCARD;
-    rule.conditions[0].sensor_type = SENSOR_ANY;
-    rule.conditions[0].alarm_level = LV_ANY;
-    rule.conditions[1].loop_no = 1;
-    rule.conditions[1].dev_no = LOGIC_WILDCARD;
-    rule.conditions[1].sensor_type = SENSOR_ANY;
-    rule.conditions[1].alarm_level = LV_ANY;
-    rule.token_count = 3;
-    rule.tokens[0].type = TOK_COND;  rule.tokens[0].cond_idx = 0;
-    rule.tokens[1].type = TOK_AND;   rule.tokens[1].cond_idx = 0;
-    rule.tokens[2].type = TOK_COND;  rule.tokens[2].cond_idx = 1;
-    rule.exec_mode = EXEC_START_ALL;
-    rule.action_count = 1;
-    rule.actions[0].loop_no = 2;
-    rule.actions[0].dev_no = 1;
-    rule.actions[0].channel = 1;
-    rule.actions[0].action = 1;
-    rule.actions[0].delay_s = 0;
-    rule.crc = CalcRuleCRC(&rule);
-    s_rule_table[0] = rule;
-    ResetRuntime(0);
-
-    /*--- 默认规则2：(回路1任意设备) → 控制回路1设备3(排风) ---*/
-    memset(&rule, 0, sizeof(LogicRule_t));
-    rule.enable = 1;
-    rule.rule_id = 2;
-    rule.cond_count = 1;
-    rule.conditions[0].loop_no = 1;
-    rule.conditions[0].dev_no = LOGIC_WILDCARD;
-    rule.conditions[0].sensor_type = SENSOR_ANY;
-    rule.conditions[0].alarm_level = LV_ANY;
-    rule.token_count = 1;
-    rule.tokens[0].type = TOK_COND;  rule.tokens[0].cond_idx = 0;
-    rule.exec_mode = EXEC_START_PART;
-    rule.action_count = 1;
-    rule.actions[0].loop_no = 2;
-    rule.actions[0].dev_no = 3;
-    rule.actions[0].channel = 1;
-    rule.actions[0].action = 1;
-    rule.actions[0].delay_s = 0;
-    rule.crc = CalcRuleCRC(&rule);
-    s_rule_table[1] = rule;
-    ResetRuntime(1);
-
-    /*--- 默认规则3：(回路1任意设备) → 控制回路1设备3(排风) ---*/
-    memset(&rule, 0, sizeof(LogicRule_t));
-    rule.enable = 1;
-    rule.rule_id = 3;
-    rule.cond_count = 1;
-    rule.conditions[0].loop_no = 1;
-    rule.conditions[0].dev_no = LOGIC_WILDCARD;
-    rule.conditions[0].sensor_type = SENSOR_ANY;
-    rule.conditions[0].alarm_level = LV_ANY;
-    rule.token_count = 1;
-    rule.tokens[0].type = TOK_COND;  rule.tokens[0].cond_idx = 0;
-    rule.exec_mode = EXEC_START_PART;
-    rule.action_count = 1;
-    rule.actions[0].loop_no = 2;
-    rule.actions[0].dev_no = 3;
-    rule.actions[0].channel = 1;
-    rule.actions[0].action = 1;
-    rule.actions[0].delay_s = 0;
-    rule.crc = CalcRuleCRC(&rule);
-    s_rule_table[2] = rule;
-    ResetRuntime(2);
-
-    /*--- 默认规则4：(回路1任意设备) x3 → 控制回路1设备5(默认继电器) ---*/
-    memset(&rule, 0, sizeof(LogicRule_t));
-    rule.enable = 1;
-    rule.rule_id = 4;
-    rule.cond_count = 3;
-    rule.conditions[0].loop_no = 1;
-    rule.conditions[0].dev_no = LOGIC_WILDCARD;
-    rule.conditions[0].sensor_type = SENSOR_ANY;
-    rule.conditions[0].alarm_level = LV_ANY;
-    rule.conditions[1].loop_no = 1;
-    rule.conditions[1].dev_no = LOGIC_WILDCARD;
-    rule.conditions[1].sensor_type = SENSOR_ANY;
-    rule.conditions[1].alarm_level = LV_ANY;
-    rule.conditions[2].loop_no = 1;
-    rule.conditions[2].dev_no = LOGIC_WILDCARD;
-    rule.conditions[2].sensor_type = SENSOR_ANY;
-    rule.conditions[2].alarm_level = LV_ANY;
-    rule.token_count = 5;
-    rule.tokens[0].type = TOK_COND;  rule.tokens[0].cond_idx = 0;
-    rule.tokens[1].type = TOK_AND;   rule.tokens[1].cond_idx = 0;
-    rule.tokens[2].type = TOK_COND;  rule.tokens[2].cond_idx = 1;
-    rule.tokens[3].type = TOK_AND;   rule.tokens[3].cond_idx = 0;
-    rule.tokens[4].type = TOK_COND;  rule.tokens[4].cond_idx = 2;
-    rule.exec_mode = EXEC_START_ALL;
-    rule.action_count = 1;
-    rule.actions[0].loop_no = 2;
-    rule.actions[0].dev_no = 5;
-    rule.actions[0].channel = 1;
-    rule.actions[0].action = 1;
-    rule.actions[0].delay_s = 0;
-    rule.crc = CalcRuleCRC(&rule);
-    s_rule_table[3] = rule;
-    ResetRuntime(3);
-
-    /*--- 默认规则5：(手动报警) → 控制回路1设备1(声光) ---*/
-    memset(&rule, 0, sizeof(LogicRule_t));
-    rule.enable = 1;
-    rule.rule_id = 5;
-    rule.cond_count = 1;
-    rule.conditions[0].loop_no = 1;
-    rule.conditions[0].dev_no = LOGIC_WILDCARD;
-    rule.conditions[0].sensor_type = SENSOR_HAND_REPORT;
-    rule.conditions[0].alarm_level = LV_ANY;
-    rule.token_count = 1;
-    rule.tokens[0].type = TOK_COND;  rule.tokens[0].cond_idx = 0;
-    rule.exec_mode = EXEC_START_ALL;
-    rule.action_count = 1;
-    rule.actions[0].loop_no = 2;
-    rule.actions[0].dev_no = 1;
-    rule.actions[0].channel = 1;
-    rule.actions[0].action = 1;
-    rule.actions[0].delay_s = 0;
-    rule.crc = CalcRuleCRC(&rule);
-    s_rule_table[4] = rule;
-    ResetRuntime(4);
-}
-
-/*--------------------------------------------------------------
  * 初始化与查询函数注册
  *--------------------------------------------------------------*/
 
@@ -994,7 +845,7 @@ void LogicExpr_SetQueryFunc(QueryCondFunc_t func)
  * 功能描述：模块初始化，执行以下步骤：
  * 1. 清空规则表
  * 2. 尝试从Flash加载规则
- * 3. 若Flash无效则加载默认规则并保存
+ * 3. Flash无效或CRC失败时以空表启动（不再生成默认规则）
  * 4. 设置初始化标志
  *
  * 本函数幂等可重复调用，多次调用不会产生副作用。
@@ -1007,21 +858,18 @@ void LogicExpr_Init(void)
     /* 步骤2：尝试从Flash加载规则 */
     if (LogicRule_LoadAll() != 0)
     {
-        /* Flash中无有效数据，加载默认规则 */
-        /* 加载5条默认规则到RAM */
-        LoadDefault();
-
-        /* 将默认规则保存到Flash供下次启动 */
+        /* Flash无有效数据(空片/魔数不符): 空表启动并写入空表元数据,
+         * 避免每次开机重复走此分支 */
+        DebugPrintf("[LOGIC] Init: flash empty, start with empty table\r\n");
         LogicRule_SaveAll();
     }
     else if (LogicExpr_GetCrcFailCount() > 0)
     {
-        /* Flash数据CRC校验失败（典型：结构体尺寸变更后旧数据不兼容，
-         * 如dev_no由uint8改为uint16使LogicRule_t由138变154字节）
-         * 旧数据无法解析，重新生成默认规则并覆盖保存 */
-        DebugPrintf("[LOGIC] Init: crc_fail=%d, regenerate defaults\r\n",
+        /* Flash存在CRC校验失败(结构体变更或数据损坏): 清空为空表,
+         * 不再生成默认规则, 由用户在屏幕上自行配置后保存 */
+        DebugPrintf("[LOGIC] Init: crc_fail=%d, clear to empty table\r\n",
                     LogicExpr_GetCrcFailCount());
-        LoadDefault();
+        LogicRule_ClearAll();
         LogicRule_SaveAll();
     }
 

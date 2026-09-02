@@ -1,4 +1,4 @@
-# Keil MDK ╠ЮрК╡ЗнО
+# Keil MDK О©╫О©╫О©╫О©╫О©╫О©╫О©╫
 *.o
 *.d
 *.crf
@@ -15,19 +15,19 @@
 *.lst
 *.bin
 
-# Keil аый╠нд╪Ч
+# Keil О©╫О©╫й╠О©╫д╪О©╫
 *.bak
 *.uvguix.*
 *.uvoptx
 *.scvd
 
-# Keil ╠ЮрКйДЁЖд©б╪
+# Keil О©╫О©╫О©╫О©╫О©╫О©╫О©╫д©б╪
 **/MDK-ARM/XR5000-H7/
 **/MDK-ARM/RTE/
 **/OBJ/
 **/Listings/
 
-# IDE аый╠нд╪Ч
+# IDE О©╫О©╫й╠О©╫д╪О©╫
 .vscode/*
 !.vscode/settings.json
 .idea/
@@ -36,15 +36,15 @@
 __pycache__/
 *.pyc
 
-# о╣мЁнд╪Ч
+# о╣мЁО©╫д╪О©╫
 Thumbs.db
 desktop.ini
 .DS_Store
 
-# я╧кУ╟Э
+# я╧О©╫О©╫О©╫О©╫
 *.zip
 
-# хуж╬
+# О©╫О©╫ж╬
 *.log
 
 # Local recovery documents (do not upload)

@@ -5,8 +5,8 @@
  * 功能描述   : 驱动规则评估和动作执行的状态机，作为RTOS任务运行。
  *
  * 状态机
- *   IDLE -> ARMED -> DELAYING -> EXECUTED -> DONE -> IDLE
- *   IDLE -> ARMED -> EXECUTED -> DONE -> IDLE （无延时动作时）
+ *   IDLE -> EXECUTED -> DONE -> IDLE
+ *   （判定成立立即执行全部动作，延时机制已删除）
  *
  *   关键改动: EXECUTED态条件消失时，先停止所有已执行的
  *   启动类动作（action=1的动作下发停止命令），再进入DONE。
@@ -19,7 +19,7 @@
  *   - bsp_logic_expr.h    : 规则表管理和表达式求值
  *   - bsp_logic_engine.h  : 本模块API
  *   - cmsis_os.h          : osDelay等RTOS接口
- *   - stm32h7xx_hal.h     : HAL_GetTick用于时间戳
+ *   - stm32h7xx_hal.h     : HAL基础头文件
  *==============================================================*/
 
 #include "bsp_logic_engine.h"   /* 本模块头文件 */
@@ -81,17 +81,6 @@ void LogicEngine_SetManualStartFunc(ManualStartFunc_t func)
 /*--------------------------------------------------------------
  * 内部工具函数区
  *--------------------------------------------------------------*/
-
-/*--------------------------------------------------------------
- * 函数名称：GetTickSec
- * 功能说明：获取当前系统时间戳（秒）。
- * 基于HAL_GetTick()毫秒计数器转换为秒。
- * 注意事项   ：32位秒计数器约49天溢出，不影响短时延时判断。
- *--------------------------------------------------------------*/
-static uint32_t GetTickSec(void)
-{
-    return HAL_GetTick() / 1000;  /* 毫秒转秒 */
-}
 
 /*--------------------------------------------------------------
  * 函数名称：EffectiveAction
@@ -172,9 +161,7 @@ static void LogicEngine_Run(void)
 {
     uint8_t  i;          /* 规则循环计数器（0..63） */
     uint8_t  j;          /* 动作循环计数器（0..3） */
-    uint32_t now_sec;    /* 当前时间戳（秒） */
     uint8_t  cond_met;   /* 条件是否满足标志 */
-    uint8_t  all_done;   /* 所有动作是否都已执行完毕 */
     uint8_t  exec_now;    /* 本周期允许执行标志(自动模式允许 或 手动启动键按下) */
     LogicRule_t *rules;  /* 规则表首地址 */
     RtRuntime   *rt;     /* 运行时状态数组首地址 */
@@ -182,9 +169,6 @@ static void LogicEngine_Run(void)
     /* 获取规则表和运行时状态数组指针 */
     rules = LogicExpr_GetTable();
     rt    = LogicExpr_GetRuntime();
-
-    /* 获取当前系统时间戳（秒），用于延时判断 */
-    now_sec = GetTickSec();
 
     /* 遍历所有规则槽位 */
     for (i = 0; i < LOGIC_RULE_MAX; i++)
@@ -238,52 +222,18 @@ static void LogicEngine_Run(void)
                 }
                 if (exec_now)
                 {
-                    /* 允许执行，进入ARMED状态 */
-                    rt[i].state = RT_ARMED;
-                    rt[i].arm_timestamp = now_sec;
-                    DebugPrintf("[LOGIC] R%d state IDLE->ARMED, %d action(s)\r\n",
+                    /* 判定成立, 立即执行全部动作(延时机制已删除) */
+                    DebugPrintf("[LOGIC] R%d state IDLE->EXECUTED, %d action(s)\r\n",
                                 rules[i].rule_id, rules[i].action_count);
 
-                    /* 初始化所有动作的延时到期时间和执行标志 */
                     for (j = 0; j < rules[i].action_count; j++)
                     {
-                        /* 计算延时到期时间 = 当前时间 + 延时秒数 */
-                        rt[i].delay_expire[j] = now_sec + rules[i].actions[j].delay_s;
-                        rt[i].action_done[j] = 0;  /* 标记动作未执行 */
+                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
+                                      rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
+                        rt[i].action_done[j] = 1;  /* 标记动作已执行 */
                     }
 
-                    /* 立即执行延时为0的动作 */
-                    for (j = 0; j < rules[i].action_count; j++)
-                    {
-                        if (rules[i].actions[j].delay_s == 0 && rt[i].action_done[j] == 0)
-                        {
-                            /* 延时为0，立即执行动作 */
-                            ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                          rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
-                            rt[i].action_done[j] = 1;  /* 标记动作已执行 */
-                        }
-                    }
-
-                    /* 检查是否所有动作都已执行完毕 */
-                    all_done = 1;
-                    for (j = 0; j < rules[i].action_count; j++)
-                    {
-                        if (rt[i].action_done[j] == 0)
-                        {
-                            all_done = 0;  /* 还有动作未执行 */
-                            break;
-                        }
-                    }
-
-                    /* 根据执行结果更新状态 */
-                    if (all_done)
-                    {
-                        rt[i].state = RT_EXECUTED;  /* 所有动作已执行，进入EXECUTED */
-                    }
-                    else
-                    {
-                        rt[i].state = RT_DELAYING;  /* 有延时动作未执行，进入DELAYING */
-                    }
+                    rt[i].state = RT_EXECUTED;  /* 全部动作已执行 */
                 }
                 /* 不允许自动执行时，保持在IDLE状态等待手动干预 */
                 else
@@ -296,114 +246,6 @@ static void LogicEngine_Run(void)
                                     rules[i].rule_id);
                     }
                 }
-            }
-            break;
-
-        /*--- ARMED状态：条件仍满足，等待延时执行 ---*/
-        case RT_ARMED:
-            if (!cond_met)
-            {
-                /* 条件不再满足，复位到IDLE */
-                memset(&rt[i], 0, sizeof(RtRuntime));
-                rt[i].state = RT_IDLE;
-                DebugPrintf("[LOGIC] R%d state ARMED->IDLE (cond lost before exec)\r\n",
-                            rules[i].rule_id);
-            }
-            else if (CheckAutoAllowed(rules[i].exec_mode))
-            {
-                /* 重新计算延时并执行延时为0的动作 */
-                for (j = 0; j < rules[i].action_count; j++)
-                {
-                    rt[i].delay_expire[j] = now_sec + rules[i].actions[j].delay_s;
-                    rt[i].action_done[j] = 0;
-                }
-
-                /* 立即执行延时为0的动作 */
-                for (j = 0; j < rules[i].action_count; j++)
-                {
-                    if (rules[i].actions[j].delay_s == 0 && rt[i].action_done[j] == 0)
-                    {
-                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                      rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
-                        rt[i].action_done[j] = 1;
-                    }
-                }
-
-                /* 检查所有动作是否完成 */
-                all_done = 1;
-                for (j = 0; j < rules[i].action_count; j++)
-                {
-                    if (rt[i].action_done[j] == 0)
-                    {
-                        all_done = 0;
-                        break;
-                    }
-                }
-
-                if (all_done)
-                {
-                    rt[i].state = RT_EXECUTED;
-                }
-                else
-                {
-                    rt[i].state = RT_DELAYING;
-                }
-            }
-            break;
-
-        /*--- DELAYING状态：等待延时到期后执行动作 ---*/
-        case RT_DELAYING:
-            if (!cond_met)
-            {
-                /* 条件不再满足，停止已启动的动作并回到IDLE */
-                /* 遍历所有动作，停止已启动的启动类动作（action=0表示停止） */
-                for (j = 0; j < rules[i].action_count; j++)
-                {
-                    if (rt[i].action_done[j] == 1 && EffectiveAction(&rules[i], j) == 1)
-                    {
-                        /* 停止已启动的设备，传入action=0 */
-                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                      rules[i].actions[j].channel, 0);
-                    }
-                }
-                memset(&rt[i], 0, sizeof(RtRuntime));
-                rt[i].state = RT_IDLE;
-                DebugPrintf("[LOGIC] R%d state DELAYING->IDLE (cond lost, started actions stopped)\r\n",
-                            rules[i].rule_id);
-                break;
-            }
-
-            /* 检查延时到期的动作并执行 */
-            for (j = 0; j < rules[i].action_count; j++)
-            {
-                /* 跳过已执行的动作 */
-                if (rt[i].action_done[j] == 0)
-                {
-                    /* 检查延时是否到期 */
-                    if (now_sec >= rt[i].delay_expire[j])
-                    {
-                        /* 延时到期，执行动作 */
-                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                      rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
-                        rt[i].action_done[j] = 1;  /* 标记动作已执行 */
-                    }
-                }
-            }
-
-            /* 检查是否所有动作都已执行完毕 */
-            all_done = 1;
-            for (j = 0; j < rules[i].action_count; j++)
-            {
-                if (rt[i].action_done[j] == 0)
-                {
-                    all_done = 0;  /* 还有动作未执行 */
-                    break;
-                }
-            }
-
-            if (all_done)
-            {
-                rt[i].state = RT_EXECUTED;  /* 所有动作已执行 */
             }
             break;
 
