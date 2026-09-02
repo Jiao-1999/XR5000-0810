@@ -14,7 +14,7 @@
 #define __BSP_STORAGE_TEST_H
 #include <stdint.h>
 
-#define STX_TEST_ENABLE   1    /* 测试构建=1, 量产=0 */
+#define STX_TEST_ENABLE   0    /* 测试构建=1, 量产=0 */
 #define STX_TEST_TICK_MS  100  /* 节拍(ms, 与TaskLoop超时一致) */
 
 void StorageTest_Init(void);  /* StorageTx_Init()尾部调用 */
