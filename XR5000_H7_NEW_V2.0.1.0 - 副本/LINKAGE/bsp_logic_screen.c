@@ -670,6 +670,15 @@ static void BuildExprDisplay(void)
                     s_edit.rule.actions[j].channel);
             strcat(s_disp_buf, temp);
         }
+
+        /* 动作区已确认动作且无待定输入时, 末尾补&分隔符:
+         * 按下&键确认动作后立即显示&, 与条件区"按&即显示"行为一致 */
+        if (s_edit.phase == EDIT_ACTION &&
+            s_edit.digit_count == 0 &&
+            s_edit.step == EDIT_STEP_NONE)
+        {
+            strcat(s_disp_buf, " & ");
+        }
     }
 
     /* A8-3: 动作段显示当前执行模式标签(START_ALL为默认不显示, 保持向后兼容) */
@@ -688,11 +697,17 @@ static void BuildExprDisplay(void)
     if ((s_edit.step == EDIT_STEP_NUMBER || s_edit.step == EDIT_STEP_ACTION)
         && s_edit.digit_count > 0)
     {
+        /* 动作区输入第2个及以后的动作时, 前面补&分隔符, 与已确认动作分开显示 */
+        if (s_edit.phase == EDIT_ACTION && s_edit.rule.action_count > 0)
+        {
+            strcat(s_disp_buf, " & ");
+        }
         for (j = 0; j < s_edit.digit_count; j++)
         {
             sprintf(temp, "%d", s_edit.digit_buf[j]);
             strcat(s_disp_buf, temp);
         }
+        strcat(s_disp_buf, "_");  /* 输入中标记: 按&或确认键确认后消失 */
     }
     else if (s_edit.phase == EDIT_ACTION && s_edit.rule.action_count == 0)
     {
@@ -958,7 +973,8 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
         }
         break;
 
-    /* === 确认/保存: 完成动作输入并保存规则 === */
+    /* === 确认/保存: 一次确认即保存规则(待定的5位条件/7位动作由
+     *     SaveRule内部先完成), 多动作之间用&键分隔确认 === */
     case LOGIC_BTN_CONFIRM:
         if (s_edit.active)
         {
