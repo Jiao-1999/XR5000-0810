@@ -16,6 +16,21 @@ extern volatile uint32_t g_usb_isr_count;
 extern volatile uint32_t g_usb_reset_count;
 
 /*==============================================================
+ * 清空全部黑匣子记录 (封装函数, 供 main 内任意处调用)
+ *   作用: ① StorageRx_EraseAll() 擦除 W25Q256 四个分区(首警/火警/
+ *            故障/通用)的全部记录并把写指针归 0;
+ *         ② GB4717_ExportInit() 复位导出状态机与各区读取游标,
+ *            使下次 GB4717 导出从头开始.
+ *   调用: 需要"清掉存储记录"时, 在 main() 里直接 Storage_ClearAllRecords();
+ *   注意: 擦除为阻塞操作(最坏可达数秒), 勿在中断上下文调用.
+ *============================================================*/
+static void Storage_ClearAllRecords(void)
+{
+    StorageRx_EraseAll();   /* 擦除4分区全部记录, 写指针归0 */
+    GB4717_ExportInit();    /* 复位导出游标, 下次导出从头开始 */
+}
+
+/*==============================================================
  * 存储侧主程序 (通信通道: USART1 + GB4717导出/USB CDC)
  * 通信接口说明:
  *   W25Q256:  CS-PB12, CLK-PB13, MISO-PB14, MOSI-PB15 (SPI2)
@@ -168,7 +183,8 @@ const uint8_t test_msg[] = "USB CDC Ready (ST USB-FS-Device_Driver OK)\r\n";
                 else
                 {
                     erase_armed = 0;
-                    StorageRx_EraseAll();
+                   
+                    Storage_ClearAllRecords();  /* 封装函数: 擦除4分区 + 复位导出游标 */
                     USB_CDC_SendData((const uint8_t *)"[STX_ERASE] done\r\n", 18);
                 }
             }

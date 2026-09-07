@@ -1,17 +1,17 @@
-ï»¿/**
+/**
  * @file    bsp_storage_rx.c
- * @brief   å­˜å‚¨æ¥æ”¶æ¨¡å— - æ¥æ”¶ä¸»æœºä¾§è®°å½•å¹¶å†™å…¥W25Q256
- * @details é€šè¿‡USART1(PA9=TX/PA10=RX, 115200 8N1, ä¸­æ–­æ¥æ”¶)æ¥æ”¶ä¸»æœºä¾§äº‹ä»¶è®°å½•å¸§,
- *          æ ¡éªŒé€šè¿‡åå†™å…¥W25Q256 SPI FlashæŒ‡å®šåˆ†åŒº, æ”¯æŒåˆ†åŒºç®¡ç†å’ŒACKå›å¤.
- *          å¤„ç†æµç¨‹: USART1ä¸­æ–­è°ƒç”¨StorageRx_OnByte(), ä¸»å¾ªç¯è°ƒç”¨StorageRx_Process().
+ * @brief   ´æ´¢½ÓÊÕÄ£¿é - ½ÓÊÕÖ÷»ú²à¼ÇÂ¼²¢Ğ´ÈëW25Q256
+ * @details Í¨¹ıUSART1(PA9=TX/PA10=RX, 115200 8N1, ÖĞ¶Ï½ÓÊÕ)½ÓÊÕÖ÷»ú²àÊÂ¼ş¼ÇÂ¼Ö¡,
+ *          Ğ£ÑéÍ¨¹ıºóĞ´ÈëW25Q256 SPI FlashÖ¸¶¨·ÖÇø, Ö§³Ö·ÖÇø¹ÜÀíºÍACK»Ø¸´.
+ *          ´¦ÀíÁ÷³Ì: USART1ÖĞ¶Ïµ÷ÓÃStorageRx_OnByte(), Ö÷Ñ­»·µ÷ÓÃStorageRx_Process().
  *
- *   å¸§æ ¼å¼(ä¸»æœº->å­˜å‚¨ä¾§):
- *     [0xA5][é•¿åº¦][å‘½ä»¤ç ][17å­—èŠ‚EventRecord_t][CRC16ä½][CRC16é«˜][0x5A]
- *     é•¿åº¦   = å‘½ä»¤ç (1) + è´Ÿè½½é•¿åº¦
- *     CRC16: MODBUSå¤šé¡¹å¼0xA001, æ ¡éªŒèŒƒå›´=é•¿åº¦+å‘½ä»¤ç +è´Ÿè½½, ä½ä½åœ¨å‰
+ *   Ö¡¸ñÊ½(Ö÷»ú->´æ´¢²à):
+ *     [0xA5][³¤¶È][ÃüÁîÂë][17×Ö½ÚEventRecord_t][CRC16µÍ][CRC16¸ß][0x5A]
+ *     ³¤¶È   = ÃüÁîÂë(1) + ¸ºÔØ³¤¶È
+ *     CRC16: MODBUS¶àÏîÊ½0xA001, Ğ£Ñé·¶Î§=³¤¶È+ÃüÁîÂë+¸ºÔØ, µÍÎ»ÔÚÇ°
  *
- *   å­˜å‚¨å‘½ä»¤: 0x01~0x04å­˜å‚¨è®°å½•, 0x05æŸ¥è¯¢å®¹é‡, 0x06å¿ƒè·³
- *   å­˜å‚¨ä»‹è´¨: æ•°æ®å†™å…¥W25Q256(32MB, åŸºåœ°å€0x00000000), æ–­ç”µåè®°å½•ä»ä¿ç•™
+ *   ´æ´¢ÃüÁî: 0x01~0x04´æ´¢¼ÇÂ¼, 0x05²éÑ¯ÈİÁ¿, 0x06ĞÄÌø
+ *   ´æ´¢½éÖÊ: Êı¾İĞ´ÈëW25Q256(32MB, »ùµØÖ·0x00000000), ¶Ïµçºó¼ÇÂ¼ÈÔ±£Áô
  */
 #include "bsp_storage_rx.h"
 #include "w25qxx.h"
@@ -22,71 +22,71 @@
 #include <string.h>
 
 /*==============================================================
- * å¸¸é‡å®šä¹‰
+ * ³£Á¿¶¨Òå
  *============================================================*/
-#define STX_RECORD_SIZE      sizeof(EventRecord_t)  /* 17å­—èŠ‚è®°å½•å¤§å° */
-#define STX_FLASH_BASE_ADDR  0x00000000             /* è®°å½•å­˜å‚¨èµ·å§‹åœ°å€ */
-#define STX_FLASH_MAX_ADDR   0x02000000             /* W25Q256å®¹é‡32MB = 0x02000000 */
+#define STX_RECORD_SIZE      sizeof(EventRecord_t)  /* 17×Ö½Ú¼ÇÂ¼´óĞ¡ */
+#define STX_FLASH_BASE_ADDR  0x00000000             /* ¼ÇÂ¼´æ´¢ÆğÊ¼µØÖ· */
+#define STX_FLASH_MAX_ADDR   0x02000000             /* W25Q256ÈİÁ¿32MB = 0x02000000 */
 
 /*==============================================================
- * å†…éƒ¨å˜é‡
+ * ÄÚ²¿±äÁ¿
  *============================================================*/
-static volatile uint8_t  s_frame_ready = 0;     /* å¸§æ¥æ”¶å®Œæˆæ ‡å¿— */
-static volatile uint32_t s_write_addr   = 0;     /* å½“å‰å†™å…¥åœ°å€ */
-static uint8_t  s_rx_buf[96];                   /* é€å­—èŠ‚æ¥æ”¶ç¼“å†²(æ‰©å®¹96: å…¼å®¹0x07æµ‹è¯•æ—¥å¿—é€ä¼ å¸§46~86å­—èŠ‚, åŸ32ä¼šæ‹¦ä¸¢è‡´L2å¤±æ•ˆ) */
-static uint8_t  s_rx_idx = 0;                    /* æ¥æ”¶ç¼“å†²åŒºç´¢å¼• */
-static uint8_t  s_frame_cmd;                     /* å½“å‰å¸§å‘½ä»¤ç  */
-static uint8_t  s_frame_len;                     /* å½“å‰å¸§é•¿åº¦å€¼ */
-static uint16_t s_frame_payload_len;             /* å½“å‰å¸§è´Ÿè½½é•¿åº¦ */
-static uint8_t  s_frame_buf[STX_MAX_PAYLOAD + 8];/* å®Œæ•´å¸§ç¼“å†² */
-static uint16_t s_frame_total;                   /* å¸§æ€»é•¿åº¦ */
+static volatile uint8_t  s_frame_ready = 0;     /* Ö¡½ÓÊÕÍê³É±êÖ¾ */
+static volatile uint32_t s_write_addr   = 0;     /* µ±Ç°Ğ´ÈëµØÖ· */
+static uint8_t  s_rx_buf[96];                   /* Öğ×Ö½Ú½ÓÊÕ»º³å(À©Èİ96: ¼æÈİ0x07²âÊÔÈÕÖ¾Í¸´«Ö¡46~86×Ö½Ú, Ô­32»áÀ¹¶ªÖÂL2Ê§Ğ§) */
+static uint8_t  s_rx_idx = 0;                    /* ½ÓÊÕ»º³åÇøË÷Òı */
+static uint8_t  s_frame_cmd;                     /* µ±Ç°Ö¡ÃüÁîÂë */
+static uint8_t  s_frame_len;                     /* µ±Ç°Ö¡³¤¶ÈÖµ */
+static uint16_t s_frame_payload_len;             /* µ±Ç°Ö¡¸ºÔØ³¤¶È */
+static uint8_t  s_frame_buf[STX_MAX_PAYLOAD + 8];/* ÍêÕûÖ¡»º³å */
+static uint16_t s_frame_total;                   /* Ö¡×Ü³¤¶È */
 
 /*==============================================================
- * è°ƒè¯•å…¨å±€å˜é‡ (ä¾› main.c åŠ USB_CDC ä½¿ç”¨, å‡ä½äºå­˜å‚¨ä¾§æ¥æ”¶é“¾è·¯å†…)
- *   g_stx_rx_byte_count: æ¥æ”¶å­—èŠ‚è®¡æ•° (æ¯æ¬¡USART1ä¸­æ–­+1)
- *   g_stx_last_byte:     æœ€è¿‘æ¥æ”¶çš„å­—èŠ‚ (è°ƒè¯•ç”¨)
- *   g_stx_rx_idx_snap:   s_rx_idx å¿«ç…§ (ä¾›è°ƒè¯•åˆ†æ, 0=ç©ºé—²)
- *   g_stx_frame_ready_snap: s_frame_ready å¿«ç…§ (1=æ”¶åˆ°å¸§ä½†ä¸»å¾ªç¯æœªå¤„ç†)
+ * µ÷ÊÔÈ«¾Ö±äÁ¿ (¹© main.c ¼° USB_CDC Ê¹ÓÃ, ¾ùÎ»ÓÚ´æ´¢²à½ÓÊÕÁ´Â·ÄÚ)
+ *   g_stx_rx_byte_count: ½ÓÊÕ×Ö½Ú¼ÆÊı (Ã¿´ÎUSART1ÖĞ¶Ï+1)
+ *   g_stx_last_byte:     ×î½ü½ÓÊÕµÄ×Ö½Ú (µ÷ÊÔÓÃ)
+ *   g_stx_rx_idx_snap:   s_rx_idx ¿ìÕÕ (¹©µ÷ÊÔ·ÖÎö, 0=¿ÕÏĞ)
+ *   g_stx_frame_ready_snap: s_frame_ready ¿ìÕÕ (1=ÊÕµ½Ö¡µ«Ö÷Ñ­»·Î´´¦Àí)
  *============================================================*/
 /*==============================================================
- * åˆ†åŒºç¯å½¢FIFOå®šä¹‰(P0-1/P0-2æ•´æ”¹, 2026-08-24)
- * W25Q256 32MBå¸ƒå±€:
- *   é¦–è­¦åŒº1MB(0x000000) ç«è­¦åŒº2MB(0x100000) æ•…éšœåŒº2MB(0x300000)
- *   é€šç”¨åŒºçº¦27MB(0x500000) å…ƒæ•°æ®åŒº64KB(0x1FF0000, A/BåŒåº“)
- * æ¯æ‰‡åŒº240æ¡è®°å½•(240*17=4080<4096), å†™æ»¡ç¯å½¢è¦†ç›–æœ€æ—§
+ * ·ÖÇø»·ĞÎFIFO¶¨Òå(P0-1/P0-2Õû¸Ä, 2026-08-24)
+ * W25Q256 32MB²¼¾Ö:
+ *   Ê×¾¯Çø1MB(0x000000) »ğ¾¯Çø2MB(0x100000) ¹ÊÕÏÇø2MB(0x300000)
+ *   Í¨ÓÃÇøÔ¼27MB(0x500000) ÔªÊı¾İÇø64KB(0x1FF0000, A/BË«¿â)
+ * Ã¿ÉÈÇø240Ìõ¼ÇÂ¼(240*17=4080<4096), Ğ´Âú»·ĞÎ¸²¸Ç×î¾É
  *============================================================*/
 #define STX_SECTOR_SIZE      4096UL
 #define STX_SLOT_PER_SECTOR  240
-#define STX_ZONE0_BASE       0x00000000UL   /* é¦–è­¦åŒºåŸºå€ */
-#define STX_ZONE0_SIZE       0x00100000UL   /* é¦–è­¦åŒº1MB */
-#define STX_ZONE1_BASE       0x00100000UL   /* ç«è­¦åŒºåŸºå€ */
-#define STX_ZONE1_SIZE       0x00200000UL   /* ç«è­¦åŒº2MB */
-#define STX_ZONE2_BASE       0x00300000UL   /* æ•…éšœåŒºåŸºå€ */
-#define STX_ZONE2_SIZE       0x00200000UL   /* æ•…éšœåŒº2MB */
-#define STX_ZONE3_BASE       0x00500000UL   /* é€šç”¨åŒºåŸºå€ */
-#define STX_ZONE3_SIZE       0x01AF0000UL   /* é€šç”¨åŒºçº¦27MB(è‡³0x1FEFFFF) */
-#define STX_META_BASE        0x01FF0000UL   /* å…ƒæ•°æ®åŒºåŸºå€64KB */
-#define STX_META_BANK_SIZE   0x00008000UL   /* å…ƒæ•°æ®A/Båº“å„32KB */
-#define STX_META_MAGIC       0x58525354UL   /* å…ƒæ•°æ®é­”æ•° */
+#define STX_ZONE0_BASE       0x00000000UL   /* Ê×¾¯Çø»ùÖ· */
+#define STX_ZONE0_SIZE       0x00100000UL   /* Ê×¾¯Çø1MB */
+#define STX_ZONE1_BASE       0x00100000UL   /* »ğ¾¯Çø»ùÖ· */
+#define STX_ZONE1_SIZE       0x00200000UL   /* »ğ¾¯Çø2MB */
+#define STX_ZONE2_BASE       0x00300000UL   /* ¹ÊÕÏÇø»ùÖ· */
+#define STX_ZONE2_SIZE       0x00200000UL   /* ¹ÊÕÏÇø2MB */
+#define STX_ZONE3_BASE       0x00500000UL   /* Í¨ÓÃÇø»ùÖ· */
+#define STX_ZONE3_SIZE       0x01AF0000UL   /* Í¨ÓÃÇøÔ¼27MB(ÖÁ0x1FEFFFF) */
+#define STX_META_BASE        0x01FF0000UL   /* ÔªÊı¾İÇø»ùÖ·64KB */
+#define STX_META_BANK_SIZE   0x00008000UL   /* ÔªÊı¾İA/B¿â¸÷32KB */
+#define STX_META_MAGIC       0x58525354UL   /* ÔªÊı¾İÄ§Êı */
 
-/* å…ƒæ•°æ®ç»“æ„(42å­—èŠ‚): æ¯æ¡è®°å½•å†™å…¥åä¿å­˜å„åŒºæŒ‡é’ˆ, æ–­ç”µæ¢å¤ç”¨ */
+/* ÔªÊı¾İ½á¹¹(42×Ö½Ú): Ã¿Ìõ¼ÇÂ¼Ğ´Èëºó±£´æ¸÷ÇøÖ¸Õë, ¶Ïµç»Ö¸´ÓÃ */
 #pragma pack(push, 1)
 typedef struct {
-    uint32_t magic;                          /* é­”æ•° */
-    uint32_t seq;                            /* å•è°ƒé€’å¢åºå·(å–æœ€å¤§ä¸ºæœ€æ–°) */
-    uint32_t slot_head[STX_ZONE_COUNT];      /* å„åŒºå†™æŒ‡é’ˆ(æ§½å·) */
-    uint32_t count[STX_ZONE_COUNT];          /* å„åŒºç°å­˜æ¡æ•° */
-    uint16_t crc;                            /* ç»“æ„æ ¡éªŒ(é™¤æœ¬å­—æ®µå¤–) */
+    uint32_t magic;                          /* Ä§Êı */
+    uint32_t seq;                            /* µ¥µ÷µİÔöĞòºÅ(È¡×î´óÎª×îĞÂ) */
+    uint32_t slot_head[STX_ZONE_COUNT];      /* ¸÷ÇøĞ´Ö¸Õë(²ÛºÅ) */
+    uint32_t count[STX_ZONE_COUNT];          /* ¸÷ÇøÏÖ´æÌõÊı */
+    uint16_t crc;                            /* ½á¹¹Ğ£Ñé(³ı±¾×Ö¶ÎÍâ) */
 } StorageMeta_t;
 #pragma pack(pop)
 
-/* åˆ†åŒºè¿è¡Œæ—¶çŠ¶æ€ */
+/* ·ÖÇøÔËĞĞÊ±×´Ì¬ */
 typedef struct {
-    uint32_t base;        /* åŒºåŸºå€(å­—èŠ‚) */
-    uint32_t size;        /* åŒºå¤§å°(å­—èŠ‚) */
-    uint32_t capacity;    /* å®¹é‡(æ¡), Initæ—¶æŒ‰æ‰‡åŒºæ•°è®¡ç®— */
-    uint32_t slot_head;   /* å†™æŒ‡é’ˆ(æ§½å·) */
-    uint32_t count;       /* ç°å­˜æ¡æ•° */
+    uint32_t base;        /* Çø»ùÖ·(×Ö½Ú) */
+    uint32_t size;        /* Çø´óĞ¡(×Ö½Ú) */
+    uint32_t capacity;    /* ÈİÁ¿(Ìõ), InitÊ±°´ÉÈÇøÊı¼ÆËã */
+    uint32_t slot_head;   /* Ğ´Ö¸Õë(²ÛºÅ) */
+    uint32_t count;       /* ÏÖ´æÌõÊı */
 } ZoneState_t;
 
 static ZoneState_t s_zones[STX_ZONE_COUNT] = {
@@ -96,36 +96,36 @@ static ZoneState_t s_zones[STX_ZONE_COUNT] = {
     {STX_ZONE3_BASE, STX_ZONE3_SIZE, 0, 0, 0},
 };
 
-/* å…ƒæ•°æ®A/BåŒåº“çŠ¶æ€(æ–­ç”µå®‰å…¨: åˆ‡åº“æ“¦é™¤æ—¶å¦ä¸€åº“ä¿æœ‰æœ‰æ•ˆæ•°æ®) */
-static uint8_t  s_meta_bank = 0;        /* å½“å‰æ´»åŠ¨åº“(0=A, 1=B) */
-static uint32_t s_meta_off  = 0;        /* åº“å†…å†™åç§» */
-static uint32_t s_meta_seq  = 0;        /* å…ƒæ•°æ®åºå·(å•è°ƒé€’å¢) */
-/* P0-Aä¿®å¤(v2): åˆ†æ­¥é¢„æ“¦çŠ¶æ€æœºå˜é‡.
- * åŸæ–¹æ¡ˆè‹¥é€å¸§æ¡ä»¶æ•´æ“¦8æ‰‡åŒº, ä»è§¦å‘åˆ°åˆ‡åº“çº¦700æ¡è®°å½•ä¼šé‡å¤æ•´æ“¦æ•°åƒæ¬¡(é˜»å¡æ”¾å¤§+è€—å°½æ“¦å†™å¯¿å‘½).
- * v2æ”¹ä¸º: æ¯åœˆä¸»å¾ªç¯åªæ“¦1ä¸ªæ‰‡åŒº(å•æ¬¡é˜»å¡å…¸å‹45ms/æœ€å400ms), 8åœˆå®Œæˆä¸€ä¸ªbank,
- * å®Œæˆåç½®prep_done, MetaSaveåˆ‡åº“åå¤ä½è¿›å…¥ä¸‹ä¸€å‘¨æœŸ. */
-static uint8_t s_meta_prep_bank = 0;   /* é¢„æ“¦ç›®æ ‡bank(=å½“å‰bank^1) */
-static uint8_t s_meta_prep_sec  = 0;   /* é¢„æ“¦è¿›åº¦(å·²æ“¦æ‰‡åŒºæ•°) */
-static uint8_t s_meta_prep_done = 1;   /* é¢„æ“¦ç©ºé—²/å®Œæˆæ ‡å¿—(1=ç©ºé—²) */
+/* ÔªÊı¾İA/BË«¿â×´Ì¬(¶Ïµç°²È«: ÇĞ¿â²Á³ıÊ±ÁíÒ»¿â±£ÓĞÓĞĞ§Êı¾İ) */
+static uint8_t  s_meta_bank = 0;        /* µ±Ç°»î¶¯¿â(0=A, 1=B) */
+static uint32_t s_meta_off  = 0;        /* ¿âÄÚĞ´Æ«ÒÆ */
+static uint32_t s_meta_seq  = 0;        /* ÔªÊı¾İĞòºÅ(µ¥µ÷µİÔö) */
+/* P0-AĞŞ¸´(v2): ·Ö²½Ô¤²Á×´Ì¬»ú±äÁ¿.
+ * Ô­·½°¸ÈôÖğÖ¡Ìõ¼şÕû²Á8ÉÈÇø, ´Ó´¥·¢µ½ÇĞ¿âÔ¼700Ìõ¼ÇÂ¼»áÖØ¸´Õû²ÁÊıÇ§´Î(×èÈû·Å´ó+ºÄ¾¡²ÁĞ´ÊÙÃü).
+ * v2¸ÄÎª: Ã¿È¦Ö÷Ñ­»·Ö»²Á1¸öÉÈÇø(µ¥´Î×èÈûµäĞÍ45ms/×î»µ400ms), 8È¦Íê³ÉÒ»¸öbank,
+ * Íê³ÉºóÖÃprep_done, MetaSaveÇĞ¿âºó¸´Î»½øÈëÏÂÒ»ÖÜÆÚ. */
+static uint8_t s_meta_prep_bank = 0;   /* Ô¤²ÁÄ¿±êbank(=µ±Ç°bank^1) */
+static uint8_t s_meta_prep_sec  = 0;   /* Ô¤²Á½ø¶È(ÒÑ²ÁÉÈÇøÊı) */
+static uint8_t s_meta_prep_done = 1;   /* Ô¤²Á¿ÕÏĞ/Íê³É±êÖ¾(1=¿ÕÏĞ) */
 
 
-static uint32_t s_last_wr_addr = 0;     /* æœ€è¿‘ä¸€æ¬¡å†™å…¥åœ°å€(æ—¥å¿—/è¯»å›éªŒè¯ç”¨) */
+static uint32_t s_last_wr_addr = 0;     /* ×î½üÒ»´ÎĞ´ÈëµØÖ·(ÈÕÖ¾/¶Á»ØÑéÖ¤ÓÃ) */
 
 volatile uint32_t g_stx_rx_byte_count = 0;
 volatile uint8_t  g_stx_last_byte = 0;
 volatile uint8_t  g_stx_rx_idx_snap = 0;
 volatile uint8_t  g_stx_frame_ready_snap = 0;
-volatile uint32_t g_stx_process_count = 0;   /* å¤„ç†è¿‡çš„å¸§æ•°, ç”¨äºç¡®è®¤å­˜å‚¨ä¾§å·²å“åº”ä¸»æ§ */
+volatile uint32_t g_stx_process_count = 0;   /* ´¦Àí¹ıµÄÖ¡Êı, ÓÃÓÚÈ·ÈÏ´æ´¢²àÒÑÏìÓ¦Ö÷¿Ø */
 
-/* ISRå¸§åˆ°è¾¾äº‹ä»¶: åœ¨USART1ä¸­æ–­é‡Œç½®ä½, mainå¾ªç¯æ¶ˆè´¹åæ¸…é›¶.
- * ç”¨äº"ä¸­æ–­å¤„ç†å‡½æ•°æ—¥å¿—": ISRæœ¬èº«ä¸èƒ½è°ƒUSB_CDC_SendData(ä¼šå†²çªUSBé©±åŠ¨çŠ¶æ€æœº),
- * æ”¹ä¸ºISRæ•è·äº‹ä»¶, mainå¾ªç¯æ£€æµ‹åˆ°äº‹ä»¶åæ‰“å°æ—¥å¿—, ç­‰æ•ˆäº"ISRé‡ŒåŠ æ—¥å¿—". */
-volatile uint8_t  g_stx_isr_frame_event  = 0;  /* 1=ISRæ”¶åˆ°å®Œæ•´å¸§å¾…æ‰“å°, 0=ç©ºé—² */
-volatile uint8_t  g_stx_isr_last_cmd     = 0;  /* ISRæœ€åä¸€æ¬¡æ”¶åˆ°çš„å¸§cmd */
-volatile uint32_t g_stx_isr_frame_count  = 0;  /* ISRç´¯è®¡æ”¶åˆ°çš„å®Œæ•´å¸§æ•° */
+/* ISRÖ¡µ½´ïÊÂ¼ş: ÔÚUSART1ÖĞ¶ÏÀïÖÃÎ», mainÑ­»·Ïû·ÑºóÇåÁã.
+ * ÓÃÓÚ"ÖĞ¶Ï´¦Àíº¯ÊıÈÕÖ¾": ISR±¾Éí²»ÄÜµ÷USB_CDC_SendData(»á³åÍ»USBÇı¶¯×´Ì¬»ú),
+ * ¸ÄÎªISR²¶»ñÊÂ¼ş, mainÑ­»·¼ì²âµ½ÊÂ¼şºó´òÓ¡ÈÕÖ¾, µÈĞ§ÓÚ"ISRÀï¼ÓÈÕÖ¾". */
+volatile uint8_t  g_stx_isr_frame_event  = 0;  /* 1=ISRÊÕµ½ÍêÕûÖ¡´ı´òÓ¡, 0=¿ÕÏĞ */
+volatile uint8_t  g_stx_isr_last_cmd     = 0;  /* ISR×îºóÒ»´ÎÊÕµ½µÄÖ¡cmd */
+volatile uint32_t g_stx_isr_frame_count  = 0;  /* ISRÀÛ¼ÆÊÕµ½µÄÍêÕûÖ¡Êı */
 
 /*==============================================================
- * å†…éƒ¨å‡½æ•°å£°æ˜
+ * ÄÚ²¿º¯ÊıÉùÃ÷
  *============================================================*/
 static uint16_t StorageRx_CRC16(const uint8_t *data, uint16_t len);
 static uint32_t StorageRx_ZoneSlotAddr(const ZoneState_t *z, uint32_t slot);
@@ -138,14 +138,14 @@ static void StorageRx_SendCapacity(uint8_t cmd, uint32_t remaining);
 static uint8_t StorageRx_VerifyCRC(void);
 
 /*==============================================================
- * CRC16æ ¡éªŒå‡½æ•° (å¤šé¡¹å¼0xA001, å…¼å®¹MODBUS CRC16)
+ * CRC16Ğ£Ñéº¯Êı (¶àÏîÊ½0xA001, ¼æÈİMODBUS CRC16)
  *============================================================*/
 /**
- * @brief  è®¡ç®—MODBUS CRC16 (å¤šé¡¹å¼0xA001, é«˜ä½åœ¨ä½å­—èŠ‚)
- * @param  data: å¾…è®¡ç®—æ•°æ®æŒ‡é’ˆ
- * @param  len:  æ•°æ®é•¿åº¦
- * @retval CRC16å€¼
- * @note   åˆå€¼0xFFFF, æ¯ä¸ªå­—èŠ‚å³ç§»8æ¬¡, æœ€ä½ä½ä¸º1åˆ™å¼‚æˆ–0xA001
+ * @brief  ¼ÆËãMODBUS CRC16 (¶àÏîÊ½0xA001, ¸ßÎ»ÔÚµÍ×Ö½Ú)
+ * @param  data: ´ı¼ÆËãÊı¾İÖ¸Õë
+ * @param  len:  Êı¾İ³¤¶È
+ * @retval CRC16Öµ
+ * @note   ³õÖµ0xFFFF, Ã¿¸ö×Ö½ÚÓÒÒÆ8´Î, ×îµÍÎ»Îª1ÔòÒì»ò0xA001
  */
 static uint16_t StorageRx_CRC16(const uint8_t *data, uint16_t len)
 {
@@ -167,16 +167,16 @@ static uint16_t StorageRx_CRC16(const uint8_t *data, uint16_t len)
             }
         }
     }
-    return crc;  /* è¿”å›è®¡ç®—åçš„CRC16å€¼ */
+    return crc;  /* ·µ»Ø¼ÆËãºóµÄCRC16Öµ */
 }
 
 /*==============================================================
- * é€šè¿‡USART1å‘é€å•å­—èŠ‚
+ * Í¨¹ıUSART1·¢ËÍµ¥×Ö½Ú
  *============================================================*/
 /**
- * @brief  é€šè¿‡USART1å‘é€å•ä¸ªå­—èŠ‚
- * @param  data: å¾…å‘é€çš„å­—èŠ‚
- * @note   ç­‰å¾…USART_FLAG_TC(å‘é€å®Œæˆæ ‡å¿—)ç¡®ä¿å‘é€å®Œæ¯•
+ * @brief  Í¨¹ıUSART1·¢ËÍµ¥¸ö×Ö½Ú
+ * @param  data: ´ı·¢ËÍµÄ×Ö½Ú
+ * @note   µÈ´ıUSART_FLAG_TC(·¢ËÍÍê³É±êÖ¾)È·±£·¢ËÍÍê±Ï
  */
 static void StorageRx_SendByte(uint8_t data)
 {
@@ -185,22 +185,22 @@ static void StorageRx_SendByte(uint8_t data)
 }
 
 /*==============================================================
- * å‘é€ACKå›å¤å¸§
- * å¸§æ ¼å¼: [0xA5][0x02][cmd][ack_code][CRC16ä½][CRC16é«˜][0x5A]
+ * ·¢ËÍACK»Ø¸´Ö¡
+ * Ö¡¸ñÊ½: [0xA5][0x02][cmd][ack_code][CRC16µÍ][CRC16¸ß][0x5A]
  *============================================================*/
 /**
- * @brief  å‘é€ACKåº”ç­”å¸§(ç”¨äºå­˜å‚¨æˆåŠŸ/å¤±è´¥ç­‰ç»“æœ)
- * @param  cmd: åŸå‘½ä»¤ç (ä¸ä¸»æœºè¯·æ±‚çš„å‘½ä»¤ä¸€è‡´)
- * @param  ack_code: åº”ç­”ç  (STX_ACK_OK / STX_ACK_ERR_CRC / STX_ACK_ERR_FULL ç­‰)
- * @note   å‘é€çš„å¸§ç»“æ„(å…±7å­—èŠ‚):
- *           [0] 0xA5 å¸§å¤´
- *           [1] 0x02 é•¿åº¦(è´Ÿè½½é•¿åº¦=å‘½ä»¤ç +åº”ç­”ç =2å­—èŠ‚)
- *           [2] cmd  åŸå‘½ä»¤ç 
- *           [3] ack_code åº”ç­”ç 
- *           [4] CRC16ä½å­—èŠ‚
- *           [5] CRC16é«˜å­—èŠ‚
- *           [6] 0x5A å¸§å°¾
- *         CRCæ ¡éªŒèŒƒå›´: é•¿åº¦+å‘½ä»¤ç +åº”ç­”ç  = 3å­—èŠ‚
+ * @brief  ·¢ËÍACKÓ¦´ğÖ¡(ÓÃÓÚ´æ´¢³É¹¦/Ê§°ÜµÈ½á¹û)
+ * @param  cmd: Ô­ÃüÁîÂë(ÓëÖ÷»úÇëÇóµÄÃüÁîÒ»ÖÂ)
+ * @param  ack_code: Ó¦´ğÂë (STX_ACK_OK / STX_ACK_ERR_CRC / STX_ACK_ERR_FULL µÈ)
+ * @note   ·¢ËÍµÄÖ¡½á¹¹(¹²7×Ö½Ú):
+ *           [0] 0xA5 Ö¡Í·
+ *           [1] 0x02 ³¤¶È(¸ºÔØ³¤¶È=ÃüÁîÂë+Ó¦´ğÂë=2×Ö½Ú)
+ *           [2] cmd  Ô­ÃüÁîÂë
+ *           [3] ack_code Ó¦´ğÂë
+ *           [4] CRC16µÍ×Ö½Ú
+ *           [5] CRC16¸ß×Ö½Ú
+ *           [6] 0x5A Ö¡Î²
+ *         CRCĞ£Ñé·¶Î§: ³¤¶È+ÃüÁîÂë+Ó¦´ğÂë = 3×Ö½Ú
  */
 static void StorageRx_SendAck(uint8_t cmd, uint8_t ack_code)
 {
@@ -209,14 +209,14 @@ static void StorageRx_SendAck(uint8_t cmd, uint8_t ack_code)
     uint8_t i;
 
     buf[0] = STX_FRAME_HEAD;
-    buf[1] = 0x02;          /* é•¿åº¦ = å‘½ä»¤ç (1) + åº”ç­”ç (1) = 2 */
-    buf[2] = cmd;           /* åŸå‘½ä»¤ç  */
-    buf[3] = ack_code;      /* åº”ç­”ç  */
+    buf[1] = 0x02;          /* ³¤¶È = ÃüÁîÂë(1) + Ó¦´ğÂë(1) = 2 */
+    buf[2] = cmd;           /* Ô­ÃüÁîÂë */
+    buf[3] = ack_code;      /* Ó¦´ğÂë */
 
-    /* CRCæ ¡éªŒèŒƒå›´: é•¿åº¦ + å‘½ä»¤ç  + åº”ç­”ç  = 3å­—èŠ‚ */
+    /* CRCĞ£Ñé·¶Î§: ³¤¶È + ÃüÁîÂë + Ó¦´ğÂë = 3×Ö½Ú */
     crc = StorageRx_CRC16(&buf[1], 3);
-    buf[4] = (uint8_t)(crc & 0xFF);         /* CRCä½å­—èŠ‚ */
-    buf[5] = (uint8_t)((crc >> 8) & 0xFF);  /* CRCé«˜å­—èŠ‚ */
+    buf[4] = (uint8_t)(crc & 0xFF);         /* CRCµÍ×Ö½Ú */
+    buf[5] = (uint8_t)((crc >> 8) & 0xFF);  /* CRC¸ß×Ö½Ú */
     buf[6] = STX_FRAME_TAIL;
 
     for (i = 0; i < 7; i++)
@@ -226,22 +226,22 @@ static void StorageRx_SendAck(uint8_t cmd, uint8_t ack_code)
 }
 
 /*==============================================================
- * å‘é€å‰©ä½™å®¹é‡æŸ¥è¯¢å›å¤å¸§
- * å¸§æ ¼å¼: [0xA5][0x05][cmd][å‰©ä½™å®¹é‡4å­—èŠ‚][CRC16ä½][CRC16é«˜][0x5A]
+ * ·¢ËÍÊ£ÓàÈİÁ¿²éÑ¯»Ø¸´Ö¡
+ * Ö¡¸ñÊ½: [0xA5][0x05][cmd][Ê£ÓàÈİÁ¿4×Ö½Ú][CRC16µÍ][CRC16¸ß][0x5A]
  *============================================================*/
 /**
- * @brief  å‘é€å‰©ä½™å®¹é‡å›å¤å¸§(å“åº”STX_CMD_QUERY_CAPACITYæŸ¥è¯¢å‘½ä»¤)
- * @param  cmd: åŸå‘½ä»¤ç (0x05)
- * @param  remaining: å‰©ä½™å¯å­˜å‚¨æ¡æ•°
- * @note   å‘é€çš„å¸§ç»“æ„(å…±10å­—èŠ‚):
- *           [0] 0xA5 å¸§å¤´
- *           [1] 0x05 é•¿åº¦(è´Ÿè½½é•¿åº¦=å‘½ä»¤ç +å‰©ä½™å®¹é‡4å­—èŠ‚=5å­—èŠ‚)
- *           [2] cmd  åŸå‘½ä»¤ç 
- *           [3-6] remaining å‰©ä½™å®¹é‡(å°ç«¯: ä½å­—èŠ‚åœ¨å‰)
- *           [7] CRC16ä½å­—èŠ‚
- *           [8] CRC16é«˜å­—èŠ‚
- *           [9] 0x5A å¸§å°¾
- *         CRCæ ¡éªŒèŒƒå›´: é•¿åº¦+å‘½ä»¤ç +å®¹é‡ = 6å­—èŠ‚
+ * @brief  ·¢ËÍÊ£ÓàÈİÁ¿»Ø¸´Ö¡(ÏìÓ¦STX_CMD_QUERY_CAPACITY²éÑ¯ÃüÁî)
+ * @param  cmd: Ô­ÃüÁîÂë(0x05)
+ * @param  remaining: Ê£Óà¿É´æ´¢ÌõÊı
+ * @note   ·¢ËÍµÄÖ¡½á¹¹(¹²10×Ö½Ú):
+ *           [0] 0xA5 Ö¡Í·
+ *           [1] 0x05 ³¤¶È(¸ºÔØ³¤¶È=ÃüÁîÂë+Ê£ÓàÈİÁ¿4×Ö½Ú=5×Ö½Ú)
+ *           [2] cmd  Ô­ÃüÁîÂë
+ *           [3-6] remaining Ê£ÓàÈİÁ¿(Ğ¡¶Ë: µÍ×Ö½ÚÔÚÇ°)
+ *           [7] CRC16µÍ×Ö½Ú
+ *           [8] CRC16¸ß×Ö½Ú
+ *           [9] 0x5A Ö¡Î²
+ *         CRCĞ£Ñé·¶Î§: ³¤¶È+ÃüÁîÂë+ÈİÁ¿ = 6×Ö½Ú
  */
 static void StorageRx_SendCapacity(uint8_t cmd, uint32_t remaining)
 {
@@ -250,14 +250,14 @@ static void StorageRx_SendCapacity(uint8_t cmd, uint32_t remaining)
     uint8_t i;
 
     buf[0] = STX_FRAME_HEAD;
-    buf[1] = 0x05;          /* é•¿åº¦ = å‘½ä»¤ç (1) + å®¹é‡(4) = 5 */
+    buf[1] = 0x05;          /* ³¤¶È = ÃüÁîÂë(1) + ÈİÁ¿(4) = 5 */
     buf[2] = cmd;
     buf[3] = (uint8_t)(remaining & 0xFF);
     buf[4] = (uint8_t)((remaining >> 8) & 0xFF);
     buf[5] = (uint8_t)((remaining >> 16) & 0xFF);
     buf[6] = (uint8_t)((remaining >> 24) & 0xFF);
 
-    /* CRCæ ¡éªŒèŒƒå›´: é•¿åº¦ + å‘½ä»¤ç  + å®¹é‡ = 6å­—èŠ‚ */
+    /* CRCĞ£Ñé·¶Î§: ³¤¶È + ÃüÁîÂë + ÈİÁ¿ = 6×Ö½Ú */
     crc = StorageRx_CRC16(&buf[1], 6);
     buf[7] = (uint8_t)(crc & 0xFF);
     buf[8] = (uint8_t)((crc >> 8) & 0xFF);
@@ -270,21 +270,21 @@ static void StorageRx_SendCapacity(uint8_t cmd, uint32_t remaining)
 }
 
 /*==============================================================
- * åˆå§‹åŒ–å­˜å‚¨æ¨¡å—
+ * ³õÊ¼»¯´æ´¢Ä£¿é
  *============================================================*/
 /**
- * @brief  åˆå§‹åŒ–å­˜å‚¨æ¨¡å—
- * @retval 0=æˆåŠŸ, 1=W25Q256åˆå§‹åŒ–å¤±è´¥
- * @note   åˆå§‹åŒ–W25Q256 SPI Flash, ä»å…ƒæ•°æ®åŒºæ¢å¤å†™æŒ‡é’ˆåˆ°å­˜å‚¨åŒº(0x00000000)
+ * @brief  ³õÊ¼»¯´æ´¢Ä£¿é
+ * @retval 0=³É¹¦, 1=W25Q256³õÊ¼»¯Ê§°Ü
+ * @note   ³õÊ¼»¯W25Q256 SPI Flash, ´ÓÔªÊı¾İÇø»Ö¸´Ğ´Ö¸Õëµ½´æ´¢Çø(0x00000000)
  */
 /*==============================================================
- * åˆ†åŒºç¯å½¢FIFOæ ¸å¿ƒå‡½æ•°(P0-1/P0-2æ•´æ”¹, 2026-08-24)
+ * ·ÖÇø»·ĞÎFIFOºËĞÄº¯Êı(P0-1/P0-2Õû¸Ä, 2026-08-24)
  *============================================================*/
 /**
- * @brief  æ§½å·è½¬Flashå­—èŠ‚åœ°å€(æ¯æ‰‡åŒº240æ§½, æ‰‡åŒºå°¾16å­—èŠ‚å¼ƒç”¨)
- * @param  z: åˆ†åŒºçŠ¶æ€æŒ‡é’ˆ
- * @param  slot: æ§½å·(0 ~ capacity-1)
- * @retval Flashå­—èŠ‚åœ°å€
+ * @brief  ²ÛºÅ×ªFlash×Ö½ÚµØÖ·(Ã¿ÉÈÇø240²Û, ÉÈÇøÎ²16×Ö½ÚÆúÓÃ)
+ * @param  z: ·ÖÇø×´Ì¬Ö¸Õë
+ * @param  slot: ²ÛºÅ(0 ~ capacity-1)
+ * @retval Flash×Ö½ÚµØÖ·
  */
 static uint32_t StorageRx_ZoneSlotAddr(const ZoneState_t *z, uint32_t slot)
 {
@@ -293,14 +293,14 @@ static uint32_t StorageRx_ZoneSlotAddr(const ZoneState_t *z, uint32_t slot)
 }
 
 /**
- * @brief  å‘åˆ†åŒºå†™å…¥ä¸€æ¡è®°å½•(ç¯å½¢FIFO, å†™æ»¡è¦†ç›–æœ€æ—§)
- * @param  z: åˆ†åŒºçŠ¶æ€æŒ‡é’ˆ
- * @param  rec: 17å­—èŠ‚è®°å½•æ•°æ®
- * @retval æœ¬æ¬¡å†™å…¥çš„Flashåœ°å€(ä¾›è¯»å›éªŒè¯/æ—¥å¿—)
- * @note   è¦†ç›–åˆ¤å®š: ç›®æ ‡17å­—èŠ‚éå…¨FFè¯´æ˜æœ‰æ—§è®°å½•, å…ˆæ“¦æ‰€åœ¨æ‰‡åŒºå†å†™.
- *         æ–­ç”µæ¢å¤åœºæ™¯: å†™æŒ‡é’ˆä½ç½®ä¸ºç©ºç™½(FF)ç›´æ¥å†™, åŒæ‰‡åŒºæ—§è®°å½•ä¸å—å½±å“.
- *         æ‰‡åŒºç²’åº¦è¦†ç›–: æ“¦æ‰‡åŒºä¼šæå‰æ·˜æ±°è¯¥æ‰‡åŒºå‰©ä½™æ—§è®°å½•, å±å¯æ¥å—æŸè€—
- *         (å„åŒºå®¹é‡å·¨å¤§, 30å¤©æ­£å¸¸è¿è¡Œä¸ä¼šè§¦å‘è¦†ç›–).
+ * @brief  Ïò·ÖÇøĞ´ÈëÒ»Ìõ¼ÇÂ¼(»·ĞÎFIFO, Ğ´Âú¸²¸Ç×î¾É)
+ * @param  z: ·ÖÇø×´Ì¬Ö¸Õë
+ * @param  rec: 17×Ö½Ú¼ÇÂ¼Êı¾İ
+ * @retval ±¾´ÎĞ´ÈëµÄFlashµØÖ·(¹©¶Á»ØÑéÖ¤/ÈÕÖ¾)
+ * @note   ¸²¸ÇÅĞ¶¨: Ä¿±ê17×Ö½Ú·ÇÈ«FFËµÃ÷ÓĞ¾É¼ÇÂ¼, ÏÈ²ÁËùÔÚÉÈÇøÔÙĞ´.
+ *         ¶Ïµç»Ö¸´³¡¾°: Ğ´Ö¸ÕëÎ»ÖÃÎª¿Õ°×(FF)Ö±½ÓĞ´, Í¬ÉÈÇø¾É¼ÇÂ¼²»ÊÜÓ°Ïì.
+ *         ÉÈÇøÁ£¶È¸²¸Ç: ²ÁÉÈÇø»áÌáÇ°ÌÔÌ­¸ÃÉÈÇøÊ£Óà¾É¼ÇÂ¼, Êô¿É½ÓÊÜËğºÄ
+ *         (¸÷ÇøÈİÁ¿¾Ş´ó, 30ÌìÕı³£ÔËĞĞ²»»á´¥·¢¸²¸Ç).
  */
 static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
 {
@@ -309,7 +309,7 @@ static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
     uint8_t  i;
     uint8_t  blank = 1;
 
-    /* è¯»å–ç›®æ ‡ä½ç½®, åˆ¤æ–­æ˜¯å¦è¦†ç›–æ—§æ•°æ® */
+    /* ¶ÁÈ¡Ä¿±êÎ»ÖÃ, ÅĞ¶ÏÊÇ·ñ¸²¸Ç¾ÉÊı¾İ */
     W25QXX_Read(tmp, addr, STX_RECORD_SIZE);
     for (i = 0; i < STX_RECORD_SIZE; i++)
     {
@@ -322,8 +322,8 @@ static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
 
     if (blank == 0)
     {
-        /* P0-Bä¿®å¤: æ•´æ‰‡åŒºæ“¦é™¤ä¼šä½¿è¯¥æ‰‡åŒºå…¶ä½™(STX_SLOT_PER_SECTOR-1)æ§½æ—§è®°å½•ä¸€å¹¶æ¶ˆå¤±,
-         * å¿…é¡»åŒæ­¥ä¿®æ­£count, å¦åˆ™å¯¼å‡ºä¼šå‡ºç°FFç©ºæ´/åƒåœ¾è®°å½• */
+        /* P0-BĞŞ¸´: ÕûÉÈÇø²Á³ı»áÊ¹¸ÃÉÈÇøÆäÓà(STX_SLOT_PER_SECTOR-1)²Û¾É¼ÇÂ¼Ò»²¢ÏûÊ§,
+         * ±ØĞëÍ¬²½ĞŞÕıcount, ·ñÔòµ¼³ö»á³öÏÖFF¿Õ¶´/À¬»ø¼ÇÂ¼ */
         W25QXX_Erase_Sector(addr / STX_SECTOR_SIZE);
         if (z->count >= STX_SLOT_PER_SECTOR)
         {
@@ -337,7 +337,7 @@ static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
 
     W25QXX_Write((uint8_t *)rec, addr, STX_RECORD_SIZE);
 
-    /* ç¯å½¢æ¨è¿›å†™æŒ‡é’ˆ; æ¡æ•°è¾¾åˆ°å®¹é‡åä¿æŒ(æ¯å†™ä¸€æ¡ä¸¢ä¸€æ¡æœ€æ—§) */
+    /* »·ĞÎÍÆ½øĞ´Ö¸Õë; ÌõÊı´ïµ½ÈİÁ¿ºó±£³Ö(Ã¿Ğ´Ò»Ìõ¶ªÒ»Ìõ×î¾É) */
     z->slot_head = (z->slot_head + 1) % z->capacity;
     if (z->count < z->capacity)
     {
@@ -348,10 +348,10 @@ static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
 }
 
 /**
- * @brief  åå°åˆ†æ­¥é¢„æ“¦ä¸‹ä¸€ä¸ªmeta bank, é¿å…MetaSaveåœ¨å†™è·¯å¾„ä¸Šæ•´bankæ“¦é™¤(æœ€åçº¦3.2s)é˜»å¡ä¸¢å¸§
- * @note   è°ƒç”¨æ—¶æœº: main whileå¾ªç¯æ¯åœˆè°ƒç”¨(StorageRx_Processä¹‹å);
- *         è§¦å‘æ¡ä»¶: å½“å‰bankå‰©ä½™ç©ºé—´ä¸è¶³100æ¡æ—¶å¯åŠ¨; æ¯æ¬¡è°ƒç”¨åªæ“¦1ä¸ªæ‰‡åŒº, åˆ†8åœˆå®Œæˆ;
- *         å®Œæˆåç½®prep_done, MetaSaveåˆ‡åº“åå¤ä½(ä¸‹ä¸€å‘¨æœŸé¢„æ“¦æ—§å½“å‰åº“).
+ * @brief  ºóÌ¨·Ö²½Ô¤²ÁÏÂÒ»¸ömeta bank, ±ÜÃâMetaSaveÔÚĞ´Â·¾¶ÉÏÕûbank²Á³ı(×î»µÔ¼3.2s)×èÈû¶ªÖ¡
+ * @note   µ÷ÓÃÊ±»ú: main whileÑ­»·Ã¿È¦µ÷ÓÃ(StorageRx_ProcessÖ®ºó);
+ *         ´¥·¢Ìõ¼ş: µ±Ç°bankÊ£Óà¿Õ¼ä²»×ã100ÌõÊ±Æô¶¯; Ã¿´Îµ÷ÓÃÖ»²Á1¸öÉÈÇø, ·Ö8È¦Íê³É;
+ *         Íê³ÉºóÖÃprep_done, MetaSaveÇĞ¿âºó¸´Î»(ÏÂÒ»ÖÜÆÚÔ¤²Á¾Éµ±Ç°¿â).
  */
 void StorageRx_MetaPrepare(void)
 {
@@ -359,36 +359,36 @@ void StorageRx_MetaPrepare(void)
 
     if (s_meta_prep_done != 0U)
     {
-        /* ç©ºé—²æ€: æ£€æŸ¥æ˜¯å¦éœ€è¦è§¦å‘é¢„æ“¦ */
+        /* ¿ÕÏĞÌ¬: ¼ì²éÊÇ·ñĞèÒª´¥·¢Ô¤²Á */
         if (s_meta_off + sizeof(StorageMeta_t) > STX_META_BANK_SIZE)
         {
-            return;  /* å·²æ»¡, ç”±MetaSaveåˆ‡æ¢å…œåº•(æç«¯æƒ…å†µ) */
+            return;  /* ÒÑÂú, ÓÉMetaSaveÇĞ»»¶µµ×(¼«¶ËÇé¿ö) */
         }
         if (STX_META_BANK_SIZE - s_meta_off >= (uint32_t)100U * sizeof(StorageMeta_t))
         {
-            return;  /* å‰©ä½™å……è¶³(100æ¡ä»¥ä¸Š), æ— éœ€é¢„æ“¦ */
+            return;  /* Ê£Óà³ä×ã(100ÌõÒÔÉÏ), ÎŞĞèÔ¤²Á */
         }
-        /* è§¦å‘: ç›®æ ‡bank=å¦ä¸€åº“(åªæ“¦æœªè¢«æ ‡è®°ä¸ºå½“å‰ä½¿ç”¨çš„bank, ä¸å½±å“å½“å‰å†™) */
+        /* ´¥·¢: Ä¿±êbank=ÁíÒ»¿â(Ö»²ÁÎ´±»±ê¼ÇÎªµ±Ç°Ê¹ÓÃµÄbank, ²»Ó°Ïìµ±Ç°Ğ´) */
         s_meta_prep_bank = s_meta_bank ^ 1U;
         s_meta_prep_sec  = 0U;
         s_meta_prep_done = 0U;
     }
 
-    /* æ¯æ¬¡è°ƒç”¨åªæ“¦1ä¸ªæ‰‡åŒº, åˆ†8åœˆå®Œæˆ, å•æ¬¡é˜»å¡å…¸å‹45ms(æœ€å400ms), ä¸»å¾ªç¯ä¸ä¸¢å¸§ */
+    /* Ã¿´Îµ÷ÓÃÖ»²Á1¸öÉÈÇø, ·Ö8È¦Íê³É, µ¥´Î×èÈûµäĞÍ45ms(×î»µ400ms), Ö÷Ñ­»·²»¶ªÖ¡ */
     bank_base = STX_META_BASE + (uint32_t)s_meta_prep_bank * STX_META_BANK_SIZE;
     W25QXX_Erase_Sector(bank_base / STX_SECTOR_SIZE + s_meta_prep_sec);
     s_meta_prep_sec++;
     if (s_meta_prep_sec >= STX_META_BANK_SIZE / STX_SECTOR_SIZE)
     {
-        s_meta_prep_done = 1U;  /* é¢„æ“¦å®Œæˆ, ç­‰MetaSaveåˆ‡æ¢ä½¿ç”¨ */
+        s_meta_prep_done = 1U;  /* Ô¤²ÁÍê³É, µÈMetaSaveÇĞ»»Ê¹ÓÃ */
     }
 }
 
 /**
- * @brief  ä¿å­˜å…ƒæ•°æ®åˆ°Flash(A/BåŒåº“é¡ºåºå†™, é™ä½æ“¦å†™æŸè€—)
- * @note   æ¯æ¡è®°å½•å†™å…¥åè°ƒç”¨. åº“å†™æ»¡åˆ‡æ¢å¦ä¸€åº“å¹¶æ•´åº“æ“¦é™¤,
- *         ä»»ä½•æ—¶åˆ»è‡³å°‘ä¸€ä¸ªåº“å­˜æœ‰æœ‰æ•ˆå…ƒæ•°æ®(æ–­ç”µå®‰å…¨).
- *         æ¯åº“32KB/42å­—èŠ‚çº¦780æ¡, ä¸¤åº“å…±1560æ¬¡å†™å…¥æ‰æ“¦ä¸€è½®.
+ * @brief  ±£´æÔªÊı¾İµ½Flash(A/BË«¿âË³ĞòĞ´, ½µµÍ²ÁĞ´ËğºÄ)
+ * @note   Ã¿Ìõ¼ÇÂ¼Ğ´Èëºóµ÷ÓÃ. ¿âĞ´ÂúÇĞ»»ÁíÒ»¿â²¢Õû¿â²Á³ı,
+ *         ÈÎºÎÊ±¿ÌÖÁÉÙÒ»¸ö¿â´æÓĞÓĞĞ§ÔªÊı¾İ(¶Ïµç°²È«).
+ *         Ã¿¿â32KB/42×Ö½ÚÔ¼780Ìõ, Á½¿â¹²1560´ÎĞ´Èë²Å²ÁÒ»ÂÖ.
  */
 static void StorageRx_MetaSave(void)
 {
@@ -406,7 +406,7 @@ static void StorageRx_MetaSave(void)
     }
     meta.crc = StorageRx_CRC16((const uint8_t *)&meta, sizeof(StorageMeta_t) - 2);
 
-    /* å½“å‰åº“ç©ºé—´ä¸è¶³: åˆ‡æ¢åˆ°å¦ä¸€åº“å¹¶æ“¦é™¤ä¹‹ */
+    /* µ±Ç°¿â¿Õ¼ä²»×ã: ÇĞ»»µ½ÁíÒ»¿â²¢²Á³ıÖ® */
     if (s_meta_off + sizeof(StorageMeta_t) > STX_META_BANK_SIZE)
     {
         uint8_t  new_bank = s_meta_bank ^ 1U;
@@ -419,7 +419,7 @@ static void StorageRx_MetaSave(void)
         }
         s_meta_bank = new_bank;
         s_meta_off = 0;
-        s_meta_prep_done = 1U;  /* P0-A(v2): å¤ä½é¢„æ“¦çŠ¶æ€æœº, ä¸‹ä¸€å‘¨æœŸé¢„æ“¦æ—§å½“å‰åº“ */
+        s_meta_prep_done = 1U;  /* P0-A(v2): ¸´Î»Ô¤²Á×´Ì¬»ú, ÏÂÒ»ÖÜÆÚÔ¤²Á¾Éµ±Ç°¿â */
         s_meta_prep_sec  = 0U;
     }
 
@@ -429,10 +429,10 @@ static void StorageRx_MetaSave(void)
 }
 
 /**
- * @brief  å¼€æœºæ¢å¤å…ƒæ•°æ®(æ‰«æA/Bä¸¤åº“, å–seqæœ€å¤§çš„åˆæ³•æ¡ç›®)
- * @note   æ— æœ‰æ•ˆå…ƒæ•°æ®(å…¨æ–°Flash)æ—¶å„åŒºä»0å¼€å§‹;
- *         æ¢å¤åå†™ä½ç½®=æœ€æ–°æ¡ç›®ä¹‹å(ç»§ç»­åœ¨å½“å‰åº“é¡ºåºå†™).
- *         é‡magicä¸ç¬¦æˆ–CRCé”™å³åœæ­¢è¯¥åº“æ‰«æ(é¡ºåºå†™, åç»­ä¸å¯ä¿¡).
+ * @brief  ¿ª»ú»Ö¸´ÔªÊı¾İ(É¨ÃèA/BÁ½¿â, È¡seq×î´óµÄºÏ·¨ÌõÄ¿)
+ * @note   ÎŞÓĞĞ§ÔªÊı¾İ(È«ĞÂFlash)Ê±¸÷Çø´Ó0¿ªÊ¼;
+ *         »Ö¸´ºóĞ´Î»ÖÃ=×îĞÂÌõÄ¿Ö®ºó(¼ÌĞøÔÚµ±Ç°¿âË³ĞòĞ´).
+ *         Óömagic²»·û»òCRC´í¼´Í£Ö¹¸Ã¿âÉ¨Ãè(Ë³ĞòĞ´, ºóĞø²»¿ÉĞÅ).
  */
 static void StorageRx_MetaLoad(void)
 {
@@ -456,11 +456,11 @@ static void StorageRx_MetaLoad(void)
                         sizeof(StorageMeta_t));
             if (meta.magic != STX_META_MAGIC)
             {
-                break;    /* é‡ç©ºç™½å³åˆ°åº“å°¾ */
+                break;    /* Óö¿Õ°×¼´µ½¿âÎ² */
             }
             if (StorageRx_CRC16((const uint8_t *)&meta, sizeof(StorageMeta_t) - 2) != meta.crc)
             {
-                break;    /* å†™å(æ–­ç”µ), åç»­ä¸å¯ä¿¡ */
+                break;    /* Ğ´»µ(¶Ïµç), ºóĞø²»¿ÉĞÅ */
             }
             if (meta.seq > best_seq)
             {
@@ -475,7 +475,7 @@ static void StorageRx_MetaLoad(void)
 
     if (found != 0)
     {
-        /* æ¢å¤å„åŒºæŒ‡é’ˆ/æ¡æ•° */
+        /* »Ö¸´¸÷ÇøÖ¸Õë/ÌõÊı */
         for (i = 0; i < STX_ZONE_COUNT; i++)
         {
             s_zones[i].slot_head = best.slot_head[i] % s_zones[i].capacity;
@@ -494,7 +494,7 @@ static void StorageRx_MetaLoad(void)
     }
     else
     {
-        /* å…¨æ–°Flash: å…ƒæ•°æ®åŒºæ— æœ‰æ•ˆæ•°æ®, ä»åº“Aåç§»0å¼€å§‹ */
+        /* È«ĞÂFlash: ÔªÊı¾İÇøÎŞÓĞĞ§Êı¾İ, ´Ó¿âAÆ«ÒÆ0¿ªÊ¼ */
         s_meta_bank = 0;
         s_meta_off = 0;
         s_meta_seq = 0;
@@ -506,26 +506,26 @@ uint8_t StorageRx_Init(void)
     uint8_t ret;
     uint8_t zi;
 
-    /* åˆå§‹åŒ–W25Q256 */
+    /* ³õÊ¼»¯W25Q256 */
     ret = W25QXX_Init();
     if (ret != 0)
     {
-        return 1;  /* W25Q256åˆå§‹åŒ–å¤±è´¥ */
+        return 1;  /* W25Q256³õÊ¼»¯Ê§°Ü */
     }
 
-    /* å¤ä½çŠ¶æ€ */
+    /* ¸´Î»×´Ì¬ */
     s_frame_ready = 0;
     s_rx_idx = 0;
 
-    /* P0-1/P0-2: è®¡ç®—å„åˆ†åŒºå®¹é‡(æ¯æ‰‡åŒº240æ¡, 240*17=4080<4096) */
+    /* P0-1/P0-2: ¼ÆËã¸÷·ÖÇøÈİÁ¿(Ã¿ÉÈÇø240Ìõ, 240*17=4080<4096) */
     for (zi = 0; zi < STX_ZONE_COUNT; zi++)
     {
         s_zones[zi].capacity = (s_zones[zi].size / STX_SECTOR_SIZE) * STX_SLOT_PER_SECTOR;
     }
 
-    /* å…ƒæ•°æ®æ¢å¤: è¯»å›å„åŒºå†™æŒ‡é’ˆ/æ¡æ•°(æ–­ç”µåFIFOä½ç½®ä¸ä¸¢) */
+    /* ÔªÊı¾İ»Ö¸´: ¶Á»Ø¸÷ÇøĞ´Ö¸Õë/ÌõÊı(¶ÏµçºóFIFOÎ»ÖÃ²»¶ª) */
     StorageRx_MetaLoad();
-    /* P0-A(v2): å¼€æœºå¯¹å³å°†ä½¿ç”¨çš„ä¸‹ä¸€bankåšä¸€è½®åˆ†æ­¥é¢„æ“¦(å¾ªç¯8æ¬¡=æ•´è½®, å‰©ä½™å……è¶³æ—¶è‡ªåŠ¨è·³è¿‡) */
+    /* P0-A(v2): ¿ª»ú¶Ô¼´½«Ê¹ÓÃµÄÏÂÒ»bank×öÒ»ÂÖ·Ö²½Ô¤²Á(Ñ­»·8´Î=ÕûÂÖ, Ê£Óà³ä×ãÊ±×Ô¶¯Ìø¹ı) */
     {
         uint8_t prep_i;
         for (prep_i = 0; prep_i < (STX_META_BANK_SIZE / STX_SECTOR_SIZE); prep_i++)
@@ -538,27 +538,27 @@ uint8_t StorageRx_Init(void)
 }
 
 /*==============================================================
- * USART1æ¥æ”¶å¤„ç†å‡½æ•° - ä¸­æ–­æ¥æ”¶
- * å¸§æ ¼å¼: [0xA5][é•¿åº¦][å‘½ä»¤ç ][è´Ÿè½½...][CRC16ä½][CRC16é«˜][0x5A]
+ * USART1½ÓÊÕ´¦Àíº¯Êı - ÖĞ¶Ï½ÓÊÕ
+ * Ö¡¸ñÊ½: [0xA5][³¤¶È][ÃüÁîÂë][¸ºÔØ...][CRC16µÍ][CRC16¸ß][0x5A]
  *============================================================*/
 /**
- * @brief  USART1æ¥æ”¶å¤„ç†å‡½æ•°(ç”±USART1ä¸­æ–­æœåŠ¡å‡½æ•°é€å­—èŠ‚è°ƒç”¨)
- * @param  data: æ¥æ”¶åˆ°çš„å­—èŠ‚
- * @note   æ¥æ”¶çŠ¶æ€æœºè¯´æ˜:
- *           state 0: ç­‰å¾…å¸§å¤´0xA5
- *           state 1: æ¥æ”¶é•¿åº¦å­—èŠ‚(=å‘½ä»¤ç +è´Ÿè½½é•¿åº¦), è®¡ç®—è´Ÿè½½é•¿åº¦
- *           state 2: æ¥æ”¶å‘½ä»¤ç 
- *           state 3+: æ¥æ”¶è´Ÿè½½+CRC+å¸§å°¾, æ€»é•¿=3+payload+2+1
- *         æ”¶åˆ°å®Œæ•´å¸§ä¸”å¸§å°¾ä¸º0x5Aæ—¶, å¤åˆ¶åˆ°s_frame_bufå¹¶ç½®ä½s_frame_ready.
- *         å¦‚æœå·²æœ‰æœªå¤„ç†å¸§(s_frame_ready=1), ç›´æ¥ä¸¢å¼ƒæ–°å¸§.
+ * @brief  USART1½ÓÊÕ´¦Àíº¯Êı(ÓÉUSART1ÖĞ¶Ï·şÎñº¯ÊıÖğ×Ö½Úµ÷ÓÃ)
+ * @param  data: ½ÓÊÕµ½µÄ×Ö½Ú
+ * @note   ½ÓÊÕ×´Ì¬»úËµÃ÷:
+ *           state 0: µÈ´ıÖ¡Í·0xA5
+ *           state 1: ½ÓÊÕ³¤¶È×Ö½Ú(=ÃüÁîÂë+¸ºÔØ³¤¶È), ¼ÆËã¸ºÔØ³¤¶È
+ *           state 2: ½ÓÊÕÃüÁîÂë
+ *           state 3+: ½ÓÊÕ¸ºÔØ+CRC+Ö¡Î², ×Ü³¤=3+payload+2+1
+ *         ÊÕµ½ÍêÕûÖ¡ÇÒÖ¡Î²Îª0x5AÊ±, ¸´ÖÆµ½s_frame_buf²¢ÖÃÎ»s_frame_ready.
+ *         Èç¹ûÒÑÓĞÎ´´¦ÀíÖ¡(s_frame_ready=1), Ö±½Ó¶ªÆúĞÂÖ¡.
  */
 void StorageRx_OnByte(uint8_t data)
 {
-    /* ç»Ÿè®¡: è®°å½•æ¥æ”¶å­—èŠ‚æ•°å’Œæœ€è¿‘å­—èŠ‚(è°ƒè¯•ç”¨) */
+    /* Í³¼Æ: ¼ÇÂ¼½ÓÊÕ×Ö½ÚÊıºÍ×î½ü×Ö½Ú(µ÷ÊÔÓÃ) */
     g_stx_rx_byte_count++;
     g_stx_last_byte = data;
 
-    /* å·²æœ‰å¸§æœªå¤„ç†, ä¸¢å¼ƒæ–°å­—èŠ‚ */
+    /* ÒÑÓĞÖ¡Î´´¦Àí, ¶ªÆúĞÂ×Ö½Ú */
     if (s_frame_ready)
     {
         g_stx_frame_ready_snap = 1;
@@ -570,35 +570,35 @@ void StorageRx_OnByte(uint8_t data)
 
     switch (s_rx_idx)
     {
-        case 0:  /* ç­‰å¾…å¸§å¤´ */
+        case 0:  /* µÈ´ıÖ¡Í· */
             if (data == STX_FRAME_HEAD)
             {
                 s_rx_idx = 1;
             }
             break;
 
-        case 1:  /* æ¥æ”¶é•¿åº¦å­—èŠ‚ */
+        case 1:  /* ½ÓÊÕ³¤¶È×Ö½Ú */
             s_frame_len = data;
-            s_frame_payload_len = data - 1;  /* è´Ÿè½½é•¿åº¦ = é•¿åº¦ - å‘½ä»¤ç (1) */
+            s_frame_payload_len = data - 1;  /* ¸ºÔØ³¤¶È = ³¤¶È - ÃüÁîÂë(1) */
             s_rx_idx = 2;
             break;
 
-        case 2:  /* æ¥æ”¶å‘½ä»¤ç  */
+        case 2:  /* ½ÓÊÕÃüÁîÂë */
             s_frame_cmd = data;
             s_rx_idx = 3;
             break;
 
-        default:  /* è´Ÿè½½ + CRC + å¸§å°¾ */
-            /* æ€»é•¿åº¦è®¡ç®—: å¸§å¤´(1) + é•¿åº¦(1) + å‘½ä»¤ç (1) + è´Ÿè½½ + CRC(2) + å°¾(1) */
+        default:  /* ¸ºÔØ + CRC + Ö¡Î² */
+            /* ×Ü³¤¶È¼ÆËã: Ö¡Í·(1) + ³¤¶È(1) + ÃüÁîÂë(1) + ¸ºÔØ + CRC(2) + Î²(1) */
             s_frame_total = 3 + s_frame_payload_len + 2 + 1;
             s_rx_idx++;
 
             if (s_rx_idx == s_frame_total)
             {
-                /* åˆ°è¾¾å¸§å°¾, æ ¡éªŒå¸§å°¾ */
+                /* µ½´ïÖ¡Î², Ğ£ÑéÖ¡Î² */
                 if (data == STX_FRAME_TAIL)
                 {
-                    /* å®Œæ•´å¸§æ¥æ”¶å®Œæˆ */
+                    /* ÍêÕûÖ¡½ÓÊÕÍê³É */
                     uint16_t copy_len = s_frame_total;
                     if (copy_len > sizeof(s_frame_buf))
                     {
@@ -606,17 +606,17 @@ void StorageRx_OnByte(uint8_t data)
                     }
                     memcpy(s_frame_buf, s_rx_buf, copy_len);
                     s_frame_ready = 1;
-                    /* ISRå¸§åˆ°è¾¾äº‹ä»¶: è®°å½•cmd+è®¡æ•°, ç­‰mainå¾ªç¯æ‰“å°æ—¥å¿—(ç­‰æ•ˆISRæ—¥å¿—) */
+                    /* ISRÖ¡µ½´ïÊÂ¼ş: ¼ÇÂ¼cmd+¼ÆÊı, µÈmainÑ­»·´òÓ¡ÈÕÖ¾(µÈĞ§ISRÈÕÖ¾) */
                     g_stx_isr_last_cmd = s_frame_cmd;
                     g_stx_isr_frame_count++;
                     g_stx_isr_frame_event = 1;
                 }
-                /* å¸§å°¾ä¸æ­£ç¡®æˆ–å¼‚å¸¸, å¤ä½æ¥æ”¶çŠ¶æ€ */
+                /* Ö¡Î²²»ÕıÈ·»òÒì³£, ¸´Î»½ÓÊÕ×´Ì¬ */
                 s_rx_idx = 0;
             }
             else if (s_rx_idx > sizeof(s_rx_buf) - 1)
             {
-                /* æ¥æ”¶ç¼“å†²åŒºæº¢å‡º, å¤ä½ */
+                /* ½ÓÊÕ»º³åÇøÒç³ö, ¸´Î» */
                 s_rx_idx = 0;
             }
             break;
@@ -624,25 +624,25 @@ void StorageRx_OnByte(uint8_t data)
 }
 
 /*==============================================================
- * æ ¡éªŒå¸§CRC
- * CRCæ ¡éªŒèŒƒå›´: å¸§å¤´(1) + é•¿åº¦(1) + è´Ÿè½½(payload_len)
+ * Ğ£ÑéÖ¡CRC
+ * CRCĞ£Ñé·¶Î§: Ö¡Í·(1) + ³¤¶È(1) + ¸ºÔØ(payload_len)
  *============================================================*/
 /**
- * @brief  æ ¡éªŒæ¥æ”¶å¸§çš„CRC16
- * @retval 0=CRCæ ¡éªŒé€šè¿‡, 1=CRCæ ¡éªŒå¤±è´¥
- * @note   CRCè®¡ç®—èŒƒå›´: s_frame_buf[1]~s_frame_buf[2+payload_len] (é•¿åº¦+å‘½ä»¤ç +è´Ÿè½½)
- *         ä¸æ¥æ”¶å¸§æœ«å°¾çš„CRCå­—èŠ‚æ¯”è¾ƒ, åˆ¤æ–­å¸§æ˜¯å¦æœ‰æ•ˆ
+ * @brief  Ğ£Ñé½ÓÊÕÖ¡µÄCRC16
+ * @retval 0=CRCĞ£ÑéÍ¨¹ı, 1=CRCĞ£ÑéÊ§°Ü
+ * @note   CRC¼ÆËã·¶Î§: s_frame_buf[1]~s_frame_buf[2+payload_len] (³¤¶È+ÃüÁîÂë+¸ºÔØ)
+ *         Óë½ÓÊÕÖ¡Ä©Î²µÄCRC×Ö½Ú±È½Ï, ÅĞ¶ÏÖ¡ÊÇ·ñÓĞĞ§
  */
 static uint8_t StorageRx_VerifyCRC(void)
 {
     uint16_t crc_calc;
     uint16_t crc_recv;
-    uint16_t crc_len = 1 + 1 + s_frame_payload_len;  /* é•¿åº¦ + å‘½ä»¤ç  + è´Ÿè½½ */
-    uint8_t *crc_start = &s_frame_buf[1];  /* CRCè®¡ç®—èµ·å§‹ä½ç½® */
+    uint16_t crc_len = 1 + 1 + s_frame_payload_len;  /* ³¤¶È + ÃüÁîÂë + ¸ºÔØ */
+    uint8_t *crc_start = &s_frame_buf[1];  /* CRC¼ÆËãÆğÊ¼Î»ÖÃ */
 
     crc_calc = StorageRx_CRC16(crc_start, crc_len);
 
-    /* æå–æ¥æ”¶å¸§ä¸­çš„CRC, ä¸è®¡ç®—ç»“æœæ¯”è¾ƒ */
+    /* ÌáÈ¡½ÓÊÕÖ¡ÖĞµÄCRC, Óë¼ÆËã½á¹û±È½Ï */
     crc_recv = (uint16_t)s_frame_buf[3 + s_frame_payload_len] |
                ((uint16_t)s_frame_buf[3 + s_frame_payload_len + 1] << 8);
 
@@ -650,17 +650,17 @@ static uint8_t StorageRx_VerifyCRC(void)
 }
 
 /*==============================================================
- * å­˜å‚¨ä¸»å¤„ç†å‡½æ•°
+ * ´æ´¢Ö÷´¦Àíº¯Êı
  *============================================================*/
 /**
- * @brief  å­˜å‚¨ä¸»å¤„ç†å‡½æ•°(åœ¨mainä¸»å¾ªç¯while(1)ä¸­è°ƒç”¨)
- * @note   å½“æ”¶åˆ°å®Œæ•´å¸§(s_frame_ready=1)æ—¶, æŒ‰å‘½ä»¤ç åˆ†ç±»å¤„ç†:
- *         - STX_CMD_HEARTBEAT(0x06): å›å¤ACK_OK
- *         - STX_CMD_QUERY_CAPACITY(0x05): æŸ¥è¯¢å‰©ä½™å®¹é‡å¹¶å‘é€SendCapacity
- *         - STX_CMD_STORE_*(0x01~0x04): CRCæ ¡éªŒé€šè¿‡åå†™å…¥å¯¹åº”çš„å­˜å‚¨åˆ†åŒº
- *           å†™W25Q256å¹¶è¯»å›æ ¡éªŒé€šè¿‡åå›å¤ACK_OK; å¤±è´¥åˆ™å›å¤ç›¸åº”é”™è¯¯ACK
- *         - å…¶ä»–æœªçŸ¥å‘½ä»¤: å›å¤ACK_ERR_BUSY
- *         å¤„ç†å®Œæˆåå¤ä½s_frame_readyå’Œs_rx_idx
+ * @brief  ´æ´¢Ö÷´¦Àíº¯Êı(ÔÚmainÖ÷Ñ­»·while(1)ÖĞµ÷ÓÃ)
+ * @note   µ±ÊÕµ½ÍêÕûÖ¡(s_frame_ready=1)Ê±, °´ÃüÁîÂë·ÖÀà´¦Àí:
+ *         - STX_CMD_HEARTBEAT(0x06): »Ø¸´ACK_OK
+ *         - STX_CMD_QUERY_CAPACITY(0x05): ²éÑ¯Ê£ÓàÈİÁ¿²¢·¢ËÍSendCapacity
+ *         - STX_CMD_STORE_*(0x01~0x04): CRCĞ£ÑéÍ¨¹ıºóĞ´Èë¶ÔÓ¦µÄ´æ´¢·ÖÇø
+ *           Ğ´W25Q256²¢¶Á»ØĞ£ÑéÍ¨¹ıºó»Ø¸´ACK_OK; Ê§°ÜÔò»Ø¸´ÏàÓ¦´íÎóACK
+ *         - ÆäËûÎ´ÖªÃüÁî: »Ø¸´ACK_ERR_BUSY
+ *         ´¦ÀíÍê³Éºó¸´Î»s_frame_readyºÍs_rx_idx
  */
 void StorageRx_Process(void)
 {
@@ -671,11 +671,11 @@ void StorageRx_Process(void)
         return;
     }
 
-    /* å¸§å·²å®Œæ•´, è¿›å…¥å¤„ç†æµç¨‹. é€’å¢è®¡æ•°ç”¨äº USB_CDC è°ƒè¯•è¾“å‡ºç¡®è®¤ä¸»æ§å¸§å·²è¢«å­˜å‚¨ä¾§å¤„ç† */
+    /* Ö¡ÒÑÍêÕû, ½øÈë´¦ÀíÁ÷³Ì. µİÔö¼ÆÊıÓÃÓÚ USB_CDC µ÷ÊÔÊä³öÈ·ÈÏÖ÷¿ØÖ¡ÒÑ±»´æ´¢²à´¦Àí */
     g_stx_process_count++;
 
-    /* [ISRæ—¥å¿—] ä¸­æ–­é‡Œæ”¶åˆ°å®Œæ•´å¸§çš„äº‹ä»¶åœ¨æ­¤å¤„æ‰“å°(ISRä¸èƒ½ç›´æ¥è°ƒUSB_CDC_SendData).
-     * è¯¥æ—¥å¿—ç¡®è®¤: USART1ä¸­æ–­ç¡®å®æ”¶åˆ°äº†å¸§å¹¶ç½®ä½s_frame_ready, ä¸»å¾ªç¯å·²è§‚å¯Ÿåˆ°. */
+    /* [ISRÈÕÖ¾] ÖĞ¶ÏÀïÊÕµ½ÍêÕûÖ¡µÄÊÂ¼şÔÚ´Ë´¦´òÓ¡(ISR²»ÄÜÖ±½Óµ÷USB_CDC_SendData).
+     * ¸ÃÈÕÖ¾È·ÈÏ: USART1ÖĞ¶ÏÈ·ÊµÊÕµ½ÁËÖ¡²¢ÖÃÎ»s_frame_ready, Ö÷Ñ­»·ÒÑ¹Û²ìµ½. */
     if (g_stx_isr_frame_event)
     {
         uint16_t len = (uint16_t)snprintf(log_buf, sizeof(log_buf),
@@ -687,7 +687,7 @@ void StorageRx_Process(void)
         g_stx_isr_frame_event = 0;
     }
 
-    /* å¿ƒè·³å‘½ä»¤å¤„ç†(å›å¤OK, æ— å…¶ä»–æ“ä½œ) */
+    /* ĞÄÌøÃüÁî´¦Àí(»Ø¸´OK, ÎŞÆäËû²Ù×÷) */
     if (s_frame_cmd == STX_CMD_HEARTBEAT)
     {
         StorageRx_SendAck(STX_CMD_HEARTBEAT, STX_ACK_OK);
@@ -696,7 +696,7 @@ void StorageRx_Process(void)
         return;
     }
 
-    /* æŸ¥è¯¢å‰©ä½™å®¹é‡å‘½ä»¤å¤„ç†(å›å¤å®¹é‡, æ— å…¶ä»–æ“ä½œ) */
+    /* ²éÑ¯Ê£ÓàÈİÁ¿ÃüÁî´¦Àí(»Ø¸´ÈİÁ¿, ÎŞÆäËû²Ù×÷) */
     if (s_frame_cmd == STX_CMD_QUERY_CAPACITY)
     {
         uint32_t remaining = StorageRx_GetRemainingCount();
@@ -706,10 +706,10 @@ void StorageRx_Process(void)
         return;
     }
 
-    /* æµ‹è¯•æ—¥å¿—é€ä¼ (0x07): payloadåŸæ ·ç»USB CDCè½¬å‘, ä¸å†™Flashä¸åŠ¨count */
+    /* ²âÊÔÈÕÖ¾Í¸´«(0x07): payloadÔ­Ñù¾­USB CDC×ª·¢, ²»Ğ´Flash²»¶¯count */
     if (s_frame_cmd == STX_CMD_TEST_LOG)
     {
-        /* v2: æœ¬åˆ†æ”¯ä½äºå­˜å‚¨å‘½ä»¤é“¾ä¹‹å‰, VerifyCRCåœ¨å­˜å‚¨é“¾å†…æ‰è°ƒç”¨, æ­¤å¤„è¡¥éªŒ */
+        /* v2: ±¾·ÖÖ§Î»ÓÚ´æ´¢ÃüÁîÁ´Ö®Ç°, VerifyCRCÔÚ´æ´¢Á´ÄÚ²Åµ÷ÓÃ, ´Ë´¦²¹Ñé */
         if (StorageRx_VerifyCRC() != 0)
         {
             StorageRx_SendAck(STX_CMD_TEST_LOG, STX_ACK_ERR_CRC);
@@ -719,8 +719,8 @@ void StorageRx_Process(void)
         }
         uint8_t plen = (uint8_t)(s_frame_len - 1U);   /* len=cmd(1)+payload */
         uint8_t log_buf[80];
-        if (plen > 76U) { plen = 76U; }   /* æˆªæ–­ä¿æŠ¤ */
-        /* å·²ç¡®è®¤: å®Œæ•´å¸§åœ¨s_frame_buf(s_rx_bufæ˜¯ISRå­—èŠ‚é˜Ÿåˆ—è£…ä¸ä¸‹æ•´å¸§), payloadèµ·å§‹=[3] */
+        if (plen > 76U) { plen = 76U; }   /* ½Ø¶Ï±£»¤ */
+        /* ÒÑÈ·ÈÏ: ÍêÕûÖ¡ÔÚs_frame_buf(s_rx_bufÊÇISR×Ö½Ú¶ÓÁĞ×°²»ÏÂÕûÖ¡), payloadÆğÊ¼=[3] */
         memcpy(log_buf, &s_frame_buf[3], plen);
         log_buf[plen] = '\0';
         USB_CDC_SendData((const uint8_t *)log_buf, plen);
@@ -731,10 +731,10 @@ void StorageRx_Process(void)
         return;
     }
 
-    /* å­˜å‚¨å‘½ä»¤å¤„ç† (0x01~0x04, è´Ÿè½½ä¸º17å­—èŠ‚EventRecord_t) */
+    /* ´æ´¢ÃüÁî´¦Àí (0x01~0x04, ¸ºÔØÎª17×Ö½ÚEventRecord_t) */
     if (s_frame_cmd >= STX_CMD_STORE_EVENT && s_frame_cmd <= STX_CMD_STORE_FAULT)
     {
-        /* 1. CRCæ ¡éªŒ */
+        /* 1. CRCĞ£Ñé */
         if (StorageRx_VerifyCRC() != 0)
         {
             uint16_t len = (uint16_t)snprintf(log_buf, sizeof(log_buf),
@@ -747,7 +747,7 @@ void StorageRx_Process(void)
             return;
         }
 
-        /* 2. æ ¡éªŒè´Ÿè½½é•¿åº¦ */
+        /* 2. Ğ£Ñé¸ºÔØ³¤¶È */
         if (s_frame_payload_len != STX_RECORD_SIZE)
         {
             uint16_t len = (uint16_t)snprintf(log_buf, sizeof(log_buf),
@@ -760,10 +760,10 @@ void StorageRx_Process(void)
             return;
         }
 
-        /* 3. æ£€æŸ¥å­˜å‚¨ç©ºé—´æ˜¯å¦è¶³å¤Ÿ */
-        /* P0-1æ•´æ”¹: ç¯å½¢FIFOå†™æ»¡è‡ªåŠ¨è¦†ç›–æœ€æ—§è®°å½•, åˆ é™¤åŸ"å†™æ»¡æ‹’ç»"æ£€æŸ¥ */
+        /* 3. ¼ì²é´æ´¢¿Õ¼äÊÇ·ñ×ã¹» */
+        /* P0-1Õû¸Ä: »·ĞÎFIFOĞ´Âú×Ô¶¯¸²¸Ç×î¾É¼ÇÂ¼, É¾³ıÔ­"Ğ´Âú¾Ü¾ø"¼ì²é */
 
-        /* 4. å†™å…¥W25Q256 (æ•°æ®ä»s_frame_buf[3]å¼€å§‹) - å†™å…¥è§¦å‘ç‚¹ */
+        /* 4. Ğ´ÈëW25Q256 (Êı¾İ´Ós_frame_buf[3]¿ªÊ¼) - Ğ´Èë´¥·¢µã */
         {
             uint8_t zone_dbg = (s_frame_cmd == STX_CMD_STORE_EVENT) ? STX_ZONE_GENERAL
                                : (uint8_t)(s_frame_cmd - STX_CMD_STORE_FIRST_ALARM);
@@ -776,7 +776,7 @@ void StorageRx_Process(void)
                 (unsigned)((EventRecord_t *)&s_frame_buf[3])->event_code);
             USB_CDC_SendData((const uint8_t *)log_buf, len);
         }
-        /* P0-1/P0-2: æŒ‰å‘½ä»¤ç è·¯ç”±åˆ†åŒº, ç¯å½¢FIFOå†™å…¥(è¦†ç›–æœ€æ—§) + æŒ‡é’ˆæŒä¹…åŒ– */
+        /* P0-1/P0-2: °´ÃüÁîÂëÂ·ÓÉ·ÖÇø, »·ĞÎFIFOĞ´Èë(¸²¸Ç×î¾É) + Ö¸Õë³Ö¾Ã»¯ */
         {
             uint8_t zone_idx = (s_frame_cmd == STX_CMD_STORE_EVENT)
                                ? STX_ZONE_GENERAL
@@ -785,14 +785,14 @@ void StorageRx_Process(void)
             StorageRx_MetaSave();
         }
 
-        /* 5. è¯»å›æ ¡éªŒ */
+        /* 5. ¶Á»ØĞ£Ñé */
         {
             uint8_t readback[STX_RECORD_SIZE];
             W25QXX_Read(readback, s_last_wr_addr, STX_RECORD_SIZE);
 
             if (memcmp(&s_frame_buf[3], readback, STX_RECORD_SIZE) != 0)
             {
-                /* è¯»å›æ ¡éªŒå¤±è´¥ */
+                /* ¶Á»ØĞ£ÑéÊ§°Ü */
                 uint16_t len = (uint16_t)snprintf(log_buf, sizeof(log_buf),
                     "[STX_WR] FAIL reason=VERIFY addr=0x%08lX\r\n",
                     (unsigned long)s_last_wr_addr);
@@ -804,14 +804,14 @@ void StorageRx_Process(void)
             }
         }
 
-        /* 6. æ ¡éªŒé€šè¿‡, è®°å½•å†™å…¥æˆåŠŸ, å›å¤ACK */
+        /* 6. Ğ£ÑéÍ¨¹ı, ¼ÇÂ¼Ğ´Èë³É¹¦, »Ø¸´ACK */
         {
             uint16_t len = (uint16_t)snprintf(log_buf, sizeof(log_buf),
                 "[STX_WR] OK addr=0x%08lX cmd=0x%02X\r\n",
                 (unsigned long)s_last_wr_addr, (unsigned)s_frame_cmd);
             USB_CDC_SendData((const uint8_t *)log_buf, len);
         }
-        /* æŒ‡é’ˆæ¨è¿›å·²åœ¨ ZoneWrite å†…éƒ¨å®Œæˆ */
+        /* Ö¸ÕëÍÆ½øÒÑÔÚ ZoneWrite ÄÚ²¿Íê³É */
         StorageRx_SendAck(s_frame_cmd, STX_ACK_OK);
 
         s_frame_ready = 0;
@@ -819,7 +819,7 @@ void StorageRx_Process(void)
         return;
     }
 
-    /* æœªçŸ¥å‘½ä»¤å¤„ç† */
+    /* Î´ÖªÃüÁî´¦Àí */
     {
         uint16_t len = (uint16_t)snprintf(log_buf, sizeof(log_buf),
             "[STX_WR] FAIL reason=UNKNOWN_CMD cmd=0x%02X\r\n",
@@ -832,11 +832,11 @@ void StorageRx_Process(void)
 }
 
 /*==============================================================
- * æŸ¥è¯¢å­˜å‚¨è®°å½•æ•°
+ * ²éÑ¯´æ´¢¼ÇÂ¼Êı
  *============================================================*/
 /**
- * @brief  æŸ¥è¯¢å­˜å‚¨è®°å½•æ•°
- * @retval å­˜å‚¨è®°å½•æ•° = å½“å‰å†™å…¥æ•° / è®°å½•å›ºå®šå¤§å°(17)
+ * @brief  ²éÑ¯´æ´¢¼ÇÂ¼Êı
+ * @retval ´æ´¢¼ÇÂ¼Êı = µ±Ç°Ğ´ÈëÊı / ¼ÇÂ¼¹Ì¶¨´óĞ¡(17)
  */
 uint32_t StorageRx_GetRecordCount(uint8_t zone)
 {
@@ -847,7 +847,7 @@ uint32_t StorageRx_GetRecordCount(uint8_t zone)
     return s_zones[zone].count;
 }
 
-/* æŸ¥è¯¢å…¨éƒ¨åˆ†åŒºæ€»æ¡æ•°(P1-5æ•´æ”¹: ä¾›å¯¼å‡ºå“åº”å¸§çš„è®°å½•æ€»æ•°å­—æ®µ) */
+/* ²éÑ¯È«²¿·ÖÇø×ÜÌõÊı(P1-5Õû¸Ä: ¹©µ¼³öÏìÓ¦Ö¡µÄ¼ÇÂ¼×ÜÊı×Ö¶Î) */
 uint32_t StorageRx_GetTotalCount(void)
 {
     uint32_t total = 0;
@@ -860,15 +860,15 @@ uint32_t StorageRx_GetTotalCount(void)
 }
 
 /*==============================================================
- * æŸ¥è¯¢å‰©ä½™å­˜å‚¨å®¹é‡
+ * ²éÑ¯Ê£Óà´æ´¢ÈİÁ¿
  *============================================================*/
 /**
- * @brief  æŸ¥è¯¢å‰©ä½™å­˜å‚¨å®¹é‡
- * @retval å‰©ä½™å®¹é‡ = (W25Q256æ€»å®¹é‡ - å·²ç”¨å®¹é‡) / è®°å½•å›ºå®šå¤§å°
+ * @brief  ²éÑ¯Ê£Óà´æ´¢ÈİÁ¿
+ * @retval Ê£ÓàÈİÁ¿ = (W25Q256×ÜÈİÁ¿ - ÒÑÓÃÈİÁ¿) / ¼ÇÂ¼¹Ì¶¨´óĞ¡
  */
 uint32_t StorageRx_GetRemainingCount(void)
 {
-    /* P0-1æ•´æ”¹: åˆ†åŒºåè¿”å›å…¨éƒ¨åˆ†åŒºå‰©ä½™å¯å†™æ¡æ•°ä¹‹å’Œ(å®¹é‡-ç°å­˜) */
+    /* P0-1Õû¸Ä: ·ÖÇøºó·µ»ØÈ«²¿·ÖÇøÊ£Óà¿ÉĞ´ÌõÊıÖ®ºÍ(ÈİÁ¿-ÏÖ´æ) */
     uint32_t total = 0;
     uint8_t z;
     for (z = 0; z < STX_ZONE_COUNT; z++)
@@ -879,14 +879,14 @@ uint32_t StorageRx_GetRemainingCount(void)
 }
 
 /*==============================================================
- * è¯»å–å­˜å‚¨è®°å½•å‡½æ•° (æŒ‰ç´¢å¼•è¯»å–)
+ * ¶ÁÈ¡´æ´¢¼ÇÂ¼º¯Êı (°´Ë÷Òı¶ÁÈ¡)
  *============================================================*/
 /**
- * @brief  æŒ‰ç´¢å¼•è¯»å–å­˜å‚¨è®°å½•(ä¾›GB4717å¯¼å‡ºæ¨¡å—è°ƒç”¨)
- * @param  index: è®°å½•ç´¢å¼•(0å¼€å§‹)
- * @param  rec:   è¯»å–åˆ°çš„è®°å½•ç¼“å†²åŒº
- * @retval 0=æˆåŠŸ, 1=å¤±è´¥(ç´¢å¼•è¶Šç•Œæˆ–æŒ‡é’ˆä¸ºç©º)
- * @note   å­˜å‚¨åœ°å€ = å­˜å‚¨åŸºå€ + index * 17, ä¸å†™å…¥æ—¶è®¡ç®—æ–¹å¼ä¸€è‡´
+ * @brief  °´Ë÷Òı¶ÁÈ¡´æ´¢¼ÇÂ¼(¹©GB4717µ¼³öÄ£¿éµ÷ÓÃ)
+ * @param  index: ¼ÇÂ¼Ë÷Òı(0¿ªÊ¼)
+ * @param  rec:   ¶ÁÈ¡µ½µÄ¼ÇÂ¼»º³åÇø
+ * @retval 0=³É¹¦, 1=Ê§°Ü(Ë÷ÒıÔ½½ç»òÖ¸ÕëÎª¿Õ)
+ * @note   ´æ´¢µØÖ· = ´æ´¢»ùÖ· + index * 17, ÓëĞ´ÈëÊ±¼ÆËã·½Ê½Ò»ÖÂ
  */
 uint8_t StorageRx_ReadRecord(uint8_t zone, uint32_t index, EventRecord_t *rec)
 {
@@ -899,10 +899,10 @@ uint8_t StorageRx_ReadRecord(uint8_t zone, uint32_t index, EventRecord_t *rec)
     }
     if (index >= s_zones[zone].count)
     {
-        return 1;  /* è¶…å‡ºè¯¥åˆ†åŒºç°å­˜æ¡æ•° */
+        return 1;  /* ³¬³ö¸Ã·ÖÇøÏÖ´æÌõÊı */
     }
 
-    /* P1-5æ•´æ”¹: index 0=æœ€æ—§è®°å½•, ç‰©ç†æ§½å· = (å†™æŒ‡é’ˆ-count+index) mod å®¹é‡ */
+    /* P1-5Õû¸Ä: index 0=×î¾É¼ÇÂ¼, ÎïÀí²ÛºÅ = (Ğ´Ö¸Õë-count+index) mod ÈİÁ¿ */
     slot = (s_zones[zone].slot_head + s_zones[zone].capacity
             - s_zones[zone].count + index) % s_zones[zone].capacity;
     addr = StorageRx_ZoneSlotAddr(&s_zones[zone], slot);
@@ -912,18 +912,38 @@ uint8_t StorageRx_ReadRecord(uint8_t zone, uint32_t index, EventRecord_t *rec)
 }
 
 /*==============================================================
- * æ“¦é™¤å…¨éƒ¨å­˜å‚¨
+ * ²Á³ıÈ«²¿´æ´¢
  *============================================================*/
 /**
- * @brief  æ“¦é™¤å…¨éƒ¨å­˜å‚¨(æ“¦é™¤æ•´ä¸ªW25Q256, å¤ä½å†™åœ°å€å’Œç´¢å¼•)
- * @note   è°ƒç”¨W25QXX_Erase_Chipæ“¦é™¤å…¨éƒ¨, éœ€è¦è¾ƒé•¿æ—¶é—´(ç­‰å¾…)
+ * @brief  ²Á³ıÈ«²¿´æ´¢(¸´Î»Ğ´µØÖ·ºÍË÷Òı)
+ * @note   ÌáËÙÕû¸Ä: Ö»²ÁÃ¿·ÖÇøÍ·²¿256KB + ÔªÊı¾İÇø64KB, Ìæ´úÕûÆ¬²Á
+ *         (W25Q256 ChipEraseÔ¼150~240s -> Ô¼15s)
+ *         ÒÀ¾İ: ÇåÁãºócount=0, dump/µ¼³ö½ö°´count¶ÁÈ¡ĞÂĞ´Èë¼ÇÂ¼,
+ *         ·ÖÇøÉî´¦µÄÀúÊ·Êı¾İ²»²ÎÓëÕËÄ¿¶ÔÕË, ²»Ó°Ïì²âÊÔÅĞ¶¨
  */
 void StorageRx_EraseAll(void)
 {
     uint8_t z;
+    uint32_t addr;
+    uint32_t sec;
+    static const uint32_t zone_base[STX_ZONE_COUNT] = {
+        STX_ZONE0_BASE, STX_ZONE1_BASE, STX_ZONE2_BASE, STX_ZONE3_BASE };
 
-    W25QXX_Erase_Chip();
-    /* P0-1æ•´æ”¹: åˆ†åŒºæŒ‡é’ˆ/æ¡æ•°å…¨éƒ¨æ¸…é›¶, å…ƒæ•°æ®çŠ¶æ€å¤ä½ */
+    /* Ã¿·ÖÇøÍ·²¿256KB(64ÉÈÇø): ÇåÁãºóslot_head=0, ĞÂ¼ÇÂ¼È«²¿ÂäÔÚ¸Ã·¶Î§ */
+    for (z = 0; z < STX_ZONE_COUNT; z++)
+    {
+        addr = zone_base[z];
+        for (sec = 0; sec < 64U; sec++)
+        {
+            W25QXX_Erase_Sector(addr + sec * STX_SECTOR_SIZE);
+        }
+    }
+    /* ÔªÊı¾İÇø64KB(16ÉÈÇø): A/BË«¿â×´Ì¬Ò»²¢²Á³ı */
+    for (sec = 0; sec < 16U; sec++)
+    {
+        W25QXX_Erase_Sector(STX_META_BASE + sec * STX_SECTOR_SIZE);
+    }
+    /* P0-1Õû¸Ä: ·ÖÇøÖ¸Õë/ÌõÊıÈ«²¿ÇåÁã, ÔªÊı¾İ×´Ì¬¸´Î» */
     for (z = 0; z < STX_ZONE_COUNT; z++)
     {
         s_zones[z].slot_head = 0;
