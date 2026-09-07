@@ -389,6 +389,13 @@ uint8_t last_main_power_state = DEINIT;
 
 uint8_t last_bkup_power_state = DEINIT;
 
+/* 软件复位后使主备电状态强制重写到屏幕，不改变实际电源状态。 */
+void PowerStateDisplayCacheInit(void)
+{
+	last_main_power_state = DEINIT;
+	last_bkup_power_state = DEINIT;
+}
+
 void PowerStateUpdataUI(uint16_t curr_screen_id,uint8_t zhu_state_, uint8_t bei_state_)
 {
 	if(curr_screen_id == 1)
