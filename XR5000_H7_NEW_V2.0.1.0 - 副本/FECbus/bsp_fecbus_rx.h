@@ -64,26 +64,33 @@ void Fecbus_RxPoll(void);
 void FecbusRx_Flush(void);
 
 /**
- * @brief  清零 0FH 应答标志
- * @note   发送单播前调用，供 Fecbus_SendFrameWithAck 使用
+ * @brief  清零应答标志(组应答 s_ack_ok / 异常应答 s_ack_nak)
+ * @note   发送单元前调用，供 Fecbus_SendEventGroup 使用(D4)
  */
 void FecbusRx_ResetAck(void);
 
 /**
- * @brief  查询是否收到与指定 mn 匹配的 0FH 应答
- * @param  mn: 期望的报文编号
- * @retval 1=收到匹配应答（标志已清除），0=未收到
+ * @brief  设置本次发送期望被回显的功能码(D4)
+ * @param  func: 期望对端回显的功能码(事件/查询功能码)
+ * @note   发送前调用; Dispatch 收到 FT=1 且 dlc=1 且 data[0]==func 视为正常应答
  */
-uint8_t FecbusRx_CheckAck(uint8_t mn);
+void FecbusRx_SetAckFunc(uint8_t func);
 
 /**
- * @brief  回发 0FH 状态应答帧（协议层闭环）
- * @param  req:    请求帧（取其 SA/PA/MN 反填应答）
- * @param  status: 应答状态，0x00=正常
- * @param  data:   附加数据（可空，无附加传 NULL/0）
- * @param  len:    附加数据长度（<=8）
+ * @brief  查询组应答结果(D4, 表C.6)
+ * @param  mn:   期望的报文编号
+ * @param  func: 期望回显功能码(冗余校验; 实际比对在 Dispatch 侧完成)
+ * @retval 0=尚无应答; 1=收到组应答(回显功能码 或 0FH status=0); 2=NAK(0FH status!=0)
  */
-void FecbusRx_Reply(const FecbusRxFrame_t *req, uint8_t status, const uint8_t *data, uint8_t len);
+uint8_t FecbusRx_CheckAckEx(uint8_t mn, uint8_t func);
+
+/**
+ * @brief  D3: 回发 0FH 状态应答帧 (FT=1, DLC=2, data=[0x0F][status])
+ * @param  req:    请求帧（取其 SA/MN 反填应答; PA 固定 03H）
+ * @param  status: 状态码 (A3: FECBUS_STAT_*; 仅异常/分组结束/事件结束三类)
+ * @note   正常应答用内部 FecbusRx_ReplyEcho(回显功能码); 本函数仅发 0FH 状态帧。
+ */
+void FecbusRx_ReplyStatus(const FecbusRxFrame_t *req, uint8_t status);
 
 #ifdef __cplusplus
 }

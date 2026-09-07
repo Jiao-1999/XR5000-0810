@@ -139,7 +139,7 @@ uint16_t Fecbus_CalcCRC16(const uint8_t *data, uint16_t len)
  * @param  payload_len: 数据区长度
  * @注意   帧格式: [0x7E][FT][DA][PA][SA][MN][TN][DLC][payload...][CRC0][CRC1][0x7E]
  *         SA 固定 1 (控制器)
- *         CRC 范围: FT 至数据区末 (即 DA..payload, 共 6+payload_len 字节)
+ *         CRC 范围(C.6.1.6): 帧头0x7E + 报文头 + 数据 (即 buf[0]..payload末, 共 8+payload_len 字节)
  *         小端存储. 发送时逐字节查询发送.
  */
 static void Fecbus_SendFrame(UART_HandleTypeDef *huart, uint8_t ft, uint8_t da, uint8_t pa,
@@ -149,7 +149,6 @@ static void Fecbus_SendFrame(UART_HandleTypeDef *huart, uint8_t ft, uint8_t da, 
     uint8_t  buf[FECBUS_MAX_FRAME_LEN];
     uint16_t idx = 0;
     uint16_t crc;
-    uint16_t crc_calc_len;
 
     /* GB4717 附录C: DLC 范围 1~8, 超长直接丢弃 */
     if (payload_len > 8) {
@@ -174,9 +173,8 @@ static void Fecbus_SendFrame(UART_HandleTypeDef *huart, uint8_t ft, uint8_t da, 
         idx += payload_len;
     }
 
-    /* CRC 范围: FT 至数据区末 (即 buf[1]..buf[idx-1]) */
-    crc_calc_len = (uint16_t)(idx - 1);  /* 不含 0x7E 帧头 */
-    crc = Fecbus_CalcCRC16(&buf[1], crc_calc_len);
+    /* CRC 范围(C.6.1.6): 帧头0x7E + 报文头 + 数据, 即 buf[0]..buf[idx-1], 共 idx 字节 */
+    crc = Fecbus_CalcCRC16(buf, idx);
     buf[idx++] = (uint8_t)(crc & 0xFF);
     buf[idx++] = (uint8_t)((crc >> 8) & 0xFF);
 
@@ -191,7 +189,7 @@ static void Fecbus_SendFrame(UART_HandleTypeDef *huart, uint8_t ft, uint8_t da, 
 
 /**
  * @brief  发送一帧原始 FECbus 帧 (带发送互斥保护)
- * @note   供 FecbusRx_Reply() 回发 0FH 状态应答帧使用.
+ * @note   供 FecbusRx_ReplyStatus()/FecbusRx_ReplyEcho() 回发应答帧使用(D3).
  *         整帧发送期间持有 g_fecbus_tx_mutex, 与其它发送者互斥.
  */
 uint8_t Fecbus_SendRawFrame(uint8_t ft, uint8_t da, uint8_t pa,
@@ -211,54 +209,62 @@ uint8_t Fecbus_SendRawFrame(uint8_t ft, uint8_t da, uint8_t pa,
 }
 
 /*==============================================================
- * 发送单播 + 等待应答
+ * 发送事件通告组 + 按组等待应答 (D4, 表C.6)
  *============================================================*/
 
 /**
- * @brief   发送单播帧并等待 0FH 应答 (发送基础)
- * @param   ft/da/pa/mn/tn: 帧头字段
- * @param   payload/payload_len: 数据区内容
- * @retval  0=收到匹配 0FH 应答, 1=超时/NAK (自动重试3次)
- * @note    - 广播 (da=0) 不等待应答, 直接返回 0
- *          - 旧的 ACK 帧格式: [0x7E][FT=3][DA][PA][SA][MN][00][01][CRC][0x7E]
- *            已废除: 上位机按 0x7E 重新同步后对 FT_ACK(3) 不再回应
- *          - 发送前调 Fecbus_FlushRx 清 RX 残留
- *          - 等待期间周期调 HAL_IWDG_Refresh 喂 IWDG
+ * @brief   按组发送事件通告4帧 + 等待组应答 (D4)
+ * @param   ft/da/pa/mn: 帧头字段(4帧共用一个 MN)
+ * @param   f1/f2/f3: TN=1/2/3 数据帧; f4: TN=0 分组报文结束帧[0FH][00H]
+ * @retval  0=收到组应答, 1=超时(整组重试<=3次仍无应答), 2=NAK(对端异常应答, 终止重试)
+ * @note    - 广播(da=0)不等待应答: 连发4帧即返回0
+ *          - 单播: 帧1~4连发(不逐帧等待), 末帧后统一等1个组应答(表C.6); 超时重发整组
+ *          - C.3.3: 重试单位=整组请求报文, <=3次; 每轮发送前喂 IWDG
+ *          - 应答识别(D4): 回显帧(dlc=1,data[0]=功能码) 或 0FH状态帧(dlc=2, status=0)
  */
-static uint8_t Fecbus_SendFrameWithAck(uint8_t ft, uint8_t da, uint8_t pa,
-                                       uint8_t mn, uint8_t tn,
-                                       const uint8_t *payload, uint16_t payload_len)
+static uint8_t Fecbus_SendEventGroup(uint8_t ft, uint8_t da, uint8_t pa, uint8_t mn,
+                                     const uint8_t *f1, const uint8_t *f2,
+                                     const uint8_t *f3, const uint8_t *f4)
 {
     uint8_t retry;
 
-    /* 广播帧不等待应答 (走主机通道 USART1) */
+    /* 广播帧不等待应答 (走主机通道 USART1): 连发4帧即返回 */
     if (da == FECBUS_DA_BROADCAST) {
-        Fecbus_SendFrame(&huart1, ft, da, pa, mn, tn, payload, payload_len);
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, FECBUS_TN_FRAME1, f1, 8);
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, FECBUS_TN_FRAME2, f2, 8);
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, FECBUS_TN_FRAME3, f3, 1);
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, FECBUS_TN_SINGLE, f4, 2);
         return 0;
     }
 
     for (retry = 0; retry < FECBUS_RETRY_COUNT; retry++) {
         uint32_t tickstart;
-        /* 每帧发送前喂 IWDG (3帧约耗时 ~3s, IWDG ~8.2s) */
+        uint8_t  ack;
+        /* 每轮(整组)发送前喂 IWDG */
         HAL_IWDG_Refresh(&hiwdg1);
-        Fecbus_FlushRx(&huart1);  /* 清 USART1 硬件 RX 残留 (主动下发通道) */
-        FecbusRx_Flush();        /* 清接收环形缓冲 (丢弃发送前残留数据) */
-        FecbusRx_ResetAck();     /* 清 0FH 应答标志 */
+        Fecbus_FlushRx(&huart1);    /* 清 USART1 硬件 RX 残留 (主动下发通道) */
+        FecbusRx_Flush();           /* 清接收环形缓冲 (丢弃发送前残留数据) */
+        FecbusRx_ResetAck();        /* 清应答标志 */
+        FecbusRx_SetAckFunc(f1[0]); /* D4: 期望对端回显的功能码 = 事件功能码 */
 
-        Fecbus_SendFrame(&huart1, ft, da, pa, mn, tn, payload, payload_len);  /* 主动下发走主机通道 USART1 */
+        /* 帧1~4 连发 (不逐帧等待, 走主机通道 USART1) */
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, FECBUS_TN_FRAME1, f1, 8);
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, FECBUS_TN_FRAME2, f2, 8);
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, FECBUS_TN_FRAME3, f3, 1);
+        Fecbus_SendFrame(&huart1, ft, da, pa, mn, FECBUS_TN_SINGLE, f4, 2);
 
-        /* GB4717: 单播通告等待收方0FH状态应答(FT=1, func=0FH, MN匹配), 超时1s */
+        /* 组应答等待 (表C.6: 每组1个应答), 超时1s */
         tickstart = HAL_GetTick();
         while ((HAL_GetTick() - tickstart) < FECBUS_ACK_TIMEOUT_MS) {
-            Fecbus_RxPoll();      /* 及时解析接收到的应答帧 */
-            if (FecbusRx_CheckAck(mn) != 0) {
-                return 0;         /* 收到匹配MN的0FH应答 */
-            }
+            Fecbus_RxPoll();        /* 及时解析接收到的应答帧 */
+            ack = FecbusRx_CheckAckEx(mn, f1[0]);
+            if (ack == 1) return 0; /* 收到组应答(回显功能码 或 0FH结束) */
+            if (ack == 2) return 2; /* NAK: 参数错等, 终止重试 */
             vTaskDelay(1);
         }
     }
 
-    return 1;  /* 重试后仍未收到应答 */
+    return 1;  /* 整组重试后仍未收到应答 */
 }
 
 /*==============================================================
@@ -266,14 +272,14 @@ static uint8_t Fecbus_SendFrameWithAck(uint8_t ft, uint8_t da, uint8_t pa,
  *============================================================*/
 
 /**
- * @brief   组帧发送事件上报 (固定三帧)
+ * @brief   组帧发送事件上报 (A7/D2: 表C.3/C.5 事件通告 4 帧制)
  * @param   item: 事件项
- * @note    - 第1帧 TN=01: [功能码][类型][回路编号][设备编号][分区编号][设备类型0][设备类型1] (DLC=8)
- *          - 第2帧 TN=02: [事件编码0][事件编码1][状态编码0][状态编码1][时][分][秒][年-2000]   (DLC=8)
- *          - 第3帧 TN=03: [0x00]                                                  (DLC=1, 帧结束)
+ * @note    - 第1帧 TN=01: [功能码][控制器][单元][设备][通道][类型低][类型高][事件代码低] (DLC=8)
+ *          - 第2帧 TN=02: [事件代码高][状态低][状态高][年-2000][月][日][时][分]        (DLC=8)
+ *          - 第3帧 TN=03: [秒]                                                    (DLC=1)
+ *          - 第4帧 TN=00: [0x0F][0x00]                                            (DLC=2, 分组报文结束帧)
  *
- *          3帧共用一个 MN (同一报文), 帧号 TN 区分次序
- *          每帧发送前喂 HAL_IWDG_Refresh, 防止发送耗时触发复位
+ *          4帧共用一个 MN (同一报文), 帧号 TN 区分次序; 按组应答(表C.6), 整组重试<=3次
  */
 static void Fecbus_SendEvent(const FecbusEventItem_t *item)
 {
@@ -281,49 +287,71 @@ static void Fecbus_SendEvent(const FecbusEventItem_t *item)
     uint8_t frame1[8];
     uint8_t frame2[8];
     uint8_t frame3[1];
+    uint8_t endfrm[2];
     uint8_t pa = item->pa;
     uint8_t da = item->da;
     uint8_t ft = FECBUS_FT_UNCONFIRMED;
 
-    /* 第1帧: [功能码][类型][回路编号][设备编号][分区编号][设备类型0][设备类型1] */
+    /* 第1帧(表C.5): [功能码][控制器][单元][设备][通道][类型低][类型高][事件代码低] */
     frame1[0] = item->func_code;
-    frame1[1] = FECBUS_SA_CONTROLLER;        /* 控制器类型=1 */
+    frame1[1] = FECBUS_SA_CONTROLLER;        /* 控制器编号=1 */
     frame1[2] = item->unit_no;
     frame1[3] = item->dev_no;
     frame1[4] = item->channel_no;
     frame1[5] = (uint8_t)(item->dev_type & 0xFF);
     frame1[6] = (uint8_t)((item->dev_type >> 8) & 0xFF);
-    frame1[7] = 0x00;                        /* 预留 */
+    frame1[7] = (uint8_t)(item->event_code & 0xFF);   /* A7: 事件代码低字节(原预留位) */
 
-    /* 第2帧: [事件编码0][事件编码1][状态编码0][状态编码1][时][分][秒][年-2000]
-     * 协议约定: 参考17.3 事件上报规定数据段为 10字节(事件编码2+状态编码2+时间6=10字节),
-     *           但附录C.3 规定 DLC=08H(8字节), 故上报侧裁剪为4字节时间. 实际取8字节数据.
-     *   DLC 若按协议约定填10字节将超限(GB4717限定<=8), 故只填8字节存入 frame2. */
-    frame2[0] = (uint8_t)(item->event_code & 0xFF);
-    frame2[1] = (uint8_t)((item->event_code >> 8) & 0xFF);
-    frame2[2] = (uint8_t)(item->state_code & 0xFF);
-    frame2[3] = (uint8_t)((item->state_code >> 8) & 0xFF);
-
-    /* 当前时间 (读 RTC): [时][分][秒][年-2000] */
+    /* 当前时间 (读 RTC): 年/月/日/时/分/秒 (A7: 补月/日) */
     getBM8563TimeToSystemTime();
-    frame2[4] = SystemTime.hours;
-    frame2[5] = SystemTime.minutes;
-    frame2[6] = SystemTime.seconds;
-    frame2[7] = (uint8_t)(SystemTime.year - 2000);
 
-    /* 第3帧: [0x00] 帧结束 */
-    frame3[0] = 0x00;
+    /* 第2帧(表C.5): [事件代码高][状态低][状态高][年-2000][月][日][时][分] */
+    frame2[0] = (uint8_t)((item->event_code >> 8) & 0xFF);
+    frame2[1] = (uint8_t)(item->state_code & 0xFF);
+    frame2[2] = (uint8_t)((item->state_code >> 8) & 0xFF);
+    frame2[3] = (uint8_t)(SystemTime.year - 2000);
+    frame2[4] = SystemTime.month;
+    frame2[5] = SystemTime.day;
+    frame2[6] = SystemTime.hours;
+    frame2[7] = SystemTime.minutes;
 
-    /* 整组三帧持锁发送, 防止与其它发送者交错 */
+    /* 第3帧(表C.5): [秒] */
+    frame3[0] = SystemTime.seconds;
+
+    /* 第4帧(D2, 表C.3/C.5): 分组报文结束帧 [0x0F][0x00] */
+    endfrm[0] = FECBUS_FUNC_RESP;   /* 0x0F */
+    endfrm[1] = 0x00;               /* 状态应答码 0=分组报文结束 */
+
+    /* 整组4帧持锁发送, 防止与其它发送者交错 */
     if (xSemaphoreTakeRecursive(s_tx_mutex, FECBUS_TX_MUTEX_TIMEOUT) != pdTRUE) {
         return;
     }
 
-    /* 依次发送3帧 */
-    Fecbus_SendFrameWithAck(ft, da, pa, mn, FECBUS_TN_FRAME1, frame1, 8);
-    Fecbus_SendFrameWithAck(ft, da, pa, mn, FECBUS_TN_FRAME2, frame2, 8);
-    Fecbus_SendFrameWithAck(ft, da, pa, mn, FECBUS_TN_FRAME3, frame3, 1);
+    /* D4: 按组发送(帧1~4连发) + 组应答等待 + 整组重试 */
+    (void)Fecbus_SendEventGroup(ft, da, pa, mn, frame1, frame2, frame3, endfrm);
 
+    xSemaphoreGiveRecursive(s_tx_mutex);
+}
+
+/**
+ * @brief   A9(表C.3): 复位/消音/自检单帧上报 TN=0 DLC=2 data=[功能码][控制器编号=1]
+ * @param   func: 功能码 (1=复位/2=消音/3=自检)
+ * @param   pa:   优先级 (复位/消音=PA_URGENT(01H), 自检=PA_NORMAL(03H), 表C.3)
+ * @note    国标为单帧, 不走事件4帧布局; 广播发送(da=0)不等待应答.
+ */
+static void Fecbus_SendSimple(uint8_t func, uint8_t pa)
+{
+    uint8_t payload[2];
+    uint8_t mn = Fecbus_NextSeq();
+
+    payload[0] = func;
+    payload[1] = FECBUS_SA_CONTROLLER;   /* 控制器编号=1 */
+
+    if (xSemaphoreTakeRecursive(s_tx_mutex, FECBUS_TX_MUTEX_TIMEOUT) != pdTRUE) return;
+    HAL_IWDG_Refresh(&hiwdg1);
+    Fecbus_FlushRx(&huart1);
+    Fecbus_SendFrame(&huart1, FECBUS_FT_UNCONFIRMED, FECBUS_DA_BROADCAST,
+                     pa, mn, FECBUS_TN_SINGLE, payload, 2);  /* 广播走主机通道 USART1 */
     xSemaphoreGiveRecursive(s_tx_mutex);
 }
 
@@ -333,36 +361,39 @@ static void Fecbus_SendEvent(const FecbusEventItem_t *item)
 
 /**
  * @brief   发送同步心跳帧 (功能码 0x00, 1s 周期)
- * @note    广播帧, DLC=1, 数据=[0x00]
+ * @note    广播帧, DLC=1, 数据=[0x00]; A10(表C.3 行0): PA=00H, MN=00H
+ *          广播维持不等应答(多装置同时应答会在RS485冲突; 严格合规需单播轮询, 本轮不做)
  */
 static void Fecbus_SendSyncBeat(void)
 {
     uint8_t payload[1] = { FECBUS_FUNC_SYNC_BEAT };
-    uint8_t mn = Fecbus_NextSeq();
+    /* A10(表C.3 行0): 同步节拍特例 PA=00H, MN=00H (不经 Fecbus_NextSeq 循环序号) */
+    uint8_t mn = 0;
 
     if (xSemaphoreTakeRecursive(s_tx_mutex, FECBUS_TX_MUTEX_TIMEOUT) != pdTRUE) return;
     HAL_IWDG_Refresh(&hiwdg1);
     Fecbus_FlushRx(&huart1);
     Fecbus_SendFrame(&huart1, FECBUS_FT_UNCONFIRMED, FECBUS_DA_BROADCAST,
-                     FECBUS_PA_NORMAL, mn, FECBUS_TN_SINGLE,
+                     FECBUS_PA_SYNC, mn, FECBUS_TN_SINGLE,
                      payload, 1);  /* 周期广播走主机通道 USART1 */
     xSemaphoreGiveRecursive(s_tx_mutex);
 }
 
 /**
- * @brief   发送心跳帧 (功能码 0x14, 5s 周期)
- * @note    广播帧, DLC=1, 数据=[0x14]
+ * @brief   巡检装置连接状态 (控->装, 功能码 0x21, 5s 周期, 表C.7)
+ * @note    A4/A6: 原「心跳帧 0x14」改为国标巡检 0x21; PA 由 03H 改 02H(重要, 表C.7 行33)。
+ *          广播帧, DLC=1, 数据=[0x21]。装置侧回显应答(表C.2 标有应答)。
  */
 static void Fecbus_SendHeartbeat(void)
 {
-    uint8_t payload[1] = { FECBUS_FUNC_HEARTBEAT };
+    uint8_t payload[1] = { FECBUS_FUNC_POLL_CONN };   /* A4: 0x14 -> 0x21 巡检连接 */
     uint8_t mn = Fecbus_NextSeq();
 
     if (xSemaphoreTakeRecursive(s_tx_mutex, FECBUS_TX_MUTEX_TIMEOUT) != pdTRUE) return;
     HAL_IWDG_Refresh(&hiwdg1);
     Fecbus_FlushRx(&huart1);
     Fecbus_SendFrame(&huart1, FECBUS_FT_UNCONFIRMED, FECBUS_DA_BROADCAST,
-                     FECBUS_PA_NORMAL, mn, FECBUS_TN_SINGLE,
+                     FECBUS_PA_IMPORTANT, mn, FECBUS_TN_SINGLE,   /* A6: PA 03H -> 02H(重要) */
                      payload, 1);  /* 周期广播走主机通道 USART1 */
     xSemaphoreGiveRecursive(s_tx_mutex);
 }
@@ -500,7 +531,16 @@ void Fecbus_TxTaskLoop(void)
     /* 等待队列事件(100ms超时) */
     if (xQueueReceive(s_tx_queue, &item, 100) == pdTRUE) {
         HAL_IWDG_Refresh(&hiwdg1);
-        Fecbus_SendEvent(&item);
+        /* A9(表C.3): 复位/消音/自检走单帧路径(DLC=2), 其余走事件4帧组 */
+        if (item.func_code == FECBUS_FUNC_RESET) {
+            Fecbus_SendSimple(FECBUS_FUNC_RESET, FECBUS_PA_URGENT);
+        } else if (item.func_code == FECBUS_FUNC_SILENCE) {
+            Fecbus_SendSimple(FECBUS_FUNC_SILENCE, FECBUS_PA_URGENT);
+        } else if (item.func_code == FECBUS_FUNC_SELFTEST) {
+            Fecbus_SendSimple(FECBUS_FUNC_SELFTEST, FECBUS_PA_NORMAL);
+        } else {
+            Fecbus_SendEvent(&item);
+        }
         vTaskDelay(10);  /* 让出 CPU */
     }
 

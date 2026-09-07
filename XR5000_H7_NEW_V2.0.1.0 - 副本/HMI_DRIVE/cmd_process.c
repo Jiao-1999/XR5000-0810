@@ -2843,7 +2843,7 @@ void UpdateUI(void)
 			screen_show_siren_information |= 0xF0; // 标记执行过 
 			// 记录到火警分区中 按键按下 存入FLASH在前可以少一次获取RTC操作
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, 0xFFFF);
-			/* 黑匣子: 主面板报警器控制按键(分类跟随老系统记为火警) */
+			/* 黑匣子: 主面板报警器控制按键(分类跟随老系统记为火警), dev_type=17声光警报回路 */
 			StorageEvent_LogFire(ALARM_ANNUNCIATOR_ID, DEV_TYPE_SOUND_LIGHT, 1, 0);
 //			// 存入cache缓冲区
 //			StoragePackCabinForeWarn(&pcfws, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey);
@@ -11552,7 +11552,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				if(old_h2 == 1U) RS485Loop3RemoveWarning(addr, Hydrogen); force_alarm_check_new_flag = 1;
 				if(type == RS485_DETECT_TYPE_XR805 && old_h2 == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_RECOVERY);
-				if(type == RS485_DETECT_TYPE_XR805 && old_h2 == 9U) StorageEvent_LogFault(addr, DEV_TYPE_H2, 3, 0, 1); /* 黑匣子:Loop3 H2传感器故障恢复(仅XR805) */
+				if(type == RS485_DETECT_TYPE_XR805 && old_h2 == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1); /* 黑匣子:Loop3 H2传感器故障恢复(仅XR805) */
 				if(h2_state == 1U)
 				{
 					getBM8563TimeToSystemTime();
@@ -11563,11 +11563,11 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				{
 					getBM8563TimeToSystemTime();
 					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Loop3HydrogenFire); fire_alarm_check_new_flag = 1;
-					StorageEvent_LogFire(addr, DEV_TYPE_H2, 3, 0); /* 黑匣子:Loop3 H2火警 */
+					StorageEvent_LogFire(addr, DEV_TYPE_MULTI_SENSOR, 3, 0); /* 黑匣子:Loop3 H2火警 */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, RS485_H2_FIRE, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2));
 				}
 				else if(type == RS485_DETECT_TYPE_XR805 && h2_state == 9U) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_FAULT);
-				else if(type == RS485_DETECT_TYPE_XR805 && h2_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_H2, 3, 0, 0); /* 黑匣子:Loop3 H2传感器故障 */
+				else if(type == RS485_DETECT_TYPE_XR805 && h2_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); /* 黑匣子:Loop3 H2传感器故障 */
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_H2] = h2_state;
 			}
 

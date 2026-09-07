@@ -33,6 +33,7 @@
 #include "bsp_debug.h"          /* XR5000_STX_DIAG_20260811: 调试打印输出(COM4) */
 #include "usart.h"
 #include "stm32h7xx_hal.h"
+#include "iwdg.h"             /* XR5000_STX_IWDG_20260904: extern hiwdg1, feed IWDG in WaitByte busy-wait */
 #include <string.h>
 
 /* FreeRTOS头文件 */
@@ -186,12 +187,19 @@ static void StorageTx_SendByte(uint8_t data)
 static uint8_t StorageTx_WaitByte(uint8_t *data, uint32_t timeout_ms)
 {
     uint32_t tickstart = HAL_GetTick();
+    uint32_t last_feed = tickstart;   /* XR5000_STX_IWDG_20260904: IWDG feed throttle base */
     while (!__HAL_UART_GET_FLAG(STX_UART, UART_FLAG_RXNE)) {
         /* ORE 置位时 RXNE 不会再被置位,检测到 ORE 则清除后继续等待 */
         if (__HAL_UART_GET_FLAG(STX_UART, UART_FLAG_ORE)) {
             __HAL_UART_CLEAR_FLAG(STX_UART, UART_CLEAR_OREF);
         }
-        if ((HAL_GetTick() - tickstart) > timeout_ms) {
+        uint32_t now = HAL_GetTick();
+        /* XR5000_STX_IWDG_20260904: feed IWDG every ~500ms during the busy-wait.
+         * StorageTxTask(osPriorityNormal1) outranks defaultTask(osPriorityNormal),
+         * the only IWDG feeder; a missed ACK costs up to 3 x 4000ms = 12s, which
+         * starves IWDG (~8.2s) and resets the MCU. Keep feed gap <= 500ms. */
+        if ((now - last_feed) >= 500U) { HAL_IWDG_Refresh(&hiwdg1); last_feed = now; }
+        if ((now - tickstart) > timeout_ms) {
             return 1;  /* 超时 */
         }
     }
@@ -455,15 +463,15 @@ uint8_t StorageTx_SendTestLog(const char *text)
     StorageTx_SendFrame(STX_CMD_TEST_LOG, (const uint8_t *)text, strlen(text));
 
     /* 等ACK: [0xA5][len][0x07][ack][CRC2][0x5A] */
-    if (StorageTx_WaitByte(&head, STX_TIMEOUT_MS) != 0)      return 1;
+    if (StorageTx_WaitByte(&head, STX_TIMEOUT_TESTLOG_MS) != 0)      return 1;
     if (head != STX_FRAME_HEAD)                              return 1;
-    if (StorageTx_WaitByte(&len, STX_TIMEOUT_MS) != 0)       return 1;
-    if (StorageTx_WaitByte(&cmd_echo, STX_TIMEOUT_MS) != 0)  return 1;
+    if (StorageTx_WaitByte(&len, STX_TIMEOUT_TESTLOG_MS) != 0)       return 1;
+    if (StorageTx_WaitByte(&cmd_echo, STX_TIMEOUT_TESTLOG_MS) != 0)  return 1;
     if (cmd_echo != STX_CMD_TEST_LOG)                        return 1;
-    if (StorageTx_WaitByte(&ack_code, STX_TIMEOUT_MS) != 0)  return 1;
-    StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);  /* CRC低 */
-    StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);  /* CRC高 */
-    StorageTx_WaitByte(&dummy, STX_TIMEOUT_MS);  /* 帧尾 */
+    if (StorageTx_WaitByte(&ack_code, STX_TIMEOUT_TESTLOG_MS) != 0)  return 1;
+    StorageTx_WaitByte(&dummy, STX_TIMEOUT_TESTLOG_MS);  /* CRC低 */
+    StorageTx_WaitByte(&dummy, STX_TIMEOUT_TESTLOG_MS);  /* CRC高 */
+    StorageTx_WaitByte(&dummy, STX_TIMEOUT_TESTLOG_MS);  /* 帧尾 */
     return (ack_code == STX_ACK_OK) ? 0U : 1U;
 }
 
@@ -514,7 +522,7 @@ void StorageTx_FillTimestamp(EventRecord_t *rec)
  *           bit3(0x0008)=有报警   bit4(0x0010)=有启动   bit5(0x0020)=有反馈
  *           bit7(0x0080)=有故障   bit8(0x0100)=有屏蔽   bit2(0x0004)=电源故障
  *         映射: 火警类事件置bit3, 故障置bit7, 屏蔽置bit8,
- *         关机置bit2, 启动类置bit4, 反馈置bit5, 其余事件清零.
+ *         关机置bit2, 启动类置bit4, 反馈置bit5, 自动置bit0, 监管置bit6, 其余事件清零.
  */
 void StorageTx_FillStateMask(EventRecord_t *rec)
 {
@@ -551,6 +559,14 @@ void StorageTx_FillStateMask(EventRecord_t *rec)
         mask = 0x0004;              /* bit2 电源故障 */
         break;
 
+    case EVT_AUTO:                  /* 126 自动 (C7) */
+        mask = 0x0001;              /* bit0=1 自动状态(表C.18) */
+        break;
+
+    case EVT_SUPERVISED:            /* 70 监管 (C8) */
+        mask = 0x0040;              /* bit6=1 有监管(表C.18) */
+        break;
+
     case EVT_NORMAL:                /* 1 正常 */
     case EVT_FAULT_RECOVER:         /* 100 故障恢复 */
     case EVT_SHIELD_RELEASE:        /* 73 解除屏蔽 */
@@ -560,10 +576,8 @@ void StorageTx_FillStateMask(EventRecord_t *rec)
     case EVT_SELF_CHECK_FAIL:       /* 124 自检失败 */
     case EVT_CHECK_BUTTON:          /* 129 检查按钮 */
     case EVT_CLOCK_ADJUST:          /* 131 时钟调整 */
-    case EVT_MANUAL:                /* 125 手动 */
-    case EVT_AUTO:                  /* 126 自动 */
-    case EVT_SUPERVISED:            /* 70 监管 */
-    case EVT_SUPERVISED_RELEASE:    /* 71 监管解除 */
+    case EVT_MANUAL:                /* 125 手动(bit0=0, 落default即正确) */
+    case EVT_SUPERVISED_RELEASE:    /* 71 监管解除(bit6=0) */
     default:
         mask = 0x0000;              /* 其余事件不置状态位 */
         break;

@@ -44,9 +44,10 @@ extern "C" {
 #define STX_FRAME_HEAD      0xA5    /* 帧头 */
 #define STX_FRAME_TAIL      0x5A    /* 帧尾 */
 #define STX_MAX_PAYLOAD     255     /* 最大数据载荷长度 */
-#define STX_TIMEOUT_MS      1500    /* 应答超时(ms): P1-1原500ms + 实测修订1500ms, 覆盖风暴期MetaSave切库同步擦典型延迟(最坏兜底3.2s仍超, 根治=切库延后化) */
+#define STX_TIMEOUT_MS      4000    /* 应答超时(ms): P1-1原500ms+修订1500ms, 2026-09-04端到端测试暴露ACK超时重发致重复落Flash, 再修订4000ms覆盖Meta切库同步擦最坏3.2s, 不再触发重发 */
 #define STX_RETRY_COUNT     3       /* 发送失败重试次数 */
-#define STX_QUEUE_DEPTH     32      /* 发送队列深度(条数) */
+#define STX_QUEUE_DEPTH     32
+#define STX_TIMEOUT_TESTLOG_MS 1000 /* TestLog(透传)ACK等待: 短于IWDG的8.2s, 阻塞最坏6s; 透传丢失无碍账目(2026-09-04端到端测试) */      /* 发送队列深度(条数) */
 
 /* 存储命令码 */
 #define STX_CMD_STORE_EVENT        0x01    /* 存储事件(普通) */
@@ -90,12 +91,11 @@ typedef struct {
  * 设备类型代码(GB4717-2024附录C表C.16)
  *============================================================*/
 #define DEV_TYPE_CONTROLLER     1     /* 控制器 */
-#define DEV_TYPE_SOUND_LIGHT    17    /* 声光报警器 */
+#define DEV_TYPE_SOUND_LIGHT    17    /* 声光警报回路(表C.16) */
 #define DEV_TYPE_SMOKE          21    /* 感烟探测器 */
 #define DEV_TYPE_TEMPERATURE    31    /* 感温探测器 */
 #define DEV_TYPE_CO             53    /* 一氧化碳探测器 */
 #define DEV_TYPE_HAND_REPORT    61    /* 手动报警按钮 */
-#define DEV_TYPE_H2             55    /* 氢气探测器 */
 #define DEV_TYPE_FIRE_ALARM     82    /* 火灾报警器件 */
 #define DEV_TYPE_CONTROL_DEV    163   /* 控制设备 */
 #define DEV_TYPE_STORAGE        18    /* 运行数据存储单元(表C.16, 存储故障上报用) */
@@ -107,8 +107,6 @@ typedef struct {
 #define EVT_NORMAL              1     /* 正常 */
 #define EVT_FIRST_FIRE          2     /* 首警 */
 #define EVT_FIRE                3     /* 火警 */
-#define EVT_GAS_LOW             5     /* 气体低报 */
-#define EVT_GAS_HIGH            6     /* 气体高报 */
 #define EVT_START               19    /* 启动 */
 #define EVT_FEEDBACK            26    /* 反馈 */
 #define EVT_STOP                29    /* 停动 */
@@ -194,7 +192,7 @@ void StorageTx_FillTimestamp(EventRecord_t *rec);
  *         2/3火警=0x0008(bit3有报警), 80故障=0x0080(bit7有故障),
  *         72屏蔽=0x0100(bit8有屏蔽), 121关机=0x0004(bit2电源故障),
  *         128确认=0x0008(bit3有报警), 19/130启动=0x0010(bit4有启动),
- *         26反馈=0x0020(bit5有反馈), 其余事件=0x0000
+ *         26反馈=0x0020(bit5有反馈), 126自动=0x0001(bit0), 70监管=0x0040(bit6), 其余=0x0000
  */
 void StorageTx_FillStateMask(EventRecord_t *rec);
 

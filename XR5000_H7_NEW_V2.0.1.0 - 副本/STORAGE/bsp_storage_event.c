@@ -12,60 +12,69 @@
  *   │ 火警 (StorageEvent_LogFire, 0x02首警+0x03火警):              │
  *   │   1. cmd_process.c ~2861行  手报按下                         │
  *   │      dev_no=HANDPOT_Package_ID, dev_type=DEV_TYPE_HAND_REPORT│
- *   │   2. cmd_process.c ~5916行  舱内复合火警(新增舱记录后)       │
- *   │      dev_no=jsz(舱号), dev_type=DEV_TYPE_FIRE_ALARM          │
- *   │   3. cmd_process.c ~11889行 Loop1温度火警                    │
+ *   │   2. cmd_process.c ~11889行 Loop1温度火警                    │
  *   │      dev_no=addr, dev_type=DEV_TYPE_TEMPERATURE              │
- *   │   4. cmd_process.c ~11914行 Loop1烟雾火警                    │
+ *   │   3. cmd_process.c ~11914行 Loop1烟雾火警                    │
  *   │      dev_no=addr, dev_type=DEV_TYPE_SMOKE                    │
  *   │                                                              │
  *   │ 故障 (StorageEvent_LogFault, 0x04故障独立区段):              │
- *   │   5. cmd_process.c ~11880行 温度传感器故障恢复 is_recover=1  │
+ *   │   4. cmd_process.c ~11880行 温度传感器故障恢复 is_recover=1  │
  *   │      dev_no=addr, dev_type=DEV_TYPE_TEMPERATURE              │
- *   │   6. cmd_process.c ~11897行 温度传感器故障     is_recover=0  │
+ *   │   5. cmd_process.c ~11897行 温度传感器故障     is_recover=0  │
  *   │      dev_no=addr, dev_type=DEV_TYPE_TEMPERATURE              │
- *   │   7. cmd_process.c ~11904行 烟雾污染故障恢复   is_recover=1  │
+ *   │   6. cmd_process.c ~11904行 烟雾污染故障恢复   is_recover=1  │
  *   │      dev_no=addr, dev_type=DEV_TYPE_SMOKE                    │
- *   │   8. cmd_process.c ~11905行 烟雾传感器故障恢复 is_recover=1  │
+ *   │   7. cmd_process.c ~11905行 烟雾传感器故障恢复 is_recover=1  │
  *   │      dev_no=addr, dev_type=DEV_TYPE_SMOKE                    │
- *   │   9. cmd_process.c ~11922行 烟雾污染故障       is_recover=0  │
+ *   │   8. cmd_process.c ~11922行 烟雾污染故障       is_recover=0  │
  *   │      dev_no=addr, dev_type=DEV_TYPE_SMOKE                    │
- *   │  10. cmd_process.c ~11927行 烟雾传感器故障     is_recover=0  │
+ *   │   9. cmd_process.c ~11927行 烟雾传感器故障     is_recover=0  │
  *   │      dev_no=addr, dev_type=DEV_TYPE_SMOKE                    │
  *   │                                                              │
  *   │ 反馈 (StorageEvent_LogFeedback, 0x01普通区段):              │
- *   │  11. cmd_process.c ~7147行 反馈1触发(getFeedBack1State==0x0F)│
+ *   │  10. cmd_process.c ~7147行 反馈1触发(getFeedBack1State==0x0F)│
  *   │      dev_no=FEEDBK1_Package_ID, dev_type=DEV_TYPE_CONTROL_DEV│
  *   │                                                              │
  *   │ 复位 (StorageEvent_ResetFirstFire + LogReset):               │
- *   │  12. cmd_process.c BspCmdProcessInit() 末尾 (~1071行)        │
+ *   │  11. cmd_process.c 密码页RESET_KEY分支(~4185行)              │
  *   │      ResetFirstFire() 清首警标志, LogReset() 记录复位事件    │
  *   │                                                              │
  *   │ 手动/自动切换 (StorageEvent_LogManualAuto, 0x01普通区段):    │
- *   │  13. bsp_internal_board.c ~705行 系统切换手动                │
+ *   │  12. bsp_internal_board.c ~705行 系统切换手动                │
  *   │      dev_no=SYS_HAND_AUTO_Package_ID, is_manual=1            │
- *   │  14. bsp_internal_board.c ~714行 系统切换自动                │
+ *   │  13. bsp_internal_board.c ~714行 系统切换自动                │
  *   │      dev_no=SYS_HAND_AUTO_Package_ID, is_manual=0            │
- *   │  15. bsp_internal_board.c ~727行 分区1切换手动               │
+ *   │  14. bsp_internal_board.c ~727行 分区1切换手动               │
  *   │      dev_no=PART1_HAND_AUTO_Package_ID, is_manual=1          │
- *   │  16. bsp_internal_board.c ~736行 分区1切换自动               │
+ *   │  15. bsp_internal_board.c ~736行 分区1切换自动               │
  *   │      dev_no=PART1_HAND_AUTO_Package_ID, is_manual=0          │
- *   │  17. bsp_internal_board.c ~749行 分区2切换手动               │
+ *   │  16. bsp_internal_board.c ~749行 分区2切换手动               │
  *   │      dev_no=PART2_HAND_AUTO_Package_ID, is_manual=1          │
- *   │  18. bsp_internal_board.c ~758行 分区2切换自动               │
+ *   │  17. bsp_internal_board.c ~758行 分区2切换自动               │
  *   │      dev_no=PART2_HAND_AUTO_Package_ID, is_manual=0          │
  *   │                                                              │
  *   │ 联动启动按键 (StorageEvent_LogStart, 0x01普通区段):          │
- *   │  19. bsp_internal_board.c ~694行 KEY_SYSTEM_LINKAGE_S按下    │
+ *   │  18. bsp_internal_board.c ~694行 KEY_SYSTEM_LINKAGE_S按下    │
  *   │      dev_no=LINKAGE_CLUSTER_ID, dev_type=DEV_TYPE_CONTROL_DEV│
  *   │                                                              │
  *   │ 屏蔽/解除屏蔽 (StorageEvent_LogShield, 0x01普通区段):        │
- *   │  20. bsp_device_disable.c DeviceDisableSet() 返回OK前        │
+ *   │  19. bsp_device_disable.c DeviceDisableSet() 返回OK前        │
  *   │      dev_no=identity->address, dev_type=按DeviceRegistryType │
  *   │      映射, is_release=0                                      │
- *   │  21. bsp_device_disable.c DeviceDisableClear() 返回OK前      │
+ *   │  20. bsp_device_disable.c DeviceDisableClear() 返回OK前      │
  *   │      dev_no=identity->address, dev_type=按DeviceRegistryType │
  *   │      映射, is_release=1                                      │
+ *   │                                                              │
+ *   │ 开关机/按钮/时钟/自检/联动动作 (P1-1整改新增API):            │
+ *   │  21. LogPowerOn(开机120): freertos.c StartDefaultTask()      │
+ *   │  22. LogPowerOff(关机121): bsp_adc.c备电耗尽/cmd_process.c   │
+ *   │  23. LogConfirmButton(确认128): bsp_internal_board.c KEY1    │
+ *   │  24. LogCheckButton(检查129): cmd_process.c UpdateUI()       │
+ *   │  25. LogLinkageStartButton(联动按钮130): internal_board.c    │
+ *   │  26. LogClockAdjust(时钟131): bsp_screen.c RTC设置画面41     │
+ *   │  27. LogSelfCheck(自检123/124): cmd_process.c 密码页53       │
+ *   │  28. LogLinkageAction(联动19/29): bsp_logic_dev.c 回调       │
+ *   │  (预留不接线: LogSupervise 监管70/71, 待监管设备接入)        │
  *   └──────────────────────────────────────────────────────────────┘
  *
  *   修改指引:

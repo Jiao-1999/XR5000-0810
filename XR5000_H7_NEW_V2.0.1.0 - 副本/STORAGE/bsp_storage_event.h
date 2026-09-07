@@ -98,7 +98,7 @@ void StorageEvent_LogManualAuto(uint8_t dev_no, uint8_t is_manual);
  *         设备类型映射(由调用方完成):
  *           DEVICE_TYPE_SMOKE        → DEV_TYPE_SMOKE(21)
  *           DEVICE_TYPE_TEMPERATURE  → DEV_TYPE_TEMPERATURE(31)
- *           DEVICE_TYPE_MULTI_SENSOR → DEV_TYPE_FIRE_ALARM(82, 复合探测器暂用)
+ *           DEVICE_TYPE_MULTI_SENSOR → DEV_TYPE_MULTI_SENSOR(50, 表C.16)
  */
 void StorageEvent_LogShield(uint8_t dev_no, uint16_t dev_type, uint8_t is_release);
 
@@ -112,7 +112,7 @@ void StorageEvent_LogStart(uint8_t dev_no, uint16_t dev_type);
 
 /**
  * @brief  记录系统复位事件到黑匣子(普通区段)
- * @note   在 BspCmdProcessInit() 末尾调用, 紧跟 StorageEvent_ResetFirstFire().
+ * @note   在 cmd_process.c 密码页 RESET_KEY 分支调用(~L4185), 紧跟 StorageEvent_ResetFirstFire().
  *         dev_no=1, dev_type=DEV_TYPE_CONTROLLER, event=EVT_RESET(122), state=0.
  *         使用0x01命令码存入普通区段(规范B.1.2.2仅要求首警/火警/故障独立记录,
  *         复位属其他运行状态信息, 不得写入首警独立区段).

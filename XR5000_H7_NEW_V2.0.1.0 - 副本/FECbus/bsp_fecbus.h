@@ -23,12 +23,13 @@
  *     TN  = 帧序号 (多帧上报用 1/2/3, 0=单帧/广播等)
  *     DLC = 数据长度 (GB4717 限定 1~8)
  *     CRC16 多项式 0xA001, 小端存储
- *     CRC 校验范围: FT 至数据末 (不含 0x7E 帧头/帧尾及 CRC 自身)
+ *     CRC 校验范围(C.6.1.6): 帧头0x7E + 报文头 + 数据0~7 (含0x7E帧头, 不含帧尾/CRC自身)
  *
- *   上报事件 (控制器->上位机, 火灾报警第 5/6/7 帧):
- *    第1帧 TN=01: [功能码][类型][报警回路][设备编号][报警分区][设备类型0][设备类型1] (DLC=8)
- *    第2帧 TN=02: [事件编码0][事件编码1][状态编码0][状态编码1][时分秒年-2000]   (DLC=8)
- *    第3帧 TN=03: [0x00]                                                  (DLC=1, 帧结束)
+ *   上报事件 (控制器->上位机, 表C.3/C.5 事件通告 4 帧制):
+ *    第1帧 TN=01: [功能码][控制器][单元][设备][通道][类型低][类型高][事件代码低] (DLC=8)
+ *    第2帧 TN=02: [事件代码高][状态低][状态高][年-2000][月][日][时][分]        (DLC=8)
+ *    第3帧 TN=03: [秒]                                                    (DLC=1)
+ *    第4帧 TN=00: [0x0F][0x00]                                            (DLC=2, 分组报文结束帧)
  *
  *   状态应答 (设备->上位机, 收到单播通告后):
  *     TN=00: [0x0F][0x00]  (DLC=2, 状态应答)
@@ -67,6 +68,7 @@ extern "C" {
 #define FECBUS_PA_URGENT        1       /* 紧急 (火警/故障/监管/启动等) */
 #define FECBUS_PA_IMPORTANT     2       /* 重要 */
 #define FECBUS_PA_NORMAL        3       /* 一般 (周期/广播帧) */
+#define FECBUS_PA_SYNC          0       /* 同步节拍专用 PA (A10, 表C.3 行0: PA=00H) */
 
 /* 上报功能码 (控制器->上位机) */
 #define FECBUS_FUNC_RESET       1       /* 复位请求 (按键) */
@@ -76,13 +78,53 @@ extern "C" {
 #define FECBUS_FUNC_NORMAL_EVT  6       /* 一般事件上报 (故障) */
 #define FECBUS_FUNC_IMPORTANT_EVT 7     /* 重要事件上报 (监管) */
 
+/* 装置通告功能码 (装置->控制器, B1: 表C.2 17/18/19H, 4帧组装) */
+#define FECBUS_FUNC_NOTIFY_URGENT 0x11  /* 紧急通告(火警/首警等) */
+#define FECBUS_FUNC_NOTIFY_NORMAL 0x12  /* 一般通告(故障等) */
+#define FECBUS_FUNC_NOTIFY_DEBUG  0x13  /* 调试通告(不入库, 仅打印回显) */
+
+/* 查询功能码 (B2: 表C.2 33~45H)
+ * 角色定位(决策点8): 国标方向为 控->装 查询; 本工程「接收并应答」= 供上位机/PC
+ * 查询本控制器, 属厂商扩展, 须写入双方协议补充说明。 */
+#define FECBUS_FUNC_POLL_CONN     0x21  /* 巡检装置连接状态(控->装, 表C.7; 批次6用) */
+#define FECBUS_FUNC_DEV_STATUS    0x22  /* 查设备状态(表C.18 状态位聚合) */
+#define FECBUS_FUNC_DEV_CONFIG    0x23  /* 查设备配置(返回层级目标数量, C.4.5.13) */
+#define FECBUS_FUNC_DEV_ID        0x24  /* 查设备标识(7字节, 生产者规定 C.4.5.12) */
+#define FECBUS_FUNC_DEV_PARAM     0x25  /* 查设备参量(阈值, 表C.19) */
+#define FECBUS_FUNC_DEV_COMMENT   0x26  /* 查设备注释(UTF-8, 表C.9; 批次7) */
+#define FECBUS_FUNC_DEV_PROGRAM   0x27  /* 查设备编程(UTF-8, 表C.10; 批次8留桩) */
+#define FECBUS_FUNC_REG_INFO      0x28  /* 查注册登记信息(UTF-8, 表C.11; 批次7) */
+#define FECBUS_FUNC_QUERY_CUR_EVT 0x29  /* 查当前事件(表C.12; 批次7) */
+#define FECBUS_FUNC_QUERY_HIS_EVT 0x2A  /* 查历史事件(表C.13; 批次8留桩) */
+#define FECBUS_FUNC_STOP_QUERY    0x2B  /* 停止查询(清查询会话) */
+#define FECBUS_FUNC_PROTO_VER     0x2C  /* 查协议版本号 */
+#define FECBUS_FUNC_DEV_LIST      0x2D  /* 查设备列表(表C.14; 批次7) */
+
 /* 状态应答功能码 (GB4717 附录C: 0FH = 状态应答) */
 #define FECBUS_FUNC_RESP        0x0F    /* 状态应答帧功能码 */
+
+/* 0FH 状态应答码 (A3, GB4717 附录C C.4.2.5)
+ * 用途约束: 0FH 仅三类场景 --
+ *   (a) 异常应答: 状态码 1~8 (CRC错/无效服务/单元故障/忙/未知命令/地址不存在/参数错/处理中)
+ *   (b) 分组报文结束: 状态码 0 (END_GROUP)
+ *   (c) 事件全部结束: 状态码 9 (EVT_END)
+ *   成功应答一律走 ReplyEcho(回显功能码)/数据帧, 不发 0FH。 */
+#define FECBUS_STAT_END_GROUP       0   /* 分组报文结束 */
+#define FECBUS_STAT_CRC_ERR         1   /* CRC 校验错误 */
+#define FECBUS_STAT_INVALID_SVC     2   /* 无效服务/不支持的操作 */
+#define FECBUS_STAT_UNIT_FAULT      3   /* 单元故障 */
+#define FECBUS_STAT_BUSY            4   /* 设备忙 */
+#define FECBUS_STAT_UNKNOWN_CMD     5   /* 未知命令/功能码 */
+#define FECBUS_STAT_ADDR_NOT_EXIST  6   /* 地址不存在 */
+#define FECBUS_STAT_PARAM_ERR       7   /* 参数错误 */
+#define FECBUS_STAT_PROCESSING      8   /* 处理中(稍后再试) */
+#define FECBUS_STAT_EVT_END         9   /* 事件全部结束 */
+#define FECBUS_STAT_DATA_OK         10  /* 数据正确(保留) */
 
 /* 周期广播功能码 */
 #define FECBUS_FUNC_SYNC_BEAT   0x00    /* 同步心跳帧 (1s 周期) */
 #define FECBUS_FUNC_CLOCK_BC    0x04    /* 时钟广播帧 (10s 周期) */
-#define FECBUS_FUNC_HEARTBEAT   0x14    /* 心跳帧 (5s 周期) */
+#define FECBUS_FUNC_HEARTBEAT   0x14    /* 装->控心跳帧 (接收用; 控->装周期巡检已改 0x21, A4) */
 
 /* 地址 */
 #define FECBUS_DA_BROADCAST     0       /* 广播地址 */
@@ -92,7 +134,7 @@ extern "C" {
 #define FECBUS_TN_SINGLE        0       /* 单帧/广播帧 */
 #define FECBUS_TN_FRAME1        1       /* 第1帧 */
 #define FECBUS_TN_FRAME2        2       /* 第2帧 */
-#define FECBUS_TN_FRAME3        3       /* 第3帧 (最后一帧) */
+#define FECBUS_TN_FRAME3        3       /* 第3帧 (事件数据帧:秒; 分组末帧为 TN=0 结束帧) */
 
 /* 应答与重试参数 */
 #define FECBUS_RETRY_COUNT      3       /* 单播发送重试次数 */

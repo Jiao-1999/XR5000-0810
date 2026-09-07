@@ -286,7 +286,7 @@ const osThreadAttr_t StorageTxTask_attributes = {
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-/* FECbus 发送接收任务: 走USART3(PB10/PB11) RS485 发送接收协议帧, GB4717 附录C */
+/* FECbus 发送接收任务: USART1(PB14/15)主机通道下发 + USART3(PB10/11)从机通道应答, RS485, GB4717 附录C */
 osThreadId_t FecbusTxTaskHandle;
 const osThreadAttr_t FecbusTxTask_attributes = {
 	.name = "FecbusTxTask",
@@ -294,7 +294,7 @@ const osThreadAttr_t FecbusTxTask_attributes = {
 	.priority = (osPriority_t) osPriorityBelowNormal1,  /* 低于StorageTx, 发送量较小优先级低 */
 };
 
-/* FECbus 周期广播任务: 1s同步心跳/5s心跳/10s时钟广播, 发送走USART3 */
+/* FECbus 周期广播任务: 1s同步心跳/5s心跳/10s时钟广播, 发送走USART1主机通道 */
 osThreadId_t FecbusPeriodicTaskHandle;
 const osThreadAttr_t FecbusPeriodicTask_attributes = {
 	.name = "FecbusPeriodicTask",
@@ -373,7 +373,7 @@ void ResumeTask(uint8_t task_id);
 /* 存储端通讯任务函数声明 */
 void StorageTxTask(void *argument);
 
-/* FECbus 发送任务函数声明 (GB4717 附录C, USART3 RS485) */
+/* FECbus 发送任务函数声明 (GB4717 附录C, USART1主机/USART3从机 双串口 RS485) */
 void FecbusTxTask(void *argument);
 
 /* FECbus 周期广播任务函数声明 (1s心跳/5s心跳/10s时钟) */
@@ -507,7 +507,7 @@ void MX_FREERTOS_Init(void) {
 	StorageTxTaskHandle = osThreadNew(StorageTxTask, NULL, &StorageTxTask_attributes);
 	DebugPrintf("StorageTxTask create: %s\r\n", StorageTxTaskHandle ? "OK" : "FAIL");
 
-	// FECbus 发送任务: GB4717 附录C, USART3 RS485 协议帧收发
+	// FECbus 发送任务: GB4717 附录C, USART1主机/USART3从机 双串口 RS485 协议帧收发
 	FecbusTxTaskHandle = osThreadNew(FecbusTxTask, NULL, &FecbusTxTask_attributes);
 	DebugPrintf("FecbusTxTask create: %s\r\n", FecbusTxTaskHandle ? "OK" : "FAIL");
 
@@ -810,7 +810,7 @@ void StorageTxTask(void *argument)
 }
 
 
-/* FECbus 发送任务: GB4717 附录C, 用USART3(PB10/PB11) RS485 收发协议帧 */
+/* FECbus 发送任务: GB4717 附录C, USART1(PB14/15)主机 + USART3(PB10/11)从机 双串口 RS485 收发 */
 void FecbusTxTask(void *argument)
 {
 	/* 启动FECbus协议栈: 初始化发送队列/互斥锁 + 启动USART3逐字节IT接收
@@ -827,7 +827,7 @@ void FecbusTxTask(void *argument)
 }
 
 
-/* FECbus 周期广播任务: 1s同步心跳 + 5s心跳 + 10s时钟广播, 发送走USART3 */
+/* FECbus 周期广播任务: 1s同步心跳 + 5s心跳 + 10s时钟广播, 发送走USART1主机通道 */
 void FecbusPeriodicTask(void *argument)
 {
 	/* 启动FECbus协议栈(与FecbusTxTask重复调用, 内部幂等保护) */

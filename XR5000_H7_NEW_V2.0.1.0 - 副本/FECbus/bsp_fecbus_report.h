@@ -21,7 +21,7 @@
  *     故障/故障恢复/屏蔽/解除屏蔽  -> 功能码6 (一般事件, PA=3)
  *     系统复位                     -> 功能码1 (广播, PA=1)
  *     系统消音                     -> 功能码2 (广播, PA=1)
- *     系统自检                     -> 功能码3 (广播, PA=1)
+ *     系统自检                     -> 功能码3 (广播, PA=3)
  *
  *   接入点清单 (与 bsp_storage_event.c 21个接入点完全一致):
  *     火警: cmd_process.c L2861/L5916/L11889/L11914 (4点)
@@ -123,7 +123,7 @@ void FecbusReport_Reset(void);
 void FecbusReport_Silence(void);
 
 /**
- * @brief  上报系统自检事件 (功能码3, 广播, PA=1)
+ * @brief  上报系统自检事件 (功能码3, 广播, PA=3)
  * @note   异步入队, 非阻塞. dev_no=1, dev_type=DEV_TYPE_CONTROLLER,
  *         event=EVT_NORMAL, state=0.
  */

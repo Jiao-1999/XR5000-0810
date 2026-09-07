@@ -163,11 +163,11 @@ void FecbusReport_Silence(void)
 }
 
 /**
- * @brief  上报系统自检事件 (功能码3, 广播, PA=1)
+ * @brief  上报系统自检事件 (功能码3, 广播, A9: PA=3, 表C.3 自检 PA=03H)
  */
 void FecbusReport_SelfCheck(void)
 {
-    FecbusReport_Enqueue(FECBUS_FUNC_SELFTEST, FECBUS_PA_URGENT,
+    FecbusReport_Enqueue(FECBUS_FUNC_SELFTEST, FECBUS_PA_NORMAL,
                          1, DEV_TYPE_CONTROLLER, 1, 0,
                          EVT_NORMAL, 0);
 }

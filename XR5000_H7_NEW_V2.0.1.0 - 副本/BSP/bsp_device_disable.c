@@ -461,7 +461,7 @@ static uint16_t DeviceDisableMapStorageType(DeviceRegistryType type)
     {
         case DEVICE_TYPE_SMOKE:        return DEV_TYPE_SMOKE;       /* ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ */
         case DEVICE_TYPE_TEMPERATURE:  return DEV_TYPE_TEMPERATURE; /* ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ */
-        case DEVICE_TYPE_MULTI_SENSOR: return DEV_TYPE_FIRE_ALARM;  /* ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+        case DEVICE_TYPE_MULTI_SENSOR: return DEV_TYPE_MULTI_SENSOR;  /* ¶à´«¸Ð¸´ºÏÌ½²âÆ÷(±íC.16=50) */
         default:                       return DEV_TYPE_CONTROL_DEV; /* Î´Öªï¿½ï¿½ï¿½Í°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ */
     }
 }
