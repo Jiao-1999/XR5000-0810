@@ -228,6 +228,11 @@ typedef enum
 	RS485_VOC_SENSOR_RECOVERY = 65,
 	RS485_CH4_SENSOR_FAULT = 66,
 	RS485_CH4_SENSOR_RECOVERY = 67,
+	/* V2.21协议：CO/H2低报、高报均进入预警监测，Flash中按报警级别分别保存。 */
+	GAS_CO_LOW_ALARM = 69,
+	GAS_CO_HIGH_ALARM = 70,
+	GAS_H2_LOW_ALARM = 71,
+	GAS_H2_HIGH_ALARM = 72,
 	
 	// 2025/10/27 09:50 新增可燃气体报警区分
 	FIRGAS_ALARM_CO = 38, // 一氧化碳

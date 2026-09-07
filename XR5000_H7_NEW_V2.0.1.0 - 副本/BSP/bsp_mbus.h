@@ -57,50 +57,50 @@ void ReadPointTypeSetOnlieState(void);
 
 void MixtureDevicePollingManage(void);
 
-// ï¿½ï¿½È¡ï¿½ï¿½IDï¿½Ç·ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
+// »ñÈ¡¸ÃIDÊÇ·ñÉèÎªÉÏÏß
 uint8_t getPointTypeMixtureSettingOnlieState(uint8_t detector_id);
-// ï¿½Ğ¶ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+// ÅĞ¶ÏÌ½²âÆ÷ÊÇ·ñµôÏß
 uint8_t getPointTypeMixtureDisconnectCount(uint8_t point_mix_id);
-// ï¿½è¶¨ï¿½ï¿½Ò»Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// Éè¶¨µ¥Ò»Ì½²âÆ÷ÉÏÏß
 void PointTypeMixtureOnlieStateSingleSetting(uint8_t detector_id, uint8_t online_or_offline);
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ÅúÁ¿ÉèÖÃÌ½²âÆ÷ÉÏÏß
 void PointTypeMixtureOnlieStateBatchSetting(uint8_t *new_online_state, uint8_t update_len);
-// ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½
+// ÏÂÏßÈ«²¿Ì½²âÆ÷
 void PointTypeMixtureOnlieStateDeInit(void);
 
-// ï¿½ï¿½Õµï¿½ï¿½ß¼ï¿½ï¿½ï¿½
+// Çå¿ÕµôÏß¼ÆÊı
 void clearPointTypeMixtureDisconnectCount(void);
 
-// ï¿½ï¿½È¡ï¿½ï¿½ï¿½Õµï¿½ï¿½ï¿½Öµ
+// »ñÈ¡½ÓÊÕµ½µÄÖµ
 uint8_t getPointTypeMixtureReceiveData(ePointTypeDataOrder detect_data_type, uint8_t detect_id);
-// ï¿½ï¿½È¡ï¿½ï¿½ï¿½Õµï¿½ï¿½ï¿½×´Ì¬
+// »ñÈ¡½ÓÊÕµ½µÄ×´Ì¬
 uint8_t getPointTypeMixtureReceiveState(ePointTypeDataOrder detect_data_type, uint8_t detect_id);
 
-// ï¿½ï¿½È¡Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½ï¿½
+// »ñÈ¡Ì½²âÆ÷ĞÍºÅÃû
 uint8_t getPointTypeMixtureDetectName(uint8_t detect_id);
-uint16_t MBus1_GetNationalTypeCode(uint8_t addr); /* ï¿½ï¿½È¡ï¿½è±¸Êµï¿½Ê·ï¿½ï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0x000Dï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
-uint16_t MBus1_GetProductCode(uint8_t addr); /* ï¿½ï¿½È¡ï¿½è±¸Êµï¿½Ê·ï¿½ï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0x000Eï¿½Ú²ï¿½ï¿½ï¿½Æ·ï¿½ï¿½ */
-// ï¿½ï¿½È¡Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+uint16_t MBus1_GetNationalTypeCode(uint8_t addr); /* »ñÈ¡Éè±¸Êµ¼Ê·µ»Ø²¢±£´æµÄ0x000D¹ú±êÀàĞÍÂë */
+uint16_t MBus1_GetProductCode(uint8_t addr); /* »ñÈ¡Éè±¸Êµ¼Ê·µ»Ø²¢±£´æµÄ0x000EÄÚ²¿²úÆ·Âë */
+// »ñÈ¡Ì½²âÆ÷¼à²âÀàĞÍ
 uint8_t getPointTypeMixtureDetectType(uint8_t detect_id);
-// ï¿½ï¿½È¡Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+// »ñÈ¡Ì½²âÆ÷ÉÏÏß×´Ì¬
 uint8_t getPointTypeMixtureDetectOnlineState(uint8_t detect_id);
 
-// ï¿½ï¿½ï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ ï¿½Ô¿Õ¼ä»»Ê±ï¿½ï¿½
+// ÉèÖÃÌ½²âÆ÷µôÏß¼ÇÒä ÒÔ¿Õ¼ä»»Ê±¼ä
 void setPointTypeMixtureDetectDisconnectMemory(uint8_t detect_id, uint8_t state);
-// ï¿½ï¿½È¡Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+// »ñÈ¡Ì½²âÆ÷µôÏß×´Ì¬
 uint8_t getPointTypeMixtureDetectDisconnectMemory(uint8_t detect_id);
 
-// ï¿½ï¿½È¡ï¿½Â¶È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê·×´Ì¬
+// »ñÈ¡ÎÂ¶È´«¸ĞÆ÷±¨¾¯ÀúÊ·×´Ì¬
 uint8_t getPointTypeMixtureDetectTempertureMemory(uint8_t detect_id);
-// ï¿½Â¶È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê·ï¿½ï¿½ï¿½ï¿½×´Ì¬
+// ÎÂ¶È´«¸ĞÆ÷ÀúÊ·±¨¾¯×´Ì¬
 void setPointTypeMixtureDetectTempertureMemory(uint8_t detect_id, uint8_t state);
 
-// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê·×´Ì¬
+// »ñÈ¡ÑÌÎí´«¸ĞÆ÷±¨¾¯ÀúÊ·×´Ì¬
 uint8_t getPointTypeMixtureDetectSmokeMemory(uint8_t detect_id);
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê·ï¿½ï¿½ï¿½ï¿½×´Ì¬
+// ÑÌÎí´«¸ĞÆ÷ÀúÊ·±¨¾¯×´Ì¬
 void setPointTypeMixtureDetectSmokeMemory(uint8_t detect_id, uint8_t state);
 
-// ï¿½ï¿½Ê¼ï¿½ï¿½/ï¿½ï¿½Õµï¿½ï¿½ï¿½×´Ì¬
+// ³õÊ¼»¯/Çå¿ÕµôÏß×´Ì¬
 void clearPointTypeMixtureDetectAllStateMemory(void);
 
 
@@ -109,10 +109,10 @@ void MBus1ResetAllDevices(void);
 void MBus2SendString(uint8_t* buf, uint8_t len);
 uint16_t getPointTypeMixtureReceiveData16(ePointTypeDataOrder detect_data_type, uint8_t detect_id);
 uint8_t getPointTypeMixtureStateClass(uint8_t detect_id);
-// ï¿½ï¿½È¡Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½)
+// »ñÈ¡Ì½²âÆ÷¹ú±êÉè±¸ÀàĞÍÂë(¹©Áª¶¯Âß¼­ÏÔÊ¾ÓÃ)
 uint16_t getPointTypeMixtureNationalCode(uint8_t detector_id);
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+// ×ÜÏßÂÖÑ¯Í¬Ê±´¦Àí½ÓÊÕÈÎÎñ
 void MBus1PollSlaveAndReceiveTask(void* parameter);
 
 

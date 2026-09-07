@@ -62,4 +62,6 @@ void LinkageOnlineJudgeTask(void* parameter);
 
 void PowerOnlineJudgeTask(void* parameter);
 
+void BackupPowerRequestRecheck(void); // 请求ADC任务重新检查备电是否在线
+
 #endif

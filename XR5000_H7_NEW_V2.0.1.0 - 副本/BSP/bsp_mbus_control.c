@@ -45,7 +45,6 @@ typedef struct
 /* 火灾显示盘事件环形队列 */
 static MBusFireDisplayEvent g_fire_display_event_queue[MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN];
 static uint8_t g_fire_display_event_head = 0;    /* 队列头指针(出队位置) */
-static uint8_t g_fire_display_event_tail = 0;    /* 队列尾指针(入队位置) */
 static uint8_t g_fire_display_event_count = 0;   /* 当前队列中的事件数 */
 static uint8_t g_fire_display_wait_response = 0; /* 是否等待显示盘响应 */
 static uint8_t g_fire_display_wait_ticks = 0;    /* 等待响应已计tick数 */
@@ -69,6 +68,9 @@ static uint8_t g_active_control_valid = 0U;
 static uint8_t g_control_wait_response = 0U;
 static uint8_t g_control_wait_ticks = 0U;
 static uint8_t g_control_retry_count = 0U;
+static uint32_t g_active_control_sent_mask = 0U;
+static uint16_t g_active_control_coil_addr = 0U;
+static uint16_t g_active_control_coil_value = 0U;
 
 /* 每个物理地址独立保存目标值、确认值和异步结果，便于后续扩展更多输出设备。 */
 static uint32_t g_control_target_outputs[MBUS_CONTROL_MAX_DEVICES];
@@ -192,6 +194,9 @@ static void MBusCtrl_FinishActiveControl(MBusCtrlStatus result)
     g_control_wait_response = 0U;
     g_control_wait_ticks = 0U;
     g_control_retry_count = 0U;
+    g_active_control_sent_mask = 0U;
+    g_active_control_coil_addr = 0U;
+    g_active_control_coil_value = 0U;
 }
 
 /* 请求执行前再次检查设备，防止排队期间设备被下线或重新识别。 */
@@ -208,16 +213,41 @@ static uint8_t MBusCtrl_CanExecute(const MBusQueuedControl *control)
 static uint8_t MBusCtrl_BuildControlFrame(const MBusQueuedControl *control, uint8_t *frame, uint8_t *length)
 {
     uint16_t crc16;
+    uint32_t pending_mask;
+    uint32_t channel_bit;
+    uint16_t coil_addr;
+    uint16_t coil_value;
+
     if(control == 0 || frame == 0 || length == 0) return 0U;
     if(control->driver_id != DEVICE_CONTROL_DRIVER_SGBJQ ||
        control->request.operation != MBUS_OPERATION_SET_OUTPUT) return 0U;
 
+    pending_mask = control->request.target_mask & (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT) & ~g_active_control_sent_mask;
+    if((pending_mask & MBUS_OUTPUT_SOUND) != 0U)
+    {
+        channel_bit = MBUS_OUTPUT_SOUND;
+        coil_addr = 0x0018U;
+    }
+    else if((pending_mask & MBUS_OUTPUT_LIGHT) != 0U)
+    {
+        channel_bit = MBUS_OUTPUT_LIGHT;
+        coil_addr = 0x0021U;
+    }
+    else
+    {
+        return 0U;
+    }
+
+    coil_value = (control->final_outputs & channel_bit) != 0U ? 0xFF00U : 0x0000U;
+    g_active_control_coil_addr = coil_addr;
+    g_active_control_coil_value = coil_value;
+
     frame[0] = control->request.addr;
     frame[1] = 0x05U;
-    frame[2] = 0x00U;
-    frame[3] = 0x00U;
-    frame[4] = (control->final_outputs & MBUS_OUTPUT_SOUND_LIGHT) != 0U ? 0xFFU : 0x00U;
-    frame[5] = 0x00U;
+    frame[2] = (uint8_t)(coil_addr >> 8);
+    frame[3] = (uint8_t)coil_addr;
+    frame[4] = (uint8_t)(coil_value >> 8);
+    frame[5] = (uint8_t)coil_value;
     crc16 = CalcCrc16(frame, 6U);
     frame[6] = (uint8_t)(crc16 & 0xFFU);
     frame[7] = (uint8_t)(crc16 >> 8);
@@ -225,7 +255,6 @@ static uint8_t MBusCtrl_BuildControlFrame(const MBusQueuedControl *control, uint
     return 1U;
 }
 
-/* 发送当前控制事务；所有UART2控制报文只能由回路2任务调用这里发送。 */
 static uint8_t MBusCtrl_SendActiveControl(void)
 {
     uint8_t frame[8] = {0};
@@ -254,6 +283,9 @@ static uint8_t MBusCtrl_ServiceControlRequest(void)
         g_control_queue_count--;
         taskEXIT_CRITICAL();
         g_active_control_valid = 1U;
+        g_active_control_sent_mask = 0U;
+        g_active_control_coil_addr = 0U;
+        g_active_control_coil_value = 0U;
 
         if(MBusCtrl_CanExecute(&g_active_control) == 0U || MBusCtrl_SendActiveControl() == 0U)
         {
@@ -341,13 +373,13 @@ static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
 {
     uint8_t sound_light_addr;
     MBusCtrlRequest request = {0};
-    if(manual_state != 1U && manual_state != 2U) return;
+    if(manual_state > 1U) return;
     sound_light_addr = MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ);
     if(sound_light_addr == 0U) return;
     request.addr = sound_light_addr;
     request.operation = MBUS_OPERATION_SET_OUTPUT;
     request.target_mask = MBUS_OUTPUT_SOUND_LIGHT;
-    request.target_value = manual_state == 2U ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
+    request.target_value = manual_state == 1U ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
     (void)MBusCtrl_Request(&request);
 }
 
@@ -562,7 +594,7 @@ uint8_t MBusCtrl_IsAlarmState(uint8_t addr)
     switch (g_mbus_ctrl_devices[addr].dev_type)
     {
         case MBUS_CONTROL_DEV_SGBJQ:  return (state == 1);
-        case MBUS_CONTROL_DEV_XR2200: return (state == 2);
+        case MBUS_CONTROL_DEV_XR2200: return (state == 1);
         case MBUS_CONTROL_DEV_FIRE_DISPLAY: return (state == 1);
         default: return 0;
     }
@@ -632,17 +664,20 @@ static void MBusControlPollingManage(void)
             }
         }
         modbus_buff[2]=0U;
-        modbus_buff[3]=g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_stage == MBUS2_STAGE_NATIONAL ? 0x0DU : 0x0EU;
+        modbus_buff[3]=0U;
+        modbus_buff[4]=0U;
+        modbus_buff[5]=3U;
         g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending = 1U;
         g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].last_identify_tick = now;
     }
     else
     {
-        modbus_buff[2]=0U; modbus_buff[3]=0U;
+        modbus_buff[2]=0U; modbus_buff[3]=0x07U;
+        modbus_buff[4]=0U; modbus_buff[5]=1U;
         if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD)
             g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].disconnect_count++;
     }
-    modbus_buff[0]=g_mbus_ctrl_polling_addr; modbus_buff[1]=0x04U; modbus_buff[4]=0U; modbus_buff[5]=1U;
+    modbus_buff[0]=g_mbus_ctrl_polling_addr; modbus_buff[1]=0x04U;
     crc16=CalcCrc16(modbus_buff,6U); modbus_buff[6]=crc16 & 0xFFU; modbus_buff[7]=crc16 >> 8;
     if(SendDataToMBus2Queue(modbus_buff,8U) != 1 && g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].type_confirmed == 0U)
         g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending = 0U;
@@ -673,46 +708,42 @@ static void MBus2ReceiveSlaveDataDeal(void)
             if (dev_addr == 0 || dev_addr >= MBUS_CONTROL_MAX_DEVICES)
                 return;
 
-            if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x04 && uartbuff[MBUS2SITE].recepetion_len == 7U && uartbuff[MBUS2SITE].recepetion_buff[2] == 2U)
+            if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x04)
             {
-                uint16_t data = (uartbuff[MBUS2SITE].recepetion_buff[3] << 8) | uartbuff[MBUS2SITE].recepetion_buff[4];
-                if(g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U)
+                if(g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U &&
+                   uartbuff[MBUS2SITE].recepetion_len == 11U &&
+                   uartbuff[MBUS2SITE].recepetion_buff[2] == 6U)
                 {
+                    uint16_t national_code = ((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[3] << 8) | uartbuff[MBUS2SITE].recepetion_buff[4];
+                    uint16_t product_code = ((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[5] << 8) | uartbuff[MBUS2SITE].recepetion_buff[6];
+                    uint8_t type = MBusCtrl_MapProductType(product_code);
                     g_mbus_ctrl_devices[dev_addr].identify_request_pending = 0U;
-                    if(g_mbus_ctrl_devices[dev_addr].identify_stage == MBUS2_STAGE_NATIONAL)
-                    {
-                        g_mbus_ctrl_devices[dev_addr].national_type_code = data;
-                        g_mbus_ctrl_devices[dev_addr].identify_stage = MBUS2_STAGE_PRODUCT;
-                        g_mbus_ctrl_devices[dev_addr].identify_fail_count = 0U;
-                    }
+                    g_mbus_ctrl_devices[dev_addr].national_type_code = national_code;
+                    if(type == MBUS_CONTROL_DEV_UNKNOWN)
+                        MBusCtrl_MarkIdentifyFailure(dev_addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
+                    else if(DeviceRegistry_IsNationalProductMatch(national_code, product_code) == 0U)
+                        MBusCtrl_MarkIdentifyFailure(dev_addr, DeviceRegistry_IsNationalTypeKnown(national_code) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
                     else
                     {
-                        uint8_t type = MBusCtrl_MapProductType(data);
-                        if(type == MBUS_CONTROL_DEV_UNKNOWN)
-                            MBusCtrl_MarkIdentifyFailure(dev_addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
-                        else if(DeviceRegistry_IsNationalProductMatch(g_mbus_ctrl_devices[dev_addr].national_type_code, data) == 0U)
-                            MBusCtrl_MarkIdentifyFailure(dev_addr, DeviceRegistry_IsNationalTypeKnown(g_mbus_ctrl_devices[dev_addr].national_type_code) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
-                        else
-                        {
-                            g_mbus_ctrl_devices[dev_addr].product_code = data;
-                            g_mbus_ctrl_devices[dev_addr].dev_type = type;
-                            g_mbus_ctrl_devices[dev_addr].type_confirmed = 1U;
-                            g_mbus_ctrl_devices[dev_addr].identify_stage = MBUS2_STAGE_COMPLETE;
-                            g_mbus_ctrl_devices[dev_addr].identify_fail_count = 0U;
-                            g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
-                            DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP2, dev_addr, DEVICE_IDENTIFY_OK);
-                        }
+                        g_mbus_ctrl_devices[dev_addr].product_code = product_code;
+                        g_mbus_ctrl_devices[dev_addr].dev_type = type;
+                        g_mbus_ctrl_devices[dev_addr].type_confirmed = 1U;
+                        g_mbus_ctrl_devices[dev_addr].identify_stage = MBUS2_STAGE_COMPLETE;
+                        g_mbus_ctrl_devices[dev_addr].identify_fail_count = 0U;
+                        g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
+                        DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP2, dev_addr, DEVICE_IDENTIFY_OK);
                     }
                 }
-                else
+                else if(g_mbus_ctrl_devices[dev_addr].identify_request_pending == 0U &&
+                        uartbuff[MBUS2SITE].recepetion_len == 7U &&
+                        uartbuff[MBUS2SITE].recepetion_buff[2] == 2U)
                 {
+                    uint16_t data = ((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[3] << 8) | uartbuff[MBUS2SITE].recepetion_buff[4];
                     g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
-                    g_mbus_ctrl_devices[dev_addr].sensor_state = (uint8_t)data;
-                    if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_XR2200) MBusCtrl_UpdateManualSoundLightTarget((uint8_t)data);
-                    else if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_SGBJQ && data <= 1U)
+                    if(data <= 1U)
                     {
-                        g_control_confirmed_valid[dev_addr] = 1U;
-                        g_control_confirmed_outputs[dev_addr] = data != 0U ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
+                        g_mbus_ctrl_devices[dev_addr].sensor_state = (uint8_t)data;
+                        if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_XR2200) MBusCtrl_UpdateManualSoundLightTarget((uint8_t)data);
                     }
                 }
             }
@@ -728,16 +759,26 @@ static void MBus2ReceiveSlaveDataDeal(void)
                      dev_addr == g_active_control.request.addr &&
                      g_active_control.driver_id == DEVICE_CONTROL_DRIVER_SGBJQ &&
                      uartbuff[MBUS2SITE].recepetion_len >= 8U &&
-                     uartbuff[MBUS2SITE].recepetion_buff[2] == 0x00U &&
-                     uartbuff[MBUS2SITE].recepetion_buff[3] == 0x00U &&
-                     uartbuff[MBUS2SITE].recepetion_buff[4] == ((g_active_control.final_outputs & MBUS_OUTPUT_SOUND_LIGHT) != 0U ? 0xFFU : 0x00U) &&
-                     uartbuff[MBUS2SITE].recepetion_buff[5] == 0x00U)
+                     (((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[2] << 8) | uartbuff[MBUS2SITE].recepetion_buff[3]) == g_active_control_coil_addr &&
+                     (((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[4] << 8) | uartbuff[MBUS2SITE].recepetion_buff[5]) == g_active_control_coil_value)
             {
-                /* 仅接受当前地址、当前目标值完全一致的05回显，避免把轮询或其他设备应答误认成功。 */
+                uint32_t done_bit = (g_active_control_coil_addr == 0x0018U) ? MBUS_OUTPUT_SOUND :
+                                    (g_active_control_coil_addr == 0x0021U) ? MBUS_OUTPUT_LIGHT : 0U;
                 g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
-                g_control_confirmed_valid[dev_addr] = 1U;
-                g_control_confirmed_outputs[dev_addr] = g_active_control.final_outputs;
-                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_SUCCESS);
+                g_active_control_sent_mask |= done_bit;
+                if((g_active_control.request.target_mask & (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT) & ~g_active_control_sent_mask) == 0U)
+                {
+                    g_control_confirmed_valid[dev_addr] = 1U;
+                    g_control_confirmed_outputs[dev_addr] = g_active_control.final_outputs;
+                    MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_SUCCESS);
+                }
+                else
+                {
+                    g_control_wait_response = 0U;
+                    g_control_retry_count = 0U;
+                    if(MBusCtrl_SendActiveControl() == 0U)
+                        MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
+                }
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x85U &&
                      g_active_control_valid != 0U && dev_addr == g_active_control.request.addr)
@@ -847,28 +888,13 @@ int8_t ReceiveDataFromMBus2Queue(uint8_t *buf)
 /* 向火灾显示盘事件队列推送一条事件(回路/地址/探测器类型/报警类型) */
 uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type)
 {
-    if (loop == 0 || addr == 0 || detector_type < MBUS_FIRE_DISPLAY_DETECT_TEMP ||
-        detector_type > MBUS_FIRE_DISPLAY_DETECT_MANUAL || alarm_type < MBUS_FIRE_DISPLAY_ALARM_FIRE ||
-        alarm_type > MBUS_FIRE_DISPLAY_ALARM_FAULT)
-        return 0;
-    taskENTER_CRITICAL();
-    if (g_fire_display_event_count >= MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN)
-    {
-        taskEXIT_CRITICAL();
-        return 0;
-    }
-    g_fire_display_event_queue[g_fire_display_event_tail].loop = loop;
-    g_fire_display_event_queue[g_fire_display_event_tail].addr = addr;
-    g_fire_display_event_queue[g_fire_display_event_tail].detector_type = detector_type;
-    g_fire_display_event_queue[g_fire_display_event_tail].alarm_type = alarm_type;
-    g_fire_display_event_tail = (g_fire_display_event_tail + 1U) % MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN;
-    g_fire_display_event_count++;
-    taskEXIT_CRITICAL();
-    return 1;
+    (void)loop;
+    (void)addr;
+    (void)detector_type;
+    (void)alarm_type;
+    return 0U;
 }
 
-
-/* 测试注入: 设置MBus2控制设备传感器状态(bsp_test_inject调用) */
 void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state)
 {
     if (addr == 0 || addr >= MBUS_CONTROL_MAX_DEVICES)

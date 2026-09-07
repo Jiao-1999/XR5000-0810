@@ -759,6 +759,16 @@ typedef enum
 }BackupStateJudgeState;
 
 BackupStateJudgeState backup_judge_state = BACKUP_INIT_STATE;
+
+/* 软件复位只置请求标志，备电状态机由ADC任务自行安全重启。 */
+static volatile uint8_t backup_power_recheck_request = 0;
+static uint8_t backup_power_recheck_active = 0;
+
+void BackupPowerRequestRecheck(void)
+{
+	backup_power_recheck_request = 1;
+}
+
 uint8_t over_flow_flag = 0;
 uint16_t time_over_flow = 0;
 
@@ -768,6 +778,21 @@ void MainAndStandbyPowerJudge(void)
 {
 	uint16_t voltage_adc_value = 0;
 	uint16_t curr_adc_value = 0;
+
+	/* 软件复位后从已知继电器状态重新执行完整备电检测，不改变当前显示值。 */
+	if(backup_power_recheck_request != 0)
+	{
+		backup_power_recheck_request = 0;
+		backup_power_recheck_active = 1;
+		backup_judge_state = BACKUP_INIT_STATE;
+		open_circuit_judge_timeout = baojingjishi;
+		exit_circuit_judge_timeout = 0;
+		curr_back_up_power_timeout = 0;
+		battary_capacity_read_flag = 0;
+		battary_charge_ctrl_counter = 0;
+		/* 先断开充电通路，避免无电池时的回灌电压被误判为在线。 */
+		BatteryChargeRelayCtrl(JDQ_OFF);
+	}
 
 //	uint8_t test_buff[32];
 //	
@@ -839,6 +864,24 @@ void MainAndStandbyPowerJudge(void)
 	
 	voltage_adc_value = CaculateAdcSmoothValue(ADC_DMA_BUFF, BattryAdcSite); // 获取备电电池电压ADC值
 	voltage_adc_value = (voltage_adc_value * adc2voltage); // 将备电电池电压ADC值转为电压值
+
+	/* 软件复位专用重检：断开充电1秒后读取真实电池端电压。 */
+	if(backup_power_recheck_active != 0 && zhu_state != 0 &&
+	   (uint16_t)(baojingjishi - open_circuit_judge_timeout) >= 1)
+	{
+		backup_power_recheck_active = 0;
+		if(voltage_adc_value < 800)
+		{
+			bei_state = open_circuit;
+			backup_judge_state = BACKUP_OFFLINE_STATE;
+		}
+		else
+		{
+			bei_state = normal_charge;
+			backup_judge_state = BACKUP_INIT_STATE;
+			BatteryChargeRelayCtrl(JDQ_ON);
+		}
+	}
 
 	if(zhu_state == 0) // 如果是备电工作 如果备电不存在则不工作 若备电存在则不用判断
 	{

@@ -49,7 +49,9 @@ typedef enum {
 } MBusCtrlDevType;
 
 /* 当前XR-SGBJQ协议把声音和灯光作为一个整体线圈控制。 */
-#define MBUS_OUTPUT_SOUND_LIGHT       DEVICE_OUTPUT_1
+#define MBUS_OUTPUT_SOUND             DEVICE_OUTPUT_1
+#define MBUS_OUTPUT_LIGHT             DEVICE_OUTPUT_2
+#define MBUS_OUTPUT_SOUND_LIGHT       (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT)
 
 /* 通用控制操作。暂未实现的操作会返回MBUS_CTRL_UNSUPPORTED，不发送任何报文。 */
 typedef enum {

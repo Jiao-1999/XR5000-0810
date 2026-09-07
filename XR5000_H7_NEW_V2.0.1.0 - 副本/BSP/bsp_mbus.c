@@ -5,26 +5,26 @@
 #include "bsp_debug.h"
 #include "w25qxx.h"
 
-// ï¿½ï¿½ï¿½Ä¼ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½
+// ´ËÎÄ¼þÎª¶þ×ÜÏßÍ¨ÐÅ
 
-//ï¿½ï¿½ï¿½ÃµÄµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
+//ÉèÖÃµÄµãÐÍÅúÁ¿ÉÏÏßÉè±¸ÊýÁ¿
 uint8_t setPointDevicelivenumber = 0;
 
-uint8_t cang_polling = 1; // ï¿½ï¿½Ñ¯ï¿½ï¿½Ê¼Öµï¿½ï¿½×¢ï¿½ï¿½Îªï¿½Ë¼ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Â±ï¿½ï¿½1ï¿½ï¿½Ê¼ï¿½ï¿½
+uint8_t cang_polling = 1; // ÂÖÑ¯³õÊ¼Öµ£¨×¢£ºÎªÁË¼æÈÝÆÁÄ»ÏÔÊ¾£¬ÏÂ±ê´Ó1¿ªÊ¼£©
 
-// ï¿½ï¿½ï¿½ß¿ï¿½ï¿½ï¿½ ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
+// ÉÏÏß¿ØÖÆ ÊÇ·ñÉèÖÃÎªÉÏÏß
 uint8_t PointTypeMixtureOnlieState[MIXTURE_DEVICE_SUM] = {0};
-// ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ ï¿½Ð¶ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+// µôÏß¼ÆÊý ÅÐ¶ÏÊÇ·ñµôÏß
 uint8_t PointTypeMixtureDisconnectCount[MIXTURE_DEVICE_SUM] = {0};
 
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Â¶ï¿½
+// ½ÓÊÕÊý¾Ý ÎÂ¶È
 uint16_t PointTypeMixtureReceiveDataTemper[MIXTURE_DEVICE_SUM] = {0};
-// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+// ½ÓÊÕÊý¾Ý ÑÌÎí
 uint16_t PointTypeMixtureReceiveDataSmoke[MIXTURE_DEVICE_SUM] = {0};
 
-// ï¿½ï¿½ï¿½ï¿½×´Ì¬ ï¿½Â¶ï¿½
+// ½ÓÊÕ×´Ì¬ ÎÂ¶È
 uint8_t PointTypeMixtureReceiveStateTemper[MIXTURE_DEVICE_SUM] = {0};
-// ï¿½ï¿½ï¿½ï¿½×´Ì¬ ï¿½ï¿½ï¿½ï¿½
+// ½ÓÊÕ×´Ì¬ ÑÌÎí
 uint8_t PointTypeMixtureReceiveStateSmoke[MIXTURE_DEVICE_SUM] = {0};
 
 //
@@ -48,7 +48,7 @@ void ReadPointTypeSetOnlieState(void)
 	
 	for(uint16_t i = 0; i <= MIXTURE_DEVICE_MAX_ADDR; i++)
 	{
-		if(PointTypeMixtureOnlieState[i] > 1U)//ï¿½Ð¶ï¿½ï¿½Ç·ï¿½Îªï¿½ï¿½Ò»ï¿½ï¿½Ð´ï¿½ï¿½
+		if(PointTypeMixtureOnlieState[i] > 1U)//ÅÐ¶ÏÊÇ·ñÎªµÚÒ»´ÎÐ´Èë
 		{
 			PointTypeMixtureOnlieState[i] = 0;
 		}
@@ -66,10 +66,10 @@ void MBus2SendString(uint8_t* buf, uint8_t len)
 	HAL_UART_Transmit(&huart2,buf,len,0xff);
 }
 
-// È«ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½ï¿½Í²ï¿½Ì½
+// È«²¿ÏÂÏßµãÐÍ²ÖÌ½
 void PointTypeMixtureOnlieStateDeInit(void)
 {
-	memset(PointTypeMixtureOnlieState, 0, sizeof(PointTypeMixtureOnlieState));//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	memset(PointTypeMixtureOnlieState, 0, sizeof(PointTypeMixtureOnlieState));//Çå¿ÕÊý×é
 	for(uint8_t addr = 1U; addr <= MIXTURE_DEVICE_MAX_ADDR; addr++) MBus1ClearIdentification(addr);
 }
 
@@ -79,7 +79,7 @@ void PointTypeMixtureOnlieStateBatchSetting(uint8_t *new_online_state, uint8_t u
 	{
 		return;
 	}
-	PointTypeMixtureOnlieStateDeInit(); // ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	PointTypeMixtureOnlieStateDeInit(); // ÏÈÇå¿Õ×´Ì¬
 	for(uint8_t i = 0; i < update_len; i++)
 	{
 		if(new_online_state[i] != 1)
@@ -101,12 +101,12 @@ void PointTypeMixtureOnlieStateSingleSetting(uint8_t detector_id, uint8_t online
 }
 
 /*
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- * ï¿½ï¿½Ò»ï¿½à£ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ô´ PointTypeMixtureOnlieState[]
- * ï¿½ï¿½ï¿½å£ºï¿½Ã»ï¿½Í¨ï¿½ï¿½UIï¿½ï¿½ï¿½Ãµï¿½"ï¿½ï¿½ï¿½Ã¸ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"ï¿½ï¿½ï¿½ï¿½Í¼
- *       1 = ï¿½ï¿½ï¿½ï¿½, 0 = ï¿½ï¿½ï¿½ï¿½
- * ×¢ï¿½â£ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ß£ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ = ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ && DisconnectCount < MIXTURE_DEVICE_DISCONNECT_SUM
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+ * µÚÒ»Àà£ºÉÏÏßÉèÖÃ ¡ª Êý¾ÝÔ´ PointTypeMixtureOnlieState[]
+ * º¬Òå£ºÓÃ»§Í¨¹ýUIÉèÖÃµÄ"ÏëÈÃ¸ÃÌ½²âÆ÷ÉÏÏß"µÄÒâÍ¼
+ *       1 = ÉÏÏß, 0 = ÏÂÏß
+ * ×¢Òâ£º²»µÈÓÚÊµ¼ÊÔÚÏß£¡Êµ¼ÊÔÚÏß = ÉèÖÃÉÏÏß && DisconnectCount < MIXTURE_DEVICE_DISCONNECT_SUM
+ * ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
  */
 uint8_t getPointTypeMixtureSettingOnlieState(uint8_t detector_id)
 {
@@ -117,11 +117,11 @@ uint8_t getPointTypeMixtureSettingOnlieState(uint8_t detector_id)
 	return PointTypeMixtureOnlieState[detector_id];
 }
 /*
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- * ï¿½Ú¶ï¿½ï¿½à£ºï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ô´ PointTypeMixtureDisconnectCount[]
- * ï¿½ï¿½ï¿½å£ºÒ»ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ +1ï¿½ï¿½ï¿½Õµï¿½ï¿½Ï·ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½ï¿½ï¿½
- *       >= MIXTURE_DEVICE_DISCONNECT_SUM ï¿½ï¿½ï¿½Ð¶ï¿½Îªï¿½ï¿½ï¿½ï¿½
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+ * µÚ¶þÀà£ºµôÏßÅÐ¶Ï ¡ª Êý¾ÝÔ´ PointTypeMixtureDisconnectCount[]
+ * º¬Òå£ºÒ»´ÎÕæÊµÇëÇó³¬Ê±ºó +1£¬ÊÕµ½ºÏ·¨»Ø¸´ÇåÁã
+ *       >= MIXTURE_DEVICE_DISCONNECT_SUM ¼´ÅÐ¶¨ÎªµôÏß
+ * ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
  */
 uint8_t getPointTypeMixtureDisconnectCount(uint8_t point_mix_id)
 {
@@ -134,14 +134,14 @@ uint8_t getPointTypeMixtureDisconnectCount(uint8_t point_mix_id)
 
 void clearPointTypeMixtureDisconnectCount(void)
 {
-	memset(PointTypeMixtureDisconnectCount, 0, sizeof(PointTypeMixtureDisconnectCount));//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	memset(PointTypeMixtureDisconnectCount, 0, sizeof(PointTypeMixtureDisconnectCount));//Çå¿ÕÊý×é
 }
 /*
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- * ï¿½ï¿½ï¿½ï¿½ï¿½à£ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ô´ PointTypeMixtureReceiveDataTemper/Smoke[]
- * ï¿½ï¿½ï¿½å£ºï¿½ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½Ð½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¶ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
- *       ï¿½ï¿½ MBus1ReceiveSlaveDataDeal() ï¿½ï¿½ï¿½Õµï¿½ï¿½Ï·ï¿½ï¿½Ø¸ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+ * µÚÈýÀà£º½ÓÊÕÊý¾Ý ¡ª Êý¾ÝÔ´ PointTypeMixtureReceiveDataTemper/Smoke[]
+ * º¬Òå£º´ÓÌ½²âÆ÷»Ø¸´ÖÐ½âÎö³öµÄÎÂ¶ÈÖµ»òÑÌÎíÖµ
+ *       ÓÉ MBus1ReceiveSlaveDataDeal() ÔÚÊÕµ½ºÏ·¨»Ø¸´Ê±¸üÐÂ
+ * ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
  */
 uint8_t getPointTypeMixtureReceiveData(ePointTypeDataOrder detect_data_type, uint8_t detect_id)
 {
@@ -149,8 +149,8 @@ uint8_t getPointTypeMixtureReceiveData(ePointTypeDataOrder detect_data_type, uin
 	return (uint8_t)getPointTypeMixtureReceiveData16(detect_data_type, detect_id);
 }
 /*
- *  ï¿½ï¿½ï¿½ï¿½×´Ì¬ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ô´ PointTypeMixtureReceiveStateTemper/Smoke[]
- *  ï¿½ï¿½ï¿½å£ºÌ½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ÐµÄ±ï¿½ï¿½ï¿½×´Ì¬Î»ï¿½ï¿½!=0 ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½
+ *  ½ÓÊÕ×´Ì¬ ¡ª Êý¾ÝÔ´ PointTypeMixtureReceiveStateTemper/Smoke[]
+ *  º¬Òå£ºÌ½²âÆ÷»Ø¸´ÖÐµÄ±¨¾¯×´Ì¬Î»£¬!=0 ±íÊ¾ÕýÔÚ±¨¾¯
  */
 uint8_t getPointTypeMixtureReceiveState(ePointTypeDataOrder detect_data_type, uint8_t detect_id)
 {
@@ -176,11 +176,11 @@ uint8_t getPointTypeMixtureReceiveState(ePointTypeDataOrder detect_data_type, ui
 }
 
 /*
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- * ï¿½ï¿½ï¿½ï¿½ï¿½à£ºÌ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- *  DetectName ï¿½ï¿½ ï¿½Íºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 8001_AI=1, 800C=2ï¿½ï¿½
- *  DetectType ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½Smoke=1ï¿½Ì¸ï¿½, Temper=2ï¿½Â¸Ð£ï¿½
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+ * µÚËÄÀà£ºÌ½²âÆ÷ÊôÐÔ
+ *  DetectName ¡ª ÐÍºÅÃû£¨Èç 8001_AI=1, 800C=2£©
+ *  DetectType ¡ª ¼à²âÀàÐÍ£¨Smoke=1ÑÌ¸Ð, Temper=2ÎÂ¸Ð£©
+ * ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
  */
 uint8_t getPointTypeMixtureDetectName(uint8_t detect_id)
 {
@@ -191,7 +191,7 @@ uint8_t getPointTypeMixtureDetectName(uint8_t detect_id)
 	return PointTypeMixtureDetecteName[detect_id];
 }
 
-// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+// »ñÈ¡´«¸ÐÆ÷ÆôÓÃ×´Ì¬
 uint8_t getPointTypeMixtureDetectType(uint8_t detect_id)
 {
 	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
@@ -212,7 +212,7 @@ uint8_t getPointTypeMixtureDetectOnlineState(uint8_t detect_id)
 
 void clearPointTypeMixtureDetectAllStateMemory(void)
 {
-	memset(PointTypeMixtureAllStateMemory, 0, sizeof(PointTypeMixtureAllStateMemory));//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	memset(PointTypeMixtureAllStateMemory, 0, sizeof(PointTypeMixtureAllStateMemory));//Çå¿ÕÊý×é
 }
 
 uint8_t getPointTypeMixtureDetectDisconnectMemory(uint8_t detect_id)
@@ -292,17 +292,10 @@ void setPointTypeMixtureDetectSmokeMemory(uint8_t detect_id, uint8_t state)
 
 static uint8_t MBus1GetStateClassByRaw(uint8_t type, uint8_t state)
 {
-    if(type == 6U)
+    if(type == 6U || type == 5U)
     {
-        if(state == 1U) return 1U;
-        if(state == 2U) return 2U;
-        if(state == 3U) return 3U;
-    }
-    else if(type == 5U)
-    {
-        if(state == 1U) return 1U;
-        if(state == 2U) return 2U;
-        if(state == 8U || state == 9U) return 3U;
+        if(state == 1U) return 2U;
+        if(state == 8U) return 3U;
     }
     return 0U;
 }
@@ -338,8 +331,6 @@ static uint32_t g_mbus1_last_identify_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint16_t g_mbus1_national_code[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint16_t g_mbus1_product_code[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint8_t g_mbus1_identify_stage[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
-static uint16_t g_mbus1_identify_candidate[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
-static uint8_t g_mbus1_identify_confirm_count[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 static uint32_t g_mbus1_last_offline_probe_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
 #define MBUS1_STAGE_NATIONAL 0U
 #define MBUS1_STAGE_PRODUCT  1U
@@ -370,8 +361,6 @@ static void MBus1ClearIdentification(uint8_t addr)
     g_mbus1_national_code[addr] = 0U;
     g_mbus1_product_code[addr] = 0U;
     g_mbus1_identify_stage[addr] = MBUS1_STAGE_NATIONAL;
-    g_mbus1_identify_candidate[addr] = 0U;
-    g_mbus1_identify_confirm_count[addr] = 0U;
     g_mbus1_last_offline_probe_tick[addr] = 0U;
     PointTypeMixtureDetecteName[addr] = 0U;
     PointTypeMixtureDetecteType[addr] = 0U;
@@ -379,7 +368,7 @@ static void MBus1ClearIdentification(uint8_t addr)
     DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP1, addr, 0U);
 }
 
-/* ï¿½ï¿½È¡Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½), ï¿½ï¿½Ö·ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½0 */
+/* »ñÈ¡Ì½²âÆ÷¹ú±êÉè±¸ÀàÐÍÂë(¹©Áª¶¯Âß¼­ÏÔÊ¾ÓÃ), µØÖ·ÎÞÐ§·µ»Ø0 */
 uint16_t getPointTypeMixtureNationalCode(uint8_t detector_id)
 {
     if(detector_id == 0U || detector_id > MIXTURE_DEVICE_MAX_ADDR) return 0U;
@@ -403,8 +392,6 @@ static void MBus1FinishTransaction(uint8_t addr)
 static void MBus1MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error)
 {
     if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
-    g_mbus1_identify_candidate[addr] = 0U;
-    g_mbus1_identify_confirm_count[addr] = 0U;
     if(error == DEVICE_IDENTIFY_NATIONAL_UNKNOWN || error == DEVICE_IDENTIFY_CODE_MISMATCH)
         g_mbus1_identify_stage[addr] = MBUS1_STAGE_NATIONAL;
     if(g_mbus1_identify_fail_count[addr] < MBUS1_IDENTIFY_FAIL_THRESHOLD) g_mbus1_identify_fail_count[addr]++;
@@ -476,7 +463,7 @@ static void MBus1StartTransaction(uint8_t addr)
     uint32_t transaction_tick;
     if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR || PointTypeMixtureOnlieState[addr] == 0U) return;
     identify_stage = g_mbus1_type_confirmed[addr] == 0U ? g_mbus1_identify_stage[addr] : MBUS1_STAGE_COMPLETE;
-    MBus1BuildReadCommand(modbus_buff, addr, identify_stage == MBUS1_STAGE_NATIONAL ? 0x000DU : identify_stage == MBUS1_STAGE_PRODUCT ? 0x000EU : 0U, identify_stage == MBUS1_STAGE_COMPLETE ? 4U : 1U);
+    MBus1BuildReadCommand(modbus_buff, addr, identify_stage == MBUS1_STAGE_COMPLETE ? 0x000CU : 0x0000U, identify_stage == MBUS1_STAGE_COMPLETE ? 14U : 3U);
     transaction_tick = osKernelGetTickCount();
 
     taskENTER_CRITICAL();
@@ -523,68 +510,37 @@ void MBus1ReceiveSlaveDataDeal(void)
     if(CalcCrc16(buf, len - 2U) != crc16) return;
     addr = buf[0];
     if(addr != g_mbus1_transaction_addr || addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR || buf[1] != 0x04U) return;
-    byte_count = buf[2]; expected_count = g_mbus1_transaction_identify_stage == MBUS1_STAGE_COMPLETE ? 8U : 2U;
+    byte_count = buf[2]; expected_count = g_mbus1_transaction_identify_stage == MBUS1_STAGE_COMPLETE ? 28U : 6U;
     if(byte_count != expected_count || len != (uint16_t)(byte_count + 5U)) return;
-    if(g_mbus1_transaction_identify_stage == MBUS1_STAGE_NATIONAL)
+    if(g_mbus1_transaction_identify_stage != MBUS1_STAGE_COMPLETE)
     {
         uint16_t national_code = ((uint16_t)buf[3] << 8) | buf[4];
-        if(g_mbus1_identify_candidate[addr] != national_code)
-        {
-            g_mbus1_identify_candidate[addr] = national_code;
-            g_mbus1_identify_confirm_count[addr] = 1U;
-        }
-        else if(g_mbus1_identify_confirm_count[addr] < 2U)
-        {
-            g_mbus1_identify_confirm_count[addr]++;
-        }
-        if(g_mbus1_identify_confirm_count[addr] >= 2U)
+        uint16_t product_type = ((uint16_t)buf[5] << 8) | buf[6];
+        uint16_t sensor_mask = ((uint16_t)buf[7] << 8) | buf[8];
+        if(DeviceRegistry_IsSupportedOnLoop(product_type, DEVICE_REGISTRY_LOOP1) == 0U)
+            MBus1MarkIdentifyFailure(addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
+        else if(DeviceRegistry_IsNationalProductMatch(national_code, product_type) == 0U)
+            MBus1MarkIdentifyFailure(addr, DeviceRegistry_IsNationalTypeKnown(national_code) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
+        else if(DeviceRegistry_RequiresSensorMask(product_type) != 0U && DeviceRegistry_IsSensorMaskValid(product_type, sensor_mask) == 0U)
+            MBus1MarkIdentifyFailure(addr, DEVICE_IDENTIFY_SENSOR_TYPE_UNKNOWN);
+        else
         {
             g_mbus1_national_code[addr] = national_code;
-            g_mbus1_identify_stage[addr] = MBUS1_STAGE_PRODUCT;
-            g_mbus1_identify_candidate[addr] = 0U;
-            g_mbus1_identify_confirm_count[addr] = 0U;
-            g_mbus1_identify_fail_count[addr] = 0U;
-        }
-    }
-    else if(g_mbus1_transaction_identify_stage == MBUS1_STAGE_PRODUCT)
-    {
-        uint16_t product_type = ((uint16_t)buf[3] << 8) | buf[4];
-        if(g_mbus1_identify_candidate[addr] != product_type)
-        {
-            g_mbus1_identify_candidate[addr] = product_type;
-            g_mbus1_identify_confirm_count[addr] = 1U;
-        }
-        else if(g_mbus1_identify_confirm_count[addr] < 2U)
-        {
-            g_mbus1_identify_confirm_count[addr]++;
-        }
-        if(g_mbus1_identify_confirm_count[addr] >= 2U)
-        {
-            if(DeviceRegistry_IsSupportedOnLoop(product_type, DEVICE_REGISTRY_LOOP1) == 0U)
-                MBus1MarkIdentifyFailure(addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
-            else if(DeviceRegistry_IsNationalProductMatch(g_mbus1_national_code[addr], product_type) == 0U)
-                MBus1MarkIdentifyFailure(addr, DeviceRegistry_IsNationalTypeKnown(g_mbus1_national_code[addr]) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
-            else
-            {
-                g_mbus1_product_code[addr] = product_type;
-                PointTypeMixtureDetecteName[addr] = product_type;
-                PointTypeMixtureDetecteType[addr] = (product_type == DEVICE_PRODUCT_XR8002_TEMP) ? 0x20U : 0x01U;
-                g_mbus1_type_confirmed[addr] = 1U;
-                g_mbus1_identify_stage[addr] = MBUS1_STAGE_COMPLETE;
-                g_mbus1_identify_candidate[addr] = 0U;
-                g_mbus1_identify_confirm_count[addr] = 0U;
-                g_mbus1_identify_fail_count[addr] = 0U;
-                DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP1, addr, DEVICE_IDENTIFY_OK);
-            }
+            g_mbus1_product_code[addr] = product_type;
+            PointTypeMixtureDetecteName[addr] = product_type;
+            PointTypeMixtureDetecteType[addr] = (product_type == DEVICE_PRODUCT_XR8002_TEMP) ? 0x20U : 0x01U;
+            g_mbus1_type_confirmed[addr] = 1U;
+            g_mbus1_identify_stage[addr] = MBUS1_STAGE_COMPLETE;
+                            g_mbus1_identify_fail_count[addr] = 0U;
+            DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP1, addr, DEVICE_IDENTIFY_OK);
         }
     }
     else
     {
         PointTypeMixtureReceiveDataTemper[addr] = ((uint16_t)buf[3] << 8) | buf[4];
-        if(buf[5] != 0U || buf[9] != 0U) return;
-        PointTypeMixtureReceiveStateTemper[addr] = buf[6];
-        PointTypeMixtureReceiveDataSmoke[addr] = ((uint16_t)buf[7] << 8) | buf[8];
-        PointTypeMixtureReceiveStateSmoke[addr] = buf[10];
+        PointTypeMixtureReceiveDataSmoke[addr] = ((uint16_t)buf[5] << 8) | buf[6];
+        PointTypeMixtureReceiveStateTemper[addr] = (uint8_t)(((uint16_t)buf[27] << 8) | buf[28]);
+        PointTypeMixtureReceiveStateSmoke[addr] = (uint8_t)(((uint16_t)buf[29] << 8) | buf[30]);
     }
     MBus1FinishTransaction(addr);
 }
