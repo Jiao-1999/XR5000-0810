@@ -29,7 +29,8 @@ static uint8_t g_mbus_ctrl_polling_addr = 1; /* 当前轮询地址(1~63循环) */
 #define MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN       64U  /* 火灾显示盘事件队列最大长度 */
 #define MBUS_FIRE_DISPLAY_RESPONSE_WAIT_TICKS   15U  /* 火灾显示盘响应等待超时(tick) */
 #define MBUS_FIRE_DISPLAY_MAX_RETRY             3U   /* 火灾显示盘最大重试次数 */
-#define MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS    15U  /* 声光报警器响应等待超时(tick) */
+#define MBUS_SOUND_LIGHT_FIRST_WAIT_TICKS        3U   /* 首轮通道最多等待约60ms，优先完成声光双发 */
+#define MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS    15U  /* 后补重试响应等待超时(tick) */
 #define MBUS_SOUND_LIGHT_MAX_RETRY              3U   /* 声光报警器最大重试次数 */
 #define MBUS_CONTROL_REQUEST_QUEUE_LEN          64U   /* 通用控制请求静态队列长度 */
 
@@ -74,7 +75,9 @@ static uint8_t g_control_retry_count = 0U;
 static uint32_t g_active_control_sent_mask = 0U;
 static uint16_t g_active_control_coil_addr = 0U;
 static uint16_t g_active_control_coil_value = 0U;
-static uint8_t g_active_control_result = MBUS_CTRL_STATUS_SUCCESS; /* 双通道执行过程中的汇总结果 */
+static uint8_t g_active_control_result = MBUS_CTRL_STATUS_SUCCESS; /* 双通道后补重试后的汇总结果 */
+static uint32_t g_active_control_attempted_mask = 0U; /* 首轮已经发送过的通道 */
+static uint8_t g_active_control_retry_phase = 0U;     /* 首轮双发完成后进入失败通道重试 */
 
 /* 每个物理地址独立保存目标值、确认值和异步结果，便于后续扩展更多输出设备。 */
 static uint32_t g_control_target_outputs[MBUS_CONTROL_MAX_DEVICES];
@@ -217,6 +220,8 @@ static void MBusCtrl_FinishActiveControl(MBusCtrlStatus result)
     g_active_control_coil_addr = 0U;
     g_active_control_coil_value = 0U;
     g_active_control_result = MBUS_CTRL_STATUS_SUCCESS;
+    g_active_control_attempted_mask = 0U;
+    g_active_control_retry_phase = 0U;
 }
 
 /* 请求执行前再次检查设备，防止排队期间设备被下线或重新识别。 */
@@ -242,7 +247,12 @@ static uint8_t MBusCtrl_BuildControlFrame(const MBusQueuedControl *control, uint
     if(control->driver_id != DEVICE_CONTROL_DRIVER_SGBJQ ||
        control->request.operation != MBUS_OPERATION_SET_OUTPUT) return 0U;
 
-    pending_mask = control->request.target_mask & (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT) & ~g_active_control_sent_mask;
+    if(g_active_control_retry_phase == 0U)
+        pending_mask = control->request.target_mask & (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT) &
+                       ~g_active_control_attempted_mask;
+    else
+        pending_mask = control->request.target_mask & (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT) &
+                       ~g_active_control_sent_mask;
     if((pending_mask & MBUS_OUTPUT_SOUND) != 0U)
     {
         channel_bit = MBUS_OUTPUT_SOUND;
@@ -287,31 +297,56 @@ static uint8_t MBusCtrl_SendActiveControl(void)
     return 1U;
 }
 
-/* 一个通道无应答或异常时继续下一个通道，全部处理完成后再汇总控制结果。 */
+/* 首轮优先把声音和灯光都发出；未确认的通道在首轮结束后单独补发。 */
 static void MBusCtrl_CompleteActiveChannel(MBusCtrlStatus channel_result)
 {
     uint8_t addr = g_active_control.request.addr;
+    uint32_t target_mask = g_active_control.request.target_mask &
+                           (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT);
     uint32_t done_bit = (g_active_control_coil_addr == 0x0018U) ? MBUS_OUTPUT_SOUND :
                         (g_active_control_coil_addr == 0x0021U) ? MBUS_OUTPUT_LIGHT : 0U;
-    if(channel_result != MBUS_CTRL_STATUS_SUCCESS &&
-       g_active_control_result == MBUS_CTRL_STATUS_SUCCESS)
-        g_active_control_result = (uint8_t)channel_result;
-    g_active_control_sent_mask |= done_bit;
+
     g_control_wait_response = 0U;
     g_control_wait_ticks = 0U;
     g_control_retry_count = 0U;
-
-    if((g_active_control.request.target_mask & (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT) &
-        ~g_active_control_sent_mask) == 0U)
+    if(g_active_control_retry_phase == 0U)
     {
-        if(g_active_control_result == MBUS_CTRL_STATUS_SUCCESS)
+        g_active_control_attempted_mask |= done_bit;
+        if(channel_result == MBUS_CTRL_STATUS_SUCCESS)
+            g_active_control_sent_mask |= done_bit;
+
+        if((target_mask & ~g_active_control_attempted_mask) == 0U)
         {
-            g_control_confirmed_valid[addr] = 1U;
-            g_control_confirmed_outputs[addr] = g_active_control.final_outputs;
+            if((target_mask & ~g_active_control_sent_mask) == 0U)
+            {
+                g_control_confirmed_valid[addr] = 1U;
+                g_control_confirmed_outputs[addr] = g_active_control.final_outputs;
+                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_SUCCESS);
+                return;
+            }
+            g_active_control_retry_phase = 1U;
         }
-        MBusCtrl_FinishActiveControl((MBusCtrlStatus)g_active_control_result);
     }
-    else if(MBusCtrl_SendActiveControl() == 0U)
+    else
+    {
+        g_active_control_sent_mask |= done_bit;
+        if(channel_result != MBUS_CTRL_STATUS_SUCCESS &&
+           g_active_control_result == MBUS_CTRL_STATUS_SUCCESS)
+            g_active_control_result = (uint8_t)channel_result;
+
+        if((target_mask & ~g_active_control_sent_mask) == 0U)
+        {
+            if(g_active_control_result == MBUS_CTRL_STATUS_SUCCESS)
+            {
+                g_control_confirmed_valid[addr] = 1U;
+                g_control_confirmed_outputs[addr] = g_active_control.final_outputs;
+            }
+            MBusCtrl_FinishActiveControl((MBusCtrlStatus)g_active_control_result);
+            return;
+        }
+    }
+
+    if(MBusCtrl_SendActiveControl() == 0U)
     {
         if(g_active_control_result == MBUS_CTRL_STATUS_SUCCESS)
             g_active_control_result = MBUS_CTRL_STATUS_RESPONSE_ERROR;
@@ -339,6 +374,8 @@ static uint8_t MBusCtrl_ServiceControlRequest(void)
         g_active_control_coil_addr = 0U;
         g_active_control_coil_value = 0U;
         g_active_control_result = MBUS_CTRL_STATUS_SUCCESS;
+        g_active_control_attempted_mask = 0U;
+        g_active_control_retry_phase = 0U;
 
         if(MBusCtrl_CanExecute(&g_active_control) == 0U || MBusCtrl_SendActiveControl() == 0U)
         {
@@ -346,16 +383,26 @@ static uint8_t MBusCtrl_ServiceControlRequest(void)
             return 0U;
         }
     }
-    else if(g_control_wait_response != 0U && ++g_control_wait_ticks >= MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS)
+    else if(g_control_wait_response != 0U)
     {
-        if(g_control_retry_count++ < MBUS_SOUND_LIGHT_MAX_RETRY)
+        uint8_t wait_limit = g_active_control_retry_phase == 0U ?
+                             MBUS_SOUND_LIGHT_FIRST_WAIT_TICKS :
+                             MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS;
+        if(++g_control_wait_ticks >= wait_limit)
         {
-            if(MBusCtrl_SendActiveControl() == 0U)
-                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
-        }
-        else
-        {
-            MBusCtrl_CompleteActiveChannel(MBUS_CTRL_STATUS_TIMEOUT);
+            if(g_active_control_retry_phase == 0U)
+            {
+                MBusCtrl_CompleteActiveChannel(MBUS_CTRL_STATUS_TIMEOUT);
+            }
+            else if(g_control_retry_count++ < MBUS_SOUND_LIGHT_MAX_RETRY)
+            {
+                if(MBusCtrl_SendActiveControl() == 0U)
+                    MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
+            }
+            else
+            {
+                MBusCtrl_CompleteActiveChannel(MBUS_CTRL_STATUS_TIMEOUT);
+            }
         }
     }
     return g_active_control_valid != 0U ? 1U : 0U;
