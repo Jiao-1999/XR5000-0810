@@ -1120,9 +1120,9 @@
               <FilePath>..\BSP\bsp_save_ctrl.c</FilePath>
             </File>
             <File>
-              <FileName>bsp_alarm_history_filter.c</FileName>
+              <FileName>bsp_history_filter.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\BSP\bsp_alarm_history_filter.c</FilePath>
+              <FilePath>..\BSP\bsp_history_filter.c</FilePath>
             </File>
             <File>
               <FileName>bsp_device_disable.c</FileName>
