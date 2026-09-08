@@ -5,9 +5,9 @@
  * 通信协议: Modbus RTU, 功能码04(读输入寄存器)/05(写单线圈)/10(写多寄存器),
  *          UART2/115200/8N1, MBUS2SITE=1
  * 设备类型: 声光报警器(XR-SGBJQ,地址60)/手动报警器(XR2200,地址61)/火灾显示盘(XR1530,地址62)
- * 轮询流程: 每10个任务周期(200ms)轮询一个在线设备, 发送04功能码读1个寄存器
+ * 轮询流程: 单事务响应驱动，收到回复后立即调度下一在线设备，04功能码读取状态
  * 控制服务: 声光报警器通过05功能码控制, 火灾显示盘通过10功能码上报事件
- * 掉线检测: 发送失败(队列满)或超时无响应均计掉线, 连续10次判定掉线
+ * 掉线检测: 仅真实问询超时累计失败，连续3次无有效回复判定掉线
  * 回路标识: 回路2, Flash存储地址0x110000, 故障簇ID=0x52(82簇)
  * ============================================================================ */
 
@@ -25,6 +25,10 @@
 
 static MBusCtrlDevice g_mbus_ctrl_devices[MBUS_CONTROL_MAX_DEVICES]; /* 设备实例数组(索引=地址) */
 static uint8_t g_mbus_ctrl_polling_addr = 1; /* 当前轮询地址(1~63循环) */
+#define MBUS_NORMAL_POLL_RESPONSE_WAIT_TICKS    3U  /* 9600波特率下约60ms无回复则释放总线 */
+static uint8_t g_mbus_poll_wait_response = 0U;       /* 普通04问询只允许一个在途事务 */
+static uint8_t g_mbus_poll_wait_ticks = 0U;
+static uint8_t g_mbus_poll_active_addr = 0U;
 
 #define MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN       64U  /* 火灾显示盘事件队列最大长度 */
 #define MBUS_FIRE_DISPLAY_RESPONSE_WAIT_TICKS   15U  /* 火灾显示盘响应等待超时(tick) */
@@ -535,6 +539,9 @@ void MBusCtrl_Init(void)
     g_fire_display_wait_ticks = 0U;
     g_fire_display_retry_count = 0U;
     g_fire_display_active_addr = 0U;
+    g_mbus_poll_wait_response = 0U;
+    g_mbus_poll_wait_ticks = 0U;
+    g_mbus_poll_active_addr = 0U;
     for (uint8_t i = 0; i < MBUS_CONTROL_MAX_DEVICES; i++)
     {
         g_mbus_ctrl_devices[i].online = 0;
@@ -776,10 +783,14 @@ void MBusCtrl_LoadOnlineState(void)
  * 轮询管理: 04功能码读取设备状态寄存器
  * ============================================================ */
 
-/* 轮询下一个在线设备: 构建04功能码帧→发送到MBus2队列→发送失败则计掉线 */
+/* 响应驱动轮询下一个在线设备：收到回复立即继续，无回复约60ms后释放总线。 */
 static void MBusControlPollingManage(void)
 {
-    uint8_t modbus_buff[8]; uint16_t crc16; uint8_t found = 0U; uint32_t now = osKernelGetTickCount();
+    uint8_t modbus_buff[8];
+    uint16_t crc16;
+    uint8_t found = 0U;
+    uint32_t now = osKernelGetTickCount();
+    if(g_mbus_poll_wait_response != 0U) return;
     for (uint8_t i = 0; i < MBUS_CONTROL_MAX_DEVICES; i++)
     {
         g_mbus_ctrl_polling_addr++;
@@ -815,13 +826,59 @@ static void MBusControlPollingManage(void)
         modbus_buff[3]=(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].dev_type ==
                        MBUS_CONTROL_DEV_FIRE_DISPLAY) ? 0x1FU : 0x07U;
         modbus_buff[4]=0U; modbus_buff[5]=1U;
-        if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD)
-            g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].disconnect_count++;
     }
     modbus_buff[0]=g_mbus_ctrl_polling_addr; modbus_buff[1]=0x04U;
     crc16=CalcCrc16(modbus_buff,6U); modbus_buff[6]=crc16 & 0xFFU; modbus_buff[7]=crc16 >> 8;
-    if(SendDataToMBus2Queue(modbus_buff,8U) != 1 && g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].type_confirmed == 0U)
+    if(SendDataToMBus2Queue(modbus_buff,8U) == 1)
+    {
+        g_mbus_poll_active_addr = g_mbus_ctrl_polling_addr;
+        g_mbus_poll_wait_response = 1U;
+        g_mbus_poll_wait_ticks = 0U;
+    }
+    else if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].type_confirmed == 0U)
+    {
         g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].identify_request_pending = 0U;
+    }
+}
+
+/* 仅匹配当前在途地址的有效04/84回复，防止迟到帧释放其他设备事务。 */
+static void MBusCtrl_FinishNormalPoll(uint8_t addr)
+{
+    if(g_mbus_poll_wait_response != 0U && addr == g_mbus_poll_active_addr)
+    {
+        g_mbus_poll_wait_response = 0U;
+        g_mbus_poll_wait_ticks = 0U;
+        g_mbus_poll_active_addr = 0U;
+    }
+}
+
+/* 普通轮询超时不会阻塞控制首发；识别超时在这里记录，正常设备保留失败计数。 */
+static uint8_t MBusCtrl_ServiceNormalPollWait(void)
+{
+    uint8_t addr;
+    if(g_mbus_poll_wait_response == 0U) return 0U;
+    if(++g_mbus_poll_wait_ticks < MBUS_NORMAL_POLL_RESPONSE_WAIT_TICKS) return 1U;
+
+    addr = g_mbus_poll_active_addr;
+    g_mbus_poll_wait_response = 0U;
+    g_mbus_poll_wait_ticks = 0U;
+    g_mbus_poll_active_addr = 0U;
+    if(addr > 0U && addr < MBUS_CONTROL_MAX_DEVICES)
+    {
+        if(g_mbus_ctrl_devices[addr].type_confirmed != 0U)
+        {
+            if(g_mbus_ctrl_devices[addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD)
+                g_mbus_ctrl_devices[addr].disconnect_count++;
+        }
+        else if(g_mbus_ctrl_devices[addr].identify_request_pending != 0U)
+        {
+            g_mbus_ctrl_devices[addr].identify_request_pending = 0U;
+            MBusCtrl_MarkIdentifyFailure(addr,
+                g_mbus_ctrl_devices[addr].identify_stage == MBUS2_STAGE_NATIONAL ?
+                DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
+        }
+    }
+    return 0U;
 }
 
 /* ============================================================
@@ -858,6 +915,7 @@ static void MBus2ReceiveSlaveDataDeal(void)
                     uint16_t national_code = ((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[3] << 8) | uartbuff[MBUS2SITE].recepetion_buff[4];
                     uint16_t product_code = ((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[5] << 8) | uartbuff[MBUS2SITE].recepetion_buff[6];
                     uint8_t type = MBusCtrl_MapProductType(product_code);
+                    MBusCtrl_FinishNormalPoll(dev_addr);
                     g_mbus_ctrl_devices[dev_addr].identify_request_pending = 0U;
                     g_mbus_ctrl_devices[dev_addr].national_type_code = national_code;
                     if(type == MBUS_CONTROL_DEV_UNKNOWN)
@@ -880,6 +938,7 @@ static void MBus2ReceiveSlaveDataDeal(void)
                         uartbuff[MBUS2SITE].recepetion_buff[2] == 2U)
                 {
                     uint16_t data = ((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[3] << 8) | uartbuff[MBUS2SITE].recepetion_buff[4];
+                    MBusCtrl_FinishNormalPoll(dev_addr);
                     g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
                     if(data <= 1U)
                     {
@@ -890,6 +949,7 @@ static void MBus2ReceiveSlaveDataDeal(void)
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x84U && g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U)
             {
+                MBusCtrl_FinishNormalPoll(dev_addr);
                 g_mbus_ctrl_devices[dev_addr].identify_request_pending = 0U;
                 MBusCtrl_MarkIdentifyFailure(dev_addr,
                     g_mbus_ctrl_devices[dev_addr].identify_stage == MBUS2_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
@@ -951,20 +1011,26 @@ static void MBus2ReceiveSlaveDataDeal(void)
 
 /* ============================================================
  * RTOS轮询任务: 主循环→接收处理→控制服务(声光/显示盘)→轮询调度, 间隔20ms
- * 轮询间隔: 每10个周期(200ms)发起一次设备轮询
+ * 轮询间隔: 响应驱动，收到回复后下一任务周期立即轮询下一台
  * 控制服务: 声光报警器优先于火灾显示盘, 有控制事务时暂停轮询
  * ============================================================ */
 
 void MBusControlPollSlaveAndReceiveTask(void* parameter)
 {
     uint8_t modbusbuf[8] = {0};
-    uint8_t mbus_poll_delay_count = 0;
+
 
     for (;;)
     {
         uint8_t mbus2_control_busy = 0U;
 
         MBus2ReceiveSlaveDataDeal();
+        /* 普通04问询保持单事务；收到回复立即释放，约60ms无回复自动超时。 */
+        if(MBusCtrl_ServiceNormalPollWait() != 0U)
+        {
+            osDelay(20);
+            continue;
+        }
         /* 首轮声光双发完成后显示盘优先，未确认通道在后台让行后重试。 */
         if(g_fire_display_wait_response != 0U)
             mbus2_control_busy = MBusCtrl_ServiceFireDisplayEvents();
@@ -989,12 +1055,8 @@ void MBusControlPollSlaveAndReceiveTask(void* parameter)
             continue;
         }
 
-        mbus_poll_delay_count++;
-        if (mbus_poll_delay_count == 10)
-        {
-            mbus_poll_delay_count = 0;
-            MBusControlPollingManage();
-        }
+        MBusControlPollingManage();
+
 
         if (ReceiveDataFromMBus2Queue(modbusbuf) == 1)
         {
