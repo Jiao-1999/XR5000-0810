@@ -121,6 +121,8 @@ extern uint8_t getOutFireSprayState(void);            /* 喷洒状态(非0=喷洒) */
 extern uint8_t getCurrentMainBackupPowerState(void);  /* 1=主电正常 2=备电供电 3=备电故障 */
 extern uint8_t MBusCtrl_GetOnlineCount(void);         /* 回路2(MBus)在线设备数 */
 extern uint8_t RS485Detect_GetOnlineCount(void);      /* 回路3(RS485)在线设备数 */
+/* 系统级状态聚合变量(bsp_internal_board.c 定义, 全局非static, 此处 extern; 0x22 bit8 屏蔽) */
+extern uint8_t shielding_state;     /* 屏蔽聚合: 非0=有设备被屏蔽 (bsp_device_disable.c disabled_count 驱动, 表C.18 bit8) */
 
 /* 在线设备枚举(0x2D 设备列表 / 0x28 注册登记用; 各 .h 已声明, 此处 extern 复用) */
 #define FECBUS_MBUS_MAX_ADDR    64   /* 回路2 MBus 地址上界(有效 1~63) */
@@ -432,26 +434,26 @@ static void FecbusRx_ReplyData(const FecbusRxFrame_t *req, uint8_t func,
 /**
  * @brief  B2: 0x22 设备状态位聚合 (表C.18)
  * @retval 16位状态字 (bit0 手/自动 ... bit9 喷洒)
- * @note   已接源: bit0 手自动, bit1 备电供电, bit2 电源故障, bit3 报警, bit4 启动,
- *         bit7 故障, bit9 喷洒。暂无干净聚合源的位(bit5 反馈/bit6 监管/bit8 屏蔽/
- *         bit10 应急)置 0, TODO 待接聚合源(见整改规划数据源定位表)。
+ * @note   已接源: bit0 手自动, bit1 备电供电, bit2 电源故障(主/备电), bit3 报警,
+ *         bit4 启动, bit7 故障, bit8 屏蔽(shielding_state), bit9 喷洒。
+ *         bit5 反馈(源待定)/bit6 监管(工程未实现)/bit10 应急: 无有效源暂置0, 见内注释。
  */
 static uint16_t FecbusRx_BuildDevStatus(void)
 {
     uint16_t st    = 0;
     uint8_t  power = getCurrentMainBackupPowerState();   /* 1主电正常 2备电供电 3备电故障 */
 
-    if (SystemSaveInfo.system_hand_or_auto_state) { st |= (uint16_t)(1u << 0); }  /* bit0 手动 */
+    if (!SystemSaveInfo.system_hand_or_auto_state) { st |= (uint16_t)(1u << 0); }  /* bit0=1 自动(表C.18:0手动/1自动; state:0自动/1手动, 故取反) */
     if (power == 2)                               { st |= (uint16_t)(1u << 1); }  /* bit1 备电供电 */
-    if (power == 3)                               { st |= (uint16_t)(1u << 2); }  /* bit2 电源故障 */
+    if (power == 2 || power == 3)                 { st |= (uint16_t)(1u << 2); }  /* bit2 电源故障(2主电异常/3备电故障, 表C.18) */
     if (getCurrentSystemRunState() == 2)          { st |= (uint16_t)(1u << 3); }  /* bit3 报警 */
     if (getCurrentStartStopKeyState())            { st |= (uint16_t)(1u << 4); }  /* bit4 启动 */
-    /* bit5 反馈: TODO 待接反馈聚合源 */
-    /* bit6 监管: TODO 待接监管聚合源 */
+    /* bit5 反馈: TODO 源待定 — feedbacked_state 系死变量(仅init清零无置位); 候选 A) part_1_feedback||part_2_feedback(分区喷洒反馈,part_2待接) B) getFeedBack1State()||getFeedBack2State()(联动反馈输入端子,两路活) */
+    /* bit6 监管: 工程未实现监管状态(regul_alarm_state 死变量,全工程无置位), 置0 */
     if (getCurrentSystemFaultState())             { st |= (uint16_t)(1u << 7); }  /* bit7 故障 */
-    /* bit8 屏蔽: TODO 待接 cang_pbzt/linkage_shield_state 聚合 */
+    if (shielding_state)                          { st |= (uint16_t)(1u << 8); }  /* bit8 屏蔽 */
     if (getOutFireSprayState())                   { st |= (uint16_t)(1u << 9); }  /* bit9 喷洒 */
-    /* bit10 应急: TODO 待接应急照明聚合源 */
+    /* bit10 应急: 工程无独立应急照明聚合状态源, 维持置0 (表C.18) */
     return st;
 }
 
