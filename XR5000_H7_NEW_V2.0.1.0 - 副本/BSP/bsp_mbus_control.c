@@ -32,6 +32,7 @@ static uint8_t g_mbus_ctrl_polling_addr = 1; /* 当前轮询地址(1~63循环) */
 #define MBUS_SOUND_LIGHT_FIRST_WAIT_TICKS        3U   /* 首轮通道最多等待约60ms，优先完成声光双发 */
 #define MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS    15U  /* 后补重试响应等待超时(tick) */
 #define MBUS_SOUND_LIGHT_MAX_RETRY              3U   /* 声光报警器最大重试次数 */
+#define MBUS_SOUND_LIGHT_RETRY_DEFER_TICKS     10U   /* 首轮双发后为显示盘预留约200ms */
 #define MBUS_CONTROL_REQUEST_QUEUE_LEN          64U   /* 通用控制请求静态队列长度 */
 
 /* 火灾显示盘事件定义(环形队列元素) */
@@ -78,6 +79,7 @@ static uint16_t g_active_control_coil_value = 0U;
 static uint8_t g_active_control_result = MBUS_CTRL_STATUS_SUCCESS; /* 双通道后补重试后的汇总结果 */
 static uint32_t g_active_control_attempted_mask = 0U; /* 首轮已经发送过的通道 */
 static uint8_t g_active_control_retry_phase = 0U;     /* 首轮双发完成后进入失败通道重试 */
+static uint8_t g_active_control_retry_defer_ticks = 0U; /* 后台重试启动前的让行计数 */
 
 /* 每个物理地址独立保存目标值、确认值和异步结果，便于后续扩展更多输出设备。 */
 static uint32_t g_control_target_outputs[MBUS_CONTROL_MAX_DEVICES];
@@ -222,6 +224,7 @@ static void MBusCtrl_FinishActiveControl(MBusCtrlStatus result)
     g_active_control_result = MBUS_CTRL_STATUS_SUCCESS;
     g_active_control_attempted_mask = 0U;
     g_active_control_retry_phase = 0U;
+    g_active_control_retry_defer_ticks = 0U;
 }
 
 /* 请求执行前再次检查设备，防止排队期间设备被下线或重新识别。 */
@@ -325,6 +328,8 @@ static void MBusCtrl_CompleteActiveChannel(MBusCtrlStatus channel_result)
                 return;
             }
             g_active_control_retry_phase = 1U;
+            g_active_control_retry_defer_ticks = MBUS_SOUND_LIGHT_RETRY_DEFER_TICKS;
+            return;
         }
     }
     else
@@ -376,12 +381,23 @@ static uint8_t MBusCtrl_ServiceControlRequest(void)
         g_active_control_result = MBUS_CTRL_STATUS_SUCCESS;
         g_active_control_attempted_mask = 0U;
         g_active_control_retry_phase = 0U;
+        g_active_control_retry_defer_ticks = 0U;
 
         if(MBusCtrl_CanExecute(&g_active_control) == 0U || MBusCtrl_SendActiveControl() == 0U)
         {
             MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
             return 0U;
         }
+    }
+    else if(g_active_control_retry_phase != 0U && g_control_wait_response == 0U)
+    {
+        if(g_active_control_retry_defer_ticks > 0U)
+        {
+            g_active_control_retry_defer_ticks--;
+            return 0U;
+        }
+        if(MBusCtrl_SendActiveControl() == 0U)
+            MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
     }
     else if(g_control_wait_response != 0U)
     {
@@ -949,14 +965,22 @@ void MBusControlPollSlaveAndReceiveTask(void* parameter)
         uint8_t mbus2_control_busy = 0U;
 
         MBus2ReceiveSlaveDataDeal();
-        /* 已开始的事务优先完成；所有通用控制均在本任务串行执行。 */
-        if (g_active_control_valid != 0U)
-            mbus2_control_busy = MBusCtrl_ServiceControlRequest();
-        else if (g_fire_display_wait_response != 0U)
+        /* 首轮声光双发完成后显示盘优先，未确认通道在后台让行后重试。 */
+        if(g_fire_display_wait_response != 0U)
             mbus2_control_busy = MBusCtrl_ServiceFireDisplayEvents();
-        else if (MBusCtrl_ServiceControlRequest())
+        else if(g_active_control_valid != 0U && g_active_control_retry_phase != 0U &&
+                g_control_wait_response == 0U && g_fire_display_event_count != 0U)
+        {
+            if(MBusCtrl_ServiceFireDisplayEvents() != 0U)
+                mbus2_control_busy = 1U;
+            else
+                mbus2_control_busy = MBusCtrl_ServiceControlRequest();
+        }
+        else if(g_active_control_valid != 0U)
+            mbus2_control_busy = MBusCtrl_ServiceControlRequest();
+        else if(MBusCtrl_ServiceControlRequest() != 0U)
             mbus2_control_busy = 1U;
-        else if (MBusCtrl_ServiceFireDisplayEvents())
+        else if(MBusCtrl_ServiceFireDisplayEvents() != 0U)
             mbus2_control_busy = 1U;
 
         if (mbus2_control_busy != 0U)
