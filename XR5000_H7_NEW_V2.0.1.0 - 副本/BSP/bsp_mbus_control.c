@@ -26,12 +26,12 @@
 static MBusCtrlDevice g_mbus_ctrl_devices[MBUS_CONTROL_MAX_DEVICES]; /* 设备实例数组(索引=地址) */
 static uint8_t g_mbus_ctrl_polling_addr = 1; /* 当前轮询地址(1~63循环) */
 
-#define MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN       16U  /* 火灾显示盘事件队列最大长度 */
+#define MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN       64U  /* 火灾显示盘事件队列最大长度 */
 #define MBUS_FIRE_DISPLAY_RESPONSE_WAIT_TICKS   15U  /* 火灾显示盘响应等待超时(tick) */
 #define MBUS_FIRE_DISPLAY_MAX_RETRY             3U   /* 火灾显示盘最大重试次数 */
 #define MBUS_SOUND_LIGHT_RESPONSE_WAIT_TICKS    15U  /* 声光报警器响应等待超时(tick) */
 #define MBUS_SOUND_LIGHT_MAX_RETRY              3U   /* 声光报警器最大重试次数 */
-#define MBUS_CONTROL_REQUEST_QUEUE_LEN           8U   /* 通用控制请求静态队列长度 */
+#define MBUS_CONTROL_REQUEST_QUEUE_LEN          64U   /* 通用控制请求静态队列长度 */
 
 /* 火灾显示盘事件定义(环形队列元素) */
 typedef struct
@@ -40,6 +40,7 @@ typedef struct
     uint8_t addr;          /* 探测器地址 */
     uint8_t detector_type; /* 探测器类型(MBUS_FIRE_DISPLAY_DETECT_*) */
     uint8_t alarm_type;    /* 报警类型(MBUS_FIRE_DISPLAY_ALARM_*) */
+    uint64_t pending_displays; /* 尚未接收本事件的显示盘地址位图 */
 } MBusFireDisplayEvent;
 
 /* 火灾显示盘事件环形队列 */
@@ -49,6 +50,8 @@ static uint8_t g_fire_display_event_count = 0;   /* 当前队列中的事件数 */
 static uint8_t g_fire_display_wait_response = 0; /* 是否等待显示盘响应 */
 static uint8_t g_fire_display_wait_ticks = 0;    /* 等待响应已计tick数 */
 static uint8_t g_fire_display_retry_count = 0;   /* 当前事件重试计数 */
+static uint8_t g_fire_display_active_addr = 0U;  /* 当前正在发送事件的显示盘地址 */
+static uint32_t g_fire_display_last_send_tick[MBUS_CONTROL_MAX_DEVICES]; /* 各显示盘上次发送完成时间 */
 
 /* 通用控制队列元素。final_outputs是合并update_mask后的完整目标快照。 */
 typedef struct
@@ -71,6 +74,7 @@ static uint8_t g_control_retry_count = 0U;
 static uint32_t g_active_control_sent_mask = 0U;
 static uint16_t g_active_control_coil_addr = 0U;
 static uint16_t g_active_control_coil_value = 0U;
+static uint8_t g_active_control_result = MBUS_CTRL_STATUS_SUCCESS; /* 双通道执行过程中的汇总结果 */
 
 /* 每个物理地址独立保存目标值、确认值和异步结果，便于后续扩展更多输出设备。 */
 static uint32_t g_control_target_outputs[MBUS_CONTROL_MAX_DEVICES];
@@ -100,14 +104,6 @@ static uint8_t MBusCtrl_MapProductType(uint16_t product_code)
     return MBUS_CONTROL_DEV_UNKNOWN;
 }
 
-static uint8_t MBusCtrl_FindAddressByType(uint8_t dev_type)
-{
-    uint8_t addr;
-    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
-        if(g_mbus_ctrl_devices[addr].online != 0U && g_mbus_ctrl_devices[addr].type_confirmed != 0U &&
-           g_mbus_ctrl_devices[addr].dev_type == dev_type) return addr;
-    return 0U;
-}
 
 static void MBusCtrl_MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error)
 {
@@ -124,17 +120,31 @@ static void MBusCtrl_MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error
  * 火灾显示盘事件处理: 10功能码写多寄存器, 环形队列+重试机制
  * ============================================================ */
 
-/* 发送一条火灾显示盘事件帧: 10功能码, 写2个寄存器共8字节(回路/地址/探测器类型/报警类型) */
-static void MBusCtrl_SendFireDisplayEvent(void)
+/* 从当前事件中选择满足1秒发送间隔的显示盘。 */
+static uint8_t MBusCtrl_FindPendingDisplay(const MBusFireDisplayEvent *event)
+{
+    uint8_t display_addr;
+    uint32_t now = osKernelGetTickCount();
+    for(display_addr = 1U; display_addr < MBUS_CONTROL_MAX_DEVICES; display_addr++)
+    {
+        if((event->pending_displays & (1ULL << display_addr)) != 0U &&
+           (g_fire_display_last_send_tick[display_addr] == 0U ||
+            (uint32_t)(now - g_fire_display_last_send_tick[display_addr]) >= 1000U))
+            return display_addr;
+    }
+    return 0U;
+}
+
+/* 10功能码从0x004E开始写入回路、地址、探测器类型和报警类型。 */
+static void MBusCtrl_SendFireDisplayEvent(uint8_t display_addr)
 {
     uint8_t frame[17] = {0};
     uint16_t crc16;
     MBusFireDisplayEvent *event = &g_fire_display_event_queue[g_fire_display_event_head];
 
-    frame[0] = MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_FIRE_DISPLAY);
-    if(frame[0] == 0U) return;
+    frame[0] = display_addr;
     frame[1] = 0x10;
-    frame[3] = 0x02;
+    frame[3] = 0x4E;
     frame[5] = 0x04;
     frame[6] = 0x08;
     frame[8] = event->loop;
@@ -145,35 +155,44 @@ static void MBusCtrl_SendFireDisplayEvent(void)
     frame[15] = crc16 & 0xFF;
     frame[16] = crc16 >> 8;
     MBus2SendString(frame, sizeof(frame));
-    g_fire_display_wait_response = 1;
-    g_fire_display_wait_ticks = 0;
+    g_fire_display_active_addr = display_addr;
+    g_fire_display_wait_response = 1U;
+    g_fire_display_wait_ticks = 0U;
 }
 
-/* 火灾显示盘事件服务: 检查队列→发送事件→等待响应→超时重试→放弃 */
+/* 同一事件依次发送给全部在线显示盘，单个显示盘失败不阻塞其他显示盘。 */
 static uint8_t MBusCtrl_ServiceFireDisplayEvents(void)
 {
-    if (g_fire_display_event_count == 0)
-        return 0;
-    if (MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_FIRE_DISPLAY) == 0U)
-        return 0;
-    if (g_fire_display_wait_response == 0)
+    MBusFireDisplayEvent *event;
+    uint8_t display_addr;
+    if(g_fire_display_event_count == 0U) return 0U;
+    event = &g_fire_display_event_queue[g_fire_display_event_head];
+    if(event->pending_displays == 0U)
     {
-        MBusCtrl_SendFireDisplayEvent();
+        g_fire_display_event_head = (g_fire_display_event_head + 1U) % MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN;
+        g_fire_display_event_count--;
+        return 1U;
     }
-    else if (++g_fire_display_wait_ticks >= MBUS_FIRE_DISPLAY_RESPONSE_WAIT_TICKS)
+    if(g_fire_display_wait_response == 0U)
     {
-        if (g_fire_display_retry_count++ < MBUS_FIRE_DISPLAY_MAX_RETRY)
-            MBusCtrl_SendFireDisplayEvent();
+        display_addr = MBusCtrl_FindPendingDisplay(event);
+        if(display_addr != 0U) MBusCtrl_SendFireDisplayEvent(display_addr);
+        else return 0U;
+    }
+    else if(++g_fire_display_wait_ticks >= MBUS_FIRE_DISPLAY_RESPONSE_WAIT_TICKS)
+    {
+        if(g_fire_display_retry_count++ < MBUS_FIRE_DISPLAY_MAX_RETRY)
+            MBusCtrl_SendFireDisplayEvent(g_fire_display_active_addr);
         else
         {
-            /* XR5000_FIRE_DISPLAY_GENERIC_NAMES_20260729: do not block MBus2 after a display write failure. */
-            g_fire_display_event_head = (g_fire_display_event_head + 1U) % MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN;
-            g_fire_display_event_count--;
-            g_fire_display_wait_response = 0;
-            g_fire_display_retry_count = 0;
+            event->pending_displays &= ~(1ULL << g_fire_display_active_addr);
+            g_fire_display_last_send_tick[g_fire_display_active_addr] = osKernelGetTickCount();
+            g_fire_display_wait_response = 0U;
+            g_fire_display_retry_count = 0U;
+            g_fire_display_active_addr = 0U;
         }
     }
-    return 1;
+    return 1U;
 }
 
 /* ============================================================
@@ -197,6 +216,7 @@ static void MBusCtrl_FinishActiveControl(MBusCtrlStatus result)
     g_active_control_sent_mask = 0U;
     g_active_control_coil_addr = 0U;
     g_active_control_coil_value = 0U;
+    g_active_control_result = MBUS_CTRL_STATUS_SUCCESS;
 }
 
 /* 请求执行前再次检查设备，防止排队期间设备被下线或重新识别。 */
@@ -267,6 +287,38 @@ static uint8_t MBusCtrl_SendActiveControl(void)
     return 1U;
 }
 
+/* 一个通道无应答或异常时继续下一个通道，全部处理完成后再汇总控制结果。 */
+static void MBusCtrl_CompleteActiveChannel(MBusCtrlStatus channel_result)
+{
+    uint8_t addr = g_active_control.request.addr;
+    uint32_t done_bit = (g_active_control_coil_addr == 0x0018U) ? MBUS_OUTPUT_SOUND :
+                        (g_active_control_coil_addr == 0x0021U) ? MBUS_OUTPUT_LIGHT : 0U;
+    if(channel_result != MBUS_CTRL_STATUS_SUCCESS &&
+       g_active_control_result == MBUS_CTRL_STATUS_SUCCESS)
+        g_active_control_result = (uint8_t)channel_result;
+    g_active_control_sent_mask |= done_bit;
+    g_control_wait_response = 0U;
+    g_control_wait_ticks = 0U;
+    g_control_retry_count = 0U;
+
+    if((g_active_control.request.target_mask & (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT) &
+        ~g_active_control_sent_mask) == 0U)
+    {
+        if(g_active_control_result == MBUS_CTRL_STATUS_SUCCESS)
+        {
+            g_control_confirmed_valid[addr] = 1U;
+            g_control_confirmed_outputs[addr] = g_active_control.final_outputs;
+        }
+        MBusCtrl_FinishActiveControl((MBusCtrlStatus)g_active_control_result);
+    }
+    else if(MBusCtrl_SendActiveControl() == 0U)
+    {
+        if(g_active_control_result == MBUS_CTRL_STATUS_SUCCESS)
+            g_active_control_result = MBUS_CTRL_STATUS_RESPONSE_ERROR;
+        MBusCtrl_FinishActiveControl((MBusCtrlStatus)g_active_control_result);
+    }
+}
+
 /* 取出一条请求并执行；控制事务期间暂停普通轮询，超时后自动释放总线。 */
 static uint8_t MBusCtrl_ServiceControlRequest(void)
 {
@@ -286,6 +338,7 @@ static uint8_t MBusCtrl_ServiceControlRequest(void)
         g_active_control_sent_mask = 0U;
         g_active_control_coil_addr = 0U;
         g_active_control_coil_value = 0U;
+        g_active_control_result = MBUS_CTRL_STATUS_SUCCESS;
 
         if(MBusCtrl_CanExecute(&g_active_control) == 0U || MBusCtrl_SendActiveControl() == 0U)
         {
@@ -302,7 +355,7 @@ static uint8_t MBusCtrl_ServiceControlRequest(void)
         }
         else
         {
-            MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_TIMEOUT);
+            MBusCtrl_CompleteActiveChannel(MBUS_CTRL_STATUS_TIMEOUT);
         }
     }
     return g_active_control_valid != 0U ? 1U : 0U;
@@ -371,16 +424,32 @@ MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr)
 /* 手报自动控制也复用通用入口，避免另建一套声光控制状态机。 */
 static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
 {
-    uint8_t sound_light_addr;
+    uint8_t addr;
+    uint8_t any_manual_alarm = 0U;
     MBusCtrlRequest request = {0};
     if(manual_state > 1U) return;
-    sound_light_addr = MBusCtrl_FindAddressByType(MBUS_CONTROL_DEV_SGBJQ);
-    if(sound_light_addr == 0U) return;
-    request.addr = sound_light_addr;
-    request.operation = MBUS_OPERATION_SET_OUTPUT;
-    request.target_mask = MBUS_OUTPUT_SOUND_LIGHT;
-    request.target_value = manual_state == 1U ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
-    (void)MBusCtrl_Request(&request);
+    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
+    {
+        if(g_mbus_ctrl_devices[addr].online != 0U &&
+           g_mbus_ctrl_devices[addr].type_confirmed != 0U &&
+           g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_XR2200 &&
+           g_mbus_ctrl_devices[addr].sensor_state == 1U)
+        {
+            any_manual_alarm = 1U;
+            break;
+        }
+    }
+    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
+    {
+        if(g_mbus_ctrl_devices[addr].online == 0U ||
+           g_mbus_ctrl_devices[addr].type_confirmed == 0U ||
+           g_mbus_ctrl_devices[addr].dev_type != MBUS_CONTROL_DEV_SGBJQ) continue;
+        request.addr = addr;
+        request.operation = MBUS_OPERATION_SET_OUTPUT;
+        request.target_mask = MBUS_OUTPUT_SOUND_LIGHT;
+        request.target_value = any_manual_alarm != 0U ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
+        (void)MBusCtrl_Request(&request);
+    }
 }
 
 /* ============================================================
@@ -397,6 +466,12 @@ void MBusCtrl_Init(void)
     g_control_wait_response = 0U;
     g_control_wait_ticks = 0U;
     g_control_retry_count = 0U;
+    g_fire_display_event_head = 0U;
+    g_fire_display_event_count = 0U;
+    g_fire_display_wait_response = 0U;
+    g_fire_display_wait_ticks = 0U;
+    g_fire_display_retry_count = 0U;
+    g_fire_display_active_addr = 0U;
     for (uint8_t i = 0; i < MBUS_CONTROL_MAX_DEVICES; i++)
     {
         g_mbus_ctrl_devices[i].online = 0;
@@ -416,6 +491,7 @@ void MBusCtrl_Init(void)
         g_control_confirmed_valid[i] = 0U;
         g_control_pending_count[i] = 0U;
         g_control_status[i] = MBUS_CTRL_STATUS_IDLE;
+        g_fire_display_last_send_tick[i] = 0U;
     }
     MBusCtrl_LoadOnlineState();
 }
@@ -672,7 +748,9 @@ static void MBusControlPollingManage(void)
     }
     else
     {
-        modbus_buff[2]=0U; modbus_buff[3]=0x07U;
+        modbus_buff[2]=0U;
+        modbus_buff[3]=(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].dev_type ==
+                       MBUS_CONTROL_DEV_FIRE_DISPLAY) ? 0x1FU : 0x07U;
         modbus_buff[4]=0U; modbus_buff[5]=1U;
         if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD)
             g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].disconnect_count++;
@@ -762,44 +840,43 @@ static void MBus2ReceiveSlaveDataDeal(void)
                      (((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[2] << 8) | uartbuff[MBUS2SITE].recepetion_buff[3]) == g_active_control_coil_addr &&
                      (((uint16_t)uartbuff[MBUS2SITE].recepetion_buff[4] << 8) | uartbuff[MBUS2SITE].recepetion_buff[5]) == g_active_control_coil_value)
             {
-                uint32_t done_bit = (g_active_control_coil_addr == 0x0018U) ? MBUS_OUTPUT_SOUND :
-                                    (g_active_control_coil_addr == 0x0021U) ? MBUS_OUTPUT_LIGHT : 0U;
                 g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
-                g_active_control_sent_mask |= done_bit;
-                if((g_active_control.request.target_mask & (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT) & ~g_active_control_sent_mask) == 0U)
-                {
-                    g_control_confirmed_valid[dev_addr] = 1U;
-                    g_control_confirmed_outputs[dev_addr] = g_active_control.final_outputs;
-                    MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_SUCCESS);
-                }
-                else
-                {
-                    g_control_wait_response = 0U;
-                    g_control_retry_count = 0U;
-                    if(MBusCtrl_SendActiveControl() == 0U)
-                        MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
-                }
+                MBusCtrl_CompleteActiveChannel(MBUS_CTRL_STATUS_SUCCESS);
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x85U &&
-                     g_active_control_valid != 0U && dev_addr == g_active_control.request.addr)
+                     g_active_control_valid != 0U &&
+                     g_control_wait_response != 0U &&
+                     dev_addr == g_active_control.request.addr)
             {
-                /* 当前05控制请求收到Modbus异常响应，立即结束事务并恢复普通轮询。 */
-                MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
+                /* 当前通道收到Modbus异常响应，记录失败后继续处理另一个声光通道。 */
+                MBusCtrl_CompleteActiveChannel(MBUS_CTRL_STATUS_RESPONSE_ERROR);
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x06)
             {
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x10 &&
                      g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_FIRE_DISPLAY &&
-                     g_fire_display_wait_response != 0 &&
-                     uartbuff[MBUS2SITE].recepetion_len >= 8)
+                     g_fire_display_wait_response != 0U &&
+                     dev_addr == g_fire_display_active_addr &&
+                     uartbuff[MBUS2SITE].recepetion_len >= 8U &&
+                     uartbuff[MBUS2SITE].recepetion_buff[2] == 0U &&
+                     uartbuff[MBUS2SITE].recepetion_buff[3] == 0x4EU &&
+                     uartbuff[MBUS2SITE].recepetion_buff[4] == 0U &&
+                     uartbuff[MBUS2SITE].recepetion_buff[5] == 4U)
             {
-                g_mbus_ctrl_devices[dev_addr].disconnect_count = 0;
-                g_fire_display_event_head = (g_fire_display_event_head + 1U) % MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN;
-                g_fire_display_event_count--;
-                g_fire_display_wait_response = 0;
-                g_fire_display_wait_ticks = 0;
-                g_fire_display_retry_count = 0;
+                MBusFireDisplayEvent *event = &g_fire_display_event_queue[g_fire_display_event_head];
+                g_mbus_ctrl_devices[dev_addr].disconnect_count = 0U;
+                event->pending_displays &= ~(1ULL << dev_addr);
+                g_fire_display_last_send_tick[dev_addr] = osKernelGetTickCount();
+                g_fire_display_wait_response = 0U;
+                g_fire_display_wait_ticks = 0U;
+                g_fire_display_retry_count = 0U;
+                g_fire_display_active_addr = 0U;
+                if(event->pending_displays == 0U)
+                {
+                    g_fire_display_event_head = (g_fire_display_event_head + 1U) % MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN;
+                    g_fire_display_event_count--;
+                }
             }
             else if (uartbuff[MBUS2SITE].recepetion_buff[1] == 0x03)
             {
@@ -888,11 +965,36 @@ int8_t ReceiveDataFromMBus2Queue(uint8_t *buf)
 /* 向火灾显示盘事件队列推送一条事件(回路/地址/探测器类型/报警类型) */
 uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type)
 {
-    (void)loop;
-    (void)addr;
-    (void)detector_type;
-    (void)alarm_type;
-    return 0U;
+    uint8_t display_addr;
+    uint8_t queue_tail;
+    uint64_t targets = 0U;
+    if(loop == 0U || loop > 3U || addr == 0U || detector_type == 0U ||
+       alarm_type > MBUS_FIRE_DISPLAY_ALARM_FAULT) return 0U;
+    for(display_addr = 1U; display_addr < MBUS_CONTROL_MAX_DEVICES; display_addr++)
+    {
+        if(g_mbus_ctrl_devices[display_addr].online != 0U &&
+           g_mbus_ctrl_devices[display_addr].type_confirmed != 0U &&
+           g_mbus_ctrl_devices[display_addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD &&
+           g_mbus_ctrl_devices[display_addr].dev_type == MBUS_CONTROL_DEV_FIRE_DISPLAY)
+            targets |= (1ULL << display_addr);
+    }
+    if(targets == 0U) return 0U;
+    taskENTER_CRITICAL();
+    if(g_fire_display_event_count >= MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN)
+    {
+        taskEXIT_CRITICAL();
+        return 0U;
+    }
+    queue_tail = (uint8_t)((g_fire_display_event_head + g_fire_display_event_count) %
+                           MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN);
+    g_fire_display_event_queue[queue_tail].loop = loop;
+    g_fire_display_event_queue[queue_tail].addr = addr;
+    g_fire_display_event_queue[queue_tail].detector_type = detector_type;
+    g_fire_display_event_queue[queue_tail].alarm_type = alarm_type;
+    g_fire_display_event_queue[queue_tail].pending_displays = targets;
+    g_fire_display_event_count++;
+    taskEXIT_CRITICAL();
+    return 1U;
 }
 
 void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state)
