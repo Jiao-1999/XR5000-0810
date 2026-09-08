@@ -166,8 +166,6 @@ void ResetAllBusDevice(void)
 	
 	taskEXIT_CRITICAL();
 	
-	MBus1ResetAllDevices(); /* XR5000_LOOP1_100_DEVICE_TRANSACTION_20260730: UART7 blocking reset runs outside the RTOS critical section. */
-	
 	osDelay(1000); // 等待发送任务发送复位命令
 	
 	taskENTER_CRITICAL();

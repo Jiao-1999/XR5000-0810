@@ -20,7 +20,7 @@
 
 /* -------------------- 可配置常量 -------------------- */
 #define MBUS_CONTROL_MAX_DEVICES         64    /* 最大设备数(地址1~63, 预留扩展) */
-#define MBUS_CONTROL_DISCONNECT_THRESHOLD 10   /* 连续无响应次数阈值, 超过判定掉线 */
+#define MBUS_CONTROL_DISCONNECT_THRESHOLD 3    /* 连续无响应次数阈值, 超过判定掉线 */
 #define MBUS_CONTROL_FLASH_ADDR          0x110000UL /* Flash在线状态存储地址 */
 #define MBUS_CONTROL_LOOP_ID             2     /* 回路编号, 用于故障记录显示 */
 #define MBUS_CONTROL_FLASH_ID            0x52U /* 故障簇ID(82簇) */
