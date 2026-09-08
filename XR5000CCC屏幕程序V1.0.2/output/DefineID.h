@@ -232,6 +232,12 @@
 //创建画面阈值查看界面的命令索引ID
 #define  _SCREEN_阈值查看界面                                                       77
 
+//创建画面报警筛选界面的命令索引ID
+#define  _SCREEN_报警筛选界面                                                       78
+
+//创建画面故障筛选界面的命令索引ID
+#define  _SCREEN_故障筛选界面                                                       79
+
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
 #define  _BTN_开机视频_BUTTON1                                                     2
@@ -9805,6 +9811,16 @@
 
 #define  _BTN_阈值设定界面_BUTTON5                                                 305
 
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY28                                      27
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY29                                      28
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY35                                      34
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY36                                      35
+
+#define  _TXT_DIS__阈值设定界面_TEXT_DISPLAY42                                      41
+
 #define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY1                                     200
 
 #define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY2                                       1
@@ -9965,6 +9981,16 @@
 
 #define  _MENU_阈值查询界面_MENU1                                                  350
 
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY36                                      35
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY42                                      41
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY43                                      42
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY49                                      48
+
+#define  _TXT_DIS__阈值查询界面_TEXT_DISPLAY50                                      49
+
 #define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY1                                      100
 
 #define  _TXT_DIS__阈值查看界面_TEXT_DISPLAY9                                      200
@@ -10026,4 +10052,262 @@
 #define  _BTN_阈值查看界面_BUTTON2                                                 301
 
 #define  _BTN_阈值查看界面_BUTTON3                                                 302
+
+//画面报警筛选界面的背景图片
+#define  _IMG_报警筛选界面                                                          47
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY1                                        6
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY2                                        7
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY3                                        8
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY4                                        9
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY5                                       10
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY6                                       11
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY7                                       12
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY8                                       13
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY9                                       14
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY10                                      15
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY11                                      16
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY12                                      17
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY13                                      18
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY14                                      19
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY15                                      20
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY16                                      21
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY17                                      22
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY18                                      23
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY19                                      24
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY20                                      25
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY21                                      26
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY22                                      27
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY23                                      28
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY24                                      29
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY25                                      30
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY26                                      31
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY27                                      32
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY28                                      33
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY29                                      34
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY30                                      35
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY31                                      36
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY32                                      37
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY33                                      38
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY34                                      39
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY35                                      40
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY36                                      41
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY37                                      42
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY38                                      43
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY39                                      44
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY40                                      45
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY81                                      86
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY82                                      87
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY83                                      88
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY84                                      89
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY85                                      90
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY86                                      91
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY87                                      92
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY88                                      93
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY89                                      94
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY90                                      95
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY41                                       1
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY91                                      97
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY92                                      99
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY42                                       2
+
+#define  _MENU_报警筛选界面_MENU1                                                    3
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY43                                       4
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY44                                       5
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY45                                      51
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY46                                      52
+
+#define  _MENU_报警筛选界面_MENU2                                                   53
+
+#define  _BTN_报警筛选界面_BUTTON1                                                  54
+
+#define  _BTN_报警筛选界面_BUTTON2                                                  55
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY47                                      56
+
+#define  _BTN_报警筛选界面_BUTTON3                                                  57
+
+#define  _BTN_报警筛选界面_BUTTON4                                                  58
+
+#define  _BTN_报警筛选界面_BUTTON5                                                  59
+
+#define  _BTN_报警筛选界面_BUTTON6                                                  60
+
+#define  _TXT_DIS__报警筛选界面_TEXT_DISPLAY48                                      61
+
+//画面故障筛选界面的背景图片
+#define  _IMG_故障筛选界面                                                          47
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY1                                        6
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY2                                        7
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY3                                        8
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY4                                        9
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY5                                       10
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY6                                       11
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY7                                       12
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY8                                       13
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY9                                       14
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY10                                      15
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY11                                      16
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY12                                      17
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY13                                      18
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY14                                      19
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY15                                      20
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY16                                      21
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY17                                      22
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY18                                      23
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY19                                      24
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY20                                      25
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY21                                      26
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY22                                      27
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY23                                      28
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY24                                      29
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY25                                      30
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY26                                      31
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY27                                      32
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY28                                      33
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY29                                      34
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY30                                      35
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY31                                      36
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY32                                      37
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY33                                      38
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY34                                      39
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY35                                      40
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY36                                      41
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY37                                      42
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY38                                      43
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY39                                      44
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY40                                      45
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY41                                       1
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY91                                      97
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY92                                      99
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY42                                       2
+
+#define  _MENU_故障筛选界面_MENU1                                                    3
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY43                                       4
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY44                                       5
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY45                                      51
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY46                                      52
+
+#define  _MENU_故障筛选界面_MENU2                                                   53
+
+#define  _BTN_故障筛选界面_BUTTON1                                                  54
+
+#define  _BTN_故障筛选界面_BUTTON2                                                  55
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY47                                      56
+
+#define  _BTN_故障筛选界面_BUTTON3                                                  57
+
+#define  _BTN_故障筛选界面_BUTTON4                                                  58
+
+#define  _BTN_故障筛选界面_BUTTON5                                                  59
+
+#define  _BTN_故障筛选界面_BUTTON6                                                  60
+
+#define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY48                                      61
 

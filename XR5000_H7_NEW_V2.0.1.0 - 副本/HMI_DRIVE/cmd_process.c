@@ -27,6 +27,7 @@
 #include "bsp_linkage_ctrl.h"
 #include "bsp_save_ctrl.h"
 #include "bsp_rs485_detect.h"
+#include "bsp_history_filter.h"
 #include "bsp_mbus_control.h"
 #include "bsp_device_registry.h"
 #include "bsp_device_threshold.h"
@@ -2057,6 +2058,7 @@ void NotifyScreen(uint16 screen_id)
 	uint16_t prev_screen_id = current_screen_id; /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
     //TODO: 添加用户代码
     current_screen_id = screen_id;
+    HistoryFilter_NotifyScreen(screen_id);
     DeviceThreshold_NotifyScreen(screen_id); //在工程配置中开启画面切换通知，记录当前画面ID
 	if(screen_id == 75U)
 	{
@@ -3570,6 +3572,7 @@ void TB_sahngchuan(uint16 screen_id, uint16 control_id, uint8  state, uint8  tub
 */
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 {
+	HistoryFilter_NotifyButton(screen_id, control_id, state);
 	DeviceThreshold_NotifyButton(screen_id, control_id, state);
 	if(screen_id == 1)
 	{
@@ -4370,6 +4373,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 */
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
+   HistoryFilter_NotifyText(screen_id, control_id, str);
    { 
 			if(control_id == 25) // 修改CAN2ID地址
       {
@@ -4886,6 +4890,7 @@ void NotifyMeter(uint16 screen_id, uint16 control_id, uint32 value)
 */
 void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 {
+  HistoryFilter_NotifyMenu(screen_id, control_id, item, state);
   DeviceThreshold_NotifyMenu(screen_id, control_id, item, state);
   //TODO: 添加用户代码
 	// 菜单更新控件 灭火喷放逻辑设定 火警触发逻辑设定 在此处调用
@@ -4972,6 +4977,22 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					break;
 				default:
 					break;
+			}
+		}
+		else if(control_id == 20 && state == 1)
+		{
+			if(item == 0U)
+			{
+				bsp_screen_switch_ctrl.target_screen = 78U;
+				bsp_screen_switch_ctrl.switch_flag = 1U;
+				SwitchCurrentScreenId(78U);
+			}
+			else if(item == 1U)
+			{
+				/* ??79:?????????????????Flash??? */
+				bsp_screen_switch_ctrl.target_screen = 79U;
+				bsp_screen_switch_ctrl.switch_flag = 1U;
+				SwitchCurrentScreenId(79U);
 			}
 		}
 		else if(control_id == 23 && state == 1)
