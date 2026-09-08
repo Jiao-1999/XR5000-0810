@@ -4975,6 +4975,11 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					break;
 				case 1:
 					break;
+				case 2:  /* 进入查询联动逻辑界面*/
+					bsp_screen_switch_ctrl.target_screen = 45U;
+					bsp_screen_switch_ctrl.switch_flag = 1U;
+					SwitchCurrentScreenId(45U);
+					break;
 				default:
 					break;
 			}
@@ -5012,6 +5017,22 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					break;
 			}
 		}
+		else if(control_id == 24U && state == 1U)
+		{
+			if(item == 0U)  /* 第1项进入画面80 */
+			{
+				bsp_screen_switch_ctrl.target_screen = 80U;
+				bsp_screen_switch_ctrl.switch_flag = 1U;
+				SwitchCurrentScreenId(80U);
+			}
+			if(item == 1U)  /* 第2项进入画面81 */
+			{
+				bsp_screen_switch_ctrl.target_screen = 81U;
+				bsp_screen_switch_ctrl.switch_flag = 1U;
+				SwitchCurrentScreenId(81U);
+			}
+		}
+
 		else if(control_id == 25 && state == 1)
 		{
 			if(item == 0U)
@@ -5022,6 +5043,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 				SwitchCurrentScreenId(71U);
 			}
 		}
+		
 		else if(control_id == 26U && state == 1U)
 		{
 			uint16_t target = (item == 0U) ? 73U : 76U;
