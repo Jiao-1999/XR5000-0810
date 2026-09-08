@@ -111,6 +111,10 @@ typedef enum
 	HandAlarm   = 3,  // 手报
 	Hydrogen    = 4,  // 氢气
 	Carbon      = 5,  // 一氧化碳
+	GasCarbonLowWarning = 16,   // CO低报，进入预警监测，不进入火警显示
+	GasCarbonHighWarning = 17,  // CO高报，进入预警监测，不进入火警显示
+	GasHydrogenLowWarning = 18, // H2低报，进入预警监测，不进入火警显示
+	GasHydrogenHighWarning = 19,// H2高报，进入预警监测，不进入火警显示
 	
 	// XR5000_LOOP3_CHANGE_20260727: VOC and CH4 use separate forewarn record types.
 	Voc         = 9,
@@ -1064,6 +1068,9 @@ void BspCmdProcessInit(void)
 	PackAndCabinHistoryAlarmInit(pas);
 	ClearDetectorHistoryData(); // 清除探测器历史记录
 	ScreenFreshInhibitionInit(); // 清除上线总数
+	PowerStateInit(); // 软件复位清除主备电故障上报抑制，允许真实状态重新生成故障
+	BackupPowerRequestRecheck(); // 请求ADC任务重新检查备电是否在线
+	PowerStateDisplayCacheInit(); // 清除显示抑制，复位后强制重写主备电状态
 	
 	// 清除手报 反馈一反馈2的历史值 确保复位后下一次可以正常启动
 	clearHandPaperState();
@@ -1420,37 +1427,37 @@ static void FormatDetectorText(uint8_t circuit, uint8_t addr, uint8_t *buf)
 		if (enable & (1 << 5))
 		{
 			int16_t temp = RS485Detect_GetTemperature(addr);
-			p += sprintf(p, "温度：%d℃  ", temp);
+			p += sprintf(p, "温:%d℃ ", temp);
 		}
 		if (enable & (1 << 0))
 		{
 			uint8_t smoke = RS485Detect_GetSensorState(addr, RS485_SENSOR_SMOKE);
-			p += sprintf(p, "烟雾：%s  ", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "故障" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "报警" : "正常"));
+			p += sprintf(p, "烟:%s ", RS485Detect_IsFaultState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "故障" : (RS485Detect_IsAlarmState(RS485Detect_GetType(addr), RS485_SENSOR_SMOKE, smoke) ? "报警" : "正常"));
 		}
 		if (enable & (1 << 4))
 		{
 			uint16_t co = RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO);
-			p += sprintf(p, "CO：%dppm  ", co);
+			p += sprintf(p, "CO:%dppm ", co);
 		}
 		if (enable & (1 << 2))
 		{
 			uint16_t h2 = RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2);
-			p += sprintf(p, "H2：%dppm  ", h2);
-		}
-		if (enable & (1 << 3))
-		{
-			uint16_t voc = RS485Detect_GetSensorValue(addr, RS485_SENSOR_VOC);
-			p += sprintf(p, "VOC：%dppm  ", voc);
-		}
-		if (enable & (1 << 1))
-		{
-			uint16_t ch4 = RS485Detect_GetSensorValue(addr, RS485_SENSOR_CH4);
-			p += sprintf(p, "CH4：%dppm  ", ch4);
+			p += sprintf(p, "H2:%dppm ", h2);
 		}
 		if (enable & (1 << 6))
 		{
 			uint16_t pressure = RS485Detect_GetSensorValue(addr, RS485_SENSOR_PRESSURE);
-			p += sprintf(p, "压力：%dhPa  ", pressure);
+			p += sprintf(p, "压力:%d.%dkPa ", pressure / 10U, pressure % 10U);
+		}
+		if (enable & (1 << 3))
+		{
+			uint16_t voc = RS485Detect_GetSensorValue(addr, RS485_SENSOR_VOC);
+			p += sprintf(p, "VOC:%dppm ", voc);
+		}
+		if (enable & (1 << 1))
+		{
+			uint16_t ch4 = RS485Detect_GetSensorValue(addr, RS485_SENSOR_CH4);
+			p += sprintf(p, "CH4:%dppm ", ch4);
 		}
 
 		break;
@@ -1535,6 +1542,14 @@ static const char *RS485DetectAlarmName(uint8_t alarm_type)
 			return "CO\xD4\xA4\xBE\xAF";
 		case Hydrogen:
 			return "H2\xD4\xA4\xBE\xAF";
+		case GasCarbonLowWarning:
+            return "CO低报";
+		case GasCarbonHighWarning:
+            return "CO高报";
+		case GasHydrogenLowWarning:
+            return "H2低报";
+		case GasHydrogenHighWarning:
+            return "H2高报";
 		case Voc:
 			return "VOC\xD4\xA4\xBE\xAF";
 		case Loop3TempWarning:
@@ -1812,6 +1827,13 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 				p += n;
 				remain -= n;
 			}
+			if ((enable & (1 << 6)) && remain > 0)
+			{
+				uint16_t pressure = RS485Detect_GetSensorValue(addr, RS485_SENSOR_PRESSURE);
+				n = snprintf(p, remain, " 压力:%d.%dkPa", pressure / 10U, pressure % 10U);
+				p += n;
+				remain -= n;
+			}
 			if ((enable & (1 << 3)) && remain > 0)
 			{
 				uint16_t voc = RS485Detect_GetSensorValue(addr, RS485_SENSOR_VOC);
@@ -1825,11 +1847,6 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 				n = snprintf(p, remain, " CH4:%dppm", ch4);
 				p += n;
 				remain -= n;
-			}
-			if ((enable & (1 << 6)) && remain > 0)
-			{
-				uint16_t pressure = RS485Detect_GetSensorValue(addr, RS485_SENSOR_PRESSURE);
-				snprintf(p, remain, " 压力:%dhPa", pressure);
 			}
 			{
 				int cur = (int)(p - (char *)buf);
@@ -2041,6 +2058,10 @@ void NotifyScreen(uint16 screen_id)
     //TODO: 添加用户代码
     current_screen_id = screen_id;
     DeviceThreshold_NotifyScreen(screen_id); //在工程配置中开启画面切换通知，记录当前画面ID
+	if(screen_id == 75U)
+	{
+		SetTextValue(75U, 208U, (uint8_t *)"");
+	}
 	if(screen_id == MONITOR_PAGE_SCREEN_ID)
 	{
 		if(monitor_page_return_target == 0U)
@@ -2483,7 +2504,10 @@ static uint8_t RefreshCombustibleGasAlarmLed(void)
     for(index = 0U; index < pcfws.self_bottom_point; index++)
     {
         uint8_t alarm_type = pcfws.alarm_type[index];
-        if(alarm_type == Carbon || alarm_type == Hydrogen || alarm_type == Voc || alarm_type == Methane)
+        /* V2.21协议：可燃气体报警灯只由CO/H2低报或高报驱动，VOC/CH4不点亮该灯。 */
+        if(alarm_type == Carbon || alarm_type == Hydrogen ||
+           alarm_type == GasCarbonLowWarning || alarm_type == GasCarbonHighWarning ||
+           alarm_type == GasHydrogenLowWarning || alarm_type == GasHydrogenHighWarning)
         {
             alarm_on = 1U;
             break;
@@ -2499,10 +2523,11 @@ static uint8_t RefreshCombustibleGasAlarmLed(void)
             continue;
         }
         device_type = RS485Detect_GetType(addr);
-        if(RS485Detect_IsAlarmState(device_type, RS485_SENSOR_CO, RS485Detect_GetSensorState(addr, RS485_SENSOR_CO)) != 0U ||
-           RS485Detect_IsAlarmState(device_type, RS485_SENSOR_H2, RS485Detect_GetSensorState(addr, RS485_SENSOR_H2)) != 0U ||
-           RS485Detect_IsAlarmState(device_type, RS485_SENSOR_VOC, RS485Detect_GetSensorState(addr, RS485_SENSOR_VOC)) != 0U ||
-           RS485Detect_IsAlarmState(device_type, RS485_SENSOR_CH4, RS485Detect_GetSensorState(addr, RS485_SENSOR_CH4)) != 0U)
+        (void)device_type;
+        if(RS485Detect_GetSensorState(addr, RS485_SENSOR_CO) == 2U ||
+           RS485Detect_GetSensorState(addr, RS485_SENSOR_CO) == 3U ||
+           RS485Detect_GetSensorState(addr, RS485_SENSOR_H2) == 2U ||
+           RS485Detect_GetSensorState(addr, RS485_SENSOR_H2) == 3U)
         {
             alarm_on = 1U;
         }
@@ -2624,7 +2649,6 @@ void UpdateUI(void)
 	uint8_t rs485_detect_disconnect_sum = 0;
 	uint8_t mbus2_disconnect_sum = 0;
 	uint8_t shield_sum = 0; // 屏蔽总数
-	uint8_t combustible_gas_alarm_active = 0U;
 	uint32_t curr_time_stamp = osKernelGetTickCount(); /* system tick */
 
 	/* XR5000_CHECK_FLASH_FIX_20260804: save from the single UI task, never from the key-receive task. */
@@ -2749,7 +2773,7 @@ void UpdateUI(void)
 		// XR5000_LOOP3_CHANGE_20260726: Loop 3 realtime fault/alarm bridge.
 		rs485_detect_disconnect_sum = RS485DetectDataDeal(pcfs, &pcfs_buttom_point);
 		mbus2_disconnect_sum = MBus2DataDeal(pcfs, &pcfs_buttom_point);
-		combustible_gas_alarm_active = RefreshCombustibleGasAlarmLed();
+		(void)RefreshCombustibleGasAlarmLed();
 		/* 功能调整：废弃IG3306及4路独立24V输出监测；时间：2026-08-06 */
 		// 判断是否有掉线 吸合故障继电器，新增加对回路三，485探测回路的故障判断
 		FaultRelayCtrlAppFun(pack_disconnect_sum + cabin_disconnect_sum + point_type_disconnect_sum + rs485_detect_disconnect_sum + mbus2_disconnect_sum);
@@ -2832,8 +2856,9 @@ void UpdateUI(void)
 //		BspFanOnlineJudgeFaultRecord(NULL, NULL);
 //		// 风机启动控制 暂时没有记录风机启动停止时间
 
-		BspFanStartCrtlApp(fan_state1, combustible_gas_alarm_active, fedas.self_point_len);
-		// 主备电管理控制
+		// V2.21协议：CO/H2预警只驱动可燃气体报警灯和蜂鸣，不再触发风机/启动灯。
+		BspFanStartCrtlApp(fan_state1, 0U, fedas.self_point_len);
+		// 主备电管理恢复到原来的开机延时后执行。
 		PowerManageCtrl(zhu_state, bei_state);
 
 		
@@ -2843,7 +2868,6 @@ void UpdateUI(void)
 			screen_show_siren_information |= 0xF0; // 标记执行过 
 			// 记录到火警分区中 按键按下 存入FLASH在前可以少一次获取RTC操作
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, 0xFFFF);
-			/* 黑匣子: 主面板报警器控制按键(分类跟随老系统记为火警), dev_type=17声光警报回路 */
 			StorageEvent_LogFire(ALARM_ANNUNCIATOR_ID, DEV_TYPE_SOUND_LIGHT, 1, 0);
 //			// 存入cache缓冲区
 //			StoragePackCabinForeWarn(&pcfws, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey);
@@ -2864,7 +2888,6 @@ void UpdateUI(void)
 			setDealHandPaperState();
 			// 存入FLASH
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, HANDPOT_Package_ID, 0xFFFF);
-			/* 黑匣子: 手动报警按钮火警(GB4717 B.1.1.1 必记项) */
 			StorageEvent_LogFire(HANDPOT_Package_ID, DEV_TYPE_HAND_REPORT, 1, 0);
 			//
 		}
@@ -4181,7 +4204,6 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 						GetScreen();
 						SetTextValue(1, 4, "控制器复位中...请稍候...");
 						BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_RESET, LINKAGE_CLUSTER_ID, SYS_RESET_Package_ID);
-						/* 黑匣子: 复位时清除首警标志(下次火警重新记0x02首警) + 记录复位事件 */
 						StorageEvent_ResetFirstFire();
 						StorageEvent_LogReset();
 						if(ONLINE_TIMEOUT > 6)
@@ -10256,6 +10278,7 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 		{
 			case 1: {
 				int8_t temp_sector = 0;
+				int8_t sector_count = 0;
 				bsrr_entry->curr_show_type = RECORD_FAULT;
 				SetScreen(57);	// 进入二级密码页
 				// 先读取数量
@@ -10268,11 +10291,11 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 //				BspReadFlashData(FAULT_FLASH_SAVE, read_data[2].byte_buff, 2);
 //				BspReadFlashData(FAULT_FLASH_SAVE, read_data[3].byte_buff, 3);
 				
-				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=500)
+				// 按实际占用扇区从0开始读，避免记录数正好500倍时读错扇区。
+				sector_count = (bsrr_entry->record_sum[bsrr_entry->curr_show_type] + 499) / 500;
+				if(sector_count > 4) sector_count = 4;
+				for(temp_sector = 0; temp_sector < sector_count; temp_sector++)
 				{
-					// 计算缓冲区下标
-					temp_sector = temp_sum/500;
-					// 读取缓冲区中的内容
 					BspReadFlashData(FAULT_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10282,6 +10305,7 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 			}
 			case 2: {
 				int8_t temp_sector = 0;
+				int8_t sector_count = 0;
 				bsrr_entry->curr_show_type = RECORD_ALARM;
 				SetScreen(56);	// 切换到报警显示页
 				
@@ -10289,11 +10313,11 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(FIRE_FLASH_SAVE);
 				SetTextInt32(56, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //记录总数显示
 				bsrr_entry->force_fresh_flag = 1; // 每次进入必须强制刷新一次
-				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=400)
+				// 报警记录每扇区400条，按占用扇区读取，避免边界读错。
+				sector_count = (bsrr_entry->record_sum[bsrr_entry->curr_show_type] + FLASH_ALARM_SUM_PER_SECTOR - 1) / FLASH_ALARM_SUM_PER_SECTOR;
+				if(sector_count > 5) sector_count = 5;
+				for(temp_sector = 0; temp_sector < sector_count; temp_sector++)
 				{
-					// 计算缓冲区下标
-					temp_sector = temp_sum/400;
-					// 读取缓冲区中的内容
 					BspReadFlashData(FIRE_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10304,6 +10328,7 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				
 			case 3: {
 				int8_t temp_sector = 0;
+				int8_t sector_count = 0;
 				bsrr_entry->curr_show_type = RECORD_GASOF;
 				SetScreen(57);	// 
 				
@@ -10311,11 +10336,11 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(GASER_FLASH_SAVE);
 				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //记录总数显示
 				bsrr_entry->force_fresh_flag = 1; // 每次进入必须强制刷新一次
-				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=500)
+				// 气灭记录每扇区500条，按占用扇区读取。
+				sector_count = (bsrr_entry->record_sum[bsrr_entry->curr_show_type] + 499) / 500;
+				if(sector_count > 4) sector_count = 4;
+				for(temp_sector = 0; temp_sector < sector_count; temp_sector++)
 				{
-					// 计算缓冲区下标
-					temp_sector = temp_sum/500;
-					// 读取缓冲区中的内容
 					BspReadFlashData(GASER_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10328,6 +10353,7 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				
 			case 4: {
 				int8_t temp_sector = 0;
+				int8_t sector_count = 0;
 				bsrr_entry->curr_show_type = RECORD_OTHER;
 				SetScreen(57);	// 
 
@@ -10335,11 +10361,11 @@ static void RecordSwitchButtonCtrl(BspScreenReadRecord_t *bsrr_entry, uint16_t c
 				bsrr_entry->record_sum[bsrr_entry->curr_show_type] = getFlashSaveDataNummber(OTHER_FLASH_SAVE);
 				SetTextInt32(57, 99, bsrr_entry->record_sum[bsrr_entry->curr_show_type], 0, 1);   //记录总数显示
 				bsrr_entry->force_fresh_flag = 1; // 每次进入必须强制刷新一次
-				for(int16_t temp_sum = bsrr_entry->record_sum[bsrr_entry->curr_show_type]; temp_sum > 0; temp_sum-=500)
+				// 其它记录每扇区500条，按占用扇区读取。
+				sector_count = (bsrr_entry->record_sum[bsrr_entry->curr_show_type] + 499) / 500;
+				if(sector_count > 4) sector_count = 4;
+				for(temp_sector = 0; temp_sector < sector_count; temp_sector++)
 				{
-					// 计算缓冲区下标
-					temp_sector = temp_sum/500;
-					// 读取缓冲区中的内容
 					BspReadFlashData(OTHER_FLASH_SAVE, read_data[temp_sector].byte_buff, temp_sector);
 				}
 				osDelay(5);
@@ -10747,6 +10773,22 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						{
 							sprintf((char *)show_buff, "H2火警");
 						}
+						else if(GAS_CO_LOW_ALARM == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
+						{
+							sprintf((char *)show_buff, "CO低报");
+						}
+						else if(GAS_CO_HIGH_ALARM == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
+						{
+							sprintf((char *)show_buff, "CO高报");
+						}
+						else if(GAS_H2_LOW_ALARM == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
+						{
+							sprintf((char *)show_buff, "H2低报");
+						}
+						else if(GAS_H2_HIGH_ALARM == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
+						{
+							sprintf((char *)show_buff, "H2高报");
+						}
 						else if(FIRGAS_ALARM_VOC == read_data[x_sector].fs_fire_alarm[data_index].fs_base.state)
 						{
 							sprintf((char *)show_buff, "VOC预警");
@@ -11086,9 +11128,8 @@ static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state)
 			
 			// 存储到FLASH故障存储区中 主电掉电
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID);
-			// 在RAM中创建新记录
 			creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_MAIN_POWER_KEY_ID, DISCONNECT);
-			
+			// 在RAM中创建新记录
 		}
 		else if(main_power_state == 1 && main_power_alarm_flag == 1)
 		{
@@ -11116,9 +11157,7 @@ static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state)
 			back_power_alarm_flag = 1;
 			
 			silencers_state  = 0;  // 主电异常 关闭消音指示灯 蜂鸣器开始报警
-			// 存储到FLASH故障存储区中 备电掉电
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
-			// 在RAM中创建新记录
 			creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID, DISCONNECT);
 		} // 备电断路时括号
 		else if(back_power_alarm_flag == 0 && back_power_state == short_circuit)
@@ -11128,9 +11167,7 @@ static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state)
 			// 更新抑制 记录状态
 			back_power_alarm_flag = 2;
 			silencers_state  = 0;  // 主电异常 关闭消音指示灯 蜂鸣器开始报警
-			// 存储到FLASH故障存储区中 备电短路
 			BspCommonDataSaveApp(FAULT_FLASH_SAVE, SHORTCIRCUIT, LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID);
-			// 在RAM中创建新记录
 			creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID, SYS_BACK_POWER_KEY_ID, SHORTCIRCUIT);
 		} // 备电短路时括号
 		else if(back_power_alarm_flag != 0 && back_power_state != open_circuit && back_power_state != short_circuit)
@@ -11406,6 +11443,10 @@ static void RS485Loop3ClearCurrentState(uint8_t addr)
 	RS485Loop3RemoveWarning(addr, Loop3TempWarning); force_alarm_check_new_flag = 1;
 	RS485Loop3RemoveWarning(addr, Carbon); force_alarm_check_new_flag = 1;
 	RS485Loop3RemoveWarning(addr, Hydrogen); force_alarm_check_new_flag = 1;
+	RS485Loop3RemoveWarning(addr, GasCarbonLowWarning); force_alarm_check_new_flag = 1;
+	RS485Loop3RemoveWarning(addr, GasCarbonHighWarning); force_alarm_check_new_flag = 1;
+	RS485Loop3RemoveWarning(addr, GasHydrogenLowWarning); force_alarm_check_new_flag = 1;
+	RS485Loop3RemoveWarning(addr, GasHydrogenHighWarning); force_alarm_check_new_flag = 1;
 	RS485Loop3RemoveWarning(addr, Voc); force_alarm_check_new_flag = 1;
 	memset(rs485_detect_alarm_memory[addr], 0, sizeof(rs485_detect_alarm_memory[addr]));
 }
@@ -11442,7 +11483,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				rs485_detect_disconnect_memory[addr] = 1;
 				RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_OFFLINE, DISCONNECT);
-				StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); /* 黑匣子:Loop3离线故障(类型码待对照C.16) */
+				StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0);
 			}
 			continue;
 		}
@@ -11450,7 +11491,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 		if(rs485_detect_disconnect_memory[addr] != 0)
 		{
 			RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_OFFLINE, DIS_RECOVERY);
-			StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1); /* 黑匣子:Loop3离线恢复 */
+			StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1);
 			rs485_detect_disconnect_memory[addr] = 0;
 		}
 
@@ -11473,147 +11514,110 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 		{
 			if(old_temp != temp_state)
 			{
-				if(old_temp == 1U) RS485Loop3RemoveWarning(addr, Loop3TempWarning); force_alarm_check_new_flag = 1;
-				if((type == RS485_DETECT_TYPE_XR805 && old_temp == 9U) || (type != RS485_DETECT_TYPE_XR805 && old_temp == 3U)) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_RECOVERY);
-				if((type == RS485_DETECT_TYPE_XR805 && old_temp == 9U) || (type != RS485_DETECT_TYPE_XR805 && old_temp == 3U)) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 1); /* 黑匣子:Loop3温度传感器故障恢复 */
-				if(temp_state == 1U)
-				{
-					getBM8563TimeToSystemTime();
-					StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, Loop3TempWarning); force_alarm_check_new_flag = 1;
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, RS485_TEMP_WARNING, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE));
-				}
-				else if(temp_state == 2U)
-				{
-					getBM8563TimeToSystemTime();
-					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Temperature); fire_alarm_check_new_flag = 1;
-					StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0); /* 黑匣子:Loop3温度火警 */
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE));
-				}
-				else if((type == RS485_DETECT_TYPE_XR805 && temp_state == 9U) || (type != RS485_DETECT_TYPE_XR805 && temp_state == 3U))
+                /* V2.21协议：温度state=1直接进入火警，不再生成温度预警。 */
+                if(old_temp == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_RECOVERY);
+                if(old_temp == 8U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 1);
+                if(temp_state == 1U)
+                {
+                    getBM8563TimeToSystemTime();
+                    StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Temperature); fire_alarm_check_new_flag = 1;
+                    BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE));
+                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0);
+                }
+                else if(temp_state == 8U)
 				{
 					RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_FAULT);
-					StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 0); /* 黑匣子:Loop3温度传感器故障 */
+                    StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 0);
 				}
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_TEMPERATURE] = temp_state;
 			}
 
 			if(old_smoke != smoke_state)
 			{
-				if(type == RS485_DETECT_TYPE_XR805 && old_smoke == 1U) RS485Loop3RemoveWarning(addr, Loop1SmokeWarning); force_alarm_check_new_flag = 1;
-				if(type == RS485_DETECT_TYPE_XR805 && old_smoke == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_RECOVERY);
-				if(type == RS485_DETECT_TYPE_XR805 && old_smoke == 9U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 1); /* 黑匣子:Loop3烟雾传感器故障恢复(仅XR805) */
-				if(type != RS485_DETECT_TYPE_XR805 && old_smoke == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_RECOVERY);
-				if(type != RS485_DETECT_TYPE_XR805 && old_smoke == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 1); /* 黑匣子:Loop3烟雾污染故障恢复(非XR805) */
-				if(type == RS485_DETECT_TYPE_XR805 && smoke_state == 1U)
-				{
-					getBM8563TimeToSystemTime();
-					StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, Loop1SmokeWarning); force_alarm_check_new_flag = 1;
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LOOP1_SMOKE_WARNING, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_SMOKE));
-				}
-				else if((type == RS485_DETECT_TYPE_XR805 && smoke_state == 2U) || (type != RS485_DETECT_TYPE_XR805 && smoke_state == 1U))
+                if(old_smoke == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_RECOVERY);
+                if(old_smoke == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 1);
+                if(type == RS485_DETECT_TYPE_XR805 && smoke_state == 1U)
+                {
+                    getBM8563TimeToSystemTime();
+                    StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Smoke); fire_alarm_check_new_flag = 1;
+                    BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_SMOKE));
+                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);
+                }
+                else if(type != RS485_DETECT_TYPE_XR805 && smoke_state == 1U)
 				{
 					getBM8563TimeToSystemTime();
 					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Smoke); fire_alarm_check_new_flag = 1;
-					StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0); /* 黑匣子:Loop3烟雾火警 */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, RS485_DETECT_FLASH_ID, addr, 0xFFFF);
+                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);
 				}
-				else if((type == RS485_DETECT_TYPE_XR805 && smoke_state == 9U) || (type != RS485_DETECT_TYPE_XR805 && smoke_state == 8U))
+                else if(smoke_state == 8U)
 				{
-					if(type == RS485_DETECT_TYPE_XR805) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_FAULT);
-					else RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_FAULT);
-					StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 0); /* 黑匣子:Loop3烟雾传感器/污染故障 */
+                    RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_FAULT);
+                    StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 0);
 				}
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_SMOKE] = smoke_state;
 			}
 			if(old_co != co_state)
 			{
-				if(old_co == 1U) RS485Loop3RemoveWarning(addr, Carbon); force_alarm_check_new_flag = 1;
-				if(type == RS485_DETECT_TYPE_XR805 && old_co == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_CO, RS485_CO_SENSOR_RECOVERY);
-				if(type == RS485_DETECT_TYPE_XR805 && old_co == 9U) StorageEvent_LogFault(addr, DEV_TYPE_CO, 3, 0, 1); /* 黑匣子:Loop3 CO传感器故障恢复(仅XR805) */
-				if(co_state == 1U)
+                if(old_co == 2U) RS485Loop3RemoveWarning(addr, GasCarbonLowWarning); force_alarm_check_new_flag = 1;
+                if(old_co == 3U) RS485Loop3RemoveWarning(addr, GasCarbonHighWarning); force_alarm_check_new_flag = 1;
+                if(old_co == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_CO, RS485_CO_SENSOR_RECOVERY);
+                if(old_co == 8U) StorageEvent_LogFault(addr, DEV_TYPE_CO, 3, 0, 1);
+                if(co_state == 2U)
 				{
 					getBM8563TimeToSystemTime();
-					StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, Carbon); force_alarm_check_new_flag = 1;
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_CO, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO));
+                    StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, GasCarbonLowWarning); force_alarm_check_new_flag = 1;
+                    BspAlarmDataSaveApp(FIRE_FLASH_SAVE, GAS_CO_LOW_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO));
 				}
-				else if(co_state == 2U)
+                else if(co_state == 3U)
 				{
 					getBM8563TimeToSystemTime();
-					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Loop3CarbonFire); fire_alarm_check_new_flag = 1;
-					StorageEvent_LogFire(addr, DEV_TYPE_CO, 3, 0); /* 黑匣子:Loop3 CO火警 */
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, RS485_CO_FIRE, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO));
+                    StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, GasCarbonHighWarning); force_alarm_check_new_flag = 1;
+                    BspAlarmDataSaveApp(FIRE_FLASH_SAVE, GAS_CO_HIGH_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO));
 				}
-				else if(type == RS485_DETECT_TYPE_XR805 && co_state == 9U) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_CO, RS485_CO_SENSOR_FAULT);
-				else if(type == RS485_DETECT_TYPE_XR805 && co_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_CO, 3, 0, 0); /* 黑匣子:Loop3 CO传感器故障 */
+                else if(co_state == 8U) { RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_CO, RS485_CO_SENSOR_FAULT); StorageEvent_LogFault(addr, DEV_TYPE_CO, 3, 0, 0); }
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_CO] = co_state;
 			}
 
 			if(old_h2 != h2_state)
 			{
-				if(old_h2 == 1U) RS485Loop3RemoveWarning(addr, Hydrogen); force_alarm_check_new_flag = 1;
-				if(type == RS485_DETECT_TYPE_XR805 && old_h2 == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_RECOVERY);
-				if(type == RS485_DETECT_TYPE_XR805 && old_h2 == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1); /* 黑匣子:Loop3 H2传感器故障恢复(仅XR805) */
-				if(h2_state == 1U)
+                if(old_h2 == 2U) RS485Loop3RemoveWarning(addr, GasHydrogenLowWarning); force_alarm_check_new_flag = 1;
+                if(old_h2 == 3U) RS485Loop3RemoveWarning(addr, GasHydrogenHighWarning); force_alarm_check_new_flag = 1;
+                if(old_h2 == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_RECOVERY);
+                if(old_h2 == 8U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1);
+                if(h2_state == 2U)
 				{
 					getBM8563TimeToSystemTime();
-					StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, Hydrogen); force_alarm_check_new_flag = 1;
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_HH, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2));
+                    StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, GasHydrogenLowWarning); force_alarm_check_new_flag = 1;
+                    BspAlarmDataSaveApp(FIRE_FLASH_SAVE, GAS_H2_LOW_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2));
 				}
-				else if(h2_state == 2U)
+                else if(h2_state == 3U)
 				{
 					getBM8563TimeToSystemTime();
-					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Loop3HydrogenFire); fire_alarm_check_new_flag = 1;
-					StorageEvent_LogFire(addr, DEV_TYPE_MULTI_SENSOR, 3, 0); /* 黑匣子:Loop3 H2火警 */
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, RS485_H2_FIRE, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2));
+                    StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, GasHydrogenHighWarning); force_alarm_check_new_flag = 1;
+                    BspAlarmDataSaveApp(FIRE_FLASH_SAVE, GAS_H2_HIGH_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2));
 				}
-				else if(type == RS485_DETECT_TYPE_XR805 && h2_state == 9U) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_FAULT);
-				else if(type == RS485_DETECT_TYPE_XR805 && h2_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); /* 黑匣子:Loop3 H2传感器故障 */
+                else if(h2_state == 8U) { RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_FAULT); StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); }
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_H2] = h2_state;
 			}
 
 			if(old_voc != voc_state)
 			{
 				if(old_voc == 1U) RS485Loop3RemoveWarning(addr, Voc); force_alarm_check_new_flag = 1;
-				if(type == RS485_DETECT_TYPE_XR805 && old_voc == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_VOC, RS485_VOC_SENSOR_RECOVERY);
-				if(type == RS485_DETECT_TYPE_XR805 && old_voc == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1); /* 黑匣子:Loop3 VOC故障恢复(仅XR805,类型码待对照C.16) */
-				if(voc_state == 1U)
-				{
-					getBM8563TimeToSystemTime();
-					StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, Voc); force_alarm_check_new_flag = 1;
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_VOC, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_VOC));
-				}
-				else if(type == RS485_DETECT_TYPE_XR805 && voc_state == 2U)
-				{
-					getBM8563TimeToSystemTime();
-					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Voc); fire_alarm_check_new_flag = 1;
-					StorageEvent_LogFire(addr, DEV_TYPE_MULTI_SENSOR, 3, 0); /* 黑匣子:Loop3 VOC火警(类型码待对照C.16) */
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_VOC, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_VOC));
-				}
-				else if(type == RS485_DETECT_TYPE_XR805 && voc_state == 9U) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_VOC, RS485_VOC_SENSOR_FAULT);
-				else if(type == RS485_DETECT_TYPE_XR805 && voc_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); /* 黑匣子:Loop3 VOC传感器故障(类型码待对照C.16) */
+                if(old_voc == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_VOC, RS485_VOC_SENSOR_RECOVERY);
+                if(old_voc == 8U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1);
+                /* V2.21协议：VOC仅作为辅助判据，不进入预警/火警显示。 */
+                if(voc_state == 8U) { RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_VOC, RS485_VOC_SENSOR_FAULT); StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); }
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_VOC] = voc_state;
 			}
 
 			if(type == RS485_DETECT_TYPE_XR805 && old_ch4 != ch4_state)
 			{
 				if(old_ch4 == 1U) RS485Loop3RemoveWarning(addr, Methane); force_alarm_check_new_flag = 1;
-				if(old_ch4 == 9U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_CH4, RS485_CH4_SENSOR_RECOVERY);
-				if(old_ch4 == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1); /* 黑匣子:Loop3 CH4故障恢复(类型码待对照C.16) */
-				if(ch4_state == 1U)
-				{
-					getBM8563TimeToSystemTime();
-					StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, Methane); force_alarm_check_new_flag = 1;
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_CH4, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CH4));
-				}
-				else if(ch4_state == 2U)
-				{
-					getBM8563TimeToSystemTime();
-					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Methane); fire_alarm_check_new_flag = 1;
-					StorageEvent_LogFire(addr, DEV_TYPE_MULTI_SENSOR, 3, 0); /* 黑匣子:Loop3 CH4火警(类型码待对照C.16) */
-					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, FIRGAS_ALARM_CH4, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CH4));
-				}
-				else if(ch4_state == 9U) RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_CH4, RS485_CH4_SENSOR_FAULT);
-				else if(ch4_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); /* 黑匣子:Loop3 CH4传感器故障(类型码待对照C.16) */
+                if(old_ch4 == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_CH4, RS485_CH4_SENSOR_RECOVERY);
+                if(old_ch4 == 8U) StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 1);
+                /* V2.21协议：CH4仅作为辅助判据，不进入预警/火警显示。 */
+                if(ch4_state == 8U) { RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_CH4, RS485_CH4_SENSOR_FAULT); StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0); }
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_CH4] = ch4_state;
 			}
 		}
@@ -11623,15 +11627,15 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				getBM8563TimeToSystemTime();
 				StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Temperature); fire_alarm_check_new_flag = 1;
-				StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0); /* 黑匣子:Loop3温度火警(非XR805/8303/8305分支) */
 				BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE));
+                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0);
 			}
 			if(smoke_state != 0U && old_smoke == 0U)
 			{
 				getBM8563TimeToSystemTime();
 				StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Smoke); fire_alarm_check_new_flag = 1;
-				StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0); /* 黑匣子:Loop3烟雾火警(非XR805/8303/8305分支) */
 				BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, RS485_DETECT_FLASH_ID, addr, 0xFFFF);
+                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);
 			}
 			if(co_state != 0U && old_co == 0U)
 			{
@@ -11661,8 +11665,9 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 		if(RS485Loop3FindFault(addr, RS485_LOOP3_FAULT_CH4) != 0xFF) fault_sum++;
 		if(RS485Loop3FindFault(addr, RS485_LOOP3_FAULT_SMOKE_SENSOR) != 0xFF) fault_sum++;
 
-		if(rs485_detect_pas_memory[addr] == 0 &&
-			(((type == RS485_DETECT_TYPE_XR805 && (smoke_state == 2U || co_state == 2U || h2_state == 2U || voc_state == 2U || ch4_state == 2U)) || (type != RS485_DETECT_TYPE_XR805 && (smoke_state == 1U || co_state == 2U || h2_state == 2U || voc_state == 1U))) && temp_state == 2U))
+        /* V2.21协议：CO/H2只进预警；分区触发保留温度+烟雾/VOC/CH4辅助组合。 */
+        if(rs485_detect_pas_memory[addr] == 0 &&
+            (temp_state == 1U && (smoke_state == 1U || voc_state == 1U || ch4_state == 2U || ch4_state == 3U)))
 		{
 			getBM8563TimeToSystemTime();
 			fire_alarm_flag.cluster_alarm_state = 1;
@@ -11958,15 +11963,14 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
         {
             if(type == 6U)
             {
-                if(old_state == 1U) Loop1RemoveWarning(addr, Loop1TempWarning, LOOP1_TEMP_WARNING_RECOVERY, value);
-                if(old_state == 3U) Loop1RemoveFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_RECOVERY);
+                if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_RECOVERY);
                 /* 记录温度传感器故障恢复 */
-                if(old_state == 3U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1);
-                if(old_state == 3U) FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1); /* FECbus:温度传感器故障恢复 */
-                setPointTypeMixtureDetectTempertureMemory(addr, raw_state == 2U ? 1U : 0U);
+                if(old_state == 8U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1);
+                if(old_state == 8U) FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1); /* FECbus:温度传感器故障恢复 */
+                setPointTypeMixtureDetectTempertureMemory(addr, raw_state == 1U ? 1U : 0U);
 
-                if(raw_state == 1U) Loop1AddWarning(addr, Loop1TempWarning, LOOP1_TEMP_WARNING, value);
-                else if(raw_state == 2U)
+                /* V2.21协议：回路一点型温感 state=1 直接进入火警，不再产生预警。 */
+                if(raw_state == 1U)
                 {
                     getBM8563TimeToSystemTime();
                     StoragePackFireAlarm(&pcfas, 0U, addr, Temperature);
@@ -11980,7 +11984,7 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 1, 0);
                     FecbusReport_Fire(addr, DEV_TYPE_TEMPERATURE, 1, 0); /* FECbus:上报温度火警 */
                 }
-                else if(raw_state == 3U)
+                else if(raw_state == 8U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_FAULT);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FAULT);
@@ -11991,18 +11995,14 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
             }
             else
             {
-                if(old_state == 1U) Loop1RemoveWarning(addr, Loop1SmokeWarning, LOOP1_SMOKE_WARNING_RECOVERY, value);
                 if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_SMOKE_POLLUTION, LOOP1_SMOKE_POLLUTION_RECOVERY);
-                if(old_state == 9U) Loop1RemoveFault(addr, LOOP1_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_RECOVERY);
                 /* 记录烟雾传感器故障恢复 */
                 if(old_state == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);
-                if(old_state == 9U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);
                 if(old_state == 8U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:烟雾污染故障恢复 */
-                if(old_state == 9U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:烟雾传感器故障恢复 */
-                setPointTypeMixtureDetectSmokeMemory(addr, raw_state == 2U ? 1U : 0U);
+                setPointTypeMixtureDetectSmokeMemory(addr, raw_state == 1U ? 1U : 0U);
 
-                if(raw_state == 1U) Loop1AddWarning(addr, Loop1SmokeWarning, LOOP1_SMOKE_WARNING, value);
-                else if(raw_state == 2U)
+                /* V2.21协议：回路一点型烟感 state=1 直接进入火警，不再产生预警。 */
+                if(raw_state == 1U)
                 {
                     getBM8563TimeToSystemTime();
                     StoragePackFireAlarm(&pcfas, 0U, addr, Smoke);
@@ -12023,14 +12023,6 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     /* 记录烟雾污染故障 */
                     StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 0);
                     FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:烟雾污染故障 */
-                }
-                else if(raw_state == 9U)
-                {
-                    Loop1AddFault(addr, LOOP1_FAULT_SMOKE_SENSOR, LOOP1_SMOKE_SENSOR_FAULT);
-                    MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FAULT);
-                    /* 记录烟雾传感器故障 */
-                    StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 0);
-                    FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:烟雾传感器故障 */
                 }
             }
             loop1_raw_state_memory[addr] = raw_state;

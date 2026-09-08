@@ -67,6 +67,7 @@ void SetInternalScreenRTCTime(void);
 void SetInternalScreenRTCTime(void);
 
 void FansStateUpdataUI(uint16_t current_screen_id, uint8_t fan_disconnect_count, uint8_t fan_state1, uint8_t fan_state2, uint8_t fan_mode);
+void PowerStateDisplayCacheInit(void); // 清除主备电显示缓存，供软件复位后强制刷新
 void PowerStateUpdataUI(uint16_t curr_screen_id,uint8_t zhu_state_, uint8_t bei_state_);
 // 屏幕切换函数
 void SwitchCurrentScreenId(uint16_t target_screen);

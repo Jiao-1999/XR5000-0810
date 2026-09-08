@@ -4,7 +4,7 @@
  *          传感器数据解析、设备状态管理、掉线/报警检测、Flash持久化。
  * 通信协议: Modbus RTU, 功能码04(读输入寄存器), UART5/115200/8N1
  * 轮询流程: 先探测设备类型(读0x000E/0x000F), 确认后读取传感器数据
- *           (XR805读16个寄存器, XR8303/XR8305读12个寄存器)
+ *           (V2.21: 从0x000C起读19个寄存器, 覆盖0x000C~0x001E)
  * 故障记录: 掉线/报警由本模块检测, 故障记录由cmd_process.c统一处理
  * 回路标识: 回路3, Flash存储地址0x10F000, 故障簇ID=0x53(83簇)
  * ============================================================================ */
@@ -28,37 +28,36 @@
  * ============================================================ */
 
 /* 类型码映射表: 0x000E寄存器产品型号值 → 设备类型枚举 */
-/* XR805传感器寄存器布局: 04功能码读取16个寄存器(0x0000~0x000F), 响应帧含温度/烟雾/CH4/CO/VOC/H2的数值和状态 */
+/* V2.21传感器寄存器布局: 常规轮询从0x000C起读, byte_offset按Modbus响应数据区偏移计算。 */
 static const RS485SensorRegDef XR805_SENSOR_LAYOUT[] = {
-    {0x0000, 3,  RS485_SENSOR_TEMPERATURE, 1},  /* 温度值 */
-    {0x0001, 5,  RS485_SENSOR_TEMPERATURE, 0},  /* 温度状态 */
-    {0x0002, 7,  RS485_SENSOR_SMOKE,       1},  /* 烟雾值 */
-    {0x0003, 9,  RS485_SENSOR_SMOKE,       0},  /* 烟雾状态 */
-    {0x0004, 11, RS485_SENSOR_CH4,         1},  /* CH4值 */
-    {0x0005, 13, RS485_SENSOR_CH4,         0},  /* CH4状态 */
-    {0x0006, 15, RS485_SENSOR_CO,          1},  /* CO值 */
-    {0x0007, 17, RS485_SENSOR_CO,          0},  /* CO状态 */
-    {0x0008, 19, RS485_SENSOR_VOC,         1},  /* VOC值 */
-    {0x0009, 21, RS485_SENSOR_VOC,         0},  /* VOC状态 */
-    {0x000A, 23, RS485_SENSOR_H2,          1},  /* H2值 */
-    {0x000B, 25, RS485_SENSOR_H2,          0},  /* H2状态 */
+    {0x000C, 3,  RS485_SENSOR_TEMPERATURE, 1},
+    {0x0018, 27, RS485_SENSOR_TEMPERATURE, 0},
+    {0x000D, 5,  RS485_SENSOR_SMOKE,       1},
+    {0x0019, 29, RS485_SENSOR_SMOKE,       0},
+    {0x000E, 7,  RS485_SENSOR_CO,          1},
+    {0x001A, 31, RS485_SENSOR_CO,          0},
+    {0x000F, 9,  RS485_SENSOR_H2,          1},
+    {0x001B, 33, RS485_SENSOR_H2,          0},
+    {0x0010, 11, RS485_SENSOR_VOC,         1},
+    {0x001C, 35, RS485_SENSOR_VOC,         0},
+    {0x0011, 13, RS485_SENSOR_CH4,         1},
+    {0x001D, 37, RS485_SENSOR_CH4,         0},
 };
 #define XR805_SENSOR_COUNT  (sizeof(XR805_SENSOR_LAYOUT) / sizeof(XR805_SENSOR_LAYOUT[0]))
 
-/* XR8303/XR8305传感器寄存器布局: 04功能码读取12个寄存器(0x0000~0x000B), 响应帧含温度/烟雾/CO/H2/VOC/压力的数值和状态 */
 static const RS485SensorRegDef XR8303_SENSOR_LAYOUT[] = {
-    {0x0000, 3,  RS485_SENSOR_TEMPERATURE, 1},  /* 温度值 */
-    {0x0001, 5,  RS485_SENSOR_TEMPERATURE, 0},  /* 温度状态 */
-    {0x0002, 7,  RS485_SENSOR_SMOKE,       1},  /* 烟雾值 */
-    {0x0003, 9,  RS485_SENSOR_SMOKE,       0},  /* 烟雾状态 */
-    {0x0004, 11, RS485_SENSOR_CO,          1},  /* CO值 */
-    {0x0005, 13, RS485_SENSOR_CO,          0},  /* CO状态 */
-    {0x0006, 15, RS485_SENSOR_H2,          1},  /* H2值 */
-    {0x0007, 17, RS485_SENSOR_H2,          0},  /* H2状态 */
-    {0x0008, 19, RS485_SENSOR_VOC,         1},  /* VOC值 */
-    {0x0009, 21, RS485_SENSOR_VOC,         0},  /* VOC状态 */
-    {0x000A, 23, RS485_SENSOR_PRESSURE,    1},  /* 压力值 */
-    {0x000B, 25, RS485_SENSOR_PRESSURE,    0},  /* 压力状态 */
+    {0x000C, 3,  RS485_SENSOR_TEMPERATURE, 1},
+    {0x0018, 27, RS485_SENSOR_TEMPERATURE, 0},
+    {0x000D, 5,  RS485_SENSOR_SMOKE,       1},
+    {0x0019, 29, RS485_SENSOR_SMOKE,       0},
+    {0x000E, 7,  RS485_SENSOR_CO,          1},
+    {0x001A, 31, RS485_SENSOR_CO,          0},
+    {0x000F, 9,  RS485_SENSOR_H2,          1},
+    {0x001B, 33, RS485_SENSOR_H2,          0},
+    {0x0010, 11, RS485_SENSOR_VOC,         1},
+    {0x001C, 35, RS485_SENSOR_VOC,         0},
+    {0x0012, 15, RS485_SENSOR_PRESSURE,    1},
+    {0x001E, 39, RS485_SENSOR_PRESSURE,    0},
 };
 #define XR8303_SENSOR_COUNT  (sizeof(XR8303_SENSOR_LAYOUT) / sizeof(XR8303_SENSOR_LAYOUT[0]))
 
@@ -69,7 +68,7 @@ static const RS485SensorRegDef XR8303_SENSOR_LAYOUT[] = {
 static RS485DetectDevice g_devices[RS485_DETECT_MAX_DEVICES]; /* 设备实例数组(索引=地址) */
 
 static uint8_t g_online_count = 0;       /* 当前上线设备数量 */
-static uint8_t g_poll_current_addr = 1;  /* 当前轮询地址(1~33循环) */
+static uint8_t g_poll_current_addr = 1;  /* 当前轮询地址(1~64循环) */
 static uint32_t g_last_poll_time = 0;    /* 上次轮询的系统tick */
 
 /* UART5事务锁: 同一时刻仅允许一个请求占用UART5 */
@@ -121,13 +120,13 @@ static const RS485SensorRegDef* get_sensor_layout(uint8_t device_type, uint8_t *
     return NULL;
 }
 
-/* 根据设备类型返回04功能码需读取的寄存器数量(XR805=16, XR8303/XR8305=12) */
+/* 根据设备类型返回常规04功能码读取数量: V2.21从0x000C起读19个寄存器, 覆盖数值0x000C~0x0012和状态0x0018~0x001E。 */
 static uint8_t get_register_count(uint8_t device_type)
 {
     if (device_type == RS485_DETECT_TYPE_XR805)
-        return 16;  /* 0x0000 ~ 0x000F */
+        return 19;
     else if (device_type == RS485_DETECT_TYPE_XR8303 || device_type == RS485_DETECT_TYPE_XR8305)
-        return 12;
+        return 19;
     else if (device_type == RS485_DETECT_TYPE_DLYGWG)
         return 1;  /* 0x0000 ~ 0x000B */
     return 0;
@@ -381,32 +380,32 @@ uint8_t RS485Detect_GetDisconnectCount(void)
     return count;
 }
 
-/* 判断传感器状态是否为报警: XR805(state=1/2), XR8303/XR8305(温度/烟雾/CO/H2/VOC各有不同阈值) */
+/* 按V2.21统一Modbus协议判断显示/统计用报警状态：
+ * 温度/烟雾 state=1 进入火警；CO/H2 state=2低报、state=3高报进入预警。
+ * VOC/CH4仅保留原始状态作辅助判断，不进入主机预警/火警显示和报警数量统计。
+ * 压力当前只做实时显示，暂不参与消防报警统计。
+ */
 uint8_t RS485Detect_IsAlarmState(uint8_t device_type, uint8_t sensor_idx, uint8_t state)
 {
-    if(device_type == RS485_DETECT_TYPE_XR805) return state == 1U || state == 2U;
-    if(device_type == RS485_DETECT_TYPE_XR8303 || device_type == RS485_DETECT_TYPE_XR8305)
-    {
-        if(sensor_idx == RS485_SENSOR_TEMPERATURE) return state == 1U || state == 2U;
-        if(sensor_idx == RS485_SENSOR_SMOKE) return state == 1U;
-        if(sensor_idx == RS485_SENSOR_CO || sensor_idx == RS485_SENSOR_H2) return state == 1U || state == 2U;
-        if(sensor_idx == RS485_SENSOR_VOC) return state == 1U;
-    }
+    (void)device_type;
+
+    if(sensor_idx == RS485_SENSOR_TEMPERATURE || sensor_idx == RS485_SENSOR_SMOKE)
+        return state == 1U;
+    if(sensor_idx == RS485_SENSOR_CO || sensor_idx == RS485_SENSOR_H2)
+        return state == 2U || state == 3U;
+
     return 0U;
 }
 
-/* 判断传感器状态是否为故障: XR805(state=9), XR8303/XR8305(温度state=3/烟雾state=8) */
+/* 按V2.21统一Modbus协议判断传感器故障状态：有效传感器 state=8 表示故障。 */
 uint8_t RS485Detect_IsFaultState(uint8_t device_type, uint8_t sensor_idx, uint8_t state)
 {
-    if(device_type == RS485_DETECT_TYPE_XR805) return state == 9U;
-    if(device_type == RS485_DETECT_TYPE_XR8303 || device_type == RS485_DETECT_TYPE_XR8305)
-    {
-        if(sensor_idx == RS485_SENSOR_TEMPERATURE) return state == 3U;
-        if(sensor_idx == RS485_SENSOR_SMOKE) return state == 8U;
-    }
-    return 0U;
+    (void)device_type;
+    (void)sensor_idx;
+
+    return state == 8U;
 }
-/* 统计回路3当前报警设备数(遍历在线设备, 任一传感器报警即计数) */
+/* 统计回路3当前显示/统计用报警设备数: 温度/烟雾火警 + CO/H2低报高报; VOC/CH4不计入显示报警数量。 */
 uint8_t RS485Detect_GetAlarmCount(void)
 {
     uint8_t count = 0;
@@ -415,8 +414,6 @@ uint8_t RS485Detect_GetAlarmCount(void)
         RS485_SENSOR_SMOKE,
         RS485_SENSOR_CO,
         RS485_SENSOR_H2,
-        RS485_SENSOR_CH4,
-        RS485_SENSOR_VOC,
     };
     uint8_t alarm_count = sizeof(alarm_sensors) / sizeof(alarm_sensors[0]);
     uint8_t i, j;
@@ -452,7 +449,7 @@ static void build_modbus_read_cmd(uint8_t *buf, uint8_t addr, uint8_t reg_count)
     buf[0] = addr;
     buf[1] = 0x04;
     buf[2] = 0x00;
-    buf[3] = 0x00;
+    buf[3] = 0x0C;
     buf[4] = 0x00;
     buf[5] = reg_count;
 
@@ -465,13 +462,14 @@ static void build_modbus_read_cmd(uint8_t *buf, uint8_t addr, uint8_t reg_count)
 static void build_type_detect_cmd(uint8_t *buf, uint8_t addr, uint16_t reg)
 {
     uint16_t crc16;
+    (void)reg;
 
     buf[0] = addr;
     buf[1] = 0x04;
-    buf[2] = (reg >> 8) & 0xFF;
-    buf[3] = reg & 0xFF;
+    buf[2] = 0x00;
+    buf[3] = 0x00;
     buf[4] = 0x00;
-    buf[5] = 0x01;
+    buf[5] = 0x03;
 
     crc16 = CalcCrc16(buf, 6);
     buf[6] = crc16 & 0xFF;
@@ -516,7 +514,7 @@ static void mark_transaction_timeout(void)
     if (addr > 0U && addr < RS485_DETECT_MAX_DEVICES && g_devices[addr].online != 0U)
     {
         if(was_type_detect != 0U)
-            mark_identify_failure(addr, was_type_detect == RS485_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : was_type_detect == RS485_STAGE_PRODUCT ? DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE : DEVICE_IDENTIFY_SENSOR_READ_FAILED);
+            mark_identify_failure(addr, DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE);
         else
         {
             DeviceThreshold_NotifyNormalPoll();
@@ -565,8 +563,7 @@ static void poll_next_device(void)
 
     if (type_detect != 0U)
     {
-        uint16_t reg = type_detect == RS485_STAGE_NATIONAL ? RS485_DETECT_NATIONAL_TYPE_REG : type_detect == RS485_STAGE_PRODUCT ? RS485_DETECT_TYPE_REG : RS485_DETECT_SENSOR_ENABLE_REG;
-        build_type_detect_cmd(modbusbuf, addr, reg);
+        build_type_detect_cmd(modbusbuf, addr, RS485_DETECT_NATIONAL_TYPE_REG);
     }
     else
     {
@@ -669,14 +666,12 @@ static void check_and_record_fault(uint8_t addr)
         }
     }
 
-    /* 报警检测（温度、烟雾、CO、H2、CH4、VOC） */
+    /* 报警记忆检测：只处理进入主机显示/统计的温度、烟雾、CO、H2；VOC/CH4不进入报警显示区。 */
     uint8_t alarm_sensors[] = {
         RS485_SENSOR_TEMPERATURE,
         RS485_SENSOR_SMOKE,
         RS485_SENSOR_CO,
         RS485_SENSOR_H2,
-        RS485_SENSOR_CH4,
-        RS485_SENSOR_VOC,
     };
     uint8_t alarm_count = sizeof(alarm_sensors) / sizeof(alarm_sensors[0]);
 
@@ -765,7 +760,7 @@ static void receive_data_deal(void)
         g_transaction_pending = 0U; g_transaction_addr = 0U;
         g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
         if (was_type_detect != 0U)
-            mark_identify_failure(addr, was_type_detect == RS485_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : was_type_detect == RS485_STAGE_PRODUCT ? DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE : DEVICE_IDENTIFY_SENSOR_READ_FAILED);
+            mark_identify_failure(addr, DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE);
         else
         {
             if(g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD) g_devices[addr].disconnect_count++;
@@ -788,7 +783,7 @@ static void receive_data_deal(void)
 
     if (g_transaction_type_detect != 0U)
     {
-        expected_byte_count = 2U;
+        expected_byte_count = 6U;
     }
     else
     {
@@ -808,59 +803,29 @@ static void receive_data_deal(void)
 
     if (g_transaction_type_detect != 0U)
     {
-        uint16_t identify_value = (buf[3] << 8) | buf[4];
-        if(g_transaction_type_detect == RS485_STAGE_NATIONAL)
-        {
-            g_devices[addr].national_type_code = identify_value;
-            g_devices[addr].identify_stage = RS485_STAGE_PRODUCT;
-            g_identify_fail_count[addr] = 0U;
-            complete_transaction(addr);
-        }
-        else if(g_transaction_type_detect == RS485_STAGE_PRODUCT)
-        {
-            uint8_t detected_type = lookup_device_type(identify_value);
-            if(detected_type == RS485_DETECT_TYPE_UNKNOWN)
-                mark_identify_failure(addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
-            else if(DeviceRegistry_IsNationalProductMatch(g_devices[addr].national_type_code, identify_value) == 0U)
-                mark_identify_failure(addr, DeviceRegistry_IsNationalTypeKnown(g_devices[addr].national_type_code) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
-            else
-            {
-                g_devices[addr].product_code = identify_value;
-                g_devices[addr].device_type = detected_type;
-                g_identify_fail_count[addr] = 0U;
-                if(DeviceRegistry_RequiresSensorMask(identify_value) != 0U)
-                    g_devices[addr].identify_stage = RS485_STAGE_SENSOR;
-                else
-                {
-                    g_devices[addr].sensor_enable = 0U;
-                    g_devices[addr].sensor_enable_confirmed = 1U;
-                    g_devices[addr].type_confirmed = 1U;
-                    g_devices[addr].identify_stage = RS485_STAGE_COMPLETE;
-                    DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP3, addr, DEVICE_IDENTIFY_OK);
-                }
-                complete_transaction(addr);
-                return;
-            }
-            g_transaction_pending = 0U; g_transaction_addr = 0U; g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
-        }
+        uint16_t national_code = ((uint16_t)buf[3] << 8) | buf[4];
+        uint16_t product_code = ((uint16_t)buf[5] << 8) | buf[6];
+        uint16_t sensor_mask = ((uint16_t)buf[7] << 8) | buf[8];
+        uint8_t detected_type = lookup_device_type(product_code);
+        g_devices[addr].national_type_code = national_code;
+        if(detected_type == RS485_DETECT_TYPE_UNKNOWN)
+            mark_identify_failure(addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
+        else if(DeviceRegistry_IsNationalProductMatch(national_code, product_code) == 0U)
+            mark_identify_failure(addr, DeviceRegistry_IsNationalTypeKnown(national_code) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
+        else if(DeviceRegistry_RequiresSensorMask(product_code) != 0U && DeviceRegistry_IsSensorMaskValid(product_code, sensor_mask) == 0U)
+            mark_identify_failure(addr, DEVICE_IDENTIFY_SENSOR_TYPE_UNKNOWN);
         else
         {
-            if(DeviceRegistry_IsSensorMaskValid(g_devices[addr].product_code, identify_value) != 0U)
-            {
-                g_devices[addr].sensor_enable = identify_value;
-                g_devices[addr].sensor_enable_confirmed = 1U;
-                g_devices[addr].type_confirmed = 1U;
-                g_devices[addr].identify_stage = RS485_STAGE_COMPLETE;
-                g_identify_fail_count[addr] = 0U;
-                DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP3, addr, DEVICE_IDENTIFY_OK);
-                complete_transaction(addr);
-            }
-            else
-            {
-                mark_identify_failure(addr, DEVICE_IDENTIFY_SENSOR_TYPE_UNKNOWN);
-                g_transaction_pending = 0U; g_transaction_addr = 0U; g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
-            }
+            g_devices[addr].product_code = product_code;
+            g_devices[addr].device_type = detected_type;
+            g_devices[addr].sensor_enable = sensor_mask;
+            g_devices[addr].sensor_enable_confirmed = 1U;
+            g_devices[addr].type_confirmed = 1U;
+            g_devices[addr].identify_stage = RS485_STAGE_COMPLETE;
+            g_identify_fail_count[addr] = 0U;
+            DeviceRegistry_SetIdentifyError(DEVICE_REGISTRY_LOOP3, addr, DEVICE_IDENTIFY_OK);
         }
+        complete_transaction(addr);
     }
     else
     {

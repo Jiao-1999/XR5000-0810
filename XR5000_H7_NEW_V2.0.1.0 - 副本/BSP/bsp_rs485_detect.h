@@ -8,16 +8,16 @@
  * 功能描述: 管理回路3(UART5) RS485总线探测器(XR805/XR8303/XR8305)的轮询、
  *          数据解析、状态管理、Flash持久化。
  * 通信协议: Modbus RTU, 功能码04(读输入寄存器), 波特率115200/8N1
- * 轮询机制: FreeRTOS任务每150ms轮询一个在线设备, 先探测类型再读取传感器数据
+ * 轮询机制: FreeRTOS任务周期轮询在线设备, 先识别国标码/产品码/传感器启用位, 再读取传感器数据
  * 设备类型: XR805(烟雾+温度+CO+CH4+H2+VOC), XR8303(烟雾+温度+CO+H2+VOC+压力)
- * 掉线检测: 连续5次无响应判定掉线
+ * 掉线检测: 连续5次真实轮询事务无响应判定掉线
  * 回路标识: 回路3, Flash存储地址0x10F000, 故障簇ID=0x53(83簇)
  * ============================================================================ */
 
 /* -------------------- 可配置常量 -------------------- */
-#define RS485_DETECT_MAX_DEVICES    34    /* 最大设备数(地址1~32, 预留扩展) */
+#define RS485_DETECT_MAX_DEVICES    65    /* 最大设备数(地址1~64, 下标0不用) */
 #define RS485_DETECT_DISCONNECT_THRESHOLD  5  /* 连续无响应次数阈值, 超过判定掉线 */
-#define RS485_DETECT_POLL_INTERVAL_MS      150 /* 轮询间隔(ms), 每轮一个设备 */
+#define RS485_DETECT_POLL_INTERVAL_MS       50 /* 轮询间隔(ms), 每轮一个设备 */
 #define RS485_DETECT_RESPONSE_TIMEOUT_MS   120 /* 单次请求超时(ms), 超时计掉线 */
 #define RS485_DETECT_TASK_INTERVAL_MS        10 /* 任务循环周期(ms) */
 #define RS485_DETECT_TX_TIMEOUT_MS           30 /* 阻塞发送超时(ms) */
@@ -29,9 +29,9 @@
 #define RS485_DETECT_FLASH_ADDR  0x10F000UL
 
 /* 类型探测寄存器地址(04功能码读取) */
-#define RS485_DETECT_TYPE_REG    0x000E  /* 产品型号寄存器 */
-#define RS485_DETECT_NATIONAL_TYPE_REG 0x000D
-#define RS485_DETECT_SENSOR_ENABLE_REG  0x000F  /* 传感器启用位掩码寄存器 */
+#define RS485_DETECT_TYPE_REG    0x0001  /* 产品型号寄存器 */
+#define RS485_DETECT_NATIONAL_TYPE_REG 0x0000
+#define RS485_DETECT_SENSOR_ENABLE_REG  0x0002  /* 传感器启用位掩码寄存器 */
 
 /* -------------------- 设备类型枚举 -------------------- */
 typedef enum {
@@ -109,7 +109,7 @@ uint8_t  RS485Detect_GetOnlineCount(void);
 uint8_t  RS485Detect_GetActiveCount(void);                        /* 回路3在线设备总数 */
 uint8_t  RS485Detect_GetDisconnectCount(void);                    /* 回路3掉线设备总数 */
 uint8_t  RS485Detect_GetAlarmCount(void);                         /* 回路3报警设备总数 */
-uint8_t  RS485Detect_IsAlarmState(uint8_t device_type, uint8_t sensor_idx, uint8_t state);  /* 判断传感器状态是否为报警 */
+uint8_t  RS485Detect_IsAlarmState(uint8_t device_type, uint8_t sensor_idx, uint8_t state);  /* 判断传感器状态是否进入主机显示/统计报警 */
 uint8_t  RS485Detect_IsFaultState(uint8_t device_type, uint8_t sensor_idx, uint8_t state);  /* 判断传感器状态是否为故障 */
 
 /* ---- 便捷查询 ---- */

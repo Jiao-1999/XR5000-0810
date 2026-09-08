@@ -287,7 +287,7 @@ void BspSaveDataToFlash(FlashReadCtrlId id, FlashSaveType type, void *type_struc
 					setFlashSaveDataNumber(FAULT_FLASH_SAVE, num);
 				}
 				// 从地址偏移处开始写入
-				BspFlashWrite((uint8_t *)type_struct, 
+				W25QXX_Write((uint8_t *)type_struct,
 					fault_data_addr[num/500] + (num%500)*sizeof(FlashSaveDetectFault_t), // 计算偏移地址
 					sizeof(FlashSaveDetectFault_t)); // 存储数据
 				// 更新数量
@@ -321,7 +321,7 @@ void BspSaveDataToFlash(FlashReadCtrlId id, FlashSaveType type, void *type_struc
 				}
 				
 				// 从地址偏移处开始写入
-				BspFlashWrite((uint8_t *)type_struct, 
+				W25QXX_Write((uint8_t *)type_struct,
 					alarm_data_addr[num/FLASH_ALARM_SUM_PER_SECTOR] + (num%FLASH_ALARM_SUM_PER_SECTOR)*sizeof(FlashSaveFireAlarm_t), // 计算偏移地址
 					sizeof(FlashSaveFireAlarm_t)); // 存储数据
 				// 更新报警数量
@@ -355,7 +355,7 @@ void BspSaveDataToFlash(FlashReadCtrlId id, FlashSaveType type, void *type_struc
 				}
 			
 				// 从地址偏移处开始写入
-				BspFlashWrite((uint8_t *)type_struct, 
+				W25QXX_Write((uint8_t *)type_struct,
 					gasof_data_addr[num/500] + (num%500)*sizeof(FlashSaveGasOutfires_t), // 计算偏移地址
 					sizeof(FlashSaveGasOutfires_t)); // 存储数据
 				// 更新报警数量
@@ -365,7 +365,7 @@ void BspSaveDataToFlash(FlashReadCtrlId id, FlashSaveType type, void *type_struc
 			
 			break;
 		case OTHER_FLASH_SAVE: {
-				// 读取气灭动作数量
+				// 读取其它记录数量
 				num = getFlashSaveDataNummber(OTHER_FLASH_SAVE);
 				if(num >= 2000)
 				{
@@ -390,7 +390,7 @@ void BspSaveDataToFlash(FlashReadCtrlId id, FlashSaveType type, void *type_struc
 				}
 			
 				// 从地址偏移处开始写入
-				BspFlashWrite((uint8_t *)type_struct, 
+				W25QXX_Write((uint8_t *)type_struct,
 					other_data_addr[num/500] + (num%500)*sizeof(FlashSaveOtherRecord_t), // 计算偏移地址
 					sizeof(FlashSaveOtherRecord_t)); // 存储数据
 				// 更新报警数量
@@ -417,18 +417,22 @@ int16_t BspReadFlashData(FlashReadCtrlId id, uint8_t *buff, uint8_t x_sector)
 	switch(id)
 	{
 		case FAULT_FLASH_SAVE: {
+			if(x_sector >= 4U) { num = -1; break; } // 故障记录最多4个数据扇区，防止越界读取
 			W25QXX_Read(buff, fault_data_addr[x_sector], 4096);  
 			break;
 		}
 		case FIRE_FLASH_SAVE : {
+			if(x_sector >= 5U) { num = -1; break; } // 报警记录最多5个数据扇区，防止越界读取
 			W25QXX_Read(buff, alarm_data_addr[x_sector], 4096);  
 			break;
 		}
 		case GASER_FLASH_SAVE: {
+			if(x_sector >= 4U) { num = -1; break; } // 气灭记录最多4个数据扇区，防止越界读取
 			W25QXX_Read(buff, gasof_data_addr[x_sector], 4096); 
 			break;
 		}
 		case OTHER_FLASH_SAVE:
+			if(x_sector >= 4U) { num = -1; break; } // 其它记录最多4个数据扇区，防止越界读取
 			W25QXX_Read(buff, other_data_addr[x_sector], 4096); 
 			break;
 		default:
@@ -441,35 +445,33 @@ int16_t BspReadFlashData(FlashReadCtrlId id, uint8_t *buff, uint8_t x_sector)
 
 void BspClearFlashData(void)
 {
-	int16_t num;
 	RecordFlashLock();
 
 	// 擦除故障区域
-	num = getFlashSaveDataNummber(FAULT_FLASH_SAVE);
 	W25QXX_Erase_Sector(FAULT_NUMS_ADDR / 4096);  // 擦除该扇区
 	memset(data_cache.buff, 0xFF, DATA_NUM_READ_LEN); // 初始化为0xFF
 	data_cache.bit_map.frame_id = DATA_FRAME_HEADER; // 标记为使用	
 	BspFlashWrite(data_cache.buff, FAULT_NUMS_ADDR, DATA_NUM_READ_LEN); // 每次从头开始写入
 	
-	for(int8_t i = (num/500) + 1; i > 0; i--)
+	/* 故障记录数据区固定为 fault_data_addr[]，不要用连续扇区号推算，避免误擦其它记录区。 */
+	for(uint8_t i = 0U; i < 4U; i++)
 	{
-		W25QXX_Erase_Sector(i);  // 擦除该扇区
+		W25QXX_Erase_Sector(fault_data_addr[i] / 4096U);  // 擦除该扇区
 	}
 	
 	// 擦除气灭区域
-	num = getFlashSaveDataNummber(GASER_FLASH_SAVE);
 	W25QXX_Erase_Sector(GASER_NUMS_ADDR / 4096);  // 擦除该扇区
 	memset(data_cache.buff, 0xFF, DATA_NUM_READ_LEN); // 初始化为0xFF
 	data_cache.bit_map.frame_id = DATA_FRAME_HEADER; // 标记为使用	
 	BspFlashWrite(data_cache.buff, GASER_NUMS_ADDR, DATA_NUM_READ_LEN); // 每次从头开始写入
 	
-	for(int8_t i = (num/500) + 6; i > 5; i--)
+	/* 气灭记录数据区固定为 gasof_data_addr[]，按表擦除更安全。 */
+	for(uint8_t i = 0U; i < 4U; i++)
 	{
-		W25QXX_Erase_Sector(i);  // 擦除该扇区
+		W25QXX_Erase_Sector(gasof_data_addr[i] / 4096U);  // 擦除该扇区
 	}
 	
 	// 擦除其它区域
-	num = getFlashSaveDataNummber(OTHER_FLASH_SAVE);
 	W25QXX_Erase_Sector(OTHER_NUMS_ADDR / 4096);  // 擦除该扇区
 	memset(data_cache.buff, 0xFF, DATA_NUM_READ_LEN); // 初始化为0xFF
 	data_cache.bit_map.frame_id = DATA_FRAME_HEADER; // 标记为使用	
@@ -511,15 +513,15 @@ void BspClearFlashData(void)
 //	}
 	
 	// 擦除报警区域
-	num = getFlashSaveDataNummber(FIRE_FLASH_SAVE);
 	W25QXX_Erase_Sector(ALARM_NUMS_ADDR / 4096);  // 擦除该扇区
 	memset(data_cache.buff, 0xFF, DATA_NUM_READ_LEN); // 初始化为0xFF
 	data_cache.bit_map.frame_id = DATA_FRAME_HEADER; // 标记为使用	
 	BspFlashWrite(data_cache.buff, ALARM_NUMS_ADDR, DATA_NUM_READ_LEN); // 每次从头开始写入
 	
-	for(int8_t i = (num/400) + 17; i > 15; i--)
+	/* 报警记录数据区固定为 alarm_data_addr[]，按表擦除，避免记录数量异常时越界。 */
+	for(uint8_t i = 0U; i < 5U; i++)
 	{
-		W25QXX_Erase_Sector(i);  // 擦除该扇区
+		W25QXX_Erase_Sector(alarm_data_addr[i] / 4096U);  // 擦除该扇区
 	}
 	RecordFlashUnlock();
 }
