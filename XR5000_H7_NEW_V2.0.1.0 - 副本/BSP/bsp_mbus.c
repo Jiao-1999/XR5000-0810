@@ -17,6 +17,8 @@ uint8_t cang_polling = 1; // 轮询初始值（注：为了兼容屏幕显示，下标从1开始）
 uint8_t PointTypeMixtureOnlieState[MIXTURE_DEVICE_SUM] = {0};
 // 掉线计数 判断是否掉线
 uint8_t PointTypeMixtureDisconnectCount[MIXTURE_DEVICE_SUM] = {0};
+// 掉线后连续通信成功计数，用于避免单帧恢复造成状态抖动
+static uint8_t g_mbus1_recovery_success_count[MIXTURE_DEVICE_SUM] = {0};
 
 // 接收数据 温度
 uint16_t PointTypeMixtureReceiveDataTemper[MIXTURE_DEVICE_SUM] = {0};
@@ -136,6 +138,7 @@ uint8_t getPointTypeMixtureDisconnectCount(uint8_t point_mix_id)
 void clearPointTypeMixtureDisconnectCount(void)
 {
 	memset(PointTypeMixtureDisconnectCount, 0, sizeof(PointTypeMixtureDisconnectCount));//清空数组
+	memset(g_mbus1_recovery_success_count, 0, sizeof(g_mbus1_recovery_success_count));
 }
 /*
  * ──────────────────────────────────────────────────────────────
@@ -366,6 +369,7 @@ static void MBus1ClearIdentification(uint8_t addr)
     PointTypeMixtureDetecteName[addr] = 0U;
     PointTypeMixtureDetecteType[addr] = 0U;
     PointTypeMixtureDisconnectCount[addr] = 0U;
+    g_mbus1_recovery_success_count[addr] = 0U;
     DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP1, addr, 0U);
 }
 
@@ -385,7 +389,21 @@ static volatile uint8_t g_mbus1_bus_locked = 0U;
 
 static void MBus1FinishTransaction(uint8_t addr)
 {
-    PointTypeMixtureDisconnectCount[addr] = 0U;
+    if(PointTypeMixtureDisconnectCount[addr] >= MIXTURE_DEVICE_DISCONNECT_SUM)
+    {
+        if(g_mbus1_recovery_success_count[addr] < MIXTURE_DEVICE_RECOVERY_SUM)
+            g_mbus1_recovery_success_count[addr]++;
+        if(g_mbus1_recovery_success_count[addr] >= MIXTURE_DEVICE_RECOVERY_SUM)
+        {
+            PointTypeMixtureDisconnectCount[addr] = 0U;
+            g_mbus1_recovery_success_count[addr] = 0U;
+        }
+    }
+    else
+    {
+        PointTypeMixtureDisconnectCount[addr] = 0U;
+        g_mbus1_recovery_success_count[addr] = 0U;
+    }
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
     g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
 }
@@ -420,6 +438,7 @@ static void MBus1MarkTimeout(void)
             MBus1MarkIdentifyFailure(addr, identify_stage == MBUS1_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
         else
         {
+            g_mbus1_recovery_success_count[addr] = 0U;
             if(PointTypeMixtureDisconnectCount[addr] < MIXTURE_DEVICE_DISCONNECT_SUM) PointTypeMixtureDisconnectCount[addr]++;
             if(PointTypeMixtureDisconnectCount[addr] >= MIXTURE_DEVICE_DISCONNECT_SUM)
                 g_mbus1_last_offline_probe_tick[addr] = osKernelGetTickCount();
@@ -488,6 +507,14 @@ static void MBus1StartTransaction(uint8_t addr)
         }
         taskEXIT_CRITICAL();
     }
+    else
+    {
+        /* The response timeout starts after the complete request is on the wire. */
+        taskENTER_CRITICAL();
+        if(g_mbus1_transaction_pending != 0U && g_mbus1_transaction_addr == addr)
+            g_mbus1_transaction_tick = osKernelGetTickCount();
+        taskEXIT_CRITICAL();
+    }
 }
 void MixtureDevicePollingManage(void)
 {
@@ -501,18 +528,54 @@ void MixtureDevicePollingManage(void)
 void MBus1ReceiveSlaveDataDeal(void)
 {
     uint8_t *buf = uartbuff[MBUS1SITE].recepetion_buff;
-    uint16_t len = uartbuff[MBUS1SITE].recepetion_len;
+    volatile uint8_t *rx_flag = &uartbuff[MBUS1SITE].recepetion_flag;
+    volatile uint16_t *rx_len = &uartbuff[MBUS1SITE].recepetion_len;
+    uint16_t len;
     uint16_t crc16;
-    uint8_t addr, byte_count, expected_count;
-    if(uartbuff[MBUS1SITE].recepetion_flag != 1U) return;
-    uartbuff[MBUS1SITE].recepetion_flag = 0U;
+    uint8_t addr, func, byte_count, expected_count;
+
+    taskENTER_CRITICAL();
+    if(*rx_flag != 1U)
+    {
+        taskEXIT_CRITICAL();
+        return;
+    }
+    __DMB();
+    len = *rx_len;
+    *rx_flag = 0U;
+    taskEXIT_CRITICAL();
+
+    if(len > BUFF_MAX) return;
     if(g_mbus1_transaction_pending == 0U || len < 5U) return;
     crc16 = (buf[len - 1U] << 8) | buf[len - 2U];
     if(CalcCrc16(buf, len - 2U) != crc16) return;
     addr = buf[0];
-    if(addr != g_mbus1_transaction_addr || addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR || buf[1] != 0x04U) return;
+    func = buf[1];
+    if(addr != g_mbus1_transaction_addr || addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
+
+    /* A CRC-valid Modbus exception from the requested address proves that the
+     * device is communicating. Keep the last sensor values and end this poll. */
+    if(func == 0x84U && len == 5U)
+    {
+        if(g_mbus1_transaction_identify_stage != MBUS1_STAGE_COMPLETE)
+            MBus1MarkIdentifyFailure(addr, g_mbus1_transaction_identify_stage == MBUS1_STAGE_NATIONAL ?
+                                           DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
+        MBus1FinishTransaction(addr);
+        return;
+    }
+    if(func != 0x04U) return;
+
     byte_count = buf[2]; expected_count = g_mbus1_transaction_identify_stage == MBUS1_STAGE_COMPLETE ? 28U : 6U;
-    if(byte_count != expected_count || len != (uint16_t)(byte_count + 5U)) return;
+    if(byte_count != expected_count || len != (uint16_t)(byte_count + 5U))
+    {
+        /* Communication is valid even when this firmware revision returns a
+         * different payload. Do not turn a protocol mismatch into a disconnect. */
+        if(g_mbus1_transaction_identify_stage != MBUS1_STAGE_COMPLETE)
+            MBus1MarkIdentifyFailure(addr, g_mbus1_transaction_identify_stage == MBUS1_STAGE_NATIONAL ?
+                                           DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
+        MBus1FinishTransaction(addr);
+        return;
+    }
     if(g_mbus1_transaction_identify_stage != MBUS1_STAGE_COMPLETE)
     {
         uint16_t national_code = ((uint16_t)buf[3] << 8) | buf[4];

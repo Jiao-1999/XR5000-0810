@@ -11504,6 +11504,19 @@ static void RS485Loop3ClearCurrentState(uint8_t addr)
 	memset(rs485_detect_alarm_memory[addr], 0, sizeof(rs485_detect_alarm_memory[addr]));
 }
 
+/* 回路3状态变化转换为显示盘事件；CO/H2高低报之间切换不重复上报。 */
+static void RS485Loop3PostDisplayTransition(uint8_t addr, uint8_t detector_type,
+	uint8_t old_state, uint8_t new_state)
+{
+	uint8_t old_alarm = (old_state == 1U || old_state == 2U || old_state == 3U) ? 1U : 0U;
+	uint8_t new_alarm = (new_state == 1U || new_state == 2U || new_state == 3U) ? 1U : 0U;
+	if((old_alarm != 0U && new_alarm == 0U) || old_state == 8U)
+		MBusCtrl_PostFireDisplayEvent(3U, addr, detector_type, 0U);
+	if(new_alarm != 0U && old_alarm == 0U)
+		MBusCtrl_PostFireDisplayEvent(3U, addr, detector_type, MBUS_FIRE_DISPLAY_ALARM_FIRE);
+	else if(new_state == 8U && old_state != 8U)
+		MBusCtrl_PostFireDisplayEvent(3U, addr, detector_type, MBUS_FIRE_DISPLAY_ALARM_FAULT);
+}
 static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
 	uint8_t fault_sum = 0;
@@ -11567,6 +11580,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 		{
 			if(old_temp != temp_state)
 			{
+                RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, old_temp, temp_state);
                 /* V2.21协议：温度state=1直接进入火警，不再生成温度预警。 */
                 if(old_temp == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_RECOVERY);
                 if(old_temp == 8U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 1);
@@ -11587,6 +11601,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 
 			if(old_smoke != smoke_state)
 			{
+                RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, old_smoke, smoke_state);
                 if(old_smoke == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_RECOVERY);
                 if(old_smoke == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 1);
                 if(type == RS485_DETECT_TYPE_XR805 && smoke_state == 1U)
@@ -11612,6 +11627,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			}
 			if(old_co != co_state)
 			{
+                RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_CO, old_co, co_state);
                 if(old_co == 2U) RS485Loop3RemoveWarning(addr, GasCarbonLowWarning); force_alarm_check_new_flag = 1;
                 if(old_co == 3U) RS485Loop3RemoveWarning(addr, GasCarbonHighWarning); force_alarm_check_new_flag = 1;
                 if(old_co == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_CO, RS485_CO_SENSOR_RECOVERY);
@@ -11634,6 +11650,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 
 			if(old_h2 != h2_state)
 			{
+                RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_H2, old_h2, h2_state);
                 if(old_h2 == 2U) RS485Loop3RemoveWarning(addr, GasHydrogenLowWarning); force_alarm_check_new_flag = 1;
                 if(old_h2 == 3U) RS485Loop3RemoveWarning(addr, GasHydrogenHighWarning); force_alarm_check_new_flag = 1;
                 if(old_h2 == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_RECOVERY);
@@ -11808,7 +11825,11 @@ static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			}
 			else
 			{
-				mbus2_hand_alarm_memory[addr] = 0;
+				if(mbus2_hand_alarm_memory[addr] != 0U)
+				{
+					MBusCtrl_PostFireDisplayEvent(2U, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL, 0U);
+					mbus2_hand_alarm_memory[addr] = 0U;
+				}
 			}
 		}
 	}
@@ -11985,7 +12006,6 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
             {
                 setPointTypeMixtureDetectDisconnectMemory(addr, 1U);
                 Loop1AddFault(addr, LOOP1_FAULT_OFFLINE, DISCONNECT);
-                MBusCtrl_PostFireDisplayEvent(1U, addr, display_type, MBUS_FIRE_DISPLAY_ALARM_FAULT);
             }
             continue;
         }
@@ -12014,6 +12034,8 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
         old_state = loop1_raw_state_memory[addr];
         if(old_state != raw_state)
         {
+            if(old_state == 1U || old_state == 8U)
+                MBusCtrl_PostFireDisplayEvent(1U, addr, display_type, 0U);
             if(type == 6U)
             {
                 if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_RECOVERY);
