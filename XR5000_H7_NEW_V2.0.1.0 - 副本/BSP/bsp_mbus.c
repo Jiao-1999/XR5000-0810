@@ -63,9 +63,12 @@ void MBus1SendString(uint8_t* buf, uint8_t len)
 	HAL_UART_Transmit(&huart7,buf,len,0xff);
 }
 
-void MBus2SendString(uint8_t* buf, uint8_t len)
+HAL_StatusTypeDef MBus2SendString(uint8_t* buf, uint8_t len)
 {
-	HAL_UART_Transmit(&huart2,buf,len,0xff);
+	HAL_StatusTypeDef status = HAL_UART_Transmit(&huart2,buf,len,0xff);
+	g_mbus2_uart_diag.last_tx_status = (uint8_t)status;
+	if(status != HAL_OK) g_mbus2_uart_diag.tx_fail_count++;
+	return status;
 }
 
 // 全部下线点型仓探
