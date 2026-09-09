@@ -35,6 +35,7 @@
  */
 #include "bsp_fecbus_report.h"
 #include "bsp_fecbus.h"
+#include "bsp_device_test.h"   /* 设备测试: 测试目标上报屏蔽查询 */
 
 /*==============================================================
  * 内部辅助
@@ -81,6 +82,9 @@ static void FecbusReport_Enqueue(uint8_t func_code, uint8_t pa,
 void FecbusReport_Fire(uint8_t dev_no, uint16_t dev_type,
                        uint8_t unit_no, uint8_t channel_no)
 {
+    /* 设备测试: 测试目标的火警不上报FECbus */
+    if (DeviceTest_IsTestDev(dev_no) != 0U) return;
+
     FecbusReport_Enqueue(FECBUS_FUNC_URGENT_EVT, FECBUS_PA_URGENT,
                          dev_no, dev_type, unit_no, channel_no,
                          EVT_FIRE, 0);
@@ -94,6 +98,10 @@ void FecbusReport_Fault(uint8_t dev_no, uint16_t dev_type,
                         uint8_t is_recover)
 {
     uint16_t evt = (is_recover != 0) ? EVT_FAULT_RECOVER : EVT_FAULT;
+
+    /* 设备测试: 测试目标的故障/恢复不上报FECbus */
+    if (DeviceTest_IsTestDev(dev_no) != 0U) return;
+
     FecbusReport_Enqueue(FECBUS_FUNC_NORMAL_EVT, FECBUS_PA_NORMAL,
                          dev_no, dev_type, unit_no, channel_no,
                          evt, 0);
@@ -105,6 +113,9 @@ void FecbusReport_Fault(uint8_t dev_no, uint16_t dev_type,
 void FecbusReport_Feedback(uint8_t dev_no, uint16_t dev_type,
                             uint16_t state_code)
 {
+    /* 设备测试: 测试目标的反馈不上报FECbus(联动控制测试用) */
+    if (DeviceTest_IsTestDev(dev_no) != 0U) return;
+
     FecbusReport_Enqueue(FECBUS_FUNC_URGENT_EVT, FECBUS_PA_URGENT,
                          dev_no, dev_type, 1, 0,
                          EVT_FEEDBACK, state_code);
@@ -137,6 +148,9 @@ void FecbusReport_Shield(uint8_t dev_no, uint16_t dev_type, uint8_t is_release)
  */
 void FecbusReport_Start(uint8_t dev_no, uint16_t dev_type)
 {
+    /* 设备测试: 测试期间的启动上报屏蔽(联动控制测试用) */
+    if (DeviceTest_IsTestDev(dev_no) != 0U) return;
+
     FecbusReport_Enqueue(FECBUS_FUNC_URGENT_EVT, FECBUS_PA_URGENT,
                          dev_no, dev_type, 1, 0,
                          EVT_START, 0);

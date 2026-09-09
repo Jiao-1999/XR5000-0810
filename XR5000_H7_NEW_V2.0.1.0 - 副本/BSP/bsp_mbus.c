@@ -1,5 +1,6 @@
 #include "bsp_mbus.h"
 #include "bsp_device_registry.h"
+#include "bsp_device_test.h"    /* 设备测试: 解析钩子查询测试目标表 */
 #include "cmsis_os.h"
 #include "cmd_process.h"
 #include "bsp_debug.h"
@@ -537,10 +538,20 @@ void MBus1ReceiveSlaveDataDeal(void)
     }
     else
     {
+        uint8_t test_state; /* 设备测试: 强制状态值缓存 */
+
         PointTypeMixtureReceiveDataTemper[addr] = ((uint16_t)buf[3] << 8) | buf[4];
         PointTypeMixtureReceiveDataSmoke[addr] = ((uint16_t)buf[5] << 8) | buf[6];
-        PointTypeMixtureReceiveStateTemper[addr] = (uint8_t)(((uint16_t)buf[27] << 8) | buf[28]);
-        PointTypeMixtureReceiveStateSmoke[addr] = (uint8_t)(((uint16_t)buf[29] << 8) | buf[30]);
+        /* 设备测试: 命中测试表的温度通道写入强制火警值(回路1 state=1直接进火警), 未命中保持真实状态 */
+        if (DeviceTest_GetForcedSensor1(addr, 0U, &test_state) != 0U)
+            PointTypeMixtureReceiveStateTemper[addr] = test_state;
+        else
+            PointTypeMixtureReceiveStateTemper[addr] = (uint8_t)(((uint16_t)buf[27] << 8) | buf[28]);
+        /* 设备测试: 命中测试表的烟雾通道写入强制火警值(回路1 state=1直接进火警), 未命中保持真实状态 */
+        if (DeviceTest_GetForcedSensor1(addr, 1U, &test_state) != 0U)
+            PointTypeMixtureReceiveStateSmoke[addr] = test_state;
+        else
+            PointTypeMixtureReceiveStateSmoke[addr] = (uint8_t)(((uint16_t)buf[29] << 8) | buf[30]);
     }
     MBus1FinishTransaction(addr);
 }

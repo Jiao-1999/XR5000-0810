@@ -9656,6 +9656,9 @@ void StoragePackFireAlarm(
 	uint8_t alarm_type                      // 报警类型
 )
 {
+	/* 设备测试: 测试目标的火警不存入火灾报警分区缓冲(设备测试/联动控制) */
+	if (DeviceTest_IsTestDev(pack_id) != 0U) return;
+
 	uint8_t flag = 0;
 	for(uint8_t l = 0;l < pcfas_entry->self_bottom_point; l++)
 	{
@@ -11130,6 +11133,9 @@ static void BspAlarmDataSaveApp(
 )
 {
 	FlashSaveFireAlarm_t temp_data = {0};
+
+	/* 设备测试: 测试目标的火警不写入火灾Flash记录(火警查询列表) */
+	if (DeviceTest_IsTestDev(pack_or_cabin) != 0U) return;
 
 	// 设备号赋值
 	temp_data.fs_base.fs_detect_id.cluster_id = cluster_id; // 簇ID

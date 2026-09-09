@@ -12,6 +12,7 @@
 #include "bsp_rs485_detect.h"
 #include "bsp_device_registry.h"
 #include "bsp_device_threshold.h"
+#include "bsp_device_test.h"   /* 设备测试: 解析钩子查询测试目标表 */
 
 #include "FreeRTOS.h"          
 #include "cmsis_os.h"          
@@ -637,8 +638,14 @@ static void parse_sensor_data(uint8_t addr, const uint8_t *bytes, uint8_t device
         }
         else
         {
+            /* 设备测试: 命中测试表的传感器通道写入强制报警值(state=2), 未命中保持真实状态 */
+            uint8_t test_state;
             uint16_t state = (bytes[offset] << 8) | bytes[offset + 1];
-            g_devices[addr].sensor_states[sensor_idx] = (uint8_t)state;
+
+            if (DeviceTest_GetForcedSensor3(addr, sensor_idx, &test_state) != 0U)
+                g_devices[addr].sensor_states[sensor_idx] = test_state;
+            else
+                g_devices[addr].sensor_states[sensor_idx] = (uint8_t)state;
         }
     }
 }

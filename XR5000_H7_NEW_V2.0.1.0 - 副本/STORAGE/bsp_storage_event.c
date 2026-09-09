@@ -95,6 +95,7 @@
  *     9. 命令码分配:   0x01普通/0x02首警/0x03火警/0x04故障
  */
 #include "bsp_storage_event.h"
+#include "bsp_device_test.h"   /* 设备测试: 测试目标记录屏蔽查询 */
 #include <string.h>
 
 /*==============================================================
@@ -151,6 +152,9 @@ static void StorageEvent_Enqueue(uint8_t cmd,
 void StorageEvent_LogFire(uint8_t dev_no, uint16_t dev_type,
                           uint8_t unit_no, uint8_t channel_no)
 {
+    /* 设备测试: 测试目标的火警不产生黑匣子记录, 也不消耗首警标志 */
+    if (DeviceTest_IsTestDev(dev_no) != 0U) return;
+
     /* 首警: 首次火警先发0x02(首警独立区段), 再发0x03(火警独立区段) */
     if (s_first_fire_recorded == 0U) {
         s_first_fire_recorded = 1U;
@@ -170,6 +174,9 @@ void StorageEvent_LogFault(uint8_t dev_no, uint16_t dev_type,
 {
     uint16_t event_code = (is_recover != 0U) ? EVT_FAULT_RECOVER : EVT_FAULT;
 
+    /* 设备测试: 测试目标的故障/恢复不产生黑匣子记录 */
+    if (DeviceTest_IsTestDev(dev_no) != 0U) return;
+
     /* 故障发生/恢复均存入0x04故障独立区段, 不被普通事件覆盖 */
     StorageEvent_Enqueue(STX_CMD_STORE_FAULT,
                          dev_no, dev_type, unit_no, channel_no,
@@ -179,6 +186,9 @@ void StorageEvent_LogFault(uint8_t dev_no, uint16_t dev_type,
 void StorageEvent_LogFeedback(uint8_t dev_no, uint16_t dev_type,
                               uint16_t state_code)
 {
+    /* 设备测试: 测试目标的反馈不产生黑匣子记录(联动控制测试用) */
+    if (DeviceTest_IsTestDev(dev_no) != 0U) return;
+
     /* 反馈存入0x01普通区段(先进先出覆盖) */
     StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
                          dev_no, dev_type, 1U, 0U,
@@ -212,6 +222,9 @@ void StorageEvent_LogShield(uint8_t dev_no, uint16_t dev_type, uint8_t is_releas
 
 void StorageEvent_LogStart(uint8_t dev_no, uint16_t dev_type)
 {
+    /* 设备测试: 测试期间的启动记录屏蔽(联动控制测试用) */
+    if (DeviceTest_IsTestDev(dev_no) != 0U) return;
+
     /* 联动启动按键存入0x01普通区段 */
     StorageEvent_Enqueue(STX_CMD_STORE_EVENT,
                          dev_no, dev_type, 1U, 0U,
