@@ -107,7 +107,7 @@ void clearPointTypeMixtureDetectAllStateMemory(void);
 
 void MBus1SendString(uint8_t* buf, uint8_t len);
 void MBus1ResetAllDevices(void);
-void MBus2SendString(uint8_t* buf, uint8_t len);
+HAL_StatusTypeDef MBus2SendString(uint8_t* buf, uint8_t len);
 uint16_t getPointTypeMixtureReceiveData16(ePointTypeDataOrder detect_data_type, uint8_t detect_id);
 uint8_t getPointTypeMixtureStateClass(uint8_t detect_id);
 // 获取探测器国标设备类型码(供联动逻辑显示用)

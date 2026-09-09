@@ -15,6 +15,25 @@ uint8_t screendata;
 FdcanBuffer_t fdcanbuff[2];
 
 __attribute__((section(".sram2"))) UartBuffer_t uartbuff[10];
+volatile MBus2UartDiag_t g_mbus2_uart_diag;
+
+HAL_StatusTypeDef MBus2UartEnsureRx(void)
+{
+	HAL_StatusTypeDef status;
+
+	if(huart2.RxState == HAL_UART_STATE_BUSY_RX)
+	{
+		return HAL_OK;
+	}
+
+	status = HAL_UARTEx_ReceiveToIdle_DMA(&huart2, uartbuff[MBUS2SITE].recepetion_buff, BUFF_MAX);
+	g_mbus2_uart_diag.last_rx_restart_status = (uint8_t)status;
+	if(status != HAL_OK)
+	{
+		g_mbus2_uart_diag.rx_restart_fail_count++;
+	}
+	return status;
+}
 
 void UartBufferInit(void)
 {
@@ -127,12 +146,15 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	}
 	else if (huart->Instance == USART2)
   {
-		uartbuff[1].recepetion_flag = 1;
-		uartbuff[1].recepetion_len = Size;
-		
 		// ???Cache?????
     SCB_InvalidateDCache_by_Addr((uint32_t*)uartbuff[1].recepetion_buff, BUFF_MAX);
-		HAL_UARTEx_ReceiveToIdle_DMA(&huart2, uartbuff[1].recepetion_buff, BUFF_MAX);
+		g_mbus2_uart_diag.rx_event_count++;
+		g_mbus2_uart_diag.last_rx_size = Size;
+		if(Size < 5U) g_mbus2_uart_diag.rx_short_event_count++;
+		uartbuff[1].recepetion_len = Size;
+		(void)MBus2UartEnsureRx();
+		__DMB();
+		uartbuff[1].recepetion_flag = 1;
 	}
 	else if (huart->Instance == USART3)
   {
@@ -277,6 +299,14 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
+	if(huart->Instance == USART2)
+	{
+		if((huart->ErrorCode & HAL_UART_ERROR_FE) != 0U) g_mbus2_uart_diag.frame_error_count++;
+		if((huart->ErrorCode & HAL_UART_ERROR_NE) != 0U) g_mbus2_uart_diag.noise_error_count++;
+		if((huart->ErrorCode & HAL_UART_ERROR_ORE) != 0U) g_mbus2_uart_diag.overrun_error_count++;
+		if((huart->ErrorCode & HAL_UART_ERROR_PE) != 0U) g_mbus2_uart_diag.parity_error_count++;
+	}
+
     /* 1. ??????? (FE) */
     if(huart->ErrorCode & HAL_UART_ERROR_FE) {
         __HAL_UART_CLEAR_FEFLAG(huart);  // ?????????? ?????
@@ -289,7 +319,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     if(huart->ErrorCode & HAL_UART_ERROR_ORE) {
         __HAL_UART_CLEAR_OREFLAG(huart); // ???????
         // ????DMA??????????? (USART3=FECbus IT????, ????????DMA)
-        if((huart->hdmarx != NULL) && (huart->Instance != USART3)) {
+        if((huart->hdmarx != NULL) && (huart->Instance != USART3) && (huart->Instance != USART2)) {
             HAL_UART_DMAStop(huart);
 						//huart->hdmarx->Instance->CNDTR = BUFF_MAX;
             __HAL_DMA_ENABLE(huart->hdmarx);
@@ -323,7 +353,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 		}
 		else if (huart->Instance == USART2)
 		{
-			HAL_UARTEx_ReceiveToIdle_DMA(&huart2, uartbuff[1].recepetion_buff, BUFF_MAX);
+			(void)MBus2UartEnsureRx();
 		}
 		else if (huart->Instance == USART3)
 		{
