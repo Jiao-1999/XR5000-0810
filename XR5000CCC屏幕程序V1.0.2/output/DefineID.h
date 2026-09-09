@@ -10321,13 +10321,27 @@
 
 #define  _BTN_SCREEN0_BUTTON2                                                  6
 
-#define  _TXT_DIS__SCREEN0_TEXT_DISPLAY1                                       7
-
-#define  _TXT_DIS__SCREEN0_TEXT_DISPLAY2                                       8
-
 #define  _TXT_DIS__SCREEN0_TEXT_DISPLAY3                                      13
 
 #define  _BTN_SCREEN0_BUTTON3                                                 10
+
+#define  _TXT_DIS__SCREEN0_TEXT_DISPLAY4                                       8
+
+#define  _TXT_DIS__SCREEN0_TEXT_DISPLAY1                                       7
+
+#define  _BTN_SCREEN0_BUTTON20                                                19
+
+#define  _BTN_SCREEN0_BUTTON24                                                24
+
+#define  _BTN_SCREEN0_BUTTON25                                                25
+
+#define  _BTN_SCREEN0_BUTTON26                                                26
+
+#define  _BTN_SCREEN0_BUTTON27                                                27
+
+#define  _BTN_SCREEN0_BUTTON28                                                28
+
+#define  _BTN_SCREEN0_BUTTON29                                                29
 
 #define  _TXT_DIS__SCREEN1_TEXT_DISPLAY3                                      13
 
@@ -10335,9 +10349,9 @@
 
 #define  _TXT_DIS__SCREEN1_TEXT_DISPLAY1                                       7
 
-#define  _TXT_DIS__SCREEN1_TEXT_DISPLAY2                                       8
-
 #define  _BTN_SCREEN1_BUTTON2                                                  6
 
 #define  _BTN_SCREEN1_BUTTON3                                                 10
+
+#define  _TXT_DIS__SCREEN1_TEXT_DISPLAY2                                       8
 

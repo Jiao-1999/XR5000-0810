@@ -28,6 +28,7 @@
 #include "bsp_save_ctrl.h"
 #include "bsp_rs485_detect.h"
 #include "bsp_history_filter.h"
+#include "bsp_device_test.h"
 #include "bsp_mbus_control.h"
 #include "bsp_device_registry.h"
 #include "bsp_device_threshold.h"
@@ -2059,6 +2060,7 @@ void NotifyScreen(uint16 screen_id)
     //TODO: 添加用户代码
     current_screen_id = screen_id;
     HistoryFilter_NotifyScreen(screen_id);
+    DeviceTest_NotifyScreen(screen_id);
     DeviceThreshold_NotifyScreen(screen_id); //在工程配置中开启画面切换通知，记录当前画面ID
 	if(screen_id == 75U)
 	{
@@ -3573,6 +3575,7 @@ void TB_sahngchuan(uint16 screen_id, uint16 control_id, uint8  state, uint8  tub
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 {
 	HistoryFilter_NotifyButton(screen_id, control_id, state);
+	DeviceTest_NotifyButton(screen_id, control_id, state);
 	DeviceThreshold_NotifyButton(screen_id, control_id, state);
 	if(screen_id == 1)
 	{
@@ -4374,6 +4377,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
    HistoryFilter_NotifyText(screen_id, control_id, str);
+   DeviceTest_NotifyText(screen_id, control_id, str);
    { 
 			if(control_id == 25) // 修改CAN2ID地址
       {
