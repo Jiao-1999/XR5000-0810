@@ -238,11 +238,11 @@
 //创建画面故障筛选界面的命令索引ID
 #define  _SCREEN_故障筛选界面                                                       79
 
-//创建画面Screen0的命令索引ID
-#define  _SCREEN_SCREEN0                                                      80
+//创建画面联动控制测试的命令索引ID
+#define  _SCREEN_联动控制测试                                                       80
 
-//创建画面Screen1的命令索引ID
-#define  _SCREEN_SCREEN1                                                      81
+//创建画面设备测试的命令索引ID
+#define  _SCREEN_设备测试                                                         81
 
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
@@ -9399,8 +9399,6 @@
 
 #define  _TXT_DIS__新菜单界面_TEXT_DISPLAY6                                       106
 
-#define  _MENU_新菜单界面_MENU10                                                   25
-
 #define  _TXT_DIS__新菜单界面_TEXT_DISPLAY7                                       107
 
 #define  _MENU_新菜单界面_MENU9                                                    24
@@ -10317,41 +10315,41 @@
 
 #define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY48                                      61
 
-#define  _BTN_SCREEN0_BUTTON1                                                 98
+#define  _BTN_联动控制测试_BUTTON1                                                  98
 
-#define  _BTN_SCREEN0_BUTTON2                                                  6
+#define  _BTN_联动控制测试_BUTTON2                                                   6
 
-#define  _TXT_DIS__SCREEN0_TEXT_DISPLAY3                                      13
+#define  _TXT_DIS__联动控制测试_TEXT_DISPLAY3                                       13
 
-#define  _BTN_SCREEN0_BUTTON3                                                 10
+#define  _BTN_联动控制测试_BUTTON3                                                  10
 
-#define  _TXT_DIS__SCREEN0_TEXT_DISPLAY4                                       8
+#define  _TXT_DIS__联动控制测试_TEXT_DISPLAY4                                        8
 
-#define  _TXT_DIS__SCREEN0_TEXT_DISPLAY1                                       7
+#define  _TXT_DIS__联动控制测试_TEXT_DISPLAY1                                        7
 
-#define  _BTN_SCREEN0_BUTTON20                                                19
+#define  _BTN_联动控制测试_BUTTON20                                                 19
 
-#define  _BTN_SCREEN0_BUTTON24                                                24
+#define  _BTN_联动控制测试_BUTTON24                                                 24
 
-#define  _BTN_SCREEN0_BUTTON25                                                25
+#define  _BTN_联动控制测试_BUTTON25                                                 25
 
-#define  _BTN_SCREEN0_BUTTON26                                                26
+#define  _BTN_联动控制测试_BUTTON26                                                 26
 
-#define  _BTN_SCREEN0_BUTTON27                                                27
+#define  _BTN_联动控制测试_BUTTON27                                                 27
 
-#define  _BTN_SCREEN0_BUTTON28                                                28
+#define  _BTN_联动控制测试_BUTTON28                                                 28
 
-#define  _BTN_SCREEN0_BUTTON29                                                29
+#define  _BTN_联动控制测试_BUTTON29                                                 29
 
-#define  _TXT_DIS__SCREEN1_TEXT_DISPLAY3                                      13
+#define  _TXT_DIS__设备测试_TEXT_DISPLAY3                                         13
 
-#define  _BTN_SCREEN1_BUTTON1                                                 98
+#define  _BTN_设备测试_BUTTON1                                                    98
 
-#define  _TXT_DIS__SCREEN1_TEXT_DISPLAY1                                       7
+#define  _TXT_DIS__设备测试_TEXT_DISPLAY1                                          7
 
-#define  _BTN_SCREEN1_BUTTON2                                                  6
+#define  _BTN_设备测试_BUTTON2                                                     6
 
-#define  _BTN_SCREEN1_BUTTON3                                                 10
+#define  _BTN_设备测试_BUTTON3                                                    10
 
-#define  _TXT_DIS__SCREEN1_TEXT_DISPLAY2                                       8
+#define  _TXT_DIS__设备测试_TEXT_DISPLAY2                                          8
 
