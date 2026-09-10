@@ -5027,6 +5027,11 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					break;
 				case 1:
 					break;
+				case 2: /* 新加功能：画面68菜单19第3项跳转联动规则列表(画面45)；时间：2026-09-10 */
+					bsp_screen_switch_ctrl.target_screen = 45U;
+					bsp_screen_switch_ctrl.switch_flag = 1U;
+					SwitchCurrentScreenId(45U);
+					break;
 				default:
 					break;
 			}
