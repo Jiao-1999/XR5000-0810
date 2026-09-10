@@ -46,6 +46,7 @@ typedef enum {
     MBUS_CONTROL_DEV_FIRE_DISPLAY = 3,
     MBUS_CONTROL_DEV_GCM1002 = 4,
     MBUS_CONTROL_DEV_FIM1017 = 5,   /* XR1530 火灾显示盘 */
+    MBUS_CONTROL_DEV_FCM1011 = 6,
 } MBusCtrlDevType;
 
 /* 当前XR-SGBJQ协议把声音和灯光作为一个整体线圈控制。 */
@@ -97,6 +98,8 @@ typedef struct {
     uint8_t disconnect_count;    /* 掉线累计计数(连续无响应次数) */
     uint8_t dev_type;            /* 设备类型(MBusCtrlDevType) */
     uint8_t sensor_state;        /* 传感器状态(04功能码读取的寄存器值) */
+    uint8_t input_state;         /* Module input channel 1 raw state (0..4). */
+    uint8_t output_state;        /* Module output channel 1 raw state (0..4). */
     uint8_t disconnect_memory;
     uint16_t product_code;
     uint16_t national_type_code;
@@ -131,6 +134,9 @@ uint8_t MBusCtrl_GetAlarmCount(void);                /* 回路2报警设备总数 */
 /* ---- 设备信息查询 ---- */
 const char* MBusCtrl_GetDeviceName(uint8_t addr);    /* 根据地址获取设备名称(中文) */
 uint8_t MBusCtrl_GetDeviceState(uint8_t addr);       /* 获取设备传感器状态值 */
+uint8_t MBusCtrl_GetInputChannelState(uint8_t addr, uint8_t channel, uint8_t *state);
+uint8_t MBusCtrl_GetOutputChannelState(uint8_t addr, uint8_t channel, uint8_t *state);
+uint8_t MBusCtrl_IsModuleStarted(uint8_t addr);
 void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state);       /* 注入传感器状态(测试用) */
 uint8_t MBusCtrl_GetDeviceType(uint8_t addr);        /* 获取设备类型(MBusCtrlDevType) */
 uint8_t MBusCtrl_IsAlarmState(uint8_t addr);         /* 判断设备是否处于报警状态 */
