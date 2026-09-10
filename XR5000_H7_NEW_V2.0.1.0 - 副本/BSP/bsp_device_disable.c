@@ -80,6 +80,7 @@ static uint16_t g_hmi_address = 0U;                            /* 当前输入的设备
 static uint8_t g_hmi_page_active = 0U;                         /* 画面70是否激活 */
 static uint8_t g_hmi_lines[DEVICE_DISABLE_RECENT_MAX][96];     /* 左侧20行文本缓冲 */
 static volatile uint8_t g_hmi_operation_pending = 0U;          /* 操作请求待处理标志 */
+static volatile uint8_t g_hmi_operation_waiting_input = 0U;    /* 等待读取控件204后再执行操作 */
 static uint8_t g_hmi_operation = 0U;                            /* 操作类型: 1=设置 / 2=解除 */
 static DeviceIdentity g_hmi_operation_identity;                 /* 待操作设备标识 */
 static volatile uint8_t g_hmi_menu_refresh_pending = 0U;       /* 菜单刷新请求 */
@@ -701,6 +702,15 @@ static void DeviceDisableHmiProcessQuery(const uint8_t *query_text)
         SetTextValue(70U, 24U, (uint8_t *)(GBK_DISABLE_STATE GBK_UNAVAILABLE));
         return;
     }
+    if((identity.loop_id == DEVICE_DISABLE_LOOP1 || identity.loop_id == DEVICE_DISABLE_LOOP3) &&
+       identity.address <= DEVICE_DISABLE_MAX_ADDRESS)
+    {
+        g_hmi_loop_id = identity.loop_id;
+        g_hmi_address = identity.address;
+        snprintf((char *)g_hmi_address_text, sizeof(g_hmi_address_text), "%u", g_hmi_address);
+        SetTextValue(70U, 202U, (uint8_t *)(g_hmi_loop_id == DEVICE_DISABLE_LOOP3 ? GBK_LOOP3_TEXT : GBK_LOOP1_TEXT));
+        SetTextValue(70U, 204U, g_hmi_address_text);
+    }
     DeviceCodeFormat(&identity, code);
     snprintf((char *)line, sizeof(line), "%s%s", GBK_DEVICE_CODE, code);
     SetTextValue(70U, 22U, line);
@@ -827,6 +837,8 @@ void DeviceDisableHmiScreenUpdate(uint16_t screen_id)
         if(!g_hmi_page_active)
         {
             g_hmi_page_active = 1U;
+            g_hmi_operation_pending = 0U;
+            g_hmi_operation_waiting_input = 0U;
             g_hmi_loop_id = DEVICE_DISABLE_LOOP1;
             g_hmi_address = 0U;
             memset(g_hmi_address_text, 0, sizeof(g_hmi_address_text));
@@ -864,6 +876,8 @@ void DeviceDisableHmiScreenUpdate(uint16_t screen_id)
     else
     {
         g_hmi_page_active = 0U;
+        g_hmi_operation_pending = 0U;
+        g_hmi_operation_waiting_input = 0U;
         if(screen_id != 57U) g_history_hmi_active = 0U;
     }
 }
@@ -884,11 +898,10 @@ void DeviceDisableHmiButton(uint16_t screen_id, uint16_t control_id, uint8_t sta
         return;
     }
     if(screen_id != 70U || state != 1U || (control_id != 211U && control_id != 212U)) return;
-    if(g_hmi_operation_pending) return;
-    g_hmi_operation_identity.loop_id = g_hmi_loop_id;
-    g_hmi_operation_identity.address = g_hmi_address;
+    if(g_hmi_operation_pending || g_hmi_operation_waiting_input) return;
     g_hmi_operation = control_id == 211U ? 1U : 2U;
-    g_hmi_operation_pending = 1U;
+    g_hmi_operation_waiting_input = 1U;
+    GetControlValue(70U, 204U);
 }
 
 /* 菜单选择响应: 画面68控件20索引2→跳转画面57, 画面70控件300→切换回路 */
@@ -913,18 +926,49 @@ void DeviceDisableHmiMenu(uint16_t screen_id, uint16_t control_id, uint8_t item,
 /* 文本输入响应: 画面70控件204(地址输入)→更新地址, 控件207(编号查询)→触发查询 */
 void DeviceDisableHmiText(uint16_t screen_id, uint16_t control_id, const uint8_t *text)
 {
+    char *end;
+    unsigned long value;
     if(screen_id != 70U || text == NULL) return;
+    if(!g_hmi_page_active)
+    {
+        g_hmi_page_active = 1U;
+        DeviceDisableHmiLoadCurrent();
+    }
     if(control_id == 204U)
     {
-        unsigned long value = strtoul((const char *)text, NULL, 10);
-        g_hmi_address = value <= DEVICE_DISABLE_MAX_ADDRESS ? (uint16_t)value : 0U;
+        value = strtoul((const char *)text, &end, 10);
+        g_hmi_address = (end != (char *)text && *end == '\0' && value > 0UL &&
+                         value <= DEVICE_DISABLE_MAX_ADDRESS) ? (uint16_t)value : 0U;
         snprintf((char *)g_hmi_address_text, sizeof(g_hmi_address_text), "%u", g_hmi_address);
         g_hmi_address_refresh_pending = 1U;
+        if(g_hmi_address != 0U)
+        {
+            DeviceIdentity identity;
+            identity.loop_id = g_hmi_loop_id;
+            identity.address = g_hmi_address;
+            DeviceCodeFormat(&identity, g_hmi_query_text);
+        }
+        else
+        {
+            memset(g_hmi_query_text, 0, sizeof(g_hmi_query_text));
+        }
+        g_hmi_query_pending = 1U;
+        if(g_hmi_operation_waiting_input)
+        {
+            g_hmi_operation_waiting_input = 0U;
+            g_hmi_operation_identity.loop_id = g_hmi_loop_id;
+            g_hmi_operation_identity.address = g_hmi_address;
+            g_hmi_operation_pending = 1U;
+        }
         return;
     }
     if(control_id != 207U) return;
     memset(g_hmi_query_text, 0, sizeof(g_hmi_query_text));
-    strncpy((char *)g_hmi_query_text, (const char *)text, sizeof(g_hmi_query_text) - 1U);
+    value = strtoul((const char *)text, &end, 10);
+    if(end != (char *)text && *end == '\0' && value <= 99999UL)
+        snprintf((char *)g_hmi_query_text, sizeof(g_hmi_query_text), "%05lu", value);
+    else
+        strncpy((char *)g_hmi_query_text, (const char *)text, sizeof(g_hmi_query_text) - 1U);
     g_hmi_query_pending = 1U;
 }
 

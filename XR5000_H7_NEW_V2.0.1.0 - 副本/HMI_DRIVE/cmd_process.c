@@ -4202,6 +4202,15 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			SystemInfoSave(); // 从设置出厂日期界面退出再保存进EEPROM
 		}
 	}
+	else if(screen_id == 68U)
+	{
+		if(control_id == 6U && state == 1U)
+		{
+			bsp_screen_switch_ctrl.target_screen = 71U;
+			bsp_screen_switch_ctrl.switch_flag = 1U;
+			SwitchCurrentScreenId(71U);
+		}
+	}
 	else if(screen_id == 71U)
 	{
 		if(control_id == 300U && state == 1U)
