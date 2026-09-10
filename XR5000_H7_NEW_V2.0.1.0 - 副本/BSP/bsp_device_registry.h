@@ -26,7 +26,8 @@ typedef enum
     DEVICE_PRODUCT_SGBJQ         = 10,
     DEVICE_PRODUCT_XR1503        = 11,
     DEVICE_PRODUCT_GCM1002       = 12,
-    DEVICE_PRODUCT_FIM1017       = 13
+    DEVICE_PRODUCT_FIM1017       = 13,
+    DEVICE_PRODUCT_FCM1011       = 14
 } DeviceProductCode;
 
 typedef enum
@@ -43,6 +44,7 @@ typedef enum
     DEVICE_PARSER_XR1503,
     DEVICE_PARSER_GCM1002,
     DEVICE_PARSER_FIM1017,
+    DEVICE_PARSER_FCM1011,
     DEVICE_PARSER_DLYGWG
 } DeviceParserType;
 
@@ -74,7 +76,8 @@ typedef enum
 {
     DEVICE_CONTROL_DRIVER_NONE = 0,          /* 输入设备或尚未实现控制协议 */
     DEVICE_CONTROL_DRIVER_SGBJQ,             /* XR-SGBJQ声光报警器05功能码驱动 */
-    DEVICE_CONTROL_DRIVER_FIRE_DISPLAY       /* 火灾显示盘10功能码事件驱动 */
+    DEVICE_CONTROL_DRIVER_FIRE_DISPLAY,      /* 火灾显示盘10功能码事件驱动 */
+    DEVICE_CONTROL_DRIVER_FCM1011             /* FCM-1011 active output, FC05 coil 0x0000 */
 } DeviceControlDriver;
 
 typedef struct
