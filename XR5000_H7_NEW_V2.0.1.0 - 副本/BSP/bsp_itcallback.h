@@ -14,6 +14,22 @@ typedef struct
 	uint8_t recepetion_buff[BUFF_MAX];
 }UartBuffer_t;
 
+typedef struct
+{
+	uint32_t rx_event_count;
+	uint32_t rx_short_event_count;
+	uint32_t rx_restart_fail_count;
+	uint32_t rx_crc_error_count;
+	uint32_t tx_fail_count;
+	uint32_t frame_error_count;
+	uint32_t noise_error_count;
+	uint32_t overrun_error_count;
+	uint32_t parity_error_count;
+	uint16_t last_rx_size;
+	uint8_t last_rx_restart_status;
+	uint8_t last_tx_status;
+} MBus2UartDiag_t;
+
 
 typedef enum
 {
@@ -47,7 +63,10 @@ typedef enum
 }eFdcanOrder;
 
 extern UartBuffer_t uartbuff[10];
+extern volatile MBus2UartDiag_t g_mbus2_uart_diag;
 extern uint8_t screendata;
+
+HAL_StatusTypeDef MBus2UartEnsureRx(void);
 
 extern FdcanBuffer_t fdcanbuff[2];
 

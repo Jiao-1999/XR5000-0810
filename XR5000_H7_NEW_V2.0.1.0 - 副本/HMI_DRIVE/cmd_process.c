@@ -1611,7 +1611,21 @@ static const char* GetMBusDeviceChineseName(uint8_t addr)
 		case MBUS_CONTROL_DEV_SGBJQ:  return "声光报警器";
 		case MBUS_CONTROL_DEV_XR2200: return "手动报警器";
 		case MBUS_CONTROL_DEV_FIRE_DISPLAY: return "火灾显示盘";
+		case MBUS_CONTROL_DEV_FCM1011: return "\xCA\xE4\xC8\xEB\xCA\xE4\xB3\xF6\xC4\xA3\xBF\xE9";
 		default: return "未知设备";
+	}
+}
+
+static const char* GetFCM1011ChannelStateName(uint8_t state)
+{
+	switch(state)
+	{
+		case 0U: return "\xBC\xE0\xCA\xD3";
+		case 1U: return "\xC6\xF4\xB6\xAF";
+		case 2U: return "\xB6\xCC\xC2\xB7\xB9\xCA\xD5\xCF";
+		case 3U: return "\xB6\xCF\xC2\xB7\xB9\xCA\xD5\xCF";
+		case 4U: return "\xCC\xD8\xD5\xF7\xB5\xE7\xD7\xE8\xB2\xBB\xC6\xA5\xC5\xE4";
+		default: return "\xCE\xB4\xD6\xAA";
 	}
 }
 
@@ -1860,8 +1874,24 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 		case 2:
 		{
 			const char *name = GetMBusDeviceChineseName(addr);
-			const char *status_str = MBusCtrl_IsAlarmState(addr) ? "报警" : "正常";
-			n = snprintf(p, remain, "%02d-%03d %s %s", circuit, addr, name, status_str);
+			const char *status_str;
+			if(MBusCtrl_GetDeviceType(addr) == MBUS_CONTROL_DEV_FCM1011)
+			{
+				uint8_t input_state = 0U;
+				uint8_t output_state = 0U;
+				(void)MBusCtrl_GetInputChannelState(addr, 1U, &input_state);
+				(void)MBusCtrl_GetOutputChannelState(addr, 1U, &output_state);
+				status_str = MBusCtrl_IsModuleStarted(addr) != 0U ?
+				             "\xC6\xF4\xB6\xAF" : "\xD5\xFD\xB3\xA3";
+				n = snprintf(p, remain, "%02d-%03d %s \xCA\xE4\xC8\xEB\x31\x3A%s \xCA\xE4\xB3\xF6\x31\x3A%s %s",
+				             circuit, addr, name, GetFCM1011ChannelStateName(input_state),
+				             GetFCM1011ChannelStateName(output_state), status_str);
+			}
+			else
+			{
+				status_str = MBusCtrl_IsAlarmState(addr) ? "报警" : "正常";
+				n = snprintf(p, remain, "%02d-%03d %s %s", circuit, addr, name, status_str);
+			}
 			p += n;
 			remain -= n;
 			{
@@ -3471,13 +3501,26 @@ void UpdateUI(void)
 			}
 			else if (screen69_circuit == 2)
 			{
-				uint8_t new_state = MBusCtrl_GetDeviceState(addr);
+				uint8_t new_type = MBusCtrl_GetDeviceType(addr);
+				uint8_t new_input_state = 0U;
+				uint8_t new_output_state = 0U;
+				if(new_type == MBUS_CONTROL_DEV_FCM1011)
+				{
+					(void)MBusCtrl_GetInputChannelState(addr, 1U, &new_input_state);
+					(void)MBusCtrl_GetOutputChannelState(addr, 1U, &new_output_state);
+				}
+				else
+				{
+					new_input_state = MBusCtrl_GetDeviceState(addr);
+				}
 
-				if (!cache->active
-					|| cache->temper_val != new_state)
+				if (!cache->active || cache->sensor_enable != new_type ||
+					cache->temper_val != new_input_state || cache->co_val != new_output_state)
 				{
 					need_refresh = 1;
-					cache->temper_val = new_state;
+					cache->sensor_enable = new_type;
+					cache->temper_val = new_input_state;
+					cache->co_val = new_output_state;
 					cache->active = 1;
 				}
 			}
@@ -4157,6 +4200,15 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		if(control_id == 1 && state == 1)                                            
 		{
 			SystemInfoSave(); // 从设置出厂日期界面退出再保存进EEPROM
+		}
+	}
+	else if(screen_id == 68U)
+	{
+		if(control_id == 6U && state == 1U)
+		{
+			bsp_screen_switch_ctrl.target_screen = 71U;
+			bsp_screen_switch_ctrl.switch_flag = 1U;
+			SwitchCurrentScreenId(71U);
 		}
 	}
 	else if(screen_id == 71U)
@@ -11472,6 +11524,19 @@ static void RS485Loop3ClearCurrentState(uint8_t addr)
 	memset(rs485_detect_alarm_memory[addr], 0, sizeof(rs485_detect_alarm_memory[addr]));
 }
 
+/* 回路3状态变化转换为显示盘事件；CO/H2高低报之间切换不重复上报。 */
+static void RS485Loop3PostDisplayTransition(uint8_t addr, uint8_t detector_type,
+	uint8_t old_state, uint8_t new_state)
+{
+	uint8_t old_alarm = (old_state == 1U || old_state == 2U || old_state == 3U) ? 1U : 0U;
+	uint8_t new_alarm = (new_state == 1U || new_state == 2U || new_state == 3U) ? 1U : 0U;
+	if((old_alarm != 0U && new_alarm == 0U) || old_state == 8U)
+		MBusCtrl_PostFireDisplayEvent(3U, addr, detector_type, 0U);
+	if(new_alarm != 0U && old_alarm == 0U)
+		MBusCtrl_PostFireDisplayEvent(3U, addr, detector_type, MBUS_FIRE_DISPLAY_ALARM_FIRE);
+	else if(new_state == 8U && old_state != 8U)
+		MBusCtrl_PostFireDisplayEvent(3U, addr, detector_type, MBUS_FIRE_DISPLAY_ALARM_FAULT);
+}
 static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
 	uint8_t fault_sum = 0;
@@ -11535,6 +11600,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 		{
 			if(old_temp != temp_state)
 			{
+                RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, old_temp, temp_state);
                 /* V2.21协议：温度state=1直接进入火警，不再生成温度预警。 */
                 if(old_temp == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_RECOVERY);
                 if(old_temp == 8U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 1);
@@ -11555,6 +11621,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 
 			if(old_smoke != smoke_state)
 			{
+                RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, old_smoke, smoke_state);
                 if(old_smoke == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_RECOVERY);
                 if(old_smoke == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 1);
                 if(type == RS485_DETECT_TYPE_XR805 && smoke_state == 1U)
@@ -11580,6 +11647,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			}
 			if(old_co != co_state)
 			{
+                RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_CO, old_co, co_state);
                 if(old_co == 2U) RS485Loop3RemoveWarning(addr, GasCarbonLowWarning); force_alarm_check_new_flag = 1;
                 if(old_co == 3U) RS485Loop3RemoveWarning(addr, GasCarbonHighWarning); force_alarm_check_new_flag = 1;
                 if(old_co == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_CO, RS485_CO_SENSOR_RECOVERY);
@@ -11602,6 +11670,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 
 			if(old_h2 != h2_state)
 			{
+                RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_H2, old_h2, h2_state);
                 if(old_h2 == 2U) RS485Loop3RemoveWarning(addr, GasHydrogenLowWarning); force_alarm_check_new_flag = 1;
                 if(old_h2 == 3U) RS485Loop3RemoveWarning(addr, GasHydrogenHighWarning); force_alarm_check_new_flag = 1;
                 if(old_h2 == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_H2, RS485_H2_SENSOR_RECOVERY);
@@ -11776,7 +11845,11 @@ static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			}
 			else
 			{
-				mbus2_hand_alarm_memory[addr] = 0;
+				if(mbus2_hand_alarm_memory[addr] != 0U)
+				{
+					MBusCtrl_PostFireDisplayEvent(2U, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL, 0U);
+					mbus2_hand_alarm_memory[addr] = 0U;
+				}
 			}
 		}
 	}
@@ -11953,7 +12026,6 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
             {
                 setPointTypeMixtureDetectDisconnectMemory(addr, 1U);
                 Loop1AddFault(addr, LOOP1_FAULT_OFFLINE, DISCONNECT);
-                MBusCtrl_PostFireDisplayEvent(1U, addr, display_type, MBUS_FIRE_DISPLAY_ALARM_FAULT);
             }
             continue;
         }
@@ -11982,6 +12054,8 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
         old_state = loop1_raw_state_memory[addr];
         if(old_state != raw_state)
         {
+            if(old_state == 1U || old_state == 8U)
+                MBusCtrl_PostFireDisplayEvent(1U, addr, display_type, 0U);
             if(type == 6U)
             {
                 if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_RECOVERY);

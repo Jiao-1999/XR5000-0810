@@ -11,7 +11,8 @@
 #define MIXTURE_DEVICE_FLASH_ADDR 0x111000UL
 #define MIXTURE_DEVICE_FLASH_DATA_LEN (MIXTURE_DEVICE_MAX_ADDR + 1U)
 #define MIXTURE_DEVICE_DISCONNECT_SUM 3
-#define MIXTURE_DEVICE_RESPONSE_TIMEOUT_MS 80U
+#define MIXTURE_DEVICE_RECOVERY_SUM 2U
+#define MIXTURE_DEVICE_RESPONSE_TIMEOUT_MS 120U
 #define MIXTURE_DEVICE_IDENTIFY_RESPONSE_TIMEOUT_MS 200U
 #define MIXTURE_DEVICE_TASK_INTERVAL_MS 10U
 
@@ -106,7 +107,7 @@ void clearPointTypeMixtureDetectAllStateMemory(void);
 
 void MBus1SendString(uint8_t* buf, uint8_t len);
 void MBus1ResetAllDevices(void);
-void MBus2SendString(uint8_t* buf, uint8_t len);
+HAL_StatusTypeDef MBus2SendString(uint8_t* buf, uint8_t len);
 uint16_t getPointTypeMixtureReceiveData16(ePointTypeDataOrder detect_data_type, uint8_t detect_id);
 uint8_t getPointTypeMixtureStateClass(uint8_t detect_id);
 // 获取探测器国标设备类型码(供联动逻辑显示用)
