@@ -1611,7 +1611,21 @@ static const char* GetMBusDeviceChineseName(uint8_t addr)
 		case MBUS_CONTROL_DEV_SGBJQ:  return "声光报警器";
 		case MBUS_CONTROL_DEV_XR2200: return "手动报警器";
 		case MBUS_CONTROL_DEV_FIRE_DISPLAY: return "火灾显示盘";
+		case MBUS_CONTROL_DEV_FCM1011: return "\xCA\xE4\xC8\xEB\xCA\xE4\xB3\xF6\xC4\xA3\xBF\xE9";
 		default: return "未知设备";
+	}
+}
+
+static const char* GetFCM1011ChannelStateName(uint8_t state)
+{
+	switch(state)
+	{
+		case 0U: return "\xBC\xE0\xCA\xD3";
+		case 1U: return "\xC6\xF4\xB6\xAF";
+		case 2U: return "\xB6\xCC\xC2\xB7\xB9\xCA\xD5\xCF";
+		case 3U: return "\xB6\xCF\xC2\xB7\xB9\xCA\xD5\xCF";
+		case 4U: return "\xCC\xD8\xD5\xF7\xB5\xE7\xD7\xE8\xB2\xBB\xC6\xA5\xC5\xE4";
+		default: return "\xCE\xB4\xD6\xAA";
 	}
 }
 
@@ -1860,8 +1874,24 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 		case 2:
 		{
 			const char *name = GetMBusDeviceChineseName(addr);
-			const char *status_str = MBusCtrl_IsAlarmState(addr) ? "报警" : "正常";
-			n = snprintf(p, remain, "%02d-%03d %s %s", circuit, addr, name, status_str);
+			const char *status_str;
+			if(MBusCtrl_GetDeviceType(addr) == MBUS_CONTROL_DEV_FCM1011)
+			{
+				uint8_t input_state = 0U;
+				uint8_t output_state = 0U;
+				(void)MBusCtrl_GetInputChannelState(addr, 1U, &input_state);
+				(void)MBusCtrl_GetOutputChannelState(addr, 1U, &output_state);
+				status_str = MBusCtrl_IsModuleStarted(addr) != 0U ?
+				             "\xC6\xF4\xB6\xAF" : "\xD5\xFD\xB3\xA3";
+				n = snprintf(p, remain, "%02d-%03d %s \xCA\xE4\xC8\xEB\x31\x3A%s \xCA\xE4\xB3\xF6\x31\x3A%s %s",
+				             circuit, addr, name, GetFCM1011ChannelStateName(input_state),
+				             GetFCM1011ChannelStateName(output_state), status_str);
+			}
+			else
+			{
+				status_str = MBusCtrl_IsAlarmState(addr) ? "报警" : "正常";
+				n = snprintf(p, remain, "%02d-%03d %s %s", circuit, addr, name, status_str);
+			}
 			p += n;
 			remain -= n;
 			{
@@ -3471,13 +3501,26 @@ void UpdateUI(void)
 			}
 			else if (screen69_circuit == 2)
 			{
-				uint8_t new_state = MBusCtrl_GetDeviceState(addr);
+				uint8_t new_type = MBusCtrl_GetDeviceType(addr);
+				uint8_t new_input_state = 0U;
+				uint8_t new_output_state = 0U;
+				if(new_type == MBUS_CONTROL_DEV_FCM1011)
+				{
+					(void)MBusCtrl_GetInputChannelState(addr, 1U, &new_input_state);
+					(void)MBusCtrl_GetOutputChannelState(addr, 1U, &new_output_state);
+				}
+				else
+				{
+					new_input_state = MBusCtrl_GetDeviceState(addr);
+				}
 
-				if (!cache->active
-					|| cache->temper_val != new_state)
+				if (!cache->active || cache->sensor_enable != new_type ||
+					cache->temper_val != new_input_state || cache->co_val != new_output_state)
 				{
 					need_refresh = 1;
-					cache->temper_val = new_state;
+					cache->sensor_enable = new_type;
+					cache->temper_val = new_input_state;
+					cache->co_val = new_output_state;
 					cache->active = 1;
 				}
 			}
