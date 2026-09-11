@@ -7,7 +7,7 @@
  * 模块名称: RS485探测器管理模块 (RS485 Detector Management)
  * 功能描述: 管理回路3(UART5) RS485总线探测器(XR805/XR8303/XR8305)的轮询、
  *          数据解析、状态管理、Flash持久化。
- * 通信协议: Modbus RTU, 功能码04(读输入寄存器), 波特率115200/8N1
+ * 通信协议: Modbus RTU, 功能码04(读输入寄存器), 波特率9600/8N1
  * 轮询机制: FreeRTOS任务周期轮询在线设备, 先识别国标码/产品码/传感器启用位, 再读取传感器数据
  * 设备类型: XR805(烟雾+温度+CO+CH4+H2+VOC), XR8303(烟雾+温度+CO+H2+VOC+压力)
  * 掉线检测: 连续5次真实轮询事务无响应判定掉线
@@ -20,7 +20,9 @@
 #define RS485_DETECT_POLL_INTERVAL_MS       50 /* 轮询间隔(ms), 每轮一个设备 */
 #define RS485_DETECT_RESPONSE_TIMEOUT_MS   120 /* 单次请求超时(ms), 超时计掉线 */
 #define RS485_DETECT_TASK_INTERVAL_MS        10 /* 任务循环周期(ms) */
-#define RS485_DETECT_TX_TIMEOUT_MS           30 /* 阻塞发送超时(ms) */
+#define RS485_DETECT_TX_COMPLETE_TIMEOUT_MS  30 /* 中断发送完成看门狗(ms) */
+#define RS485_DETECT_INTER_FRAME_GUARD_MS     50 /* 成功应答后留足总线/设备恢复时间 */
+#define RS485_DETECT_RECOVERY_SUCCESS_THRESHOLD 2 /* 掉线后连续成功次数达到该值才恢复 */
 
 #define RS485_DETECT_LOOP_ID  3  /* 回路编号, 用于Flash存储和故障记录 */
 #define RS485_DETECT_FLASH_ID 0x53U /* 故障簇ID(83簇), 避免与旧簇3历史冲突 */
@@ -77,6 +79,7 @@ typedef struct {
     uint8_t  sensor_enable_confirmed; /* 传感器启用状态已确认(已成功读取0x000F) */
     uint8_t  sensor_data_valid;      /* 传感器实时数据有效(已收到完整传感器帧) */
     uint8_t  disconnect_count;       /* 掉线累计计数(连续无响应次数) */
+    uint8_t  recovery_count;         /* 掉线后的连续通信成功次数 */
     uint8_t  disconnect_memory;      /* 掉线记忆(0=在线, 1=已记录掉线) */
     uint16_t sensor_enable;          /* 0x000F传感器启用位掩码 */
     uint16_t national_type_code;

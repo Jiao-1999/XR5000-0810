@@ -1130,6 +1130,16 @@
               <FilePath>..\BSP\bsp_device_disable.c</FilePath>
             </File>
             <File>
+              <FileName>bsp_device_alias.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_device_alias.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_device_alias_hmi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_device_alias_hmi.c</FilePath>
+            </File>
+            <File>
               <FileName>bsp_station.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\bsp_station.c</FilePath>

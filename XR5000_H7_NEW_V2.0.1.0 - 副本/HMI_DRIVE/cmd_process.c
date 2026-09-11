@@ -30,6 +30,7 @@
 #include "bsp_history_filter.h"
 #include "bsp_mbus_control.h"
 #include "bsp_device_registry.h"
+#include "bsp_device_alias.h"
 #include "bsp_device_threshold.h"
 #include "bsp_aht20.h"
 
@@ -1487,25 +1488,56 @@ static const char *Loop1StateName(uint8_t type, uint8_t state)
     return "\xD5\xFD\xB3\xA3";
 }
 
+static const char *FormatDeviceAliasType(uint8_t loop_id, uint8_t address,
+                                         const char *type_name, uint8_t *buffer,
+                                         uint8_t buffer_size)
+{
+    uint8_t alias[DEVICE_ALIAS_NAME_BYTES];
+    uint16_t product_code = DeviceAliasDevice_GetProductCode(loop_id, address);
+    if(DeviceAlias_Get(loop_id, address, product_code, alias, sizeof(alias)) ==
+       DEVICE_ALIAS_MATCH)
+    {
+        snprintf((char *)buffer, buffer_size, "%s（%s）", alias, type_name);
+        return (const char *)buffer;
+    }
+    return type_name;
+}
+
 static void FormatLoop1WarningLine(uint8_t *buf, uint8_t sequence, PackCabinForeWarnStorage *entry, uint8_t index)
 {
+    uint8_t label[64];
+    const char *type_name = entry->alarm_type[index] == Loop1TempWarning ?
+                            "温度探测器" : "烟雾探测器";
     sprintf((char *)buf, "%03d %d/%02d/%02d %02d:%02d:%02d \xB5\xDA" "1\xBB\xD8\xC2\xB7 %d\xBA\xC5 %s", sequence,
         entry->atr[index].years, entry->atr[index].months, entry->atr[index].days,
         entry->atr[index].hours, entry->atr[index].minute, entry->atr[index].second,
-        entry->da[index].cabin_id, entry->alarm_type[index] == Loop1TempWarning ? "\xCE\xC2\xB6\xC8\xD4\xA4\xBE\xAF" : "\xD1\xCC\xCE\xED\xD4\xA4\xBE\xAF");
+        entry->da[index].cabin_id,
+        FormatDeviceAliasType(1U, entry->da[index].cabin_id, type_name,
+                              label, sizeof(label)));
+    strcat((char *)buf, entry->alarm_type[index] == Loop1TempWarning ?
+           " 温度预警" : " 烟雾预警");
 }
 
 static void FormatLoop1FireLine(uint8_t *buf, uint8_t sequence, PackCabinFireAlarmStorage *entry, uint8_t index)
 {
+    uint8_t label[64];
+    const char *type_name = entry->alarm_type[index] == Temperature ?
+                            "温度探测器" : "烟雾探测器";
     sprintf((char *)buf, "%03d %d/%02d/%02d %02d:%02d:%02d \xB5\xDA" "1\xBB\xD8\xC2\xB7 %d\xBA\xC5 %s", sequence,
         entry->atr[index].years, entry->atr[index].months, entry->atr[index].days,
         entry->atr[index].hours, entry->atr[index].minute, entry->atr[index].second,
-        entry->da[index].cabin_id, entry->alarm_type[index] == Temperature ? "\xCE\xC2\xB6\xC8\xBB\xF0\xBE\xAF" : "\xD1\xCC\xCE\xED\xBB\xF0\xBE\xAF");
+        entry->da[index].cabin_id,
+        FormatDeviceAliasType(1U, entry->da[index].cabin_id, type_name,
+                              label, sizeof(label)));
+    strcat((char *)buf, entry->alarm_type[index] == Temperature ?
+           " 温度火警" : " 烟雾火警");
 }
 
 static uint8_t FormatLoop1FaultLine(uint8_t *buf, uint8_t sequence, PackCabinFaultStorage *entry, uint8_t index)
 {
     const char *name;
+    const char *type_name;
+    uint8_t label[64];
     if(entry[index].detector_class != CabinClassID || entry[index].da.cluster_id != 0U || entry[index].fault_type < LOOP1_FAULT_OFFLINE) return 0U;
     switch(entry[index].fault_type)
     {
@@ -1514,10 +1546,16 @@ static uint8_t FormatLoop1FaultLine(uint8_t *buf, uint8_t sequence, PackCabinFau
         case LOOP1_FAULT_SMOKE_SENSOR: name = "\xD1\xCC\xCE\xED\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF"; break;
         default: name = "\xB5\xF4\xCF\xDF"; break;
     }
+    type_name = getPointTypeMixtureDetectName(entry[index].da.cabin_id) == 6U ?
+                "温度探测器" : "烟雾探测器";
     sprintf((char *)buf, "%03d %d/%02d/%02d %02d:%02d:%02d \xB5\xDA" "1\xBB\xD8\xC2\xB7 %d\xBA\xC5 %s", sequence,
         entry[index].atr.years, entry[index].atr.months, entry[index].atr.days,
         entry[index].atr.hours, entry[index].atr.minute, entry[index].atr.second,
-        entry[index].da.cabin_id, name);
+        entry[index].da.cabin_id,
+        FormatDeviceAliasType(1U, entry[index].da.cabin_id, type_name,
+                              label, sizeof(label)));
+    strcat((char *)buf, " ");
+    strcat((char *)buf, name);
     return 1U;
 }
 static uint8_t FormatRS485DetectFlashDeviceName(uint8_t cluster_id, uint8_t addr, uint8_t *buf)
@@ -1565,23 +1603,34 @@ static const char *RS485DetectAlarmName(uint8_t alarm_type)
 }
 static void FormatRS485DetectForeWarnLine(uint8_t *buf, uint8_t sequence, PackCabinForeWarnStorage *pcfws_entry, uint8_t data_index)
 {
+    uint8_t label[64];
 	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 %s", sequence,
 		pcfws_entry->atr[data_index].years, pcfws_entry->atr[data_index].months, pcfws_entry->atr[data_index].days,
 		pcfws_entry->atr[data_index].hours, pcfws_entry->atr[data_index].minute, pcfws_entry->atr[data_index].second,
-		pcfws_entry->da[data_index].pack_id, RS485DetectAlarmName(pcfws_entry->alarm_type[data_index]));
+		pcfws_entry->da[data_index].pack_id,
+        FormatDeviceAliasType(3U, pcfws_entry->da[data_index].pack_id,
+                              "复合探测器", label, sizeof(label)));
+    strcat((char *)buf, " ");
+    strcat((char *)buf, RS485DetectAlarmName(pcfws_entry->alarm_type[data_index]));
 }
 
 static void FormatRS485DetectFireAlarmLine(uint8_t *buf, uint8_t sequence, PackCabinFireAlarmStorage *pcfas_entry, uint8_t data_index)
 {
+    uint8_t label[64];
 	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第3回路 %d号 %s", sequence,
 		pcfas_entry->atr[data_index].years, pcfas_entry->atr[data_index].months, pcfas_entry->atr[data_index].days,
 		pcfas_entry->atr[data_index].hours, pcfas_entry->atr[data_index].minute, pcfas_entry->atr[data_index].second,
-		pcfas_entry->da[data_index].pack_id, RS485DetectAlarmName(pcfas_entry->alarm_type[data_index]));
+		pcfas_entry->da[data_index].pack_id,
+        FormatDeviceAliasType(3U, pcfas_entry->da[data_index].pack_id,
+                              "复合探测器", label, sizeof(label)));
+    strcat((char *)buf, " ");
+    strcat((char *)buf, RS485DetectAlarmName(pcfas_entry->alarm_type[data_index]));
 }
 
 static uint8_t FormatRS485DetectFaultLine(uint8_t *buf, uint8_t sequence, PackCabinFaultStorage *pcfs_entry, uint8_t data_index)
 {
 	const char *fault_name;
+	uint8_t label[64];
 	if(pcfs_entry[data_index].da.cluster_id != RS485_DETECT_FLASH_ID)
 	{
 		return 0;
@@ -1600,7 +1649,11 @@ static uint8_t FormatRS485DetectFaultLine(uint8_t *buf, uint8_t sequence, PackCa
 	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d \xB5\xDA\x33\xBB\xD8\xC2\xB7 %d\xBA\xC5 %s", sequence,
 		pcfs_entry[data_index].atr.years, pcfs_entry[data_index].atr.months, pcfs_entry[data_index].atr.days,
 		pcfs_entry[data_index].atr.hours, pcfs_entry[data_index].atr.minute, pcfs_entry[data_index].atr.second,
-		pcfs_entry[data_index].da.pack_id, fault_name);
+		pcfs_entry[data_index].da.pack_id,
+        FormatDeviceAliasType(3U, pcfs_entry[data_index].da.pack_id,
+                              "复合探测器", label, sizeof(label)));
+	strcat((char *)buf, " ");
+	strcat((char *)buf, fault_name);
 	return 1;
 }
 static const char* GetMBusDeviceChineseName(uint8_t addr)
@@ -1635,11 +1688,13 @@ static uint8_t FormatMBus2FaultLine(uint8_t *buf, uint8_t sequence, PackCabinFau
 	{
 		return 0;
 	}
-	const char *name = GetMBusDeviceChineseName(pcfs_entry[data_index].da.pack_id);
-	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第2回路 %s掉线", sequence,
+	uint8_t label[64];
+	uint8_t address = pcfs_entry[data_index].da.pack_id;
+	const char *name = GetMBusDeviceChineseName(address);
+	sprintf((char*)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第2回路 %d号 %s 掉线", sequence,
 		pcfs_entry[data_index].atr.years, pcfs_entry[data_index].atr.months, pcfs_entry[data_index].atr.days,
 		pcfs_entry[data_index].atr.hours, pcfs_entry[data_index].atr.minute, pcfs_entry[data_index].atr.second,
-		name);
+		address, FormatDeviceAliasType(2U, address, name, label, sizeof(label)));
 	return 1;
 }
 
@@ -1781,6 +1836,7 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 		case 1:
 		{
             uint8_t type = getPointTypeMixtureDetectName(addr);
+            uint8_t label[64];
             uint8_t state;
             uint16_t value;
             const char *detector_type;
@@ -1790,14 +1846,16 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
                 detector_type = "\xCE\xC2\xB6\xC8\xCC\xBD\xB2\xE2\xC6\xF7";
                 state = getPointTypeMixtureReceiveState(PointTypeData_Temper, addr);
                 value = getPointTypeMixtureReceiveData16(PointTypeData_Temper, addr);
-                snprintf(p, remain, "%02d-%03d %s \xCE\xC2\xB6\xC8\xD6\xB5:%d\xA1\xE6 %s", circuit, addr, detector_type,
+                snprintf(p, remain, "%02d%03d %s \xCE\xC2\xB6\xC8\xD6\xB5:%d\xA1\xE6 %s", circuit, addr,
+                    FormatDeviceAliasType(circuit, addr, detector_type, label, sizeof(label)),
                     (int16_t)value, Loop1StateName(type, state));
             }
             else if(type == 5U)
             {
                 detector_type = "\xD1\xCC\xCE\xED\xCC\xBD\xB2\xE2\xC6\xF7";
                 state = getPointTypeMixtureReceiveState(PointTypeData_Smoke, addr);
-                snprintf(p, remain, "%02d-%03d %s \xD1\xCC\xCE\xED\xD7\xB4\xCC\xAC\xA3\xBA%s", circuit, addr, detector_type,
+                snprintf(p, remain, "%02d%03d %s \xD1\xCC\xCE\xED\xD7\xB4\xCC\xAC\xA3\xBA%s", circuit, addr,
+                    FormatDeviceAliasType(circuit, addr, detector_type, label, sizeof(label)),
                     Loop1StateName(type, state));
             }
             else
@@ -1809,8 +1867,11 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 		case 3:
 		{
 			uint16_t enable = RS485Detect_GetSensorEnable(addr);
+			uint8_t label[64];
 
-			n = snprintf(p, remain, "%02d%03d 复合探测器", circuit, addr);
+			n = snprintf(p, remain, "%02d%03d %s", circuit, addr,
+			             FormatDeviceAliasType(circuit, addr, "复合探测器",
+			                                   label, sizeof(label)));
 			p += n;
 			remain -= n;
 
@@ -1874,6 +1935,9 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 		case 2:
 		{
 			const char *name = GetMBusDeviceChineseName(addr);
+			uint8_t label[64];
+			const char *display_name = FormatDeviceAliasType(circuit, addr, name,
+			                                                      label, sizeof(label));
 			const char *status_str;
 			if(MBusCtrl_GetDeviceType(addr) == MBUS_CONTROL_DEV_FCM1011)
 			{
@@ -1883,14 +1947,14 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 				(void)MBusCtrl_GetOutputChannelState(addr, 1U, &output_state);
 				status_str = MBusCtrl_IsModuleStarted(addr) != 0U ?
 				             "\xC6\xF4\xB6\xAF" : "\xD5\xFD\xB3\xA3";
-				n = snprintf(p, remain, "%02d-%03d %s \xCA\xE4\xC8\xEB\x31\x3A%s \xCA\xE4\xB3\xF6\x31\x3A%s %s",
-				             circuit, addr, name, GetFCM1011ChannelStateName(input_state),
+				n = snprintf(p, remain, "%02d%03d %s \xCA\xE4\xC8\xEB\x31\x3A%s \xCA\xE4\xB3\xF6\x31\x3A%s %s",
+				             circuit, addr, display_name, GetFCM1011ChannelStateName(input_state),
 				             GetFCM1011ChannelStateName(output_state), status_str);
 			}
 			else
 			{
 				status_str = MBusCtrl_IsAlarmState(addr) ? "报警" : "正常";
-				n = snprintf(p, remain, "%02d-%03d %s %s", circuit, addr, name, status_str);
+				n = snprintf(p, remain, "%02d%03d %s %s", circuit, addr, display_name, status_str);
 			}
 			p += n;
 			remain -= n;
@@ -2090,6 +2154,7 @@ void NotifyScreen(uint16 screen_id)
     current_screen_id = screen_id;
     HistoryFilter_NotifyScreen(screen_id);
     DeviceThreshold_NotifyScreen(screen_id); //在工程配置中开启画面切换通知，记录当前画面ID
+    DeviceAliasHmiScreenUpdate(screen_id);
 	if(screen_id == 75U)
 	{
 		SetTextValue(75U, 208U, (uint8_t *)"");
@@ -2682,6 +2747,21 @@ void UpdateUI(void)
 	uint8_t mbus2_disconnect_sum = 0;
 	uint8_t shield_sum = 0; // 屏蔽总数
 	uint32_t curr_time_stamp = osKernelGetTickCount(); /* system tick */
+	DeviceAliasHmiScreenUpdate(current_screen_id);
+	{
+		static uint32_t rendered_alias_revision = 0U;
+		uint32_t alias_revision = DeviceAlias_GetRevision();
+		if(rendered_alias_revision != alias_revision)
+		{
+			rendered_alias_revision = alias_revision;
+			g_screen69_force_redraw = 1U;
+			fault_check_new_flag = 1U;
+			force_alarm_check_new_flag = 1U;
+			fire_alarm_check_new_flag = 1U;
+			sicj.warn_fresh_flag = 0U;
+			sicj.fire_fresh_flag = 0U;
+		}
+	}
 
 	/* XR5000_CHECK_FLASH_FIX_20260804: save from the single UI task, never from the key-receive task. */
 	if(check_record_pending != 0U)
@@ -3617,6 +3697,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 {
 	HistoryFilter_NotifyButton(screen_id, control_id, state);
 	DeviceThreshold_NotifyButton(screen_id, control_id, state);
+	DeviceAliasHmiButton(screen_id, control_id, state);
 	if(screen_id == 1)
 	{
 		if(control_id==10 && state == 1)                                            
@@ -3757,7 +3838,11 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		if(state == 1)
 		{
-			if(control_id == 5)
+			if(control_id == 32)
+			{
+				SwitchCurrentScreenId(82U);
+			}
+			else if(control_id == 5)
 			{
 				screen69_circuit = pack_circuit; /* XR5000_SCREEN69_NAVIGATION_FIX_20260729: lock selected circuit before screen switch. */
 				g_screen69_transition_pending = 1; /* XR5000_SCREEN69_ATOMIC_RENDER_20260729: suppress page6 refresh until page69 confirmation. */
@@ -4426,6 +4511,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
    HistoryFilter_NotifyText(screen_id, control_id, str);
+   DeviceAliasHmiText(screen_id, control_id, str);
    { 
 			if(control_id == 25) // 修改CAN2ID地址
       {
@@ -6164,7 +6250,7 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 	}
 	else if(pcfs_fresh_ctrl != pcfs_buttom_point || last_product_unknown_count != product_unknown_count || fresh_page_flag == 1)
 	{
-		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
+		uint8_t baojingneirong[128]; // Device aliases can add up to 13 GBK characters.
 		pcfs_fresh_ctrl = pcfs_buttom_point;
 		last_product_unknown_count = product_unknown_count;
 		
@@ -6450,7 +6536,7 @@ static void InternalScreenShowAllForceWorn(PackCabinForeWarnStorage *pcfws_entry
 	else if(pcfws_entry->self_bottom_point != pcfws_entry->point_history_len || fresh_page_flag == 1)
 	{
 		pcfws_entry->point_history_len = pcfws_entry->self_bottom_point;
-		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
+		uint8_t baojingneirong[128]; // Device aliases can add up to 13 GBK characters.
 		
 
 		
@@ -6651,7 +6737,7 @@ static void InternalScreenShowAllForceWorn_Plus(PackCabinForeWarnStorage *pcfws_
 	else if(pcfws_entry->self_bottom_point != pcfws_entry->point_history_len || fresh_page_flag == 1)
 	{
 		pcfws_entry->point_history_len = pcfws_entry->self_bottom_point;
-		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
+		uint8_t baojingneirong[128]; // Device aliases can add up to 13 GBK characters.
 		
 
 
@@ -6785,7 +6871,7 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 	{
 		pcfas_entry->point_history_len = pcfas_entry->self_bottom_point;
 		
-		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
+		uint8_t baojingneirong[128]; // Device aliases can add up to 13 GBK characters.
 
 		fire_alarm_state = 1; // 点亮火警指示灯
 		
@@ -6985,7 +7071,7 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 	{
 		pcfas_entry->point_history_len = pcfas_entry->self_bottom_point;
 		
-		uint8_t baojingneirong[64]; // XR5000_LOOP3_CHANGE_20260726: Loop 3 display text needs more room.
+		uint8_t baojingneirong[128]; // Device aliases can add up to 13 GBK characters.
 
 		fire_alarm_state = 1; // 点亮火警指示灯
 		
@@ -13522,7 +13608,7 @@ static void FirstAlarmInformationShowCtrl(
 {
 	if(pcfws_entry->self_bottom_point != 0 && sicj_entry->warn_fresh_flag == 0)
 	{
-		uint8_t temp_buff[64];
+		uint8_t temp_buff[128];
 		
 		sicj_entry->warn_fresh_flag = 1; // 标志所有状态刷新完成
 		// 第一条报警信息置顶显示
@@ -13618,7 +13704,7 @@ static void FirstAlarmInformationShowCtrl(
 	
 	if(pcfas_entry->self_bottom_point != 0 && sicj_entry->fire_fresh_flag == 0)
 	{
-		uint8_t temp_buff[64];
+		uint8_t temp_buff[128];
 		
 		sicj_entry->fire_fresh_flag = 1;
 		// 第一条报警信息置顶显示

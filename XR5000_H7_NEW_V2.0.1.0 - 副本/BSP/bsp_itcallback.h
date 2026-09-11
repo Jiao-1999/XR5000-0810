@@ -30,6 +30,29 @@ typedef struct
 	uint8_t last_tx_status;
 } MBus2UartDiag_t;
 
+typedef struct
+{
+	uint32_t rx_event_count;
+	uint32_t rx_short_event_count;
+	uint32_t rx_restart_fail_count;
+	uint32_t rx_crc_error_count;
+	uint32_t rx_invalid_length_count;
+	uint32_t rx_protocol_exception_count;
+	uint32_t rx_echo_count;
+	uint32_t rx_resync_count;
+	uint32_t rx_ring_overflow_count;
+	uint32_t tx_fail_count;
+	uint32_t tx_complete_count;
+	uint32_t tx_complete_timeout_count;
+	uint32_t frame_error_count;
+	uint32_t noise_error_count;
+	uint32_t overrun_error_count;
+	uint32_t parity_error_count;
+	uint16_t last_rx_size;
+	uint8_t last_rx_restart_status;
+	uint8_t last_tx_status;
+} RS485DetectUartDiag_t;
+
 
 typedef enum
 {
@@ -64,9 +87,15 @@ typedef enum
 
 extern UartBuffer_t uartbuff[10];
 extern volatile MBus2UartDiag_t g_mbus2_uart_diag;
+extern volatile RS485DetectUartDiag_t g_rs4853_uart_diag;
 extern uint8_t screendata;
 
 HAL_StatusTypeDef MBus2UartEnsureRx(void);
+HAL_StatusTypeDef RS485DetectUartEnsureRx(void);
+uint16_t RS485DetectUartRead(uint8_t *buffer, uint16_t capacity);
+void RS485DetectUartClearRx(void);
+void RS485DetectUartPrepareTx(void);
+uint8_t RS485DetectUartTakeTxComplete(void);
 
 extern FdcanBuffer_t fdcanbuff[2];
 

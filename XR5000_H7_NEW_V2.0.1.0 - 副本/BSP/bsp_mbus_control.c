@@ -31,6 +31,7 @@ static uint8_t g_mbus_ctrl_polling_addr = 1; /* 当前轮询地址(1~63循环) */
 #define MBUS_FIRE_DISPLAY_POLL_INTERVAL_MS     200U
 #define MBUS_FCM1011_POLL_INTERVAL_MS          200U
 #define MBUS_HAND_REPORT_MAX_POLL_BURST          3U
+#define MBUS2_INTER_FRAME_GUARD_MS               20U
 static uint8_t g_mbus_poll_wait_response = 0U;       /* 普通状态问询只允许一个在途事务 */
 static uint8_t g_mbus_poll_wait_ticks = 0U;
 static uint8_t g_mbus_poll_active_addr = 0U;
@@ -38,6 +39,8 @@ static uint8_t g_mbus_poll_active_function = 0U;
 static uint16_t g_mbus_poll_active_start_addr = 0U;
 static uint32_t g_mbus_poll_last_send_tick[MBUS_CONTROL_MAX_DEVICES];
 static uint8_t g_mbus_hand_report_poll_burst = 0U;
+static uint32_t g_mbus2_last_rx_tick = 0U;
+static uint8_t g_mbus2_rx_guard_active = 0U;
 #define MBUS_NORMAL_POLL_RECOVERY_THRESHOLD      2U
 static uint8_t g_mbus_poll_recovery_count[MBUS_CONTROL_MAX_DEVICES];
 #define MBUS_SGBJQ_SOUND_COIL_ADDR             0x0018U
@@ -1251,6 +1254,9 @@ static void MBus2ReceiveSlaveDataDeal(void)
     *rx_flag = 0U;
     taskEXIT_CRITICAL();
 
+    g_mbus2_last_rx_tick = osKernelGetTickCount();
+    g_mbus2_rx_guard_active = 1U;
+
     if(len < 5U || len > BUFF_MAX) return;
     crc16 = ((uint16_t)buf[len - 1U] << 8) | buf[len - 2U];
     if(CalcCrc16(buf, len - 2U) != crc16)
@@ -1427,6 +1433,12 @@ void MBusControlPollSlaveAndReceiveTask(void* parameter)
         MBus2ReceiveSlaveDataDeal();
         /* 普通01/04问询保持单事务；收到回复立即释放，约120ms无回复自动超时。 */
         if(MBusCtrl_ServiceNormalPollWait() != 0U)
+        {
+            osDelay(20);
+            continue;
+        }
+        if(g_mbus2_rx_guard_active != 0U &&
+           (uint32_t)(osKernelGetTickCount() - g_mbus2_last_rx_tick) < MBUS2_INTER_FRAME_GUARD_MS)
         {
             osDelay(20);
             continue;

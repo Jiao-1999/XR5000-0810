@@ -2,7 +2,7 @@
  * 模块名称: RS485探测器管理模块 (RS485 Detector Management)
  * 功能描述: 实现回路3(UART5) RS485总线探测器的轮询调度、Modbus RTU通信、
  *          传感器数据解析、设备状态管理、掉线/报警检测、Flash持久化。
- * 通信协议: Modbus RTU, 功能码04(读输入寄存器), UART5/115200/8N1
+ * 通信协议: Modbus RTU, 功能码04(读输入寄存器), UART5/9600/8N1
  * 轮询流程: 先探测设备类型(读0x000E/0x000F), 确认后读取传感器数据
  *           (V2.21: 从0x000C起读19个寄存器, 覆盖0x000C~0x001E)
  * 故障记录: 掉线/报警由本模块检测, 故障记录由cmd_process.c统一处理
@@ -76,7 +76,15 @@ static uint8_t g_transaction_pending = 0;       /* 是否有进行中的事务 */
 static uint8_t g_transaction_addr = 0;          /* 当前事务的目标地址 */
 static uint8_t g_transaction_type_detect = 0; /* identify stage, zero for normal polling */
 static uint8_t g_transaction_threshold = 0;   /* threshold 03/06 transaction, never counts as disconnect */
+static uint8_t g_transaction_tx_active = 0U;
+static uint8_t g_transaction_waiting_response = 0U;
+static uint32_t g_transaction_tx_start_tick = 0U;
 static uint32_t g_transaction_start_tick = 0;
+static uint32_t g_last_transaction_end_tick = 0;
+static uint8_t g_rx_frame[64];
+static uint8_t g_rx_chunk[64];
+static uint8_t g_transaction_request[8];
+static uint16_t g_rx_frame_len = 0U;
 static uint8_t g_identify_fail_count[RS485_DETECT_MAX_DEVICES];
 static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
 #define RS485_IDENTIFY_FAIL_THRESHOLD 3U
@@ -85,6 +93,50 @@ static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
 #define RS485_STAGE_PRODUCT  2U
 #define RS485_STAGE_SENSOR   3U
 #define RS485_STAGE_COMPLETE 4U
+
+static void release_transaction(void)
+{
+    g_transaction_pending = 0U;
+    g_transaction_addr = 0U;
+    g_transaction_type_detect = 0U;
+    g_transaction_threshold = 0U;
+    g_transaction_tx_active = 0U;
+    g_transaction_waiting_response = 0U;
+    g_transaction_tx_start_tick = 0U;
+    g_transaction_start_tick = 0U;
+    g_last_transaction_end_tick = osKernelGetTickCount();
+    g_rx_frame_len = 0U;
+}
+
+static void begin_transaction(const uint8_t frame[8], uint8_t addr,
+                              uint8_t type_detect, uint8_t threshold,
+                              uint32_t start_tick)
+{
+    RS485DetectUartClearRx();
+    g_rx_frame_len = 0U;
+    memcpy(g_transaction_request, frame, sizeof(g_transaction_request));
+    g_transaction_pending = 1U;
+    g_transaction_addr = addr;
+    g_transaction_type_detect = type_detect;
+    g_transaction_threshold = threshold;
+    g_transaction_tx_active = 1U;
+    g_transaction_waiting_response = 0U;
+    g_transaction_tx_start_tick = start_tick;
+    g_transaction_start_tick = 0U;
+    RS485DetectUartPrepareTx();
+}
+
+static HAL_StatusTypeDef start_transaction(const uint8_t frame[8], uint8_t addr,
+                                           uint8_t type_detect, uint8_t threshold,
+                                           uint32_t start_tick)
+{
+    HAL_StatusTypeDef status;
+
+    begin_transaction(frame, addr, type_detect, threshold, start_tick);
+    status = HAL_UART_Transmit_IT(&huart5, g_transaction_request, sizeof(g_transaction_request));
+    g_rs4853_uart_diag.last_tx_status = (uint8_t)status;
+    return status;
+}
 
 /* ============================================================
  * 内部辅助函数
@@ -186,7 +238,13 @@ void RS485Detect_Init(void)
     g_transaction_addr = 0;
     g_transaction_type_detect = 0;
     g_transaction_threshold = 0;
+    g_transaction_tx_active = 0U;
+    g_transaction_waiting_response = 0U;
+    g_transaction_tx_start_tick = 0U;
     g_transaction_start_tick = 0;
+    g_last_transaction_end_tick = osKernelGetTickCount();
+    g_rx_frame_len = 0U;
+    RS485DetectUartClearRx();
     DeviceThreshold_Init();
 
     RS485Detect_LoadOnlineState();
@@ -206,17 +264,14 @@ void RS485Detect_SetOnline(uint8_t addr, uint8_t state)
     {
         g_devices[addr].sensor_data_valid = 0; /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
         g_devices[addr].disconnect_count = 0;
+        g_devices[addr].recovery_count = 0;
         g_devices[addr].disconnect_memory = 0;
         g_identify_fail_count[addr] = 0U;
         DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP3, addr, 0U);
         if (g_transaction_pending != 0U && g_transaction_addr == addr)
         {
             if(g_transaction_threshold != 0U) DeviceThreshold_HandleTimeout();
-            g_transaction_pending = 0;
-            g_transaction_addr = 0;
-            g_transaction_type_detect = 0;
-            g_transaction_threshold = 0;
-            g_transaction_start_tick = 0;
+            release_transaction();
         }
     }
 
@@ -234,6 +289,7 @@ void RS485Detect_SetOnline(uint8_t addr, uint8_t state)
             g_devices[addr].sensor_data_valid = 0; /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
             g_devices[addr].device_type = RS485_DETECT_TYPE_UNKNOWN;
             g_devices[addr].disconnect_count = 0;
+            g_devices[addr].recovery_count = 0;
             g_devices[addr].disconnect_memory = 0;
         }
         else
@@ -245,6 +301,7 @@ void RS485Detect_SetOnline(uint8_t addr, uint8_t state)
             g_devices[addr].sensor_enable_confirmed = 0;
             g_devices[addr].sensor_data_valid = 0; /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
             g_devices[addr].disconnect_count = 0;
+            g_devices[addr].recovery_count = 0;
             g_devices[addr].disconnect_memory = 0;
         }
     }
@@ -477,6 +534,39 @@ static void build_type_detect_cmd(uint8_t *buf, uint8_t addr, uint16_t reg)
 }
 
 static void check_and_record_fault(uint8_t addr); /* 前向声明: 掉线/报警检测 */
+
+static void mark_communication_miss(uint8_t addr)
+{
+    RS485DetectDevice *dev = &g_devices[addr];
+
+    dev->recovery_count = 0U;
+    if(dev->disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD)
+        dev->disconnect_count++;
+    check_and_record_fault(addr);
+}
+
+static void mark_communication_success(uint8_t addr)
+{
+    RS485DetectDevice *dev = &g_devices[addr];
+
+    if(dev->disconnect_count >= RS485_DETECT_DISCONNECT_THRESHOLD)
+    {
+        if(dev->recovery_count < RS485_DETECT_RECOVERY_SUCCESS_THRESHOLD)
+            dev->recovery_count++;
+        if(dev->recovery_count >= RS485_DETECT_RECOVERY_SUCCESS_THRESHOLD)
+        {
+            dev->disconnect_count = 0U;
+            dev->recovery_count = 0U;
+        }
+    }
+    else
+    {
+        dev->disconnect_count = 0U;
+        dev->recovery_count = 0U;
+    }
+    check_and_record_fault(addr);
+}
+
 static void mark_identify_failure(uint8_t addr, DeviceIdentifyError error)
 {
     if(addr == 0U || addr >= RS485_DETECT_MAX_DEVICES) return;
@@ -494,6 +584,7 @@ static void mark_transaction_timeout(void)
     uint8_t addr;
     uint8_t was_type_detect;
     if (g_transaction_pending == 0U) return;
+    if (g_transaction_waiting_response == 0U) return;
     if ((osKernelGetTickCount() - g_transaction_start_tick) < RS485_DETECT_RESPONSE_TIMEOUT_MS) return;
     addr = g_transaction_addr;
     was_type_detect = g_transaction_type_detect;
@@ -501,16 +592,10 @@ static void mark_transaction_timeout(void)
     {
         DeviceThreshold_HandleTimeout();
         g_poll_current_addr = (addr > 1U) ? (uint8_t)(addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
-        g_transaction_pending = 0U;
-        g_transaction_addr = 0U;
-        g_transaction_type_detect = 0U;
-        g_transaction_threshold = 0U;
-        g_transaction_start_tick = 0U;
+        release_transaction();
         return;
     }
-    g_transaction_pending = 0;
-    g_transaction_addr = 0;
-    g_transaction_type_detect = 0;
+    release_transaction();
     if (addr > 0U && addr < RS485_DETECT_MAX_DEVICES && g_devices[addr].online != 0U)
     {
         if(was_type_detect != 0U)
@@ -518,11 +603,44 @@ static void mark_transaction_timeout(void)
         else
         {
             DeviceThreshold_NotifyNormalPoll();
-            if (g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD)
-                g_devices[addr].disconnect_count++;
-            check_and_record_fault(addr);
+            mark_communication_miss(addr);
         }
     }
+}
+
+/* 中断发送完成后才开始计算从机应答超时；发送阶段超时不计为设备掉线。 */
+static void process_transaction_tx_state(void)
+{
+    uint8_t addr;
+
+    if(g_transaction_pending == 0U || g_transaction_tx_active == 0U)
+    {
+        (void)RS485DetectUartTakeTxComplete();
+        return;
+    }
+
+    if(RS485DetectUartTakeTxComplete() != 0U)
+    {
+        g_transaction_tx_active = 0U;
+        g_transaction_waiting_response = 1U;
+        g_transaction_start_tick = osKernelGetTickCount();
+        return;
+    }
+
+    if((osKernelGetTickCount() - g_transaction_tx_start_tick) < RS485_DETECT_TX_COMPLETE_TIMEOUT_MS)
+        return;
+
+    addr = g_transaction_addr;
+    (void)HAL_UART_AbortTransmit(&huart5);
+    g_rs4853_uart_diag.last_tx_status = (uint8_t)HAL_TIMEOUT;
+    g_rs4853_uart_diag.tx_fail_count++;
+    g_rs4853_uart_diag.tx_complete_timeout_count++;
+    if(g_transaction_threshold != 0U)
+    {
+        DeviceThreshold_HandleTimeout();
+        g_poll_current_addr = (addr > 1U) ? (uint8_t)(addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
+    }
+    release_transaction();
 }
 
 /* 轮询下一个在线设备: 未确认类型则发类型探测帧, 已确认则发传感器数据帧 */
@@ -533,6 +651,7 @@ static void poll_next_device(void)
     uint8_t start_addr = g_poll_current_addr;
     uint8_t addr;
     uint8_t type_detect;
+    HAL_StatusTypeDef tx_status;
 
     if (g_online_count == 0U || g_transaction_pending != 0U)
         return;
@@ -573,21 +692,12 @@ static void poll_next_device(void)
         build_modbus_read_cmd(modbusbuf, addr, reg_count);
     }
 
-    uartbuff[DEBUGSITE].recepetion_flag = 0;
-    uartbuff[DEBUGSITE].recepetion_len = 0;
-
-    g_transaction_pending = 1;
-    g_transaction_addr = addr;
-    g_transaction_type_detect = type_detect;
-    g_transaction_threshold = 0U;
-    g_transaction_start_tick = osKernelGetTickCount();
-
-    if (HAL_UART_Transmit(&huart5, modbusbuf, sizeof(modbusbuf), RS485_DETECT_TX_TIMEOUT_MS) != HAL_OK)
+    tx_status = start_transaction(modbusbuf, addr, type_detect, 0U, osKernelGetTickCount());
+    if (tx_status != HAL_OK)
     {
         /* XR5000_UART5_EXCLUSIVE_FIX_20260730: unsent requests are not detector misses. */
-        g_transaction_pending = 0;
-        g_transaction_addr = 0;
-        g_transaction_type_detect = 0;
+        g_rs4853_uart_diag.tx_fail_count++;
+        release_transaction();
     }
 }
 /* 解析传感器数据帧: 按设备类型对应的布局表, 将响应字节填入sensor_values和sensor_states */
@@ -699,38 +809,26 @@ static void check_and_record_fault(uint8_t addr)
     }
 }
 
-/* 完成当前事务: 清零掉线计数, 释放UART5事务锁 */
+/* 完成当前事务: 更新通信恢复状态并释放UART5事务锁 */
 static void complete_transaction(uint8_t addr)
 {
-    g_devices[addr].disconnect_count = 0;
     if(g_transaction_threshold == 0U && g_transaction_type_detect == 0U)
+    {
         DeviceThreshold_NotifyNormalPoll();
-    g_transaction_pending = 0;
-    g_transaction_addr = 0;
-    g_transaction_type_detect = 0;
-    g_transaction_start_tick = 0;
+        mark_communication_success(addr);
+    }
+    release_transaction();
 }
 
-/* 接收数据处理: 校验CRC→解析响应帧→类型探测或传感器数据分发→完成事务 */
-static void receive_data_deal(void)
+/* 处理已经完成组帧和CRC校验的单个响应。 */
+static void process_received_frame(const uint8_t *buf, uint16_t len)
 {
-    uint16_t crc16;
-    uint8_t *buf = uartbuff[DEBUGSITE].recepetion_buff;
-    uint16_t len = uartbuff[DEBUGSITE].recepetion_len;
     uint8_t addr;
     uint8_t func;
     uint8_t byte_count;
     uint8_t expected_byte_count;
 
-    if (uartbuff[DEBUGSITE].recepetion_flag != 1U)
-        return;
-    uartbuff[DEBUGSITE].recepetion_flag = 0;
-
-    if (g_transaction_pending == 0U || len < 4U)
-        return;
-
-    crc16 = (buf[len - 1U] << 8) | buf[len - 2U];
-    if (CalcCrc16(buf, len - 2U) != crc16)
+    if (g_transaction_pending == 0U || len < 5U)
         return;
 
     addr = buf[0];
@@ -745,11 +843,7 @@ static void receive_data_deal(void)
         if(DeviceThreshold_HandleResponse(buf, len) != 0U)
         {
             g_poll_current_addr = (addr > 1U) ? (uint8_t)(addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
-            g_transaction_pending = 0U;
-            g_transaction_addr = 0U;
-            g_transaction_type_detect = 0U;
-            g_transaction_threshold = 0U;
-            g_transaction_start_tick = 0U;
+            release_transaction();
         }
         return;
     }
@@ -757,15 +851,19 @@ static void receive_data_deal(void)
     if (func == 0x84U)
     {
         uint8_t was_type_detect = g_transaction_type_detect;
-        g_transaction_pending = 0U; g_transaction_addr = 0U;
-        g_transaction_type_detect = 0U; g_transaction_start_tick = 0U;
-        if (was_type_detect != 0U)
-            mark_identify_failure(addr, DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE);
-        else
+        if(len != 5U)
         {
-            if(g_devices[addr].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD) g_devices[addr].disconnect_count++;
-            check_and_record_fault(addr);
+            g_rs4853_uart_diag.rx_invalid_length_count++;
+            return;
         }
+        g_rs4853_uart_diag.rx_protocol_exception_count++;
+        if (was_type_detect != 0U)
+        {
+            mark_identify_failure(addr, DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE);
+            release_transaction();
+        }
+        else
+            complete_transaction(addr);
         return;
     }
 
@@ -775,9 +873,7 @@ static void receive_data_deal(void)
     byte_count = buf[2];
     if (len != (uint16_t)(byte_count + 5U))
     {
-        /* A CRC-valid 0x04 frame from the polled device proves communication.
-         * Do not convert an unexpected payload length into a false disconnect. */
-        if(g_transaction_type_detect == 0U) complete_transaction(addr);
+        g_rs4853_uart_diag.rx_invalid_length_count++;
         return;
     }
 
@@ -795,9 +891,7 @@ static void receive_data_deal(void)
 
     if (byte_count != expected_byte_count)
     {
-        /* Keep the last valid sensor data, but release this normal polling
-         * transaction without increasing disconnect_count. */
-        if(g_transaction_type_detect == 0U) complete_transaction(addr);
+        g_rs4853_uart_diag.rx_invalid_length_count++;
         return;
     }
 
@@ -833,7 +927,124 @@ static void receive_data_deal(void)
         parse_sensor_data(addr, buf, device_type);
         g_devices[addr].sensor_data_valid = 1U; /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
         complete_transaction(addr);
-        check_and_record_fault(addr);
+    }
+}
+
+static uint8_t is_expected_response_function(uint8_t function)
+{
+    uint8_t request_function = g_transaction_request[1];
+
+    if(g_transaction_threshold != 0U)
+        return (function == request_function || function == (uint8_t)(request_function | 0x80U)) ? 1U : 0U;
+    return (function == 0x04U || function == 0x84U) ? 1U : 0U;
+}
+
+static void resync_rx_frame(void)
+{
+    uint16_t pos;
+
+    for(pos = 1U; pos < g_rx_frame_len; pos++)
+    {
+        if(g_rx_frame[pos] == g_transaction_addr) break;
+    }
+    if(pos < g_rx_frame_len)
+    {
+        memmove(g_rx_frame, &g_rx_frame[pos], g_rx_frame_len - pos);
+        g_rx_frame_len = (uint16_t)(g_rx_frame_len - pos);
+    }
+    else
+    {
+        g_rx_frame_len = 0U;
+    }
+    g_rs4853_uart_diag.rx_resync_count++;
+}
+
+static void try_process_rx_frame(void)
+{
+    uint16_t expected_length;
+    uint16_t crc16;
+    uint8_t function;
+
+    while(g_transaction_pending != 0U && g_rx_frame_len > 0U)
+    {
+        if(g_rx_frame[0] != g_transaction_addr)
+        {
+            resync_rx_frame();
+            continue;
+        }
+        if(g_rx_frame_len < 2U) return;
+        function = g_rx_frame[1];
+        if(is_expected_response_function(function) == 0U)
+        {
+            resync_rx_frame();
+            continue;
+        }
+        if(g_rx_frame_len < 3U) return;
+
+        if((function & 0x80U) != 0U)
+            expected_length = 5U;
+        else if(function == 0x06U)
+            expected_length = 8U;
+        else if(g_rx_frame[2] == 0U)
+            expected_length = 8U; /* 04/03查询回显，而不是合法响应。 */
+        else
+            expected_length = (uint16_t)g_rx_frame[2] + 5U;
+
+        if(expected_length > sizeof(g_rx_frame) || expected_length < 5U)
+        {
+            g_rs4853_uart_diag.rx_invalid_length_count++;
+            resync_rx_frame();
+            continue;
+        }
+        if(g_rx_frame_len < expected_length) return;
+
+        if(expected_length == sizeof(g_transaction_request) &&
+           (function == 0x04U || function == 0x03U) &&
+           memcmp(g_rx_frame, g_transaction_request, sizeof(g_transaction_request)) == 0)
+        {
+            g_rs4853_uart_diag.rx_echo_count++;
+            g_rx_frame_len = 0U;
+            return;
+        }
+
+        crc16 = ((uint16_t)g_rx_frame[expected_length - 1U] << 8) |
+                g_rx_frame[expected_length - 2U];
+        if(CalcCrc16(g_rx_frame, expected_length - 2U) != crc16)
+        {
+            g_rs4853_uart_diag.rx_crc_error_count++;
+            resync_rx_frame();
+            continue;
+        }
+
+        process_received_frame(g_rx_frame, expected_length);
+        g_rx_frame_len = 0U;
+        return;
+    }
+}
+
+/* 将任意DMA片段作为连续字节流消费，允许一帧跨多个回调。 */
+static void receive_data_deal(void)
+{
+    uint16_t count;
+    uint16_t i;
+
+    while((count = RS485DetectUartRead(g_rx_chunk, sizeof(g_rx_chunk))) != 0U)
+    {
+        for(i = 0U; i < count; i++)
+        {
+            if(g_transaction_pending == 0U)
+            {
+                g_rx_frame_len = 0U;
+                continue;
+            }
+            if(g_rx_frame_len >= sizeof(g_rx_frame))
+            {
+                g_rs4853_uart_diag.rx_invalid_length_count++;
+                resync_rx_frame();
+            }
+            g_rx_frame[g_rx_frame_len++] = g_rx_chunk[i];
+            try_process_rx_frame();
+        }
     }
 }
 /* 判断是否真正在线(上线且未掉线) */
@@ -873,33 +1084,29 @@ void RS485DetectPollAndReceiveTask(void *parameter)
 
     for (;;)
     {
+        (void)RS485DetectUartEnsureRx();
+        process_transaction_tx_state();
         receive_data_deal();
         mark_transaction_timeout();
 
         current_tick = osKernelGetTickCount();
         if (g_transaction_pending == 0U &&
-            (current_tick - g_last_poll_time) >= RS485_DETECT_POLL_INTERVAL_MS)
+            (current_tick - g_last_poll_time) >= RS485_DETECT_POLL_INTERVAL_MS &&
+            (current_tick - g_last_transaction_end_tick) >= RS485_DETECT_INTER_FRAME_GUARD_MS)
         {
             uint8_t threshold_frame[8];
             uint8_t threshold_addr = 0U;
+            HAL_StatusTypeDef tx_status;
             g_last_poll_time = current_tick;
             if(DeviceThreshold_BuildNextFrame(threshold_frame, &threshold_addr) != 0U)
             {
-                uartbuff[DEBUGSITE].recepetion_flag = 0U;
-                uartbuff[DEBUGSITE].recepetion_len = 0U;
-                g_transaction_pending = 1U;
-                g_transaction_addr = threshold_addr;
-                g_transaction_type_detect = 0U;
-                g_transaction_threshold = 1U;
-                g_transaction_start_tick = current_tick;
-                if(HAL_UART_Transmit(&huart5, threshold_frame, sizeof(threshold_frame), RS485_DETECT_TX_TIMEOUT_MS) != HAL_OK)
+                tx_status = start_transaction(threshold_frame, threshold_addr, 0U, 1U, current_tick);
+                if(tx_status != HAL_OK)
                 {
+                    g_rs4853_uart_diag.tx_fail_count++;
                     DeviceThreshold_HandleTimeout();
                     g_poll_current_addr = (threshold_addr > 1U) ? (uint8_t)(threshold_addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
-                    g_transaction_pending = 0U;
-                    g_transaction_addr = 0U;
-                    g_transaction_threshold = 0U;
-                    g_transaction_start_tick = 0U;
+                    release_transaction();
                 }
             }
             else
@@ -920,6 +1127,7 @@ void RS485Detect_InjectSensorState(uint8_t addr, uint8_t sensor_idx, uint8_t sta
         return;
     g_devices[addr].online = 1;
     g_devices[addr].disconnect_count = 0;
+    g_devices[addr].recovery_count = 0;
     g_devices[addr].type_confirmed = 1;
     g_devices[addr].sensor_data_valid = 1;
     g_devices[addr].sensor_states[sensor_idx] = state;
