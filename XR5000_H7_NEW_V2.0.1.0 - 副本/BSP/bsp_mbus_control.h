@@ -139,6 +139,7 @@ uint8_t MBusCtrl_GetOutputChannelState(uint8_t addr, uint8_t channel, uint8_t *s
 uint8_t MBusCtrl_IsModuleStarted(uint8_t addr);
 void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state);       /* 注入传感器状态(测试用) */
 uint8_t MBusCtrl_GetDeviceType(uint8_t addr);        /* 获取设备类型(MBusCtrlDevType) */
+uint16_t MBusCtrl_GetProductCode(uint8_t addr);       /* 获取已识别设备的产品码 */
 uint8_t MBusCtrl_IsAlarmState(uint8_t addr);         /* 判断设备是否处于报警状态 */
 uint16_t MBusCtrl_GetNationalCode(uint8_t addr);     /* 获取设备国标设备类型码(供联动逻辑显示用) */
 

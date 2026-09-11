@@ -388,6 +388,16 @@ static uint32_t g_mbus1_transaction_tick = 0U;
 static uint8_t g_mbus1_poll_addr = 0U;
 static uint8_t g_mbus1_retry_addr = 0U;
 static volatile uint8_t g_mbus1_bus_locked = 0U;
+#define MBUS1_INTER_FRAME_GUARD_MS 50U
+static uint32_t g_mbus1_last_rx_tick = 0U;
+static uint8_t g_mbus1_rx_guard_active = 0U;
+
+static uint8_t MBus1InterFrameGuardElapsed(void)
+{
+    if(g_mbus1_rx_guard_active == 0U) return 1U;
+    return (uint32_t)(osKernelGetTickCount() - g_mbus1_last_rx_tick) >=
+           MBUS1_INTER_FRAME_GUARD_MS ? 1U : 0U;
+}
 
 static void MBus1FinishTransaction(uint8_t addr)
 {
@@ -547,6 +557,9 @@ void MBus1ReceiveSlaveDataDeal(void)
     *rx_flag = 0U;
     taskEXIT_CRITICAL();
 
+    g_mbus1_last_rx_tick = osKernelGetTickCount();
+    g_mbus1_rx_guard_active = 1U;
+
     if(len > BUFF_MAX) return;
     if(g_mbus1_transaction_pending == 0U || len < 5U) return;
     crc16 = (buf[len - 1U] << 8) | buf[len - 2U];
@@ -635,7 +648,10 @@ void MBus1ResetAllDevices(void)
     taskEXIT_CRITICAL();
     uartbuff[MBUS1SITE].recepetion_flag = 0U; uartbuff[MBUS1SITE].recepetion_len = 0U;
     HAL_UART_Transmit(&huart7, reset_command, sizeof(reset_command), 30U);
+    osDelay(MBUS1_INTER_FRAME_GUARD_MS);
     HAL_UART_Transmit(&huart7, reset_command, sizeof(reset_command), 30U);
+    g_mbus1_last_rx_tick = osKernelGetTickCount();
+    g_mbus1_rx_guard_active = 1U;
 
     taskENTER_CRITICAL();
     g_mbus1_bus_locked = 0U;
@@ -648,7 +664,8 @@ void MBus1PollSlaveAndReceiveTask(void* parameter)
     {
         MBus1ReceiveSlaveDataDeal();
         MBus1MarkTimeout();
-        if(g_mbus1_bus_locked == 0U && g_mbus1_transaction_pending == 0U) MixtureDevicePollingManage();
+        if(g_mbus1_bus_locked == 0U && g_mbus1_transaction_pending == 0U &&
+           MBus1InterFrameGuardElapsed() != 0U) MixtureDevicePollingManage();
         osDelay(MIXTURE_DEVICE_TASK_INTERVAL_MS);
     }
 }

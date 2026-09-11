@@ -166,7 +166,7 @@ int main(void)
 	/* Linkage logic init: expr(Flash rules) -> dev(register callbacks) -> engine(runtime) -> screen(UI state) */
 	LogicExpr_Init();
 	/* 一次性清空联动规则(RAM+Flash), 烧录运行一次后注释掉本行 */
-	//LogicRule_WipeAllPersistent();
+	// LogicRule_WipeAllPersistent();
 	LogicDev_Register();
 	LogicEngine_Init();
 	LogicScreen_Init();
@@ -195,7 +195,7 @@ int main(void)
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, uartbuff[1].recepetion_buff, BUFF_MAX);
 // HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX); /* XR5000_FECBUS_TEST: 停USART3 DMA接收, FECbus接管 */
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart4, uartbuff[3].recepetion_buff, BUFF_MAX);
-	HAL_UARTEx_ReceiveToIdle_DMA(&huart5, uartbuff[4].recepetion_buff, BUFF_MAX);
+	(void)RS485DetectUartEnsureRx();
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart6, uartbuff[5].recepetion_buff, BUFF_MAX);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart7, uartbuff[6].recepetion_buff, BUFF_MAX);
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart9, uartbuff[8].recepetion_buff, BUFF_MAX);

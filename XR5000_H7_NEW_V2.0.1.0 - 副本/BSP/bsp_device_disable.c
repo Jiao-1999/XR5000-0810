@@ -12,6 +12,7 @@
 
 #include "bsp_mbus.h"            
 #include "bsp_rs485_detect.h"    
+#include "bsp_device_alias.h"
 #include "bsp_rtc.h"             
 #include "bsp_screen.h"         
 #include "hmi_driver.h"          
@@ -657,15 +658,34 @@ static void DeviceDisableHmiRefreshLines(void)
         SetTextValue(70U, (uint16_t)(i + 1U), g_hmi_lines[i]);
 }
 
+static const char *DeviceDisableHmiAliasType(const DeviceIdentity *identity,
+                                             DeviceRegistryType type,
+                                             uint8_t *buffer, uint8_t size)
+{
+    uint8_t alias[DEVICE_ALIAS_NAME_BYTES];
+    const char *type_text = DeviceDisableTypeTextGbk(type);
+    uint16_t product_code = DeviceAliasDevice_GetProductCode(identity->loop_id,
+                                                              (uint8_t)identity->address);
+    if(DeviceAlias_Get(identity->loop_id, (uint8_t)identity->address, product_code,
+                       alias, sizeof(alias)) == DEVICE_ALIAS_MATCH)
+    {
+        snprintf((char *)buffer, size, "%s（%s）", alias, type_text);
+        return (const char *)buffer;
+    }
+    return type_text;
+}
+
 /* 将操作结果消息推送到画面70左侧列表顶部(旧条目下移) */
 static void DeviceDisableHmiPush(const DeviceIdentity *identity, DeviceRegistryType type, const char *message)
 {
+    uint8_t type_buffer[64];
     memmove(&g_hmi_lines[1][0], &g_hmi_lines[0][0],
             (DEVICE_DISABLE_RECENT_MAX - 1U) * sizeof(g_hmi_lines[0]));
     memset(g_hmi_lines[0], 0, sizeof(g_hmi_lines[0]));
     snprintf((char *)g_hmi_lines[0], sizeof(g_hmi_lines[0]), "%s%u %u%s%s %s",
              GBK_LOOP, identity->loop_id, identity->address, GBK_ADDR_SUFFIX,
-             DeviceDisableTypeTextGbk(type), message);
+             DeviceDisableHmiAliasType(identity, type, type_buffer,
+                                       sizeof(type_buffer)), message);
     DeviceDisableHmiRefreshLines();
 }
 
@@ -679,9 +699,13 @@ static void DeviceDisableHmiLoadCurrent(void)
     count = DeviceDisableGetRecent(recent, DEVICE_DISABLE_RECENT_MAX);
     for(i = 0U; i < count; i++)
     {
+        uint8_t type_buffer[64];
         snprintf((char *)g_hmi_lines[i], sizeof(g_hmi_lines[i]), "%s%u %u%s%s %s",
                  GBK_LOOP, recent[i].identity.loop_id, recent[i].identity.address,
-                 GBK_ADDR_SUFFIX, DeviceDisableTypeTextGbk((DeviceRegistryType)recent[i].device_type),
+                 GBK_ADDR_SUFFIX,
+                 DeviceDisableHmiAliasType(&recent[i].identity,
+                                           (DeviceRegistryType)recent[i].device_type,
+                                           type_buffer, sizeof(type_buffer)),
                  GBK_SET_OK);
     }
     DeviceDisableHmiRefreshLines();
@@ -694,6 +718,7 @@ static void DeviceDisableHmiProcessQuery(const uint8_t *query_text)
     DeviceInformation info;
     uint8_t code[6];
     uint8_t line[96];
+    uint8_t type_buffer[64];
     SetTextValue(70U, 207U, (uint8_t *)query_text);
     if(!DeviceCodeParse(query_text, &identity))
     {
@@ -720,7 +745,9 @@ static void DeviceDisableHmiProcessQuery(const uint8_t *query_text)
         SetTextValue(70U, 24U, (uint8_t *)(GBK_DISABLE_STATE GBK_UNAVAILABLE));
         return;
     }
-    snprintf((char *)line, sizeof(line), "%s%s", GBK_DEVICE_TYPE, DeviceDisableTypeTextGbk(info.type));
+    snprintf((char *)line, sizeof(line), "%s%s", GBK_DEVICE_TYPE,
+             DeviceDisableHmiAliasType(&identity, info.type, type_buffer,
+                                       sizeof(type_buffer)));
     SetTextValue(70U, 23U, line);
     snprintf((char *)line, sizeof(line), "%s%s", GBK_DISABLE_STATE,
              (identity.loop_id == DEVICE_DISABLE_LOOP1 || identity.loop_id == DEVICE_DISABLE_LOOP3) ?
