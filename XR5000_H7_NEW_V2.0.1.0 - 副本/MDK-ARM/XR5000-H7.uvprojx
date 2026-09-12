@@ -1025,6 +1025,11 @@
               <FilePath>..\BSP\system.c</FilePath>
             </File>
             <File>
+              <FileName>bsp_access_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_access_control.c</FilePath>
+            </File>
+            <File>
               <FileName>24c04.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\24c04.c</FilePath>

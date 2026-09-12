@@ -54,8 +54,15 @@ typedef struct
 	
 	uint8_t license_minute;
 	uint8_t license_second;
+
+	uint32_t super_admin_password;
+	uint16_t password_config_state;
 	
 }SystemSaveInfo_t;
+
+#define SYSTEM_PASSWORD_CONFIG_STATE 0xA55AU
+#define SYSTEM_DEFAULT_USER_PASSWORD 888888UL
+#define SYSTEM_DEFAULT_SUPER_PASSWORD 666666UL
 
 typedef enum
 {
@@ -113,6 +120,8 @@ extern SystemSaveInfo_t SystemSaveInfo;
 
 void SystemInfoSave(void);
 void SystemInfoLoad(void);
+uint8_t SystemPasswordIsValid(uint32_t password);
+uint8_t SystemPasswordsUpdate(uint32_t user_password, uint32_t super_password);
 void Load25Q128(void);
 uint16_t CalcCrc16(uint8_t *buf, uint16_t len);
 

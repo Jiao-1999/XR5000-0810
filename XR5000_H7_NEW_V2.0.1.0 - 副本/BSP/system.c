@@ -11,6 +11,27 @@
 
 SystemSaveInfo_t  SystemSaveInfo;
 
+uint8_t SystemPasswordIsValid(uint32_t password)
+{
+	return (password >= 100000UL && password <= 999999UL) ? 1U : 0U;
+}
+
+uint8_t SystemPasswordsUpdate(uint32_t user_password, uint32_t super_password)
+{
+	if(SystemPasswordIsValid(user_password) == 0U ||
+	   SystemPasswordIsValid(super_password) == 0U ||
+	   user_password == super_password)
+	{
+		return 0U;
+	}
+
+	SystemSaveInfo.user_password = user_password;
+	SystemSaveInfo.super_admin_password = super_password;
+	SystemSaveInfo.password_config_state = SYSTEM_PASSWORD_CONFIG_STATE;
+	SystemInfoSave();
+	return 1U;
+}
+
 uint8_t tanceqiming[20][20] = {0};//XR805备命名
 
 uint8_t cang_sxzt[30] = {0};           		 // 舱上线状态
@@ -48,7 +69,9 @@ void SystemInfoLoad(void)
 			SystemSaveInfo.slave_baud_rate_EMS = 9600; // 默认MODBUS波特率
 			
 			// 默认密码 888888
-			SystemSaveInfo.user_password = 888888;
+			SystemSaveInfo.user_password = SYSTEM_DEFAULT_USER_PASSWORD;
+			SystemSaveInfo.super_admin_password = SYSTEM_DEFAULT_SUPER_PASSWORD;
+			SystemSaveInfo.password_config_state = SYSTEM_PASSWORD_CONFIG_STATE;
 			// 默认全部手动
 			SystemSaveInfo.system_hand_or_auto_state = 0;//手动自动切换，0自动，1手动
 			SystemSaveInfo.part1_hand_or_auto_state = 0;//手动自动切换，0自动，1手动
@@ -105,6 +128,20 @@ void SystemInfoLoad(void)
 
 			SaveLinkageSheildState(); // 保存外联设备的屏蔽状态
 
+		}
+		else if(SystemSaveInfo.password_config_state != SYSTEM_PASSWORD_CONFIG_STATE ||
+		        SystemPasswordIsValid(SystemSaveInfo.user_password) == 0U ||
+		        SystemPasswordIsValid(SystemSaveInfo.super_admin_password) == 0U ||
+		        SystemSaveInfo.user_password == SystemSaveInfo.super_admin_password)
+		{
+			if(SystemPasswordIsValid(SystemSaveInfo.user_password) == 0U ||
+			   SystemSaveInfo.user_password == SYSTEM_DEFAULT_SUPER_PASSWORD)
+			{
+				SystemSaveInfo.user_password = SYSTEM_DEFAULT_USER_PASSWORD;
+			}
+			SystemSaveInfo.super_admin_password = SYSTEM_DEFAULT_SUPER_PASSWORD;
+			SystemSaveInfo.password_config_state = SYSTEM_PASSWORD_CONFIG_STATE;
+			SystemInfoSave();
 		}
 			//CAN设备地址
     if((SystemSaveInfo.can2_slave_addr < 1) || (SystemSaveInfo.can2_slave_addr > 300))

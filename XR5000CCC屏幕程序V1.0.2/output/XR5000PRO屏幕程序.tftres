@@ -80,9 +80,16 @@
         <page name="阈值查看界面" id="77" />
         <page name="报警筛选界面" id="78" />
         <page name="故障筛选界面" id="79" />
-        <page name="联动控制测试" id="80" />
+        <page name="防火分区" id="80" />
         <page name="设备测试" id="81" />
         <page name="设备中文命名" id="82" />
+        <page name="密码设置界面" id="83" />
+        <page name="Screen0" id="84" />
+        <page name="Screen1" id="85" />
+        <page name="Screen2" id="86" />
+        <page name="Screen3" id="87" />
+        <page name="Screen4" id="88" />
+        <page name="Screen5" id="89" />
     </pages>
     <images>
         <image id="0" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\1(主界面) NewSuper3.png" effect_width="1024" effect_height="600" />

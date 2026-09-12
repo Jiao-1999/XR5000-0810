@@ -238,14 +238,35 @@
 //创建画面故障筛选界面的命令索引ID
 #define  _SCREEN_故障筛选界面                                                       79
 
-//创建画面联动控制测试的命令索引ID
-#define  _SCREEN_联动控制测试                                                       80
+//创建画面防火分区的命令索引ID
+#define  _SCREEN_防火分区                                                         80
 
 //创建画面设备测试的命令索引ID
 #define  _SCREEN_设备测试                                                         81
 
 //创建画面设备中文命名的命令索引ID
 #define  _SCREEN_设备中文命名                                                       82
+
+//创建画面密码设置界面的命令索引ID
+#define  _SCREEN_密码设置界面                                                       83
+
+//创建画面Screen0的命令索引ID
+#define  _SCREEN_SCREEN0                                                      84
+
+//创建画面Screen1的命令索引ID
+#define  _SCREEN_SCREEN1                                                      85
+
+//创建画面Screen2的命令索引ID
+#define  _SCREEN_SCREEN2                                                      86
+
+//创建画面Screen3的命令索引ID
+#define  _SCREEN_SCREEN3                                                      87
+
+//创建画面Screen4的命令索引ID
+#define  _SCREEN_SCREEN4                                                      88
+
+//创建画面Screen5的命令索引ID
+#define  _SCREEN_SCREEN5                                                      89
 
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
@@ -9418,8 +9439,6 @@
 
 #define  _TXT_DIS__新菜单界面_TEXT_DISPLAY9                                       109
 
-#define  _MENU_新菜单界面_MENU7                                                    22
-
 #define  _TXT_DIS__新菜单界面_TEXT_DISPLAY10                                      110
 
 #define  _MENU_新菜单界面_MENU6                                                    21
@@ -9838,12 +9857,6 @@
 
 #define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY2                                       1
 
-#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY3                                       2
-
-#define  _MENU_打印机设置界面_MENU1                                                  50
-
-#define  _BTN_打印机设置界面_BUTTON1                                                 80
-
 #define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY4                                     201
 
 #define  _BTN_打印机设置界面_BUTTON2                                                220
@@ -9854,7 +9867,9 @@
 
 #define  _MENU_打印机设置界面_MENU2                                                  51
 
-#define  _BTN_打印机设置界面_BUTTON3                                                 81
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY3                                       2
+
+#define  _TXT_DIS__打印机设置界面_TEXT_DISPLAY7                                       5
 
 #define  _TXT_DIS__按键与输出定义_TEXT_DISPLAY1                                     200
 
@@ -10324,6 +10339,120 @@
 
 #define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY48                                      61
 
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY1                                          1
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY2                                          2
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY3                                          3
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY4                                          4
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY5                                          5
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY6                                          6
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY7                                          7
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY8                                          8
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY9                                          9
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY10                                        10
+
+#define  _BTN_防火分区_BUTTON4                                                    22
+
+#define  _BTN_防火分区_BUTTON5                                                    23
+
+#define  _BTN_防火分区_BUTTON6                                                    19
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY11                                        11
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY12                                        12
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY13                                        13
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY14                                        14
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY15                                        15
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY16                                        16
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY17                                        17
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY18                                        18
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY19                                        28
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY20                                        31
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY21                                        32
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY22                                        33
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY23                                        34
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY24                                        35
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY25                                        36
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY26                                        37
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY27                                        38
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY28                                        39
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY29                                        40
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY30                                        41
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY31                                        42
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY32                                        43
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY33                                        44
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY34                                        45
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY35                                        46
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY36                                        47
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY37                                        48
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY38                                        49
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY39                                        50
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY40                                        51
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY41                                        52
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY42                                        53
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY43                                        54
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY44                                        55
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY45                                        56
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY46                                        57
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY47                                        58
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY48                                        59
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY49                                        60
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY50                                        61
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY51                                        62
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY52                                        63
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY53                                        64
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY54                                        65
+
 #define  _TXT_DIS__设备中文命名_TEXT_DISPLAY1                                        1
 
 #define  _TXT_DIS__设备中文命名_TEXT_DISPLAY2                                        2
@@ -10385,4 +10514,64 @@
 #define  _BTN_设备中文命名_BUTTON5                                                  30
 
 #define  _BTN_设备中文命名_BUTTON6                                                  31
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY1                                        1
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY2                                        2
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY3                                        3
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY4                                        4
+
+#define  _BTN_密码设置界面_BUTTON1                                                   5
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY5                                        6
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY6                                        7
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY7                                        8
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY8                                        9
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY9                                       10
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY10                                      11
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY11                                      12
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY12                                      13
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY13                                      14
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY14                                      15
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY15                                      16
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY16                                      17
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY17                                      18
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY18                                      19
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY19                                      20
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY20                                      21
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY21                                      22
+
+#define  _BTN_密码设置界面_BUTTON2                                                  23
+
+#define  _BTN_密码设置界面_BUTTON3                                                  24
+
+#define  _BTN_密码设置界面_BUTTON4                                                  25
+
+#define  _BTN_密码设置界面_BUTTON5                                                  26
+
+#define  _BTN_密码设置界面_BUTTON6                                                  27
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY22                                      28
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY23                                      29
+
+#define  _TXT_DIS__密码设置界面_TEXT_DISPLAY24                                      30
 
