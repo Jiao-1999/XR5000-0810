@@ -591,12 +591,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 							case KEY1_INFORM_CERTAIN  : StorageEvent_LogConfirmButton(); /* 黑匣子:信息确认按钮动作(EVT_CONFIRM_BUTTON=128), GB4717-2024 B.1.1.1b */ // ??????
 								break;
 							case KEY2_SELF_INSPECTION : // ?????
-								key_value_storage = SELFCHECK_KEY; // ??????
-								taskENTER_CRITICAL();
-								SetScreen(53);	// ????????????
-								taskEXIT_CRITICAL();	
-								osDelay(5);
-								GetScreen();
+								HmiRequestInternalProtectedAction(SELFCHECK_KEY);
 								break;
 							case KEY3_SYSTEM_SILENCE  : { // ??????
 //								key_value_storage = SILENSE_KEY;
@@ -622,12 +617,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								break;
 							}
 							case KEY4_SYSTEM_RESET    : // ????λ
-								key_value_storage = RESET_KEY;
-								taskENTER_CRITICAL();
-								SetScreen(53);	// ????????????
-								taskEXIT_CRITICAL();	
-								osDelay(5);
-								GetScreen();
+								HmiRequestInternalProtectedAction(RESET_KEY);
 								break;
 							case KEY5_SYSTEM_CHECK    : //
 								/* XR5000_CHECK_CHANGE_20260804: check is not password protected. */
@@ -664,17 +654,11 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 							case KEY14_PART2_STOP     :  // ????2??
 								break;
 							case KEY15_PART1_SPRAY_ST : { // ????1????????
-								key_value_storage = PART1_SPRY_START;
-								SetScreen(53);								
-								osDelay(5);
-								GetScreen();
+								HmiRequestInternalProtectedAction(PART1_SPRY_START);
 								break;
 							}
 							case KEY16_PART2_SPRAY_ST : { // ????2????????
-								key_value_storage = PART2_SPRY_START;
-								SetScreen(53);								
-								osDelay(5);
-								GetScreen();
+								HmiRequestInternalProtectedAction(PART2_SPRY_START);
 								break;
 							}
 							default:
@@ -684,20 +668,10 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 						switch(uartbuff[INSCREENSITE].recepetion_buff[5])
 						{
 							case KEY_SYSTEM_ANNOUNCIAT : // ????????????
-								key_value_storage = SIREN_KEY; // 
-//								taskENTER_CRITICAL();
-//								SetScreen(53);	// ????????????
-//								taskEXIT_CRITICAL();
-								SetScreen(53);								
-								osDelay(5);
-								GetScreen();
+								HmiRequestInternalProtectedAction(SIREN_KEY);
 								break;
 							case KEY_SYSTEM_LINKAGE_S  : // ????????????
-								key_value_storage = LINKAGE_START_KEY; //
-								StartupLinkageDevice();
-								StorageEvent_LogLinkageStartButton(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* 黑匣子:联动启动按钮按下动作(EVT_LINKAGE_START_BUTTON=130), GB4717-2024 B.1.1.1b */
-								StorageEvent_LogStart(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* ?????:??????? */
-							FecbusReport_Start(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV); /* FECbus:??????? */
+								HmiRequestInternalProtectedAction(LINKAGE_START_KEY);
 								break;
 							default:
 								break;

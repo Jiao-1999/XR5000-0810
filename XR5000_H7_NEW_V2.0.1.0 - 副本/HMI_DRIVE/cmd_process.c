@@ -33,6 +33,7 @@
 #include "bsp_device_alias.h"
 #include "bsp_device_threshold.h"
 #include "bsp_aht20.h"
+#include "bsp_access_control.h"
 
 #include "bsp_key.h"
 
@@ -80,7 +81,7 @@ uint8_t secs,years,months,weeks,days,hours,minutes;
 uint8  cmd_buffer[CMD_MAX_SIZE];                                    //指令缓存
 uint16 current_screen_id = 0;                                       //当前画面ID
 uint32_t yonghumima=0,yonghumm1=0,yonghumm2=0,yonghumm3=0,mmsdSTA=0;//用户密码
-uint32_t chaojimima=68686668;//超级密码
+uint32_t chaojimima=ACCESS_FACTORY_PASSWORD;//旧画面兼容变量，不参与当前权限流程
 
 uint8_t mimajiyi=0;
 uint8_t miehuoqidong=0;
@@ -1063,6 +1064,7 @@ void BspScreenArrowSite(BspKeyCheckNewCtrl_t *bkcnc_entry)
 // 
 void BspCmdProcessInit(void)
 {
+	AccessControl_Init();
 	FaultDataInit(pcfs); // 清除故障记录
 	ForeAlarmDataInit(&pcfws); // 清除预警记录
 	FireAlarmDataInit(&pcfas); // 清除火警记录
@@ -2121,12 +2123,221 @@ static void SetMonitorPageFrom(uint16_t source_screen)
 	osDelay(5);
 	GetScreen();
 }
+
+typedef enum
+{
+	HMI_PASSWORD_TARGET_NONE = 0,
+	HMI_PASSWORD_TARGET_ORDINARY,
+	HMI_PASSWORD_TARGET_SUPER
+}HmiPasswordTarget_t;
+
+typedef struct
+{
+	uint8_t valid;
+	AccessLevel_t level;
+	uint16_t return_screen;
+	uint16_t target_screen;
+	uint16_t grant_screen;
+	uint8_t internal_action;
+}HmiAuthorizationRequest_t;
+
+static HmiAuthorizationRequest_t hmi_auth_request;
+static HmiPasswordTarget_t hmi_password_target = HMI_PASSWORD_TARGET_NONE;
+static uint32_t hmi_password_current_super;
+static uint32_t hmi_password_new;
+static uint32_t hmi_password_confirm;
+
+static void HmiSwitchScreen(uint16_t target_screen)
+{
+	bsp_screen_switch_ctrl.target_screen = target_screen;
+	bsp_screen_switch_ctrl.switch_flag = 1U;
+	SwitchCurrentScreenId(target_screen);
+}
+
+static void HmiAuthorizationClear(void)
+{
+	taskENTER_CRITICAL();
+	memset(&hmi_auth_request, 0, sizeof(hmi_auth_request));
+	taskEXIT_CRITICAL();
+}
+
+static uint16_t HmiAuthorizationReturnScreen(uint16_t source_screen)
+{
+	/* 正常情况原路返回；只有无法识别来源或来源就是密码页时才回主界面。 */
+	if(source_screen == 0U || source_screen == 53U)
+	{
+		return 1U;
+	}
+	return source_screen;
+}
+
+static void HmiAuthorizationBegin(AccessLevel_t level, uint16_t return_screen,
+	uint16_t target_screen, uint16_t grant_screen, uint8_t internal_action)
+{
+	taskENTER_CRITICAL();
+	hmi_auth_request.valid = 1U;
+	hmi_auth_request.level = level;
+	hmi_auth_request.return_screen = HmiAuthorizationReturnScreen(return_screen);
+	hmi_auth_request.target_screen = target_screen;
+	hmi_auth_request.grant_screen = grant_screen;
+	hmi_auth_request.internal_action = internal_action;
+	taskEXIT_CRITICAL();
+	yonghumima = 0U;
+	setKeyValue(NONE_KEY);
+	HmiSwitchScreen(53U);
+}
+
+static void HmiOpenProtectedPage(AccessLevel_t level, uint16_t target_screen)
+{
+	if(AccessControl_IsGranted(level, current_screen_id) != 0U)
+	{
+		if(level >= ACCESS_LEVEL_III && current_screen_id != target_screen)
+		{
+			(void)AccessControl_TransferPageGrant(current_screen_id, target_screen, level);
+		}
+		HmiSwitchScreen(target_screen);
+		return;
+	}
+
+	HmiAuthorizationBegin(level, current_screen_id, target_screen, target_screen, NONE_KEY);
+}
+
+static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
+{
+	switch(action)
+	{
+		case SELFCHECK_KEY:
+			SetScreen(1U);
+			osDelay(5);
+			GetScreen();
+			SetTextValue(1U, 4U, "控制器复位中...请稍候...");
+			BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_SELF_CHECK, LINKAGE_CLUSTER_ID, SYS_SELFCHECK_Package_ID);
+			StorageEvent_LogSelfCheck(0U);
+			SpecialSelfCheckLedCtrl(LED_ON);
+			return 1U;
+
+		case RESET_KEY:
+			SetScreen(1U);
+			osDelay(5);
+			GetScreen();
+			SetTextValue(1U, 4U, "控制器复位中...请稍候...");
+			BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_RESET, LINKAGE_CLUSTER_ID, SYS_RESET_Package_ID);
+			StorageEvent_ResetFirstFire();
+			StorageEvent_LogReset();
+			kaijiyanshi = (ONLINE_TIMEOUT > 6) ? (ONLINE_TIMEOUT - 6) : 0;
+			ResetAllBusDevice();
+			return 1U;
+
+		case SIREN_KEY:
+			screen_show_siren_information ^= 0x0FU;
+			break;
+
+		case LINKAGE_START_KEY:
+			StartupLinkageDevice();
+			StorageEvent_LogLinkageStartButton(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);
+			StorageEvent_LogStart(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);
+			FecbusReport_Start(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);
+			break;
+
+		case PART1_SPRY_START:
+			FireExtinguishDevice1HandStart(&fedas);
+			break;
+
+		case PART2_SPRY_START:
+			FireExtinguishDevice2HandStart(&fedas);
+			break;
+
+		default:
+			return 0U;
+	}
+
+	return 0U;
+}
+
+void HmiRequestInternalProtectedAction(uint8_t action)
+{
+	uint8_t request_pending;
+	taskENTER_CRITICAL();
+	request_pending = hmi_auth_request.valid;
+	taskEXIT_CRITICAL();
+	if(request_pending != 0U)
+	{
+		return;
+	}
+	/* 普通管理员会话可复用；超级管理员的单页授权不能带到独立按键动作。 */
+	if(AccessControl_IsOrdinarySessionActive() != 0U)
+	{
+		(void)HmiExecuteInternalProtectedAction(action);
+		setKeyValue(NONE_KEY);
+		return;
+	}
+
+	HmiAuthorizationBegin(ACCESS_LEVEL_II, current_screen_id, current_screen_id,
+		0U, action);
+}
+
+static AccessLevel_t HmiProtectedScreenLevel(uint16_t screen_id)
+{
+	if(screen_id == 41U)
+	{
+		return ACCESS_LEVEL_II;
+	}
+	if(screen_id == 43U || screen_id == 70U || screen_id == 73U ||
+	   screen_id == 74U || screen_id == 75U || screen_id == 80U ||
+	   screen_id == 82U || screen_id == 83U)
+	{
+		return ACCESS_LEVEL_III;
+	}
+	return ACCESS_LEVEL_I;
+}
+
+static void HmiPasswordManagementReset(void)
+{
+	hmi_password_target = HMI_PASSWORD_TARGET_NONE;
+	hmi_password_current_super = 0U;
+	hmi_password_new = 0U;
+	hmi_password_confirm = 0U;
+	/* 控件3显示本次进入密码管理页所使用的真实权限身份。 */
+	SetTextValue(83U, 3U,
+		(AccessControl_GetPageGrantLevel(83U) == ACCESS_LEVEL_FACTORY) ?
+		"厂家维护" : "超级管理员");
+	SetTextValue(83U, 8U, "普通管理员密码已设置");
+	SetTextValue(83U, 9U, "超级管理员密码已设置");
+	SetTextValue(83U, 12U, "请先选择修改类型");
+	SetTextValue(83U, 13U, "");
+	SetTextValue(83U, 14U, "");
+	SetTextValue(83U, 15U, "");
+	SetTextValue(83U, 16U, "");
+	SetTextValue(83U, 17U, "");
+	SetTextValue(83U, 19U, "请选择普通管理员或超级管理员密码");
+	clearTextValue(83U, 28U);
+	clearTextValue(83U, 29U);
+	clearTextValue(83U, 30U);
+}
+
+static void HmiPasswordManagementSelect(HmiPasswordTarget_t target)
+{
+	hmi_password_target = target;
+	hmi_password_current_super = 0U;
+	hmi_password_new = 0U;
+	hmi_password_confirm = 0U;
+	SetTextValue(83U, 12U, "当前超级管理员密码");
+	SetTextValue(83U, 13U, "[                                ]");
+	SetTextValue(83U, 14U, (target == HMI_PASSWORD_TARGET_ORDINARY) ?
+		"新普通管理员密码" : "新超级管理员密码");
+	SetTextValue(83U, 15U, "[                                ]");
+	SetTextValue(83U, 16U, "确认新密码");
+	SetTextValue(83U, 17U, "[                                ]");
+	SetTextValue(83U, 19U, (target == HMI_PASSWORD_TARGET_ORDINARY) ?
+		"正在修改普通管理员密码" : "正在修改超级管理员密码");
+	clearTextValue(83U, 28U);
+	clearTextValue(83U, 29U);
+	clearTextValue(83U, 30U);
+}
+
 static void EnterTimeDateSettingWithPassword(void)
 {
-	setKeyValue(MODIFY_TIME_KEY); /* XR5000_TIME_DATE_ENTRY_REUSE_20260802: share the same password-gated time/date entry flow. */
-	SwitchCurrentScreenId(53);
-	bsp_screen_switch_ctrl.target_screen = 53;
-	bsp_screen_switch_ctrl.switch_flag = 1;
+	HmiOpenProtectedPage(ACCESS_LEVEL_II, 41U);
 }
 const uint8_t pack_online_ctrl_button_id[] = {
 	0, 5, 8, 11, 14, 17, 20, 25, 28, 31, 34, 
@@ -2150,8 +2361,26 @@ const uint8_t point_type_detect_button_online_ctrl_val_map[] = {
 void NotifyScreen(uint16 screen_id)
 {
 	uint16_t prev_screen_id = current_screen_id; /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
+	AccessLevel_t protected_level;
     //TODO: 添加用户代码
     current_screen_id = screen_id;
+	AccessControl_OnScreenChanged(prev_screen_id, screen_id);
+	protected_level = HmiProtectedScreenLevel(screen_id);
+	if(protected_level != ACCESS_LEVEL_I &&
+	   AccessControl_IsGranted(protected_level, screen_id) == 0U)
+	{
+		HmiAuthorizationBegin(protected_level, prev_screen_id, screen_id, screen_id, NONE_KEY);
+		return;
+	}
+	if(screen_id == 53U && prev_screen_id != 53U)
+	{
+		yonghumima = 0U;
+		clearTextValue(53U, 2U);
+	}
+	if(screen_id == 83U && prev_screen_id != 83U)
+	{
+		HmiPasswordManagementReset();
+	}
     HistoryFilter_NotifyScreen(screen_id);
     DeviceThreshold_NotifyScreen(screen_id); //在工程配置中开启画面切换通知，记录当前画面ID
     DeviceAliasHmiScreenUpdate(screen_id);
@@ -2241,6 +2470,14 @@ void NotifyScreen(uint16 screen_id)
 		else if(screen_id == 6) // 
 		{
 			uint8_t temp_buff[32] = {0};
+			if(AccessControl_IsGranted(ACCESS_LEVEL_III, 6U) == 0U)
+			{
+				/* 只读入口统一复位修改按钮，避免触摸后残留选中状态。 */
+				setkey_Value(6U, 32U, 0U);
+				setkey_Value(6U, 34U, 0U);
+				setkey_Value(6U, 45U, 0U);
+				setkey_Value(6U, 55U, 0U);
+			}
 			// 回路1
 			sprintf((char *)temp_buff, "设置上线:%d", getPointDetectorSetUpCount());
 			SetTextValue(screen_id, 7, temp_buff); 
@@ -3695,6 +3932,14 @@ void TB_sahngchuan(uint16 screen_id, uint16 control_id, uint8  state, uint8  tub
 */
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 {
+	AccessLevel_t protected_level = HmiProtectedScreenLevel(screen_id);
+	if(state == 1U && protected_level != ACCESS_LEVEL_I &&
+	   AccessControl_IsGranted(protected_level, screen_id) == 0U)
+	{
+		uint16_t return_screen = (current_screen_id == screen_id) ? 68U : current_screen_id;
+		HmiAuthorizationBegin(protected_level, return_screen, screen_id, screen_id, NONE_KEY);
+		return;
+	}
 	HistoryFilter_NotifyButton(screen_id, control_id, state);
 	DeviceThreshold_NotifyButton(screen_id, control_id, state);
 	DeviceAliasHmiButton(screen_id, control_id, state);
@@ -3745,10 +3990,8 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		{
 			if(license_allow_use_state == 1)
 			{
-				setKeyValue(DEVICE_CTRL_KEY); // 给按键赋值 表明是修改屏幕的按键按下
-				SwitchCurrentScreenId(53);
-				bsp_screen_switch_ctrl.target_screen = 53;
-				bsp_screen_switch_ctrl.switch_flag = 1;
+				/* 画面1进入设备页仅查看；修改操作在画面6内单独鉴权。 */
+				HmiSwitchScreen(6U);
 			}
 		}
 		else if( (control_id == 37 || control_id == 38) && state == 1 )
@@ -3838,9 +4081,18 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		if(state == 1)
 		{
+			if((control_id == 32U || control_id == 34U ||
+			    control_id == 45U || control_id == 55U) &&
+			   AccessControl_IsGranted(ACCESS_LEVEL_III, 6U) == 0U)
+			{
+				/* 画面1进入画面6时为只读模式，修改入口不执行且不再单独弹密码。 */
+				setkey_Value(6U, control_id, 0U);
+				return;
+			}
 			if(control_id == 32)
 			{
-				SwitchCurrentScreenId(82U);
+				/* 仅画面68预授权入口可进入中文命名，授权随目标页转移。 */
+				HmiOpenProtectedPage(ACCESS_LEVEL_III, 82U);
 			}
 			else if(control_id == 5)
 			{
@@ -4315,108 +4567,142 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			CheckModeExitToHome();
 		}
 	}
+	else if(screen_id == 83U)
+	{
+		if(state != 1U)
+		{
+			return;
+		}
+		if(AccessControl_IsGranted(ACCESS_LEVEL_III, 83U) == 0U)
+		{
+			HmiAuthorizationBegin(ACCESS_LEVEL_III, 68U, 83U, 83U, NONE_KEY);
+			return;
+		}
+		if(control_id == 5U)
+		{
+			HmiSwitchScreen(68U);
+		}
+		else if(control_id == 23U)
+		{
+			AccessControl_ClearOrdinarySession();
+			AccessControl_ClearPageGrant();
+			HmiSwitchScreen(68U);
+		}
+		else if(control_id == 24U)
+		{
+			hmi_password_current_super = 0U;
+			hmi_password_new = 0U;
+			hmi_password_confirm = 0U;
+			clearTextValue(83U, 28U);
+			clearTextValue(83U, 29U);
+			clearTextValue(83U, 30U);
+			SetTextValue(83U, 19U, "输入已清除");
+		}
+		else if(control_id == 26U)
+		{
+			HmiPasswordManagementSelect(HMI_PASSWORD_TARGET_ORDINARY);
+		}
+		else if(control_id == 27U)
+		{
+			HmiPasswordManagementSelect(HMI_PASSWORD_TARGET_SUPER);
+		}
+		else if(control_id == 25U)
+		{
+			uint32_t ordinary_password = SystemSaveInfo.user_password;
+			uint32_t super_password = SystemSaveInfo.super_admin_password;
+			if(hmi_password_target == HMI_PASSWORD_TARGET_NONE)
+			{
+				SetTextValue(83U, 19U, "请先选择修改类型");
+			}
+			/* 厂家密码可在任何密码确认位置代替超级管理员密码。 */
+			else if(hmi_password_current_super != SystemSaveInfo.super_admin_password &&
+			        hmi_password_current_super != ACCESS_FACTORY_PASSWORD)
+			{
+				SetTextValue(83U, 19U, "当前超级管理员密码错误");
+			}
+			else if(SystemPasswordIsValid(hmi_password_new) == 0U ||
+			        hmi_password_new != hmi_password_confirm)
+			{
+				SetTextValue(83U, 19U, "新密码须为一致的6位数字");
+			}
+			else
+			{
+				if(hmi_password_target == HMI_PASSWORD_TARGET_ORDINARY)
+				{
+					ordinary_password = hmi_password_new;
+				}
+				else
+				{
+					super_password = hmi_password_new;
+				}
+				if(SystemPasswordsUpdate(ordinary_password, super_password) == 0U)
+				{
+					SetTextValue(83U, 19U, "两级密码不能相同");
+				}
+				else
+				{
+					if(hmi_password_target == HMI_PASSWORD_TARGET_ORDINARY)
+					{
+						AccessControl_ClearOrdinarySession();
+					}
+					else
+					{
+						AccessControl_ClearPageGrant();
+					}
+					SetTextValue(83U, 19U, "保存成功");
+					hmi_password_current_super = 0U;
+					hmi_password_new = 0U;
+					hmi_password_confirm = 0U;
+					clearTextValue(83U, 28U);
+					clearTextValue(83U, 29U);
+					clearTextValue(83U, 30U);
+				}
+			}
+		}
+	}
 	else if(screen_id == 53)
 	{
-		if(control_id == 4 && state == 1) 
+		if(control_id == 3U && state == 1U)
 		{
+			uint16_t return_screen = (hmi_auth_request.valid != 0U) ?
+				hmi_auth_request.return_screen : 1U;
+			HmiAuthorizationClear();
+			yonghumima = 0U;
+			clearTextValue(53U, 2U);
+			HmiSwitchScreen(return_screen);
+		}
+		else if(control_id == 4U && state == 1U)
+		{
+			HmiAuthorizationRequest_t request = hmi_auth_request;
 			clearTextValue(screen_id, 2);
-			if(yonghumima == SystemSaveInfo.user_password)                                                       
+			if(request.valid == 0U)
 			{
-				switch(getKeyPressValue())
-				{
-					case SELFCHECK_KEY: { // 自检
-						SetScreen(1);	// 密码正确 回主界面
-						osDelay(5);
-						GetScreen();
-						SetTextValue(1, 4, "控制器复位中...请稍候...");
-						BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_SELF_CHECK, LINKAGE_CLUSTER_ID, SYS_SELFCHECK_Package_ID);
-						StorageEvent_LogSelfCheck(0U); /* 黑匣子:自检事件(EVT_SELF_CHECK=123) */
-						SpecialSelfCheckLedCtrl(LED_ON);
-
-						break;
-					}
-					case SILENSE_KEY: // 消音
-						break;
-					case RESET_KEY: {  // 复位 
-						// 复位密码验证通过
-						SetScreen(1);	// 密码正确 回主界面
-						osDelay(5);
-						GetScreen();
-						SetTextValue(1, 4, "控制器复位中...请稍候...");
-						BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_RESET, LINKAGE_CLUSTER_ID, SYS_RESET_Package_ID);
-						StorageEvent_ResetFirstFire();
-						StorageEvent_LogReset();
-						if(ONLINE_TIMEOUT > 6)
-						{
-							kaijiyanshi = ONLINE_TIMEOUT - 6;
-						}
-						else
-						{
-							kaijiyanshi = 0;
-						}
-						ResetAllBusDevice();
-						break;
-					}
-					case CHECK_KEY:
-						/* XR5000_CHECK_CHANGE_20260804: legacy password entry is intentionally retired. */
-						setKeyValue(NONE_KEY);
-						break;
-					case MODIFY_TIME_KEY:  // 修改时间按键
-						SetScreen(41);	// 进入二级密码页
-						osDelay(5);
-						GetScreen();
-						break;
-					case DEVICE_CTRL_KEY: {
-						SetScreen(6);	//
-						osDelay(5);
-						GetScreen();
-						break;
-					}
-					case DEVICE_SHIELD_KEY: { // XR5000_DEVICE_SHIELD_ENTRY_20260802: 设备屏蔽
-						SetScreen(70);
-						osDelay(5);
-						GetScreen();
-						break;
-					}
-					case SIMU_SERIAL_PORT: {
-						SetScreen(3);	// 
-						osDelay(5);
-						GetScreen();
-						
-						break;
-					}
-					case LINKAGE_PROGREM: {
-						SetScreen(43);	//
-						osDelay(5);
-						GetScreen();
-						
-						break;
-					}
-					case SIREN_KEY:    // 报警器启动
-						screen_show_siren_information ^= 0x0F; // 翻转低四位状态
-						break;
-					case LINKAGE_START_KEY: // 外联设备启动
-						linkage_start_key_press_flag = 1;
-						break;
-					case PART1_SPRY_START:
-						FireExtinguishDevice1HandStart(&fedas);
-						break;
-					case PART2_SPRY_START:
-						FireExtinguishDevice2HandStart(&fedas);
-						break;
-					default:
-						SetScreen(1);	// 进入二级密码页
-						osDelay(5);
-						GetScreen();
-						break;
-				}
-				setKeyValue(NONE_KEY);
+				SetTextValue(53U, 2U, "无待执行操作");
 			}
-			else if(yonghumima == 114514)
+			else if(AccessControl_Verify(request.level, yonghumima,
+			        request.grant_screen) != 0U)
 			{
-				SetScreen(3);	// 进入二级密码页
-				osDelay(5);
-				GetScreen();
+				HmiAuthorizationClear();
+				yonghumima = 0U;
+				setKeyValue(NONE_KEY);
+				if(request.internal_action != NONE_KEY)
+				{
+					uint8_t action_changed_screen =
+						HmiExecuteInternalProtectedAction(request.internal_action);
+					if(action_changed_screen == 0U)
+					{
+						HmiSwitchScreen(request.return_screen);
+					}
+				}
+				else
+				{
+					HmiSwitchScreen(request.target_screen);
+				}
+			}
+			else
+			{
+				yonghumima = 0U;
+				SetTextValue(53U, 2U, "密码错误，请重新输入");
 			}
 		}
 
@@ -4510,10 +4796,18 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 */
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
+	AccessLevel_t protected_level = HmiProtectedScreenLevel(screen_id);
+	if(protected_level != ACCESS_LEVEL_I &&
+	   AccessControl_IsGranted(protected_level, screen_id) == 0U)
+	{
+		uint16_t return_screen = (current_screen_id == screen_id) ? 68U : current_screen_id;
+		HmiAuthorizationBegin(protected_level, return_screen, screen_id, screen_id, NONE_KEY);
+		return;
+	}
    HistoryFilter_NotifyText(screen_id, control_id, str);
    DeviceAliasHmiText(screen_id, control_id, str);
    { 
-			if(control_id == 25) // 修改CAN2ID地址
+			if(screen_id == 1U && control_id == 25U) // 修改CAN2ID地址
       {
 				int32 value=0;  			
 				sscanf((const char*)(char*)str,"%ld",&value); 
@@ -4521,7 +4815,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				SystemInfoSave();
 				SystemInfoLoad();
 			}
-			else if(control_id == 30) // 修改场站485地址
+			else if(screen_id == 1U && control_id == 30U) // 修改场站485地址
       {
 				int32 value=0;  			
 				sscanf((const char*)(char*)str,"%ld",&value); 
@@ -4529,7 +4823,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				SystemInfoSave();
 				SystemInfoLoad();
 			}
-			else if(control_id == 22)
+			else if(screen_id == 1U && control_id == 22U)
 			{
 				int32 value=0;  			
 				sscanf((const char*)(char*)str,"%ld",&value); 
@@ -4962,6 +5256,26 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 				yonghumima=value;									// 给密码赋值
 			}				
 		}
+		else if(screen_id == 83U)
+		{
+			uint32_t value = 0U;
+			if(str != NULL)
+			{
+				(void)sscanf((char *)str, "%lu", &value);
+			}
+			if(control_id == 28U)
+			{
+				hmi_password_current_super = value;
+			}
+			else if(control_id == 29U)
+			{
+				hmi_password_new = value;
+			}
+			else if(control_id == 30U)
+			{
+				hmi_password_confirm = value;
+			}
+		}
 		else if(screen_id == 67)
 		{
 			PointTypeDetectorTextInputCtrlApp(&ptsc, control_id, str);
@@ -5028,6 +5342,14 @@ void NotifyMeter(uint16 screen_id, uint16 control_id, uint32 value)
 */
 void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 {
+	AccessLevel_t protected_level = HmiProtectedScreenLevel(screen_id);
+	if(state == 1U && protected_level != ACCESS_LEVEL_I &&
+	   AccessControl_IsGranted(protected_level, screen_id) == 0U)
+	{
+		uint16_t return_screen = (current_screen_id == screen_id) ? 68U : current_screen_id;
+		HmiAuthorizationBegin(protected_level, return_screen, screen_id, screen_id, NONE_KEY);
+		return;
+	}
   HistoryFilter_NotifyMenu(screen_id, control_id, item, state);
   DeviceThreshold_NotifyMenu(screen_id, control_id, item, state);
   //TODO: 添加用户代码
@@ -5075,9 +5397,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 	{
 		if(control_id == 17 && state == 1 && item == 0U)
 		{
-			bsp_screen_switch_ctrl.target_screen = 75U;
-			bsp_screen_switch_ctrl.switch_flag = 1U;
-			SwitchCurrentScreenId(75U);
+			HmiOpenProtectedPage(ACCESS_LEVEL_III, 75U);
 		}
 		else if(control_id == 16 && state == 1)
 		{
@@ -5086,16 +5406,11 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 				case 0:
 					break;
 				case 1:
-					setKeyValue(DEVICE_CTRL_KEY);
-					SwitchCurrentScreenId(53);
-					bsp_screen_switch_ctrl.target_screen = 53;
-					bsp_screen_switch_ctrl.switch_flag = 1;
+					/* 菜单入口已取得三级授权，画面6内操作不重复输密码。 */
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 6U);
 					break;
 				case 2:
-					setKeyValue(DEVICE_SHIELD_KEY); // XR5000_DEVICE_SHIELD_ENTRY_20260802: 设备屏蔽
-					SwitchCurrentScreenId(53);
-					bsp_screen_switch_ctrl.target_screen = 53;
-					bsp_screen_switch_ctrl.switch_flag = 1;
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 70U);
 					break;
 				default:
 					break;
@@ -5106,12 +5421,10 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 			switch(item)
 			{
 				case 0:
-					setKeyValue(LINKAGE_PROGREM); // 给按键赋值 表明是修改屏幕的按键按下
-					SwitchCurrentScreenId(53);
-					bsp_screen_switch_ctrl.target_screen = 53;
-					bsp_screen_switch_ctrl.switch_flag = 1;
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 43U);
 					break;
 				case 1:
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 80U);
 					break;
 				case 2: /* 新加功能：画面68菜单19第3项跳转联动规则列表(画面45)；时间：2026-09-10 */
 					bsp_screen_switch_ctrl.target_screen = 45U;
@@ -5150,6 +5463,10 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					EnterTimeDateSettingWithPassword(); /* XR5000_TIME_DATE_ENTRY_REUSE_20260802 */
 					break;
 				case 1:
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 83U);
+					break;
+				case 2:
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 74U);
 					break;
 				default:
 					break;
@@ -5167,12 +5484,17 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 		}
 		else if(control_id == 26U && state == 1U)
 		{
-			uint16_t target = (item == 0U) ? 73U : 76U;
-			if(item <= 1U)
+			if(item == 0U)
 			{
-				bsp_screen_switch_ctrl.target_screen = target;
-				bsp_screen_switch_ctrl.switch_flag = 1U;
-				SwitchCurrentScreenId(target);
+				HmiOpenProtectedPage(ACCESS_LEVEL_III, 73U);
+			}
+			else if(item == 1U)
+			{
+				HmiSwitchScreen(76U);
+			}
+			else if(item == 2U)
+			{
+				HmiSwitchScreen(77U);
 			}
 		}
 }

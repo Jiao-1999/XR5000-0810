@@ -151,6 +151,7 @@ void NotifyTouchXY(uint8 press,uint16 x,uint16 y);
 *  \param state 按钮状态：0弹起，1按下
 */
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state);
+void HmiRequestInternalProtectedAction(uint8_t action);
 /*! 
 *  \brief  文本控件通知
 *  \details  当文本通过键盘更新(或调用GetControlValue)时，执行此函数
