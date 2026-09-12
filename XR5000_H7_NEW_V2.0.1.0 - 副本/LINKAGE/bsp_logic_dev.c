@@ -470,7 +470,7 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
  *   loop_no=2, dev_no=设备地址, channel=1-4/99:
  *     通过MBusCtrl_Request异步控制输出设备, 不直接占用UART2。
  *     channel=1-4: 为通道位掩码(DEVICE_OUTPUT_1~4)控制;
- *     channel=99:  全部通道(当前映射为DEVICE_OUTPUT_1)。
+ *     channel=99:  全部通道(映射为声+光双位掩码)。
  *   loop_no=1/3: 不支持控制, 直接失败返回
  *
  * 参数说明：loop_no - 控制回路号（只支持2）。
@@ -493,11 +493,11 @@ uint8_t LogicDev_Control(uint8_t loop_no, uint8_t dev_no, uint8_t channel, uint8
 
     /* 通道号转换为位掩码: 1-4=指定通道, 99=全部通道
      * 说明: 当前全部回路唯一支持输出控制的设备为声光报警器(XR-SGBJQ),
-     * 只支持 DEVICE_OUTPUT_1 通道, 故"全部通道"映射为 DEVICE_OUTPUT_1。
-     * 未出现多通道输出设备时, 此处需再扩展为该设备支持的全部通道位 */
+     * 声音=DEVICE_OUTPUT_1(线圈0x0018), 灯光=DEVICE_OUTPUT_2(线圈0x0021)。
+     * 99=全部通道, 映射为声+光双位掩码; 通道3/4无对应输出, 建帧时被过滤 */
     if (channel == 99U)
     {
-        mask = DEVICE_OUTPUT_1;
+        mask = DEVICE_OUTPUT_1 | DEVICE_OUTPUT_2;
     }
     else if ((channel >= 1U) && (channel <= 4U))
     {
