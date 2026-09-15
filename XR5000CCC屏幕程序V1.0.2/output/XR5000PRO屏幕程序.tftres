@@ -90,6 +90,10 @@
         <page name="Screen3" id="87" />
         <page name="Screen4" id="88" />
         <page name="Screen5" id="89" />
+        <page name="网络通信参数界面" id="90" />
+        <page name="按回路地址查询" id="91" />
+        <page name="按设备类型查看" id="92" />
+        <page name="设备自动登记" id="93" />
     </pages>
     <images>
         <image id="0" url="d:\awork_fils\git_new\xr5000ccc屏幕程序v1.0.2\images\1(主界面) NewSuper3.png" effect_width="1024" effect_height="600" />

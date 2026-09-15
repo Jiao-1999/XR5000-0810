@@ -5,6 +5,7 @@
 #include "cmsis_os2.h"
 #include "bsp_mbus.h"
 #include "bsp_mbus_control.h"
+#include "bsp_device_registry.h"
 #include "bsp_rs485_detect.h"
 #include "bsp_screen.h"
 #include "hmi_driver.h"
@@ -93,6 +94,7 @@ const char *DeviceAliasDevice_GetTypeText(uint8_t loop_id, uint8_t address)
         uint8_t type = getPointTypeMixtureDetectName(address);
         if(type == 5U) return "烟雾探测器";
         if(type == 6U) return "温度探测器";
+        if(type == DEVICE_PRODUCT_FIM1017) return "二总线短路隔离器";
         return "未知设备";
     }
     if(loop_id == 2U)

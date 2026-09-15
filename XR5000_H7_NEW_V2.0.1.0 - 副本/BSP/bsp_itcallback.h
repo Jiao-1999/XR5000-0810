@@ -20,6 +20,11 @@ typedef struct
 	uint32_t rx_short_event_count;
 	uint32_t rx_restart_fail_count;
 	uint32_t rx_crc_error_count;
+	uint32_t rx_invalid_length_count;
+	uint32_t rx_protocol_exception_count;
+	uint32_t rx_echo_count;
+	uint32_t rx_resync_count;
+	uint32_t rx_ring_overflow_count;
 	uint32_t tx_fail_count;
 	uint32_t frame_error_count;
 	uint32_t noise_error_count;
@@ -91,6 +96,8 @@ extern volatile RS485DetectUartDiag_t g_rs4853_uart_diag;
 extern uint8_t screendata;
 
 HAL_StatusTypeDef MBus2UartEnsureRx(void);
+uint16_t MBus2UartRead(uint8_t *buffer, uint16_t capacity);
+void MBus2UartClearRx(void);
 HAL_StatusTypeDef RS485DetectUartEnsureRx(void);
 uint16_t RS485DetectUartRead(uint8_t *buffer, uint16_t capacity);
 void RS485DetectUartClearRx(void);

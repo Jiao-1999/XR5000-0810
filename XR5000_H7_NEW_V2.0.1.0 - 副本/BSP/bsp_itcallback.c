@@ -18,6 +18,14 @@ __attribute__((section(".sram2"))) UartBuffer_t uartbuff[10];
 volatile MBus2UartDiag_t g_mbus2_uart_diag;
 volatile RS485DetectUartDiag_t g_rs4853_uart_diag;
 
+#define MBUS2_RX_RING_SIZE 512U
+#define MBUS2_RX_RING_MASK (MBUS2_RX_RING_SIZE - 1U)
+#define MBUS2_DMA_RX_SIZE 128U
+__attribute__((section(".sram2"), aligned(32))) static uint8_t g_mbus2_dma_rx_buffer[MBUS2_DMA_RX_SIZE];
+static uint8_t g_mbus2_rx_ring[MBUS2_RX_RING_SIZE];
+static volatile uint16_t g_mbus2_rx_head;
+static volatile uint16_t g_mbus2_rx_tail;
+
 #define RS4853_RX_RING_SIZE 512U
 #define RS4853_RX_RING_MASK (RS4853_RX_RING_SIZE - 1U)
 #define RS4853_DMA_RX_SIZE 128U
@@ -26,6 +34,54 @@ static uint8_t g_rs4853_rx_ring[RS4853_RX_RING_SIZE];
 static volatile uint16_t g_rs4853_rx_head;
 static volatile uint16_t g_rs4853_rx_tail;
 static volatile uint8_t g_rs4853_tx_complete;
+
+static void MBus2UartPushFromIsr(const uint8_t *data, uint16_t length)
+{
+	uint16_t head = g_mbus2_rx_head;
+	uint16_t tail = g_mbus2_rx_tail;
+	uint16_t i;
+
+	for(i = 0U; i < length; i++)
+	{
+		uint16_t next = (uint16_t)((head + 1U) & MBUS2_RX_RING_MASK);
+		if(next == tail)
+		{
+			g_mbus2_uart_diag.rx_ring_overflow_count++;
+			break;
+		}
+		g_mbus2_rx_ring[head] = data[i];
+		head = next;
+	}
+	__DMB();
+	g_mbus2_rx_head = head;
+}
+
+uint16_t MBus2UartRead(uint8_t *buffer, uint16_t capacity)
+{
+	uint16_t head;
+	uint16_t tail;
+	uint16_t count = 0U;
+
+	if(buffer == NULL || capacity == 0U) return 0U;
+	tail = g_mbus2_rx_tail;
+	head = g_mbus2_rx_head;
+	__DMB();
+	while(tail != head && count < capacity)
+	{
+		buffer[count++] = g_mbus2_rx_ring[tail];
+		tail = (uint16_t)((tail + 1U) & MBUS2_RX_RING_MASK);
+	}
+	__DMB();
+	g_mbus2_rx_tail = tail;
+	return count;
+}
+
+void MBus2UartClearRx(void)
+{
+	uint16_t head = g_mbus2_rx_head;
+	__DMB();
+	g_mbus2_rx_tail = head;
+}
 
 static void RS485DetectUartPushFromIsr(const uint8_t *data, uint16_t length)
 {
@@ -92,32 +148,14 @@ uint8_t RS485DetectUartTakeTxComplete(void)
 	return completed;
 }
 
-static HAL_StatusTypeDef UartDmaEnsureRx(UART_HandleTypeDef *huart,
-									 eUartOrder site,
-									 volatile uint32_t *restart_fail_count,
-									 volatile uint8_t *last_restart_status)
-{
-	HAL_StatusTypeDef status;
-
-	if(huart->RxState == HAL_UART_STATE_BUSY_RX)
-	{
-		return HAL_OK;
-	}
-
-	status = HAL_UARTEx_ReceiveToIdle_DMA(huart, uartbuff[site].recepetion_buff, BUFF_MAX);
-	*last_restart_status = (uint8_t)status;
-	if(status != HAL_OK)
-	{
-		(*restart_fail_count)++;
-	}
-	return status;
-}
-
 HAL_StatusTypeDef MBus2UartEnsureRx(void)
 {
-	return UartDmaEnsureRx(&huart2, MBUS2SITE,
-							 &g_mbus2_uart_diag.rx_restart_fail_count,
-							 &g_mbus2_uart_diag.last_rx_restart_status);
+	HAL_StatusTypeDef status;
+	if(huart2.RxState == HAL_UART_STATE_BUSY_RX) return HAL_OK;
+	status = HAL_UARTEx_ReceiveToIdle_DMA(&huart2, g_mbus2_dma_rx_buffer, MBUS2_DMA_RX_SIZE);
+	g_mbus2_uart_diag.last_rx_restart_status = (uint8_t)status;
+	if(status != HAL_OK) g_mbus2_uart_diag.rx_restart_fail_count++;
+	return status;
 }
 
 HAL_StatusTypeDef RS485DetectUartEnsureRx(void)
@@ -141,6 +179,8 @@ HAL_StatusTypeDef RS485DetectUartEnsureRx(void)
 void UartBufferInit(void)
 {
 	memset(uartbuff, 0, sizeof(UartBuffer_t) * 10);
+	g_mbus2_rx_head = 0U;
+	g_mbus2_rx_tail = 0U;
 	g_rs4853_rx_head = 0U;
 	g_rs4853_rx_tail = 0U;
 	g_rs4853_tx_complete = 0U;
@@ -262,15 +302,14 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	}
 	else if (huart->Instance == USART2)
   {
-		// ???Cache?????
-    SCB_InvalidateDCache_by_Addr((uint32_t*)uartbuff[1].recepetion_buff, BUFF_MAX);
+		/* 独立对齐DMA缓冲写入环形队列，业务任务不再与DMA共享同一帧缓存。 */
+    SCB_InvalidateDCache_by_Addr((uint32_t*)g_mbus2_dma_rx_buffer, MBUS2_DMA_RX_SIZE);
 		g_mbus2_uart_diag.rx_event_count++;
 		g_mbus2_uart_diag.last_rx_size = Size;
 		if(Size < 5U) g_mbus2_uart_diag.rx_short_event_count++;
-		uartbuff[1].recepetion_len = Size;
+		if(Size > MBUS2_DMA_RX_SIZE) Size = MBUS2_DMA_RX_SIZE;
+		MBus2UartPushFromIsr(g_mbus2_dma_rx_buffer, Size);
 		(void)MBus2UartEnsureRx();
-		__DMB();
-		uartbuff[1].recepetion_flag = 1;
 	}
 	else if (huart->Instance == USART3)
   {
