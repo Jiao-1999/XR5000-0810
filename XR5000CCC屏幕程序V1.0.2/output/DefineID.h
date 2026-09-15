@@ -268,6 +268,18 @@
 //创建画面Screen5的命令索引ID
 #define  _SCREEN_SCREEN5                                                      89
 
+//创建画面网络通信参数界面的命令索引ID
+#define  _SCREEN_网络通信参数界面                                                     90
+
+//创建画面按回路地址查询的命令索引ID
+#define  _SCREEN_按回路地址查询                                                      91
+
+//创建画面按设备类型查看的命令索引ID
+#define  _SCREEN_按设备类型查看                                                      92
+
+//创建画面设备自动登记的命令索引ID
+#define  _SCREEN_设备自动登记                                                       93
+
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
 #define  _BTN_开机视频_BUTTON1                                                     2
@@ -8212,6 +8224,8 @@
 
 #define  _BTN_按键巡检界面_BUTTON2                                                   3
 
+#define  _TXT_DIS__二级密码界面_TEXT_DISPLAY2                                        5
+
 #define  _TXT_DIS__二级密码界面_TEXT_DISPLAY1                                        2
 
 #define  _BTN_二级密码界面_BUTTON2                                                   3
@@ -10574,4 +10588,164 @@
 #define  _TXT_DIS__密码设置界面_TEXT_DISPLAY23                                      29
 
 #define  _TXT_DIS__密码设置界面_TEXT_DISPLAY24                                      30
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY1                                    300
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY2                                      1
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY3                                      2
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY4                                      3
+
+#define  _BTN_网络通信参数界面_BUTTON1                                                 4
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY5                                      5
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY6                                      6
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY7                                      7
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY8                                      8
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY9                                      9
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY10                                    10
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY11                                    11
+
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY12                                    12
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY2                                       1
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY3                                       2
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY4                                       3
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY5                                       4
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY6                                       5
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY7                                       6
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY8                                       7
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY9                                       8
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY10                                      9
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY11                                     10
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY12                                    500
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY13                                    501
+
+#define  _BTN_按回路地址查询_BUTTON1                                                300
+
+#define  _BTN_按回路地址查询_BUTTON2                                                301
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY15                                    502
+
+#define  _BTN_按回路地址查询_BUTTON3                                                302
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY16                                     11
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY17                                     12
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY18                                     13
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY19                                     14
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY20                                     15
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY21                                     16
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY22                                     17
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY23                                     18
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY24                                     19
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY25                                     20
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY1                                      21
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY14                                     22
+
+#define  _BTN_按回路地址查询_BUTTON4                                                 23
+
+#define  _MENU_按回路地址查询_MENU1                                                 350
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY26                                    203
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY28                                     24
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY27                                    204
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY29                                     25
+
+#define  _BTN_按回路地址查询_BUTTON5                                                 26
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY2                                       1
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY3                                       2
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY4                                       3
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY5                                       4
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY6                                       5
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY7                                       6
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY8                                       7
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY9                                       8
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY10                                      9
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY11                                     10
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY12                                    500
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY13                                    501
+
+#define  _BTN_按设备类型查看_BUTTON1                                                300
+
+#define  _BTN_按设备类型查看_BUTTON2                                                301
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY15                                    502
+
+#define  _BTN_按设备类型查看_BUTTON3                                                302
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY16                                     11
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY17                                     12
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY18                                     13
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY19                                     14
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY20                                     15
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY21                                     16
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY22                                     17
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY23                                     18
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY24                                     19
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY25                                     20
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY1                                      21
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY14                                     22
+
+#define  _BTN_按设备类型查看_BUTTON4                                                 23
+
+#define  _MENU_按设备类型查看_MENU1                                                 350
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY26                                     24
+
+#define  _BTN_按设备类型查看_BUTTON5                                                 25
 

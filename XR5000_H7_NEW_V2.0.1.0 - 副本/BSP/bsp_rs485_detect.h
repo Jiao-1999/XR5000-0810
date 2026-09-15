@@ -16,12 +16,12 @@
 
 /* -------------------- 可配置常量 -------------------- */
 #define RS485_DETECT_MAX_DEVICES    65    /* 最大设备数(地址1~64, 下标0不用) */
-#define RS485_DETECT_DISCONNECT_THRESHOLD  5  /* 连续无响应次数阈值, 超过判定掉线 */
+#define RS485_DETECT_DISCONNECT_THRESHOLD  3  /* 连续无响应次数阈值, 超过判定掉线 */
 #define RS485_DETECT_POLL_INTERVAL_MS       50 /* 轮询间隔(ms), 每轮一个设备 */
 #define RS485_DETECT_RESPONSE_TIMEOUT_MS   120 /* 单次请求超时(ms), 超时计掉线 */
 #define RS485_DETECT_TASK_INTERVAL_MS        10 /* 任务循环周期(ms) */
 #define RS485_DETECT_TX_COMPLETE_TIMEOUT_MS  30 /* 中断发送完成看门狗(ms) */
-#define RS485_DETECT_INTER_FRAME_GUARD_MS     50 /* 成功应答后留足总线/设备恢复时间 */
+#define RS485_DETECT_INTER_FRAME_GUARD_MS     25 /* 成功应答后留足总线/设备恢复时间 */
 #define RS485_DETECT_RECOVERY_SUCCESS_THRESHOLD 2 /* 掉线后连续成功次数达到该值才恢复 */
 
 #define RS485_DETECT_LOOP_ID  3  /* 回路编号, 用于Flash存储和故障记录 */

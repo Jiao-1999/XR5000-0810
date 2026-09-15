@@ -627,7 +627,9 @@ static void FaultFilter_FormatDevice(const FlashSaveDetectFault_t *record, uint8
     uint8_t cluster = record->fs_detect_id.cluster_id;
     uint8_t id = record->fs_detect_id.cabin_or_pack_id;
     memset(buffer, 0, 64U);
-    if(cluster == 0U) sprintf((char *)buffer, "\xB5\xDA" "1" "\xBB\xD8\xC2\xB7 %u\xBA\xC5", id);
+    if(cluster == 0U && id >= 101U && id <= 110U)
+        sprintf((char *)buffer, "\xB5\xDA" "1" "\xBB\xD8\xC2\xB7 %u\xBA\xC5 FIM-1017", id);
+    else if(cluster == 0U) sprintf((char *)buffer, "\xB5\xDA" "1" "\xBB\xD8\xC2\xB7 %u\xBA\xC5", id);
     else if(cluster == MBUS_CONTROL_FLASH_ID) sprintf((char *)buffer, "\xB5\xDA" "2" "\xBB\xD8\xC2\xB7 %u\xBA\xC5", id);
     else if(cluster == RS485_DETECT_FLASH_ID) sprintf((char *)buffer, "\xB5\xDA" "3" "\xBB\xD8\xC2\xB7 %u\xBA\xC5", id);
     else if(cluster == LINKAGE_CLUSTER_ID)
@@ -689,6 +691,12 @@ static void FaultFilter_FormatState(const FlashSaveDetectFault_t *record, uint8_
         case RS485_VOC_SENSOR_RECOVERY: sprintf((char *)buffer, "VOC\xB4\xAB\xB8\xD0\xC6\xF7\xBB\xD6\xB8\xB4"); break;
         case RS485_CH4_SENSOR_FAULT: sprintf((char *)buffer, "CH4\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF"); break;
         case RS485_CH4_SENSOR_RECOVERY: sprintf((char *)buffer, "CH4\xB4\xAB\xB8\xD0\xC6\xF7\xBB\xD6\xB8\xB4"); break;
+        case FIM1017_BRANCH1_SHORT: sprintf((char *)buffer, "\xD6\xA7\xC2\xB7" "1" "\xB6\xCC\xC2\xB7"); break;
+        case FIM1017_BRANCH1_RECOVERY: sprintf((char *)buffer, "\xD6\xA7\xC2\xB7" "1" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); break;
+        case FIM1017_BRANCH2_SHORT: sprintf((char *)buffer, "\xD6\xA7\xC2\xB7" "2" "\xB6\xCC\xC2\xB7"); break;
+        case FIM1017_BRANCH2_RECOVERY: sprintf((char *)buffer, "\xD6\xA7\xC2\xB7" "2" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); break;
+        case FIM1017_BRANCH3_SHORT: sprintf((char *)buffer, "\xD6\xA7\xC2\xB7" "3" "\xB6\xCC\xC2\xB7"); break;
+        case FIM1017_BRANCH3_RECOVERY: sprintf((char *)buffer, "\xD6\xA7\xC2\xB7" "3" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); break;
         default: sprintf((char *)buffer, FAULT_TEXT_OTHER_FAULT); break;
     }
 }

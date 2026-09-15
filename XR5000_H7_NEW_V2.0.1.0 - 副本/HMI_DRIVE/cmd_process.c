@@ -173,7 +173,7 @@ uint8_t pas_traverse_pointer = 1;
 uint8_t alarm_number = 0; // 报警总数
 uint8_t last_alarm_num = 255; // 默认执行一次
 
-uint8_t last_online_detector_num = 255;
+uint16_t last_online_detector_num = 0xFFFFU;
 uint8_t last_disconnect_detector_num = 255;
 uint8_t home_statistics_force_refresh = 1;
 
@@ -713,7 +713,11 @@ static uint8_t rs485_detect_pas_memory[RS485_DETECT_MAX_DEVICES] = {0};
 #define LOOP1_FAULT_TEMPERATURE           11U
 #define LOOP1_FAULT_SMOKE_POLLUTION       12U
 #define LOOP1_FAULT_SMOKE_SENSOR          13U
+#define LOOP1_FAULT_FIM1017_BRANCH1       14U
+#define LOOP1_FAULT_FIM1017_BRANCH2       15U
+#define LOOP1_FAULT_FIM1017_BRANCH3       16U
 static uint8_t loop1_raw_state_memory[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0}; /* XR5000_LOOP1_100_DEVICE_TRANSACTION_20260730: edge-driven state memory. */
+static uint8_t loop1_isolator_short_memory[MBUS1_ISOLATOR_COUNT] = {0};
 static uint8_t mbus2_disconnect_memory[MBUS_CONTROL_MAX_DEVICES] = {0};
 static uint8_t mbus2_hand_alarm_memory[MBUS_CONTROL_MAX_DEVICES] = {0};
 
@@ -1022,22 +1026,22 @@ void PowerStateInit(void)
 
 typedef struct
 {
-	uint8_t curr_num;
-	uint8_t last_num;
+	uint16_t curr_num;
+	uint16_t last_num;
 }DetectorSum;
 
 DetectorSum ds = {
 	.curr_num = 0,
-	.last_num = 255
+	.last_num = 0xFFFFU
 }; // 初始化设备总数为0
 
 void ScreenFreshInhibitionInit(void)
 {
 	alarm_number = 0; // 初始化报警总数
 	last_alarm_num = 255; // 初始化报警总数更新抑制
-	last_online_detector_num = 255; // 初始化在线探测器数量更新抑制
+	last_online_detector_num = 0xFFFFU; // 初始化在线探测器数量更新抑制
 	last_disconnect_detector_num = 255;	 // 初始化掉线探测器数量更新抑制
-	ds.last_num = 255;
+	ds.last_num = 0xFFFFU;
 	ds.curr_num = 0;
 }
 
@@ -1312,6 +1316,7 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
 static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
 static void RS485Loop3ClearCurrentState(uint8_t addr);
 static void Loop1ClearCurrentState(uint8_t addr);
+static void Loop1ClearIsolatorState(uint8_t addr);
 static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
 static void PointTypeDetectorOnlineButtonCtrl(uint16_t ctrl_id, uint8_t state);
 
@@ -1361,6 +1366,32 @@ static uint8_t g_screen69_page = 0;
 static uint8_t g_screen69_force_redraw = 0;
 static uint8_t g_screen69_transition_pending = 0;
 static uint8_t screen69_circuit = 1; /* XR5000_SCREEN69_NAVIGATION_FIX_20260729: fixed circuit snapshot for one detail session. */
+#define HMI_DEVICE_QUERY_SCREEN_ADDRESS 91U
+#define HMI_DEVICE_QUERY_SCREEN_TYPE    92U
+#define HMI_DEVICE_QUERY_ROWS           20U
+#define HMI_DEVICE_QUERY_TYPE_NONE      0xFFU
+#define HMI_DEVICE_QUERY_MAX_RESULTS    (MBUS1_DEVICE_MAX_ADDR + MBUS_CONTROL_MAX_DEVICES + RS485_DETECT_MAX_DEVICES)
+
+typedef struct
+{
+    uint8_t loop;
+    uint8_t address;
+}HmiDeviceQueryItem_t;
+
+static HmiDeviceQueryItem_t g_hmi_device_query_results[HMI_DEVICE_QUERY_MAX_RESULTS];
+static uint16_t g_hmi_device_query_count;
+static uint8_t g_hmi_device_query_page;
+static uint8_t g_hmi_device_query_performed;
+static uint8_t g_hmi_device_query_loop = 1U;
+static uint8_t g_hmi_device_query_address;
+static uint8_t g_hmi_device_query_address_present;
+static uint8_t g_hmi_device_query_address_valid = 1U;
+static uint8_t g_hmi_device_query_type = HMI_DEVICE_QUERY_TYPE_NONE;
+
+static void HmiDeviceQueryNotifyScreen(uint16_t screen_id, uint16_t previous_screen);
+static uint8_t HmiDeviceQueryNotifyButton(uint16_t screen_id, uint16_t control_id, uint8_t state);
+static uint8_t HmiDeviceQueryNotifyMenu(uint16_t screen_id, uint16_t control_id, uint8_t item, uint8_t state);
+static uint8_t HmiDeviceQueryNotifyText(uint16_t screen_id, uint16_t control_id, const uint8_t *text);
 /* 获取指定回路的在线设备地址列表，返回在线数量 */
 static uint8_t GetCircuitOnlineList(uint8_t circuit, uint8_t *list, uint8_t max)
 {
@@ -1370,7 +1401,7 @@ static uint8_t GetCircuitOnlineList(uint8_t circuit, uint8_t *list, uint8_t max)
     switch (circuit)
     {
         case 1:
-            for (i = 1; i <= MIXTURE_DEVICE_MAX_ADDR && count < max; i++)
+            for (i = 1; i <= MBUS1_DEVICE_MAX_ADDR && count < max; i++)
             {
                 if (getPointTypeMixtureSettingOnlieState(i) && getPointTypeMixtureDetectName(i) != 0U && getPointTypeMixtureDisconnectCount(i) < MIXTURE_DEVICE_DISCONNECT_SUM)
                     list[count++] = i;
@@ -1401,6 +1432,18 @@ static void FormatDetectorText(uint8_t circuit, uint8_t addr, uint8_t *buf)
     {
 	case 1:
 	{
+		if(MBus1_IsShortCircuitIsolator(addr) != 0U)
+		{
+			uint8_t short_mask = MBus1_GetIsolatorShortMask(addr);
+			if(short_mask == 0U)
+				sprintf((char *)buf, "第%d回路  二总线短路隔离器%d号  正常", circuit, addr);
+			else
+				sprintf((char *)buf, "第%d回路  二总线短路隔离器%d号  支路%s%s%s短路", circuit, addr,
+				        (short_mask & 0x01U) != 0U ? "1" : "",
+				        (short_mask & 0x02U) != 0U ? ((short_mask & 0x01U) != 0U ? "/2" : "2") : "",
+				        (short_mask & 0x04U) != 0U ? ((short_mask & 0x03U) != 0U ? "/3" : "3") : "");
+			break;
+		}
 		uint8_t sensor_bits = getPointTypeMixtureDetectType(addr);
 		if (sensor_bits & 0x20) /* 温度传感器启用 */
 		{
@@ -1490,6 +1533,27 @@ static const char *Loop1StateName(uint8_t type, uint8_t state)
     return "\xD5\xFD\xB3\xA3";
 }
 
+static void FormatFIM1017State(uint8_t short_mask, uint8_t *buffer, uint8_t size)
+{
+    uint8_t used = 0U;
+    if(buffer == NULL || size == 0U) return;
+    if(short_mask == 0U)
+    {
+        snprintf((char *)buffer, size, "正常");
+        return;
+    }
+    used = (uint8_t)snprintf((char *)buffer, size, "支路");
+    if((short_mask & 0x01U) != 0U && used < size)
+        used += (uint8_t)snprintf((char *)&buffer[used], size - used, "1");
+    if((short_mask & 0x02U) != 0U && used < size)
+        used += (uint8_t)snprintf((char *)&buffer[used], size - used,
+                                  (short_mask & 0x01U) != 0U ? "/2" : "2");
+    if((short_mask & 0x04U) != 0U && used < size)
+        used += (uint8_t)snprintf((char *)&buffer[used], size - used,
+                                  (short_mask & 0x03U) != 0U ? "/3" : "3");
+    if(used < size) snprintf((char *)&buffer[used], size - used, "短路");
+}
+
 static const char *FormatDeviceAliasType(uint8_t loop_id, uint8_t address,
                                          const char *type_name, uint8_t *buffer,
                                          uint8_t buffer_size)
@@ -1546,10 +1610,16 @@ static uint8_t FormatLoop1FaultLine(uint8_t *buf, uint8_t sequence, PackCabinFau
         case LOOP1_FAULT_TEMPERATURE: name = "\xCE\xC2\xB6\xC8\xB9\xCA\xD5\xCF"; break;
         case LOOP1_FAULT_SMOKE_POLLUTION: name = "\xD1\xCC\xCE\xED\xCE\xDB\xC8\xBE\xB9\xCA\xD5\xCF"; break;
         case LOOP1_FAULT_SMOKE_SENSOR: name = "\xD1\xCC\xCE\xED\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF"; break;
+        case LOOP1_FAULT_FIM1017_BRANCH1: name = "支路1短路"; break;
+        case LOOP1_FAULT_FIM1017_BRANCH2: name = "支路2短路"; break;
+        case LOOP1_FAULT_FIM1017_BRANCH3: name = "支路3短路"; break;
         default: name = "\xB5\xF4\xCF\xDF"; break;
     }
-    type_name = getPointTypeMixtureDetectName(entry[index].da.cabin_id) == 6U ?
-                "温度探测器" : "烟雾探测器";
+    if(getPointTypeMixtureDetectName(entry[index].da.cabin_id) == DEVICE_PRODUCT_FIM1017)
+        type_name = "二总线短路隔离器";
+    else
+        type_name = getPointTypeMixtureDetectName(entry[index].da.cabin_id) == 6U ?
+                    "温度探测器" : "烟雾探测器";
     sprintf((char *)buf, "%03d %d/%02d/%02d %02d:%02d:%02d \xB5\xDA" "1\xBB\xD8\xC2\xB7 %d\xBA\xC5 %s", sequence,
         entry[index].atr.years, entry[index].atr.months, entry[index].atr.days,
         entry[index].atr.hours, entry[index].atr.minute, entry[index].atr.second,
@@ -1843,7 +1913,15 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
             uint16_t value;
             const char *detector_type;
 
-            if(type == 6U)
+            if(type == DEVICE_PRODUCT_FIM1017)
+            {
+                uint8_t status[32];
+                FormatFIM1017State(MBus1_GetIsolatorShortMask(addr), status, sizeof(status));
+                snprintf(p, remain, "%02d%03d %s %s", circuit, addr,
+                    FormatDeviceAliasType(circuit, addr, "二总线短路隔离器",
+                                          label, sizeof(label)), status);
+            }
+            else if(type == 6U)
             {
                 detector_type = "\xCE\xC2\xB6\xC8\xCC\xBD\xB2\xE2\xC6\xF7";
                 state = getPointTypeMixtureReceiveState(PointTypeData_Temper, addr);
@@ -1975,6 +2053,327 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 }
 
 
+static uint8_t HmiDeviceQueryIsConfigured(uint8_t loop, uint8_t address)
+{
+    if(address == 0U) return 0U;
+    if(loop == 1U) return address <= MBUS1_DEVICE_MAX_ADDR &&
+                         getPointTypeMixtureSettingOnlieState(address) != 0U;
+    if(loop == 2U) return address < MBUS_CONTROL_MAX_DEVICES &&
+                         MBusCtrl_GetOnline(address) != 0U;
+    if(loop == 3U) return address < RS485_DETECT_MAX_DEVICES &&
+                         RS485Detect_GetOnline(address) != 0U;
+    return 0U;
+}
+
+static uint8_t HmiDeviceQueryIsDisconnected(uint8_t loop, uint8_t address)
+{
+    if(loop == 1U) return getPointTypeMixtureDisconnectCount(address) >=
+                         MIXTURE_DEVICE_DISCONNECT_SUM ? 1U : 0U;
+    if(loop == 2U) return MBusCtrl_IsDisconnected(address);
+    if(loop == 3U) return RS485Detect_IsDisconnected(address);
+    return 0U;
+}
+
+static uint8_t HmiDeviceQueryIsIdentified(uint8_t loop, uint8_t address)
+{
+    if(DeviceAliasDevice_GetProductCode(loop, address) == 0U) return 0U;
+    if(loop == 1U) return getPointTypeMixtureDetectName(address) != 0U ? 1U : 0U;
+    if(loop == 2U) return MBusCtrl_IsIdentified(address);
+    if(loop == 3U) return RS485Detect_GetType(address) != RS485_DETECT_TYPE_UNKNOWN ? 1U : 0U;
+    return 0U;
+}
+
+static uint8_t HmiDeviceQueryTypeMatches(uint8_t type, uint8_t loop, uint8_t address)
+{
+    if(type == 0U) return loop == 1U && getPointTypeMixtureDetectName(address) == 6U;
+    if(type == 1U) return loop == 1U && getPointTypeMixtureDetectName(address) == 5U;
+    if(type == 2U) return loop == 3U;
+    if(type == 3U) return (uint8_t)(loop == 2U ||
+                         (loop == 1U && MBus1_IsShortCircuitIsolator(address) != 0U));
+    return 0U;
+}
+
+static uint8_t HmiDeviceQueryLoopMaxAddress(uint8_t loop)
+{
+    if(loop == 1U) return MBUS1_DEVICE_MAX_ADDR;
+    if(loop == 2U) return MBUS_CONTROL_MAX_DEVICES - 1U;
+    if(loop == 3U) return RS485_DETECT_MAX_DEVICES - 1U;
+    return 0U;
+}
+
+static void HmiDeviceQueryClearRows(uint16_t screen_id)
+{
+    uint16_t control_id;
+    for(control_id = 1U; control_id <= HMI_DEVICE_QUERY_ROWS; control_id++)
+    {
+        clearTextValue(screen_id, control_id);
+    }
+}
+
+static void HmiDeviceQueryClearResult(uint16_t screen_id)
+{
+    g_hmi_device_query_count = 0U;
+    g_hmi_device_query_page = 0U;
+    g_hmi_device_query_performed = 0U;
+    HmiDeviceQueryClearRows(screen_id);
+}
+
+static void HmiDeviceQueryFormatLine(uint8_t loop, uint8_t address, uint8_t *buffer,
+                                     uint16_t buffer_size)
+{
+    uint16_t product_code;
+    uint8_t label[64];
+    const char *type_name;
+    const char *display_name;
+
+    if(buffer == NULL || buffer_size == 0U) return;
+    product_code = DeviceAliasDevice_GetProductCode(loop, address);
+    type_name = DeviceAliasDevice_GetTypeText(loop, address);
+    if(type_name == NULL || strcmp(type_name, "未知设备") == 0)
+    {
+        type_name = "设备未识别";
+    }
+    display_name = type_name;
+    if(product_code != 0U)
+    {
+        display_name = FormatDeviceAliasType(loop, address, type_name, label, sizeof(label));
+    }
+
+    if(HmiDeviceQueryIsDisconnected(loop, address) != 0U)
+    {
+        snprintf((char *)buffer, buffer_size, "%02u%03u %s 离线",
+                 loop, address, display_name);
+    }
+    else if(HmiDeviceQueryIsIdentified(loop, address) == 0U)
+    {
+        snprintf((char *)buffer, buffer_size, "%02u%03u %s",
+                 loop, address, display_name);
+    }
+    else
+    {
+        FormatScreen69DetectorText(loop, address, buffer);
+    }
+}
+
+static void HmiDeviceQueryRender(uint16_t screen_id)
+{
+    uint16_t first;
+    uint16_t index;
+    uint16_t row;
+    uint8_t line[128];
+
+    HmiDeviceQueryClearRows(screen_id);
+    if(g_hmi_device_query_performed == 0U) return;
+    if(g_hmi_device_query_count == 0U)
+    {
+        SetTextValue(screen_id, 1U, "未找到设备");
+        return;
+    }
+
+    first = (uint16_t)g_hmi_device_query_page * HMI_DEVICE_QUERY_ROWS;
+    for(row = 0U; row < HMI_DEVICE_QUERY_ROWS; row++)
+    {
+        index = first + row;
+        if(index >= g_hmi_device_query_count) break;
+        memset(line, 0, sizeof(line));
+        HmiDeviceQueryFormatLine(g_hmi_device_query_results[index].loop,
+                                 g_hmi_device_query_results[index].address,
+                                 line, sizeof(line));
+        SetTextValue(screen_id, row + 1U, line);
+    }
+}
+
+static void HmiDeviceQueryAppend(uint8_t loop, uint8_t address)
+{
+    if(g_hmi_device_query_count >= HMI_DEVICE_QUERY_MAX_RESULTS) return;
+    g_hmi_device_query_results[g_hmi_device_query_count].loop = loop;
+    g_hmi_device_query_results[g_hmi_device_query_count].address = address;
+    g_hmi_device_query_count++;
+}
+
+static void HmiDeviceQueryExecute(uint16_t screen_id)
+{
+    uint8_t loop;
+    uint8_t address;
+    uint8_t max_address;
+
+    g_hmi_device_query_count = 0U;
+    g_hmi_device_query_page = 0U;
+    g_hmi_device_query_performed = 1U;
+
+    if(screen_id == HMI_DEVICE_QUERY_SCREEN_ADDRESS)
+    {
+        if(g_hmi_device_query_address_present != 0U)
+        {
+            if(g_hmi_device_query_address_valid != 0U &&
+               HmiDeviceQueryIsConfigured(g_hmi_device_query_loop,
+                                          g_hmi_device_query_address) != 0U)
+            {
+                HmiDeviceQueryAppend(g_hmi_device_query_loop,
+                                     g_hmi_device_query_address);
+            }
+        }
+        else
+        {
+            max_address = HmiDeviceQueryLoopMaxAddress(g_hmi_device_query_loop);
+            for(address = 1U; address <= max_address; address++)
+            {
+                if(HmiDeviceQueryIsConfigured(g_hmi_device_query_loop, address) != 0U)
+                {
+                    HmiDeviceQueryAppend(g_hmi_device_query_loop, address);
+                }
+            }
+        }
+    }
+    else if(screen_id == HMI_DEVICE_QUERY_SCREEN_TYPE)
+    {
+        if(g_hmi_device_query_type == HMI_DEVICE_QUERY_TYPE_NONE)
+        {
+            g_hmi_device_query_performed = 0U;
+            SetTextValue(HMI_DEVICE_QUERY_SCREEN_TYPE, 22U, "请选择设备类型");
+            HmiDeviceQueryClearRows(screen_id);
+            return;
+        }
+        for(loop = 1U; loop <= 3U; loop++)
+        {
+            max_address = HmiDeviceQueryLoopMaxAddress(loop);
+            for(address = 1U; address <= max_address; address++)
+            {
+                if(HmiDeviceQueryIsConfigured(loop, address) != 0U &&
+                   HmiDeviceQueryTypeMatches(g_hmi_device_query_type, loop, address) != 0U)
+                {
+                    HmiDeviceQueryAppend(loop, address);
+                }
+            }
+        }
+    }
+    HmiDeviceQueryRender(screen_id);
+}
+
+static void HmiDeviceQueryNotifyScreen(uint16_t screen_id, uint16_t previous_screen)
+{
+    if(screen_id == previous_screen) return;
+    if(screen_id == HMI_DEVICE_QUERY_SCREEN_ADDRESS)
+    {
+        g_hmi_device_query_loop = 1U;
+        g_hmi_device_query_address = 0U;
+        g_hmi_device_query_address_present = 0U;
+        g_hmi_device_query_address_valid = 1U;
+        SetTextValue(screen_id, 22U, "回路1");
+        clearTextValue(screen_id, 204U);
+        HmiDeviceQueryClearResult(screen_id);
+    }
+    else if(screen_id == HMI_DEVICE_QUERY_SCREEN_TYPE)
+    {
+        g_hmi_device_query_type = HMI_DEVICE_QUERY_TYPE_NONE;
+        SetTextValue(screen_id, 22U, "请选择设备类型");
+        HmiDeviceQueryClearResult(screen_id);
+    }
+}
+
+static uint8_t HmiDeviceQueryNotifyButton(uint16_t screen_id, uint16_t control_id, uint8_t state)
+{
+    uint8_t max_page;
+    if(state != 1U || (screen_id != HMI_DEVICE_QUERY_SCREEN_ADDRESS &&
+                       screen_id != HMI_DEVICE_QUERY_SCREEN_TYPE)) return 0U;
+
+    if((screen_id == HMI_DEVICE_QUERY_SCREEN_ADDRESS && control_id == 26U) ||
+       (screen_id == HMI_DEVICE_QUERY_SCREEN_TYPE && control_id == 25U))
+    {
+        HmiDeviceQueryExecute(screen_id);
+        return 1U;
+    }
+    if(control_id == 300U)
+    {
+        if(g_hmi_device_query_performed != 0U && g_hmi_device_query_page > 0U)
+        {
+            g_hmi_device_query_page--;
+            HmiDeviceQueryRender(screen_id);
+        }
+        return 1U;
+    }
+    if(control_id == 301U)
+    {
+        max_page = g_hmi_device_query_count == 0U ? 0U :
+                   (uint8_t)((g_hmi_device_query_count - 1U) / HMI_DEVICE_QUERY_ROWS);
+        if(g_hmi_device_query_performed != 0U && g_hmi_device_query_page < max_page)
+        {
+            g_hmi_device_query_page++;
+            HmiDeviceQueryRender(screen_id);
+        }
+        return 1U;
+    }
+    return 0U;
+}
+
+static uint8_t HmiDeviceQueryNotifyMenu(uint16_t screen_id, uint16_t control_id,
+                                        uint8_t item, uint8_t state)
+{
+    static const char *type_text[] =
+    {
+        "点型感温探测器", "点型感烟探测器", "复合探测器", "模块"
+    };
+    uint8_t loop_text[16];
+
+    if(state != 1U || control_id != 350U) return 0U;
+    if(screen_id == HMI_DEVICE_QUERY_SCREEN_ADDRESS && item < 3U)
+    {
+        g_hmi_device_query_loop = item + 1U;
+        g_hmi_device_query_address = 0U;
+        g_hmi_device_query_address_present = 0U;
+        g_hmi_device_query_address_valid = 1U;
+        snprintf((char *)loop_text, sizeof(loop_text), "回路%u", g_hmi_device_query_loop);
+        SetTextValue(screen_id, 22U, loop_text);
+        clearTextValue(screen_id, 204U);
+        HmiDeviceQueryClearResult(screen_id);
+        return 1U;
+    }
+    if(screen_id == HMI_DEVICE_QUERY_SCREEN_TYPE && item < 4U)
+    {
+        g_hmi_device_query_type = item;
+        SetTextValue(screen_id, 22U, (uint8_t *)type_text[item]);
+        HmiDeviceQueryClearResult(screen_id);
+        return 1U;
+    }
+    return 0U;
+}
+
+static uint8_t HmiDeviceQueryNotifyText(uint16_t screen_id, uint16_t control_id,
+                                        const uint8_t *text)
+{
+    uint16_t value = 0U;
+    uint16_t index;
+    if(screen_id != HMI_DEVICE_QUERY_SCREEN_ADDRESS || control_id != 204U) return 0U;
+
+    g_hmi_device_query_address = 0U;
+    g_hmi_device_query_address_present = 0U;
+    g_hmi_device_query_address_valid = 1U;
+    if(text != NULL && text[0] != 0U)
+    {
+        g_hmi_device_query_address_present = 1U;
+        for(index = 0U; text[index] != 0U; index++)
+        {
+            if(text[index] < '0' || text[index] > '9')
+            {
+                g_hmi_device_query_address_valid = 0U;
+                break;
+            }
+            value = (uint16_t)(value * 10U + (uint16_t)(text[index] - '0'));
+            if(value > HmiDeviceQueryLoopMaxAddress(g_hmi_device_query_loop))
+            {
+                g_hmi_device_query_address_valid = 0U;
+                break;
+            }
+        }
+        if(value == 0U) g_hmi_device_query_address_valid = 0U;
+        if(g_hmi_device_query_address_valid != 0U)
+        {
+            g_hmi_device_query_address = (uint8_t)value;
+        }
+    }
+    HmiDeviceQueryClearResult(screen_id);
+    return 1U;
+}
 /*! 
 *  \brief  消息处理流程
 *  \param msg 待处理消息
@@ -2284,7 +2683,7 @@ static AccessLevel_t HmiProtectedScreenLevel(uint16_t screen_id)
 	}
 	if(screen_id == 43U || screen_id == 70U || screen_id == 73U ||
 	   screen_id == 74U || screen_id == 75U || screen_id == 80U ||
-	   screen_id == 82U || screen_id == 83U)
+	   screen_id == 82U || screen_id == 83U || screen_id == 90U)
 	{
 		return ACCESS_LEVEL_III;
 	}
@@ -2365,6 +2764,13 @@ void NotifyScreen(uint16 screen_id)
     //TODO: 添加用户代码
     current_screen_id = screen_id;
 	AccessControl_OnScreenChanged(prev_screen_id, screen_id);
+	/* XR5000_AUTH_RETURN_20260914: any unexpected exit from the password page cancels the pending request. */
+	if(prev_screen_id == 53U && screen_id != 53U)
+	{
+		HmiAuthorizationClear();
+		yonghumima = 0U;
+		setKeyValue(NONE_KEY);
+	}
 	protected_level = HmiProtectedScreenLevel(screen_id);
 	if(protected_level != ACCESS_LEVEL_I &&
 	   AccessControl_IsGranted(protected_level, screen_id) == 0U)
@@ -2376,11 +2782,13 @@ void NotifyScreen(uint16 screen_id)
 	{
 		yonghumima = 0U;
 		clearTextValue(53U, 2U);
+		clearTextValue(53U, 5U);
 	}
 	if(screen_id == 83U && prev_screen_id != 83U)
 	{
 		HmiPasswordManagementReset();
 	}
+    HmiDeviceQueryNotifyScreen(screen_id, prev_screen_id);
     HistoryFilter_NotifyScreen(screen_id);
     DeviceThreshold_NotifyScreen(screen_id); //在工程配置中开启画面切换通知，记录当前画面ID
     DeviceAliasHmiScreenUpdate(screen_id);
@@ -2763,7 +3171,7 @@ void NotifyScreen(uint16 screen_id)
 		else if(screen_id == 69)
 		{
 			uint8_t temp_buff[128] = {0}; /* XR5000_SCREEN69_ATOMIC_RENDER_20260729: first list row can require 128 bytes. */
-			uint8_t online_list[MIXTURE_DEVICE_MAX_ADDR] = {0};
+			uint8_t online_list[MBUS1_DEVICE_MAX_ADDR] = {0};
 			uint8_t online_count;
 			HmiTxBatchBegin();
 			SetScreenUpdateEnable(0);
@@ -2782,7 +3190,7 @@ void NotifyScreen(uint16 screen_id)
 			{
 				clearTextValue(69 , i);//(画面ID,控件ID)
 			}
-			online_count = GetCircuitOnlineList(screen69_circuit, online_list, MIXTURE_DEVICE_MAX_ADDR);
+			online_count = GetCircuitOnlineList(screen69_circuit, online_list, MBUS1_DEVICE_MAX_ADDR);
 			for(uint8_t i = 0; i < online_count && i < 20; i++)
 			{
 				FormatScreen69DetectorText(screen69_circuit, online_list[i], temp_buff);
@@ -2923,6 +3331,16 @@ static void CheckScreenCollectStats(CheckDeviceStats stats[5])
 		else continue;
 		fault = (getPointTypeMixtureDisconnectCount(addr) >= MIXTURE_DEVICE_DISCONNECT_SUM || getPointTypeMixtureStateClass(addr) == 3U) ? 1U : 0U;
 		CheckStatsClassify(&stats[category], DeviceDisableIsLoopAddressSet(1U, addr), fault);
+	}
+	for(addr = MBUS1_ISOLATOR_MIN_ADDR; addr <= MBUS1_ISOLATOR_MAX_ADDR; addr++)
+	{
+		uint8_t fault;
+		if(getPointTypeMixtureSettingOnlieState(addr) == 0U ||
+		   MBus1_IsShortCircuitIsolator(addr) == 0U) continue;
+		fault = (uint8_t)(getPointTypeMixtureDisconnectCount(addr) >= MIXTURE_DEVICE_DISCONNECT_SUM ||
+		                  MBus1_GetIsolatorShortMask(addr) != 0U);
+		/* FIM-1017是一台模块，三条支路不重复计数。 */
+		CheckStatsClassify(&stats[4], 0U, fault);
 	}
 	for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
 	{
@@ -3370,13 +3788,13 @@ void UpdateUI(void)
 			uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
 			uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
 
-			uint8_t total_devices = ds.curr_num + rs485_online + mbus2_online;
+			uint16_t total_devices = ds.curr_num + rs485_online + mbus2_online;
 			if (ds.last_num != total_devices || home_statistics_force_refresh)
 			{
 				ds.last_num = total_devices;
 				SetTextInt32(current_screen_id, 5, total_devices, 0, 1);
 			}
-			uint8_t total_online = (uint8_t)((ds.curr_num - getPointDetectorSetUpCount()) - (pack_disconnect_sum + cabin_disconnect_sum) + getPointDetectorSetUpLive() + RS485Detect_GetActiveCount() + MBusCtrl_GetActiveCount());
+			uint16_t total_online = (uint16_t)((ds.curr_num - getPointDetectorSetUpCount()) - (pack_disconnect_sum + cabin_disconnect_sum) + getPointDetectorSetUpLive() + RS485Detect_GetActiveCount() + MBusCtrl_GetActiveCount());
 			if (last_online_detector_num != total_online || home_statistics_force_refresh)
 			{
 				last_online_detector_num = total_online;
@@ -3760,14 +4178,14 @@ void UpdateUI(void)
 		}
 
 		uint8_t temp_buff[128] = {0};
-		uint8_t online_list[MIXTURE_DEVICE_MAX_ADDR] = {0};
+		uint8_t online_list[MBUS1_DEVICE_MAX_ADDR] = {0};
 		uint8_t online_count;
 		uint8_t total_pages;
 		uint8_t start, end;
 		uint8_t ctrl_idx, list_idx;
 
 		
-		online_count = GetCircuitOnlineList(screen69_circuit, online_list, MIXTURE_DEVICE_MAX_ADDR);
+		online_count = GetCircuitOnlineList(screen69_circuit, online_list, MBUS1_DEVICE_MAX_ADDR);
 
 		total_pages = (online_count + 19) / 20;
 		if (total_pages == 0)
@@ -3943,6 +4361,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	HistoryFilter_NotifyButton(screen_id, control_id, state);
 	DeviceThreshold_NotifyButton(screen_id, control_id, state);
 	DeviceAliasHmiButton(screen_id, control_id, state);
+	if(HmiDeviceQueryNotifyButton(screen_id, control_id, state) != 0U) return;
 	if(screen_id == 1)
 	{
 		if(control_id==10 && state == 1)                                            
@@ -4150,10 +4569,11 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				{
 				case 1:
 					/* XR5000_LOOP1_100_DEVICE_TRANSACTION_20260730: clear all loop1 runtime state without screen7 writes. */
-					for(uint8_t i = 1U; i <= MIXTURE_DEVICE_MAX_ADDR; i++)
+					for(uint8_t i = 1U; i <= MBUS1_DEVICE_MAX_ADDR; i++)
 					{
 						PointTypeMixtureOnlieStateSingleSetting(i, 0U);
-						Loop1ClearCurrentState(i);
+						if(i <= MIXTURE_DEVICE_MAX_ADDR) Loop1ClearCurrentState(i);
+						else Loop1ClearIsolatorState(i);
 					}
 					clearPointTypeMixtureDisconnectCount();
 					SavePointTypeSetOnlieState();
@@ -4558,6 +4978,14 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			SwitchCurrentScreenId(68U);
 		}
 	}
+	else if(screen_id == 90U)
+	{
+		if(control_id == 4U && state == 1U)
+		{
+			/* 网络通信参数页由68页进入，返回时回到菜单页。 */
+			HmiSwitchScreen(68U);
+		}
+	}
 	else if(screen_id == CHECK_SCREEN_ID)
 	{
 		if(control_id == 300U && state == 1U)
@@ -4668,16 +5096,19 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				hmi_auth_request.return_screen : 1U;
 			HmiAuthorizationClear();
 			yonghumima = 0U;
+			setKeyValue(NONE_KEY);
 			clearTextValue(53U, 2U);
+			clearTextValue(53U, 5U);
 			HmiSwitchScreen(return_screen);
 		}
 		else if(control_id == 4U && state == 1U)
 		{
 			HmiAuthorizationRequest_t request = hmi_auth_request;
-			clearTextValue(screen_id, 2);
+			clearTextValue(53U, 2U);
+			clearTextValue(53U, 5U);
 			if(request.valid == 0U)
 			{
-				SetTextValue(53U, 2U, "无待执行操作");
+				SetTextValue(53U, 5U, "无待执行操作");
 			}
 			else if(AccessControl_Verify(request.level, yonghumima,
 			        request.grant_screen) != 0U)
@@ -4702,7 +5133,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			else
 			{
 				yonghumima = 0U;
-				SetTextValue(53U, 2U, "密码错误，请重新输入");
+				SetTextValue(53U, 5U, "密码错误，请重新输入");
 			}
 		}
 
@@ -4755,11 +5186,11 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		if (state == 1)
 		{
-			uint8_t online_list[MIXTURE_DEVICE_MAX_ADDR] = {0};
+			uint8_t online_list[MBUS1_DEVICE_MAX_ADDR] = {0};
 			uint8_t online_count;
 			uint8_t total_pages;
 
-			online_count = GetCircuitOnlineList(screen69_circuit, online_list, MIXTURE_DEVICE_MAX_ADDR);
+			online_count = GetCircuitOnlineList(screen69_circuit, online_list, MBUS1_DEVICE_MAX_ADDR);
 			total_pages = (online_count + 19) / 20;
 			if (total_pages == 0)
 				total_pages = 1;
@@ -4796,6 +5227,12 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 */
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
+	if(screen_id == 6U && control_id == 2U &&
+	   AccessControl_IsGranted(ACCESS_LEVEL_III, 6U) == 0U)
+	{
+	    SetTextValue(6U, 2U, "\xC8\xA8\xCF\xDE\xB2\xBB\xD7\xE3");
+	    return;
+	}
 	AccessLevel_t protected_level = HmiProtectedScreenLevel(screen_id);
 	if(protected_level != ACCESS_LEVEL_I &&
 	   AccessControl_IsGranted(protected_level, screen_id) == 0U)
@@ -4806,6 +5243,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 	}
    HistoryFilter_NotifyText(screen_id, control_id, str);
    DeviceAliasHmiText(screen_id, control_id, str);
+   if(HmiDeviceQueryNotifyText(screen_id, control_id, str) != 0U) return;
    { 
 			if(screen_id == 1U && control_id == 25U) // 修改CAN2ID地址
       {
@@ -4898,7 +5336,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 						{
 							case 1:
 							{
-								if (x > MIXTURE_DEVICE_MAX_ADDR || y > MIXTURE_DEVICE_MAX_ADDR) break;
+								if (x > MBUS1_DEVICE_MAX_ADDR || y > MBUS1_DEVICE_MAX_ADDR) break;
 								uint8_t modify_flag = 0;
 								if (x > y)
 								{
@@ -5251,6 +5689,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 		{
 			if(control_id == 2)
 			{
+				clearTextValue(53U, 5U);
 				int32 value=0;  			
 				sscanf((char *)str,"%ld",&value); // 把字符串转换为整数 
 				yonghumima=value;									// 给密码赋值
@@ -5352,6 +5791,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 	}
   HistoryFilter_NotifyMenu(screen_id, control_id, item, state);
   DeviceThreshold_NotifyMenu(screen_id, control_id, item, state);
+  if(HmiDeviceQueryNotifyMenu(screen_id, control_id, item, state) != 0U) return;
   //TODO: 添加用户代码
 	// 菜单更新控件 灭火喷放逻辑设定 火警触发逻辑设定 在此处调用
 	
@@ -5395,7 +5835,12 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 	}
 	else if(screen_id == 68)
 	{
-		if(control_id == 17 && state == 1 && item == 0U)
+        if(control_id == 18 && state == 1)
+        {
+            if(item == 0U) HmiSwitchScreen(HMI_DEVICE_QUERY_SCREEN_ADDRESS);
+            else if(item == 1U) HmiSwitchScreen(HMI_DEVICE_QUERY_SCREEN_TYPE);
+        }
+        else if(control_id == 17 && state == 1 && item == 0U)
 		{
 			HmiOpenProtectedPage(ACCESS_LEVEL_III, 75U);
 		}
@@ -5467,6 +5912,9 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					break;
 				case 2:
 					HmiOpenProtectedPage(ACCESS_LEVEL_III, 74U);
+					break;
+				case 3:
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 90U);
 					break;
 				default:
 					break;
@@ -5592,7 +6040,7 @@ void NotifyReadRTC(uint8 year,uint8 month,uint8 week,uint8 day,uint8 hour,uint8 
 // 获取仓 簇所有探测器上线状态
 static void getDetectorSetUpLiveSum(DetectorSum *ds_entry, uint8_t cabin_setup[], uint8_t cluster_setup[])
 {
-	uint8_t detector_sum = 0;
+	uint16_t detector_sum = 0;
 	// 上电更新舱上线数量
 	for(uint8_t sum = 1; sum < CANG_USER_NUM + 1; sum++)
 	{
@@ -5614,7 +6062,7 @@ static void getDetectorSetUpLiveSum(DetectorSum *ds_entry, uint8_t cabin_setup[]
 	}
 	
 	// 
-	for(uint8_t sum = 1U; sum <= MIXTURE_DEVICE_MAX_ADDR; sum++)
+	for(uint8_t sum = 1U; sum <= MBUS1_DEVICE_MAX_ADDR; sum++)
 	{
 		detector_sum += getPointTypeMixtureSettingOnlieState(sum);
 	}
@@ -5624,7 +6072,7 @@ static void getDetectorSetUpLiveSum(DetectorSum *ds_entry, uint8_t cabin_setup[]
 static uint8_t getPointDetectorSetUpCount(void)
 {
 	uint8_t set_up_sum = 0;
-	for(uint8_t sum = 1U; sum <= MIXTURE_DEVICE_MAX_ADDR; sum++)
+	for(uint8_t sum = 1U; sum <= MBUS1_DEVICE_MAX_ADDR; sum++)
 	{
 		if(getPointTypeMixtureSettingOnlieState(sum) == 1)
 		{
@@ -5637,7 +6085,7 @@ static uint8_t getPointDetectorSetUpCount(void)
 static uint8_t getPointDetectorSetUpLive(void)
 {
 	uint8_t detector_sum = 0;
-	for(uint8_t sum = 1U; sum <= MIXTURE_DEVICE_MAX_ADDR; sum++)
+	for(uint8_t sum = 1U; sum <= MBUS1_DEVICE_MAX_ADDR; sum++)
 	{
 		if(getPointTypeMixtureSettingOnlieState(sum) == 1 && getPointTypeMixtureDetectName(sum) != 0U && getPointTypeMixtureDisconnectCount(sum) < MIXTURE_DEVICE_DISCONNECT_SUM)
 		{
@@ -5650,9 +6098,9 @@ static uint8_t getPointDetectorSetUpLive(void)
 static uint8_t getPointDetectorFaultCount(void)
 {
     uint8_t fault_sum = 0;
-    for(uint8_t sum = 1U; sum <= MIXTURE_DEVICE_MAX_ADDR; sum++)
+    for(uint8_t sum = 1U; sum <= MBUS1_DEVICE_MAX_ADDR; sum++)
     {
-        if(getPointTypeMixtureSettingOnlieState(sum) == 1 && (getPointTypeMixtureDisconnectCount(sum) >= MIXTURE_DEVICE_DISCONNECT_SUM || getPointTypeMixtureStateClass(sum) == 3U))
+        if(getPointTypeMixtureSettingOnlieState(sum) == 1 && (getPointTypeMixtureDisconnectCount(sum) >= MIXTURE_DEVICE_DISCONNECT_SUM || getPointTypeMixtureStateClass(sum) == 3U || (sum >= MBUS1_ISOLATOR_MIN_ADDR && MBus1_GetIsolatorShortMask(sum) != 0U)))
         {
             fault_sum++;
         }
@@ -11113,6 +11561,13 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
                         else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_VOC_SENSOR_RECOVERY) { sprintf((char *)show_buff, "VOC传感器故障恢复"); }
                         else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_FAULT) { sprintf((char *)show_buff, "CH4传感器故障"); }
                         else if(read_data[x_sector].fs_sys_fault[data_index].state == RS485_CH4_SENSOR_RECOVERY) { sprintf((char *)show_buff, "CH4传感器故障恢复"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == FIM1017_BRANCH1_SHORT) { sprintf((char *)show_buff, "\xD6\xA7\xC2\xB7" "1" "\xB6\xCC\xC2\xB7"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == FIM1017_BRANCH1_RECOVERY) { sprintf((char *)show_buff, "\xD6\xA7\xC2\xB7" "1" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == FIM1017_BRANCH2_SHORT) { sprintf((char *)show_buff, "\xD6\xA7\xC2\xB7" "2" "\xB6\xCC\xC2\xB7"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == FIM1017_BRANCH2_RECOVERY) { sprintf((char *)show_buff, "\xD6\xA7\xC2\xB7" "2" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == FIM1017_BRANCH3_SHORT) { sprintf((char *)show_buff, "\xD6\xA7\xC2\xB7" "3" "\xB6\xCC\xC2\xB7"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == FIM1017_BRANCH3_RECOVERY) { sprintf((char *)show_buff, "\xD6\xA7\xC2\xB7" "3" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); }
+						else { sprintf((char *)show_buff, "\xCE\xB4\xD6\xAA\xD7\xB4\xCC\xAC"); }
 						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //刷新状态
 						
 						break;
@@ -12407,6 +12862,25 @@ static void Loop1ClearCurrentState(uint8_t addr)
     setPointTypeMixtureDetectSmokeMemory(addr, 0U);
 }
 
+static void Loop1ClearIsolatorState(uint8_t addr)
+{
+    uint8_t memory_index;
+    if(addr < MBUS1_ISOLATOR_MIN_ADDR || addr > MBUS1_ISOLATOR_MAX_ADDR) return;
+    for(uint8_t i = pcfs_buttom_point; i > 0U; i--)
+    {
+        uint8_t index = i - 1U;
+        if(pcfs[index].detector_class == CabinClassID && pcfs[index].da.cluster_id == 0U &&
+           pcfs[index].da.cabin_id == addr &&
+           (pcfs[index].fault_type == LOOP1_FAULT_OFFLINE ||
+            (pcfs[index].fault_type >= LOOP1_FAULT_FIM1017_BRANCH1 &&
+             pcfs[index].fault_type <= LOOP1_FAULT_FIM1017_BRANCH3)))
+            deletRecoveryRecord(index);
+    }
+    memory_index = (uint8_t)(addr - MBUS1_ISOLATOR_MIN_ADDR);
+    loop1_isolator_short_memory[memory_index] = 0U;
+    setPointTypeMixtureDetectDisconnectMemory(addr, 0U);
+}
+
 static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
     uint8_t fault_sum = 0U;
@@ -12539,6 +13013,70 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
         if(Loop1FindFault(addr, LOOP1_FAULT_TEMPERATURE) != 0xFFU ||
             Loop1FindFault(addr, LOOP1_FAULT_SMOKE_POLLUTION) != 0xFFU ||
             Loop1FindFault(addr, LOOP1_FAULT_SMOKE_SENSOR) != 0xFFU) fault_sum++;
+    }
+
+    for(uint8_t addr = MBUS1_ISOLATOR_MIN_ADDR; addr <= MBUS1_ISOLATOR_MAX_ADDR; addr++)
+    {
+        static const uint8_t branch_fault_type[3] = {
+            LOOP1_FAULT_FIM1017_BRANCH1, LOOP1_FAULT_FIM1017_BRANCH2,
+            LOOP1_FAULT_FIM1017_BRANCH3
+        };
+        static const FlashSaveType branch_short_type[3] = {
+            FIM1017_BRANCH1_SHORT, FIM1017_BRANCH2_SHORT, FIM1017_BRANCH3_SHORT
+        };
+        static const FlashSaveType branch_recovery_type[3] = {
+            FIM1017_BRANCH1_RECOVERY, FIM1017_BRANCH2_RECOVERY,
+            FIM1017_BRANCH3_RECOVERY
+        };
+        uint8_t memory_index = (uint8_t)(addr - MBUS1_ISOLATOR_MIN_ADDR);
+        uint8_t old_mask = loop1_isolator_short_memory[memory_index];
+        uint8_t short_mask = old_mask;
+        uint8_t branch;
+
+        if(getPointTypeMixtureSettingOnlieState(addr) == 0U)
+        {
+            if(old_mask != 0U || getPointTypeMixtureDetectDisconnectMemory(addr) != 0U ||
+               Loop1FindFault(addr, LOOP1_FAULT_FIM1017_BRANCH1) != 0xFFU ||
+               Loop1FindFault(addr, LOOP1_FAULT_FIM1017_BRANCH2) != 0xFFU ||
+               Loop1FindFault(addr, LOOP1_FAULT_FIM1017_BRANCH3) != 0xFFU)
+                Loop1ClearIsolatorState(addr);
+            continue;
+        }
+
+        if(MBus1_IsShortCircuitIsolator(addr) != 0U)
+        {
+            short_mask = MBus1_GetIsolatorShortMask(addr);
+            for(branch = 0U; branch < 3U; branch++)
+            {
+                uint8_t bit = (uint8_t)(1U << branch);
+                if((old_mask & bit) == (short_mask & bit)) continue;
+                if((short_mask & bit) != 0U)
+                    Loop1AddFault(addr, branch_fault_type[branch], branch_short_type[branch]);
+                else
+                    Loop1RemoveFault(addr, branch_fault_type[branch], branch_recovery_type[branch]);
+            }
+            loop1_isolator_short_memory[memory_index] = short_mask;
+        }
+
+        if(getPointTypeMixtureDisconnectCount(addr) >= MIXTURE_DEVICE_DISCONNECT_SUM)
+        {
+            fault_sum++;
+            if(getPointTypeMixtureDetectDisconnectMemory(addr) == 0U)
+            {
+                setPointTypeMixtureDetectDisconnectMemory(addr, 1U);
+                Loop1AddFault(addr, LOOP1_FAULT_OFFLINE, DISCONNECT);
+            }
+            continue;
+        }
+
+        if(MBus1_IsShortCircuitIsolator(addr) == 0U) continue;
+        if(getPointTypeMixtureDetectDisconnectMemory(addr) != 0U)
+        {
+            setPointTypeMixtureDetectDisconnectMemory(addr, 0U);
+            Loop1RemoveFault(addr, LOOP1_FAULT_OFFLINE, DIS_RECOVERY);
+        }
+
+        if(short_mask != 0U) fault_sum++;
     }
 
     if(pcfs_buttom_point > 0U) disconnect_state = 1U;

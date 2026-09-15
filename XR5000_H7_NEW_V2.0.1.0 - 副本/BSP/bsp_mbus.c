@@ -35,6 +35,8 @@ uint8_t PointTypeMixtureDetecteName[MIXTURE_DEVICE_SUM] = {0};
 uint8_t PointTypeMixtureDetecteType[MIXTURE_DEVICE_SUM] = {0};
 //
 uint8_t PointTypeMixtureAllStateMemory[MIXTURE_DEVICE_SUM] = {0};
+static uint8_t g_mbus1_isolator_short_mask[MIXTURE_DEVICE_SUM] = {0};
+static uint8_t g_mbus1_isolator_clear_count[MIXTURE_DEVICE_SUM][3] = {{0}};
 static void MBus1ClearIdentification(uint8_t addr);
 
 void SavePointTypeSetOnlieState(void)
@@ -45,10 +47,10 @@ void SavePointTypeSetOnlieState(void)
 void ReadPointTypeSetOnlieState(void)
 {
 	memset(PointTypeMixtureOnlieState, 0, sizeof(PointTypeMixtureOnlieState));
-	for(uint8_t addr = 1U; addr <= MIXTURE_DEVICE_MAX_ADDR; addr++) MBus1ClearIdentification(addr);
+	for(uint8_t addr = 1U; addr <= MBUS1_DEVICE_MAX_ADDR; addr++) MBus1ClearIdentification(addr);
 	W25QXX_Read(PointTypeMixtureOnlieState, MIXTURE_DEVICE_FLASH_ADDR, MIXTURE_DEVICE_FLASH_DATA_LEN);
 	
-	for(uint16_t i = 0; i <= MIXTURE_DEVICE_MAX_ADDR; i++)
+	for(uint16_t i = 0; i <= MBUS1_DEVICE_MAX_ADDR; i++)
 	{
 		if(PointTypeMixtureOnlieState[i] > 1U)//判断是否为第一次写入
 		{
@@ -75,7 +77,7 @@ HAL_StatusTypeDef MBus2SendString(uint8_t* buf, uint8_t len)
 void PointTypeMixtureOnlieStateDeInit(void)
 {
 	memset(PointTypeMixtureOnlieState, 0, sizeof(PointTypeMixtureOnlieState));//清空数组
-	for(uint8_t addr = 1U; addr <= MIXTURE_DEVICE_MAX_ADDR; addr++) MBus1ClearIdentification(addr);
+	for(uint8_t addr = 1U; addr <= MBUS1_DEVICE_MAX_ADDR; addr++) MBus1ClearIdentification(addr);
 }
 
 void PointTypeMixtureOnlieStateBatchSetting(uint8_t *new_online_state, uint8_t update_len)
@@ -97,7 +99,7 @@ void PointTypeMixtureOnlieStateBatchSetting(uint8_t *new_online_state, uint8_t u
 
 void PointTypeMixtureOnlieStateSingleSetting(uint8_t detector_id, uint8_t online_or_offline)
 {
-	if(detector_id == 0 || detector_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detector_id == 0 || detector_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return;
 	}
@@ -115,7 +117,7 @@ void PointTypeMixtureOnlieStateSingleSetting(uint8_t detector_id, uint8_t online
  */
 uint8_t getPointTypeMixtureSettingOnlieState(uint8_t detector_id)
 {
-	if(detector_id == 0 || detector_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detector_id == 0 || detector_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return 0;
 	}
@@ -130,7 +132,7 @@ uint8_t getPointTypeMixtureSettingOnlieState(uint8_t detector_id)
  */
 uint8_t getPointTypeMixtureDisconnectCount(uint8_t point_mix_id)
 {
-	if(point_mix_id == 0 || point_mix_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(point_mix_id == 0 || point_mix_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return 0;
 	}
@@ -161,7 +163,7 @@ uint8_t getPointTypeMixtureReceiveData(ePointTypeDataOrder detect_data_type, uin
 uint8_t getPointTypeMixtureReceiveState(ePointTypeDataOrder detect_data_type, uint8_t detect_id)
 {
 	uint8_t *pData = NULL;
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return 255;
 	}
@@ -190,7 +192,7 @@ uint8_t getPointTypeMixtureReceiveState(ePointTypeDataOrder detect_data_type, ui
  */
 uint8_t getPointTypeMixtureDetectName(uint8_t detect_id)
 {
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return 255;
 	}
@@ -200,7 +202,7 @@ uint8_t getPointTypeMixtureDetectName(uint8_t detect_id)
 // 获取传感器启用状态
 uint8_t getPointTypeMixtureDetectType(uint8_t detect_id)
 {
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return 255;
 	}
@@ -209,7 +211,7 @@ uint8_t getPointTypeMixtureDetectType(uint8_t detect_id)
 
 uint8_t getPointTypeMixtureDetectOnlineState(uint8_t detect_id)
 {
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return 255;
 	}
@@ -223,7 +225,7 @@ void clearPointTypeMixtureDetectAllStateMemory(void)
 
 uint8_t getPointTypeMixtureDetectDisconnectMemory(uint8_t detect_id)
 {
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return 255;
 	}
@@ -232,7 +234,7 @@ uint8_t getPointTypeMixtureDetectDisconnectMemory(uint8_t detect_id)
 
 void setPointTypeMixtureDetectDisconnectMemory(uint8_t detect_id, uint8_t state)
 {
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return;
 	}
@@ -248,7 +250,7 @@ void setPointTypeMixtureDetectDisconnectMemory(uint8_t detect_id, uint8_t state)
 
 uint8_t getPointTypeMixtureDetectTempertureMemory(uint8_t detect_id)
 {
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return 255;
 	}
@@ -257,7 +259,7 @@ uint8_t getPointTypeMixtureDetectTempertureMemory(uint8_t detect_id)
 
 void setPointTypeMixtureDetectTempertureMemory(uint8_t detect_id, uint8_t state)
 {
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return;
 	}
@@ -273,7 +275,7 @@ void setPointTypeMixtureDetectTempertureMemory(uint8_t detect_id, uint8_t state)
 
 uint8_t getPointTypeMixtureDetectSmokeMemory(uint8_t detect_id)
 {
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return 255;
 	}
@@ -282,7 +284,7 @@ uint8_t getPointTypeMixtureDetectSmokeMemory(uint8_t detect_id)
 
 void setPointTypeMixtureDetectSmokeMemory(uint8_t detect_id, uint8_t state)
 {
-	if(detect_id == 0 || detect_id > MIXTURE_DEVICE_MAX_ADDR)
+	if(detect_id == 0 || detect_id > MBUS1_DEVICE_MAX_ADDR)
 	{
 		return;
 	}
@@ -308,7 +310,7 @@ static uint8_t MBus1GetStateClassByRaw(uint8_t type, uint8_t state)
 
 uint16_t getPointTypeMixtureReceiveData16(ePointTypeDataOrder detect_data_type, uint8_t detect_id)
 {
-    if(detect_id == 0U || detect_id > MIXTURE_DEVICE_MAX_ADDR) return 0U;
+    if(detect_id == 0U || detect_id > MBUS1_DEVICE_MAX_ADDR) return 0U;
     if(detect_data_type == PointTypeData_Temper) return PointTypeMixtureReceiveDataTemper[detect_id];
     if(detect_data_type == PointTypeData_Smoke) return PointTypeMixtureReceiveDataSmoke[detect_id];
     return 0U;
@@ -317,7 +319,7 @@ uint16_t getPointTypeMixtureReceiveData16(ePointTypeDataOrder detect_data_type, 
 uint8_t getPointTypeMixtureStateClass(uint8_t detect_id)
 {
     uint8_t type;
-    if(detect_id == 0U || detect_id > MIXTURE_DEVICE_MAX_ADDR) return 0U;
+    if(detect_id == 0U || detect_id > MBUS1_DEVICE_MAX_ADDR) return 0U;
     type = PointTypeMixtureDetecteName[detect_id];
     if(type == 6U) return MBus1GetStateClassByRaw(type, PointTypeMixtureReceiveStateTemper[detect_id]);
     if(type == 5U) return MBus1GetStateClassByRaw(type, PointTypeMixtureReceiveStateSmoke[detect_id]);
@@ -331,13 +333,13 @@ static void MBus1BuildReadCommand(uint8_t *buf, uint8_t addr, uint16_t start, ui
     crc16 = CalcCrc16(buf, 6); buf[6] = crc16 & 0xFF; buf[7] = crc16 >> 8;
 }
 
-static uint8_t g_mbus1_type_confirmed[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
-static uint8_t g_mbus1_identify_fail_count[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
-static uint32_t g_mbus1_last_identify_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
-static uint16_t g_mbus1_national_code[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
-static uint16_t g_mbus1_product_code[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
-static uint8_t g_mbus1_identify_stage[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
-static uint32_t g_mbus1_last_offline_probe_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0};
+static uint8_t g_mbus1_type_confirmed[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
+static uint8_t g_mbus1_identify_fail_count[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
+static uint32_t g_mbus1_last_identify_tick[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
+static uint16_t g_mbus1_national_code[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
+static uint16_t g_mbus1_product_code[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
+static uint8_t g_mbus1_identify_stage[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
+static uint32_t g_mbus1_last_offline_probe_tick[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
 #define MBUS1_STAGE_NATIONAL 0U
 #define MBUS1_STAGE_PRODUCT  1U
 #define MBUS1_STAGE_COMPLETE 2U
@@ -348,19 +350,32 @@ static uint32_t g_mbus1_last_offline_probe_tick[MIXTURE_DEVICE_MAX_ADDR + 1U] = 
 
 uint16_t MBus1_GetNationalTypeCode(uint8_t addr)
 {
-    if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return 0U;
+    if(addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR) return 0U;
     return g_mbus1_national_code[addr];
 }
 
 uint16_t MBus1_GetProductCode(uint8_t addr)
 {
-    if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return 0U;
+    if(addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR) return 0U;
     return g_mbus1_product_code[addr];
+}
+
+uint8_t MBus1_IsShortCircuitIsolator(uint8_t addr)
+{
+    return (uint8_t)(addr >= MBUS1_ISOLATOR_MIN_ADDR && addr <= MBUS1_ISOLATOR_MAX_ADDR &&
+                     g_mbus1_type_confirmed[addr] != 0U &&
+                     g_mbus1_product_code[addr] == DEVICE_PRODUCT_FIM1017);
+}
+
+uint8_t MBus1_GetIsolatorShortMask(uint8_t addr)
+{
+    if(MBus1_IsShortCircuitIsolator(addr) == 0U) return 0U;
+    return g_mbus1_isolator_short_mask[addr] & 0x07U;
 }
 
 static void MBus1ClearIdentification(uint8_t addr)
 {
-    if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
+    if(addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR) return;
     g_mbus1_type_confirmed[addr] = 0U;
     g_mbus1_identify_fail_count[addr] = 0U;
     g_mbus1_last_identify_tick[addr] = 0U;
@@ -372,13 +387,15 @@ static void MBus1ClearIdentification(uint8_t addr)
     PointTypeMixtureDetecteType[addr] = 0U;
     PointTypeMixtureDisconnectCount[addr] = 0U;
     g_mbus1_recovery_success_count[addr] = 0U;
+    g_mbus1_isolator_short_mask[addr] = 0U;
+    memset(g_mbus1_isolator_clear_count[addr], 0, sizeof(g_mbus1_isolator_clear_count[addr]));
     DeviceRegistry_SetProductUnknown(DEVICE_REGISTRY_LOOP1, addr, 0U);
 }
 
 /* 获取探测器国标设备类型码(供联动逻辑显示用), 地址无效返回0 */
 uint16_t getPointTypeMixtureNationalCode(uint8_t detector_id)
 {
-    if(detector_id == 0U || detector_id > MIXTURE_DEVICE_MAX_ADDR) return 0U;
+    if(detector_id == 0U || detector_id > MBUS1_DEVICE_MAX_ADDR) return 0U;
     return g_mbus1_national_code[detector_id];
 }
 static uint8_t g_mbus1_transaction_pending = 0U;
@@ -386,9 +403,13 @@ static uint8_t g_mbus1_transaction_addr = 0U;
 static uint8_t g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
 static uint32_t g_mbus1_transaction_tick = 0U;
 static uint8_t g_mbus1_poll_addr = 0U;
+static uint8_t g_mbus1_isolator_poll_addr = MBUS1_ISOLATOR_MIN_ADDR - 1U;
+static uint8_t g_mbus1_last_poll_was_isolator = 0U;
+static uint32_t g_mbus1_last_isolator_poll_tick[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
 static uint8_t g_mbus1_retry_addr = 0U;
 static volatile uint8_t g_mbus1_bus_locked = 0U;
 #define MBUS1_INTER_FRAME_GUARD_MS 50U
+#define MBUS1_ISOLATOR_POLL_INTERVAL_MS 500U
 static uint32_t g_mbus1_last_rx_tick = 0U;
 static uint8_t g_mbus1_rx_guard_active = 0U;
 
@@ -422,7 +443,7 @@ static void MBus1FinishTransaction(uint8_t addr)
 
 static void MBus1MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error)
 {
-    if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
+    if(addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR) return;
     if(error == DEVICE_IDENTIFY_NATIONAL_UNKNOWN || error == DEVICE_IDENTIFY_CODE_MISMATCH)
         g_mbus1_identify_stage[addr] = MBUS1_STAGE_NATIONAL;
     if(g_mbus1_identify_fail_count[addr] < MBUS1_IDENTIFY_FAIL_THRESHOLD) g_mbus1_identify_fail_count[addr]++;
@@ -444,7 +465,7 @@ static void MBus1MarkTimeout(void)
     identify_stage = g_mbus1_transaction_identify_stage;
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
     g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U;
-    if(addr > 0U && addr <= MIXTURE_DEVICE_MAX_ADDR && PointTypeMixtureOnlieState[addr] != 0U)
+    if(addr > 0U && addr <= MBUS1_DEVICE_MAX_ADDR && PointTypeMixtureOnlieState[addr] != 0U)
     {
         if(identify_stage != MBUS1_STAGE_COMPLETE)
             MBus1MarkIdentifyFailure(addr, identify_stage == MBUS1_STAGE_NATIONAL ? DEVICE_IDENTIFY_NATIONAL_NO_RESPONSE : DEVICE_IDENTIFY_PRODUCT_NO_RESPONSE);
@@ -462,10 +483,10 @@ static uint8_t MBus1FindNextOnlineAddress(void)
 {
     uint8_t attempt;
     uint32_t now = osKernelGetTickCount();
-    for(attempt = 0U; attempt < MIXTURE_DEVICE_MAX_ADDR; attempt++)
+    for(attempt = 0U; attempt < MBUS1_DEVICE_MAX_ADDR; attempt++)
     {
         g_mbus1_poll_addr++;
-        if(g_mbus1_poll_addr == 0U || g_mbus1_poll_addr > MIXTURE_DEVICE_MAX_ADDR) g_mbus1_poll_addr = 1U;
+        if(g_mbus1_poll_addr == 0U || g_mbus1_poll_addr > MBUS1_DEVICE_MAX_ADDR) g_mbus1_poll_addr = 1U;
         if(PointTypeMixtureOnlieState[g_mbus1_poll_addr] != 0U)
         {
             if(g_mbus1_type_confirmed[g_mbus1_poll_addr] == 0U)
@@ -475,6 +496,10 @@ static uint8_t MBus1FindNextOnlineAddress(void)
                 if(g_mbus1_last_identify_tick[g_mbus1_poll_addr] == 0U ||
                    (now - g_mbus1_last_identify_tick[g_mbus1_poll_addr]) >= retry_gap)
                     return g_mbus1_poll_addr;
+            }
+            else if(g_mbus1_product_code[g_mbus1_poll_addr] == DEVICE_PRODUCT_FIM1017)
+            {
+                continue;
             }
             else if(PointTypeMixtureDisconnectCount[g_mbus1_poll_addr] < MIXTURE_DEVICE_DISCONNECT_SUM ||
                     (now - g_mbus1_last_offline_probe_tick[g_mbus1_poll_addr]) >= MBUS1_OFFLINE_PROBE_INTERVAL_MS)
@@ -488,14 +513,49 @@ static uint8_t MBus1FindNextOnlineAddress(void)
     return 0U;
 }
 
+static uint8_t MBus1FindDueIsolatorAddress(void)
+{
+    uint8_t attempt;
+    uint32_t now = osKernelGetTickCount();
+    for(attempt = 0U; attempt < MBUS1_ISOLATOR_COUNT; attempt++)
+    {
+        g_mbus1_isolator_poll_addr++;
+        if(g_mbus1_isolator_poll_addr < MBUS1_ISOLATOR_MIN_ADDR ||
+           g_mbus1_isolator_poll_addr > MBUS1_ISOLATOR_MAX_ADDR)
+            g_mbus1_isolator_poll_addr = MBUS1_ISOLATOR_MIN_ADDR;
+        if(PointTypeMixtureOnlieState[g_mbus1_isolator_poll_addr] == 0U ||
+           MBus1_IsShortCircuitIsolator(g_mbus1_isolator_poll_addr) == 0U) continue;
+        if((now - g_mbus1_last_isolator_poll_tick[g_mbus1_isolator_poll_addr]) <
+           MBUS1_ISOLATOR_POLL_INTERVAL_MS) continue;
+        if(PointTypeMixtureDisconnectCount[g_mbus1_isolator_poll_addr] >= MIXTURE_DEVICE_DISCONNECT_SUM &&
+           (now - g_mbus1_last_offline_probe_tick[g_mbus1_isolator_poll_addr]) <
+           MBUS1_OFFLINE_PROBE_INTERVAL_MS) continue;
+        if(PointTypeMixtureDisconnectCount[g_mbus1_isolator_poll_addr] >= MIXTURE_DEVICE_DISCONNECT_SUM)
+            g_mbus1_last_offline_probe_tick[g_mbus1_isolator_poll_addr] = now;
+        return g_mbus1_isolator_poll_addr;
+    }
+    return 0U;
+}
+
 static void MBus1StartTransaction(uint8_t addr)
 {
     uint8_t modbus_buff[8];
     uint8_t identify_stage;
     uint32_t transaction_tick;
-    if(addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR || PointTypeMixtureOnlieState[addr] == 0U) return;
+    if(addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR || PointTypeMixtureOnlieState[addr] == 0U) return;
     identify_stage = g_mbus1_type_confirmed[addr] == 0U ? g_mbus1_identify_stage[addr] : MBUS1_STAGE_COMPLETE;
-    MBus1BuildReadCommand(modbus_buff, addr, identify_stage == MBUS1_STAGE_COMPLETE ? 0x000CU : 0x0000U, identify_stage == MBUS1_STAGE_COMPLETE ? 14U : 3U);
+    if(identify_stage == MBUS1_STAGE_COMPLETE &&
+       g_mbus1_product_code[addr] == DEVICE_PRODUCT_FIM1017)
+    {
+        MBus1BuildReadCommand(modbus_buff, addr, 0x000BU, 1U);
+        g_mbus1_last_isolator_poll_tick[addr] = osKernelGetTickCount();
+    }
+    else
+    {
+        MBus1BuildReadCommand(modbus_buff, addr,
+            identify_stage == MBUS1_STAGE_COMPLETE ? 0x000CU : 0x0000U,
+            identify_stage == MBUS1_STAGE_COMPLETE ? 14U : 3U);
+    }
     transaction_tick = osKernelGetTickCount();
 
     taskENTER_CRITICAL();
@@ -533,8 +593,54 @@ void MixtureDevicePollingManage(void)
     uint8_t addr;
     if(g_mbus1_transaction_pending != 0U) return;
     addr = g_mbus1_retry_addr;
-    if(addr != 0U) g_mbus1_retry_addr = 0U; else addr = MBus1FindNextOnlineAddress();
+    if(addr != 0U)
+    {
+        g_mbus1_retry_addr = 0U;
+        g_mbus1_last_poll_was_isolator = MBus1_IsShortCircuitIsolator(addr);
+    }
+    else
+    {
+        addr = g_mbus1_last_poll_was_isolator == 0U ?
+               MBus1FindDueIsolatorAddress() : 0U;
+        if(addr != 0U)
+        {
+            g_mbus1_last_poll_was_isolator = 1U;
+        }
+        else
+        {
+            addr = MBus1FindNextOnlineAddress();
+            g_mbus1_last_poll_was_isolator = 0U;
+        }
+    }
     MBus1StartTransaction(addr);
+}
+
+static void MBus1UpdateIsolatorShortMask(uint8_t addr, uint8_t raw_mask)
+{
+    uint8_t branch;
+    for(branch = 0U; branch < 3U; branch++)
+    {
+        uint8_t bit = (uint8_t)(1U << branch);
+        if((raw_mask & bit) != 0U)
+        {
+            g_mbus1_isolator_short_mask[addr] |= bit;
+            g_mbus1_isolator_clear_count[addr][branch] = 0U;
+        }
+        else if((g_mbus1_isolator_short_mask[addr] & bit) != 0U)
+        {
+            if(g_mbus1_isolator_clear_count[addr][branch] < 2U)
+                g_mbus1_isolator_clear_count[addr][branch]++;
+            if(g_mbus1_isolator_clear_count[addr][branch] >= 2U)
+            {
+                g_mbus1_isolator_short_mask[addr] &= (uint8_t)~bit;
+                g_mbus1_isolator_clear_count[addr][branch] = 0U;
+            }
+        }
+        else
+        {
+            g_mbus1_isolator_clear_count[addr][branch] = 0U;
+        }
+    }
 }
 
 void MBus1ReceiveSlaveDataDeal(void)
@@ -566,7 +672,7 @@ void MBus1ReceiveSlaveDataDeal(void)
     if(CalcCrc16(buf, len - 2U) != crc16) return;
     addr = buf[0];
     func = buf[1];
-    if(addr != g_mbus1_transaction_addr || addr == 0U || addr > MIXTURE_DEVICE_MAX_ADDR) return;
+    if(addr != g_mbus1_transaction_addr || addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR) return;
 
     /* A CRC-valid Modbus exception from the requested address proves that the
      * device is communicating. Keep the last sensor values and end this poll. */
@@ -580,7 +686,9 @@ void MBus1ReceiveSlaveDataDeal(void)
     }
     if(func != 0x04U) return;
 
-    byte_count = buf[2]; expected_count = g_mbus1_transaction_identify_stage == MBUS1_STAGE_COMPLETE ? 28U : 6U;
+    byte_count = buf[2];
+    expected_count = g_mbus1_transaction_identify_stage != MBUS1_STAGE_COMPLETE ? 6U :
+                     (g_mbus1_product_code[addr] == DEVICE_PRODUCT_FIM1017 ? 2U : 28U);
     if(byte_count != expected_count || len != (uint16_t)(byte_count + 5U))
     {
         /* Communication is valid even when this firmware revision returns a
@@ -596,7 +704,11 @@ void MBus1ReceiveSlaveDataDeal(void)
         uint16_t national_code = ((uint16_t)buf[3] << 8) | buf[4];
         uint16_t product_type = ((uint16_t)buf[5] << 8) | buf[6];
         uint16_t sensor_mask = ((uint16_t)buf[7] << 8) | buf[8];
-        if(DeviceRegistry_IsSupportedOnLoop(product_type, DEVICE_REGISTRY_LOOP1) == 0U)
+        if((product_type == DEVICE_PRODUCT_FIM1017 &&
+            (addr < MBUS1_ISOLATOR_MIN_ADDR || addr > MBUS1_ISOLATOR_MAX_ADDR)) ||
+           (product_type != DEVICE_PRODUCT_FIM1017 && addr > MIXTURE_DEVICE_MAX_ADDR))
+            MBus1MarkIdentifyFailure(addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
+        else if(DeviceRegistry_IsSupportedOnLoop(product_type, DEVICE_REGISTRY_LOOP1) == 0U)
             MBus1MarkIdentifyFailure(addr, DEVICE_IDENTIFY_PRODUCT_UNKNOWN);
         else if(DeviceRegistry_IsNationalProductMatch(national_code, product_type) == 0U)
             MBus1MarkIdentifyFailure(addr, DeviceRegistry_IsNationalTypeKnown(national_code) != 0U ? DEVICE_IDENTIFY_CODE_MISMATCH : DEVICE_IDENTIFY_NATIONAL_UNKNOWN);
@@ -607,7 +719,8 @@ void MBus1ReceiveSlaveDataDeal(void)
             g_mbus1_national_code[addr] = national_code;
             g_mbus1_product_code[addr] = product_type;
             PointTypeMixtureDetecteName[addr] = product_type;
-            PointTypeMixtureDetecteType[addr] = (product_type == DEVICE_PRODUCT_XR8002_TEMP) ? 0x20U : 0x01U;
+            PointTypeMixtureDetecteType[addr] = product_type == DEVICE_PRODUCT_XR8002_TEMP ? 0x20U :
+                                                (product_type == DEVICE_PRODUCT_XR8001_SMOKE ? 0x01U : 0U);
             g_mbus1_type_confirmed[addr] = 1U;
             g_mbus1_identify_stage[addr] = MBUS1_STAGE_COMPLETE;
                             g_mbus1_identify_fail_count[addr] = 0U;
@@ -616,10 +729,18 @@ void MBus1ReceiveSlaveDataDeal(void)
     }
     else
     {
-        PointTypeMixtureReceiveDataTemper[addr] = ((uint16_t)buf[3] << 8) | buf[4];
-        PointTypeMixtureReceiveDataSmoke[addr] = ((uint16_t)buf[5] << 8) | buf[6];
-        PointTypeMixtureReceiveStateTemper[addr] = (uint8_t)(((uint16_t)buf[27] << 8) | buf[28]);
-        PointTypeMixtureReceiveStateSmoke[addr] = (uint8_t)(((uint16_t)buf[29] << 8) | buf[30]);
+        if(g_mbus1_product_code[addr] == DEVICE_PRODUCT_FIM1017)
+        {
+            MBus1UpdateIsolatorShortMask(addr,
+                (uint8_t)((((uint16_t)buf[3] << 8) | buf[4]) & 0x0007U));
+        }
+        else
+        {
+            PointTypeMixtureReceiveDataTemper[addr] = ((uint16_t)buf[3] << 8) | buf[4];
+            PointTypeMixtureReceiveDataSmoke[addr] = ((uint16_t)buf[5] << 8) | buf[6];
+            PointTypeMixtureReceiveStateTemper[addr] = (uint8_t)(((uint16_t)buf[27] << 8) | buf[28]);
+            PointTypeMixtureReceiveStateSmoke[addr] = (uint8_t)(((uint16_t)buf[29] << 8) | buf[30]);
+        }
     }
     MBus1FinishTransaction(addr);
 }
