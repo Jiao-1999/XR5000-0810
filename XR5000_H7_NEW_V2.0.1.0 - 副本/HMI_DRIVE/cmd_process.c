@@ -5247,6 +5247,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
    HistoryFilter_NotifyText(screen_id, control_id, str);
    DeviceAliasHmiText(screen_id, control_id, str);
    if(HmiDeviceQueryNotifyText(screen_id, control_id, str) != 0U) return;
+   if(FireZoneScreen_NotifyText(screen_id, control_id, str) != 0U) return; /* 防火分区画面文本输入处理 */
    { 
 			if(screen_id == 1U && control_id == 25U) // 修改CAN2ID地址
       {

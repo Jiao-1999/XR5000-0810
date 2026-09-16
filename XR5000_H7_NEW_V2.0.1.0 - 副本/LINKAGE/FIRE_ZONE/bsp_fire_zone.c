@@ -5,6 +5,7 @@
  * 模块说明   : 提供设备防火分区归属的管理功能。
  *              - 设备分区映射: (回路号,设备地址) -> 分区号(1-8)
  *              - 分区名称管理(GBK)
+ *              - 分区启用状态(V2新增): 每分区启用/停用存储与显示
  *              - Flash持久化(基于W25Qxx SPI Flash, A/B双副本)
  *              - 分区变更回调通知(解耦)
  *
@@ -29,9 +30,11 @@
  * 第一部分：内部数据结构与静态变量
  *--------------------------------------------------------------*/
 
-/* Flash存储记录结构 - packed紧凑布局, 共394字节
- * 布局 = 头部(魔数+版本) + 分区映射(256B) + 分区名称(128B) + CRC16
- * 存储时同一份记录写入扇区前半(副本A)与后半(副本B)两个位置 */
+/* Flash存储记录结构 - packed紧凑布局, 共1170字节(V3)
+ * 布局 = 头部(魔数+版本) + 分区映射(256B) + 分区名称(128B) + 分区启用(8B)
+ *        + 槽位显示文本(768B, V3新增) + CRC16
+ * V2旧布局(402B)无槽位显示文本, V1旧布局(394B)无启用状态, 加载时兼容读取并升级为V3
+ * 存储时同一份记录写入扇区前半(副本A)与后半(副本B)两个位置(各2KB, 1170B可容纳) */
 typedef struct
 {
     uint32_t magic;                                         /* 魔数 FIRE_ZONE_MAGIC "FRZ1" */
@@ -39,6 +42,8 @@ typedef struct
     uint8_t  reserved[3];                                   /* 保留对齐填充 */
     uint8_t  zone_map[4][64];                               /* 设备分区映射, [回路号-1][设备地址], 值0-7对应分区1-8 */
     uint8_t  zone_name[FIRE_ZONE_MAX][FIRE_ZONE_NAME_LEN];  /* 分区名称(GBK), 下标0-7对应分区1-8 */
+    uint8_t  zone_enabled[FIRE_ZONE_MAX];                   /* V2新增: 分区启用状态, 1=启用 0=停用, 下标0-7对应分区1-8 */
+    char     zone_disp[FIRE_ZONE_MAX][6][FIRE_ZONE_NAME_LEN]; /* V3新增: 槽位显示文本, [分区][6类设备栏][GBK串] */
     uint16_t crc;                                           /* CRC16校验和, 覆盖除crc字段外全部字节 */
 } __attribute__((packed)) FireZoneRecord_t;
 
@@ -48,6 +53,17 @@ static uint8_t s_zone_map[4][64];
 
 /* 分区名称表(GBK编码): 对外分区号1-8对应下标0-7 */
 static char s_zone_name[FIRE_ZONE_MAX][FIRE_ZONE_NAME_LEN];
+
+/* 分区启用状态表(V2新增): 下标0-7对应分区1-8, 1=启用 0=停用 */
+static uint8_t s_zone_enabled[FIRE_ZONE_MAX];
+
+/* 槽位显示文本表(V3新增): [分区0-7][6类设备栏], 屏端输入的规范化显示文本 */
+static char s_zone_disp[FIRE_ZONE_MAX][6][FIRE_ZONE_NAME_LEN];
+
+/* 批量写挂起计数(支持嵌套): >0时修改只置脏不落盘 */
+static uint8_t s_batch_depth = 0;
+/* 批量挂起期间有改动的脏标志: EndBatch最外层据此统一落盘一次 */
+static uint8_t s_batch_dirty = 0;
 
 /* 模块初始化标志：0=未初始化, 1=已初始化 */
 static uint8_t s_initialized = 0;
@@ -106,7 +122,7 @@ static uint8_t IsValidDevice(uint8_t loop_no, uint16_t dev_no)
  *--------------------------------------------------------------*/
 static uint16_t CalcRecordCRC(const FireZoneRecord_t *rec)
 {
-    /* sizeof(FireZoneRecord_t)=394字节, crc字段占最后2字节, 实际计算392字节 */
+    /* sizeof(FireZoneRecord_t)=402字节(V2), crc字段占最后2字节, 实际计算400字节 */
     return CalcCrc16((uint8_t *)rec, sizeof(FireZoneRecord_t) - 2U);
 }
 
@@ -120,6 +136,30 @@ static void NotifyChanged(void)
     if (s_changed_cb != NULL)
     {
         s_changed_cb();  /* 通知外部模块分区数据已变化 */
+    }
+}
+
+/* 前向声明：PersistChanges()在其定义之前调用本函数,
+ * 若无此声明, C90下未声明调用会被当作外部符号, 链接时报L6218E未定义 */
+static void SaveRecordToFlash(void);
+
+/*--------------------------------------------------------------
+ * 函数名称：PersistChanges
+ * 功能描述：统一持久化入口(V2新增)
+ *           批量挂起期间(s_batch_depth>0)只置脏标志不落盘,
+ *           由FireZone_EndBatch在最外层统一落盘一次;
+ *           非挂起状态立即落盘并通知(保持原有单设备写行为)
+ *--------------------------------------------------------------*/
+static void PersistChanges(void)
+{
+    if (s_batch_depth > 0U)
+    {
+        s_batch_dirty = 1;  /* 批量挂起中, 仅置脏标志 */
+    }
+    else
+    {
+        SaveRecordToFlash();  /* 立即持久化(A/B双副本) */
+        NotifyChanged();      /* 通知外部(屏幕刷新等) */
     }
 }
 
@@ -144,6 +184,12 @@ static void SetDefaultAll(void)
         strncpy(s_zone_name[i], name, FIRE_ZONE_NAME_LEN - 1U);
         s_zone_name[i][FIRE_ZONE_NAME_LEN - 1U] = '\0';  /* 保证以结束符结尾 */
     }
+
+    /* 分区启用状态默认全部不启用(V2新增字段, 含分区1) */
+    memset(s_zone_enabled, 0, sizeof(s_zone_enabled));
+
+    /* 槽位显示文本默认全部为空(V3新增字段) */
+    memset(s_zone_disp, 0, sizeof(s_zone_disp));
 }
 
 /*--------------------------------------------------------------
@@ -158,6 +204,24 @@ static void ApplyRecord(const FireZoneRecord_t *rec)
     /* 拷贝设备分区映射与分区名称 */
     memcpy(s_zone_map, rec->zone_map, sizeof(s_zone_map));
     memcpy(s_zone_name, rec->zone_name, sizeof(s_zone_name));
+
+    /* 拷贝分区启用状态(V2字段), 归一化为0/1防御Flash异常数据
+     * (V1旧记录无此字段, 此处读到的值无意义, 由Init的V1升级流程覆盖) */
+    for (i = 0; i < FIRE_ZONE_MAX; i++)
+    {
+        s_zone_enabled[i] = (rec->zone_enabled[i] != 0U) ? 1U : 0U;
+    }
+
+    /* 槽位显示文本(V3字段): 仅V3记录有效; V1/V2旧记录该区域读到的是
+     * 扇区杂散数据, 必须清空(显示文本按"无输入"处理) */
+    if (rec->version == FIRE_ZONE_VERSION)
+    {
+        memcpy(s_zone_disp, rec->zone_disp, sizeof(s_zone_disp));
+    }
+    else
+    {
+        memset(s_zone_disp, 0, sizeof(s_zone_disp));
+    }
 
     /* 防御处理: 强制每个名称以结束符结尾, 防止Flash数据异常导致越界 */
     for (i = 0; i < FIRE_ZONE_MAX; i++)
@@ -185,11 +249,46 @@ static uint8_t LoadRecord(uint32_t addr, FireZoneRecord_t *rec)
         return 0;  /* 魔数不符(空白扇区或数据损坏) */
     }
 
-    /* 版本校验(格式变更时旧版本数据不识别, 走默认流程) */
-    if (rec->version != FIRE_ZONE_VERSION)
+    /* 版本校验: V3为当前格式; V1/V2为旧格式(兼容读取, 由调用方补缺省字段)
+     * 注意: 旧版本记录长度短于当前结构, 其CRC字段在当前结构视图中的
+     * 偏移与覆盖长度均为固定值, 不能用sizeof(FireZoneRecord_t)推导 */
+    if (rec->version == FIRE_ZONE_VERSION)
     {
-        return 0;  /* 版本不符 */
+        /* V3记录: CRC覆盖除crc字段外全部字节(1168字节) */
+        if (rec->crc != CalcRecordCRC(rec))
+        {
+            return 0;  /* 校验失败, 数据损坏 */
+        }
+        return 1;  /* V3记录有效 */
     }
+
+    if (rec->version == 0x02U)
+    {
+        /* V2旧记录(402字节): 其CRC在当前结构视图的zone_disp[0][0][0..1]
+         * (偏移400), CRC覆盖前400字节(头部+映射+名称+启用)。V2无显示文本 */
+        uint16_t crc_v2 = (uint16_t)(rec->zone_disp[0][0][0]) |
+                          ((uint16_t)(rec->zone_disp[0][0][1]) << 8);
+        if (crc_v2 == CalcCrc16((uint8_t *)rec, 400U))
+        {
+            return 1;  /* V2记录有效, 由调用方做兼容升级 */
+        }
+        return 0;  /* V2数据损坏 */
+    }
+
+    if (rec->version == 0x01U)
+    {
+        /* V1旧记录(394字节): 其CRC在当前结构视图的zone_enabled[0..1]
+         * (偏移392), CRC覆盖前392字节(头部+映射+名称)。V1无启用/显示文本 */
+        uint16_t crc_v1 = (uint16_t)(rec->zone_enabled[0]) |
+                          ((uint16_t)(rec->zone_enabled[1]) << 8);
+        if (crc_v1 == CalcCrc16((uint8_t *)rec, 392U))
+        {
+            return 1;  /* V1记录有效, 由调用方做兼容升级 */
+        }
+        return 0;  /* V1数据损坏 */
+    }
+
+    return 0;  /* 未知版本, 走默认流程 */
 
     /* CRC16完整性校验 */
     if (rec->crc != CalcRecordCRC(rec))
@@ -216,16 +315,18 @@ static void SaveRecordToFlash(void)
     memset(rec.reserved, 0, sizeof(rec.reserved));
     memcpy(rec.zone_map, s_zone_map, sizeof(s_zone_map));
     memcpy(rec.zone_name, s_zone_name, sizeof(s_zone_name));
+    memcpy(rec.zone_enabled, s_zone_enabled, sizeof(s_zone_enabled));  /* V2新增: 分区启用状态 */
+    memcpy(rec.zone_disp, s_zone_disp, sizeof(s_zone_disp));           /* V3新增: 槽位显示文本 */
     rec.crc = CalcRecordCRC(&rec);
 
-    /* 擦除整个4KB扇区(副本A/B同扇区, 只需擦一次) */
-    W25QXX_Erase_Sector(FIRE_ZONE_FLASH_ADDR);
+    /* 擦除整个4KB扇区(副本A/B同扇区, 只需擦一次)
+     * 注意: 驱动W25QXX_Erase_Sector入参为扇区号(内部x4096), 须传字节地址/4096 */
+    W25QXX_Erase_Sector(FIRE_ZONE_FLASH_ADDR / 4096U);
 
-    /* 写入副本A(扇区前半) */
-    W25QXX_Write((uint8_t *)&rec, FIRE_ZONE_FLASH_COPY_A, sizeof(FireZoneRecord_t));
-
-    /* 写入副本B(扇区后半) */
-    W25QXX_Write((uint8_t *)&rec, FIRE_ZONE_FLASH_COPY_B, sizeof(FireZoneRecord_t));
+    /* 写入副本A(扇区前半)与副本B(扇区后半): 扇区已整擦为0xFF,
+     * 用BspFlashWrite免检直写(带事务锁, 与bsp_save_ctrl用法一致) */
+    BspFlashWrite((uint8_t *)&rec, FIRE_ZONE_FLASH_COPY_A, sizeof(FireZoneRecord_t));
+    BspFlashWrite((uint8_t *)&rec, FIRE_ZONE_FLASH_COPY_B, sizeof(FireZoneRecord_t));
 }
 
 /*--------------------------------------------------------------
@@ -243,6 +344,7 @@ void FireZone_Init(void)
 {
     FireZoneRecord_t rec;  /* Flash读取缓冲 */
     uint8_t loaded = 0;    /* 是否成功从Flash加载 */
+    uint8_t need_save = 0; /* 是否需要在初始化末尾回写Flash */
 
     /* 防止重复初始化 */
     if (s_initialized)
@@ -263,17 +365,110 @@ void FireZone_Init(void)
     {
         /* 副本A损坏但副本B有效: 应用B并回写修复副本A */
         ApplyRecord(&rec);
-        SaveRecordToFlash();
+        need_save = 1;  /* 延迟到末尾统一落盘(与V1升级合并为一次擦写) */
         loaded = 1;
         DebugPrintf("[FIREZONE] copy A bad, restored from copy B\r\n");
     }
     /* 两个副本均无效: 保持出厂默认, 不立即写Flash */
+
+    /* 旧记录兼容升级: V1/V2统一升级为V3格式
+     * V1无启用状态字段, 按新默认补0(全部不启用);
+     * V1/V2无槽位显示文本字段, ApplyRecord已清空(按"无输入"处理) */
+    if (loaded && (rec.version != FIRE_ZONE_VERSION))
+    {
+        if (rec.version == 0x01U)
+        {
+            uint8_t i;
+            for (i = 0; i < FIRE_ZONE_MAX; i++)
+            {
+                s_zone_enabled[i] = 0U;  /* V1无启用字段, 按新默认填0 */
+            }
+        }
+        need_save = 1;
+        DebugPrintf("[FIREZONE] old record upgraded to v3\r\n");
+    }
+
+    /* 统一回写: 副本B修复与V1升级共用一次Flash擦写 */
+    if (need_save)
+    {
+        SaveRecordToFlash();
+    }
 
     s_initialized = 1;
 
     DebugPrintf("[FIREZONE] init %s, zone count=%u\r\n",
                 loaded ? "loaded" : "default",
                 (unsigned int)FireZone_GetZoneCount());
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_SetSlotDisp
+ * 功能描述：设置指定分区指定设备栏的显示文本(V3新增)。
+ *           显示文本与分区表一并持久化, 上电自动恢复(免重设)。
+ *           与分区归属写入配对使用时置于BeginBatch/EndBatch之间,
+ *           合并为单次Flash擦写。
+ * 输入参数：zone_no - 分区号(1-8), slot - 设备栏(0-5, 对应屏幕
+ *           温度/烟雾/可燃气体/复合/手报/声光),
+ *           text - GBK显示串(超长截断到15字节)
+ * 返回值   ：0=成功, 1=参数非法
+ *--------------------------------------------------------------*/
+uint8_t FireZone_SetSlotDisp(uint8_t zone_no, uint8_t slot, const char *text)
+{
+    char *dst;  /* 目标槽位 */
+
+    if ((zone_no < 1U) || (zone_no > FIRE_ZONE_MAX) ||
+        (slot >= 6U) || (text == NULL))
+    {
+        return 1;  /* 参数非法 */
+    }
+    dst = s_zone_disp[zone_no - 1U][slot];
+    if (strncmp(dst, text, FIRE_ZONE_NAME_LEN) == 0)
+    {
+        return 0;  /* 内容未变化, 不落盘 */
+    }
+    strncpy(dst, text, FIRE_ZONE_NAME_LEN - 1U);
+    dst[FIRE_ZONE_NAME_LEN - 1U] = '\0';
+    PersistChanges();  /* 落盘+通知 */
+    return 0;
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_GetSlotDisp
+ * 功能描述：读取指定分区指定设备栏的显示文本(V3新增)。
+ * 输入参数：zone_no - 分区号(1-8), slot - 设备栏(0-5),
+ *           out - 输出缓冲(容量>=FIRE_ZONE_NAME_LEN)
+ *--------------------------------------------------------------*/
+void FireZone_GetSlotDisp(uint8_t zone_no, uint8_t slot, char *out)
+{
+    if (out == NULL)
+    {
+        return;
+    }
+    out[0] = '\0';
+    if ((zone_no < 1U) || (zone_no > FIRE_ZONE_MAX) || (slot >= 6U))
+    {
+        return;
+    }
+    memcpy(out, s_zone_disp[zone_no - 1U][slot], FIRE_ZONE_NAME_LEN);
+    out[FIRE_ZONE_NAME_LEN - 1U] = '\0';
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_ResetAll
+ * 功能描述：清空全部分区信息并恢复出厂默认, 立即写Flash(V3新增)。
+ *           - 设备分区映射: 全部设备归位分区1
+ *           - 分区名称: 恢复默认"分区1"~"分区8"
+ *           - 分区启用状态: 全部不启用
+ *           - 槽位显示文本: 全部清空
+ *           用于调试排查或需要强制清空全部配置的场合。
+ *           调用后屏幕层经变更回调自动刷新显示。
+ *--------------------------------------------------------------*/
+void FireZone_ResetAll(void)
+{
+    SetDefaultAll();     /* 恢复出厂默认(映射/名称/启用/显示文本) */
+    SaveRecordToFlash(); /* 立即落盘(A/B双副本) */
+    NotifyChanged();     /* 通知屏幕层刷新 */
+    DebugPrintf("[FIREZONE] reset all to factory default\r\n");
 }
 
 /*--------------------------------------------------------------
@@ -338,11 +533,8 @@ uint8_t FireZone_SetDeviceZone(uint8_t loop_no, uint16_t dev_no, uint8_t zone_no
     /* 更新RAM映射 */
     s_zone_map[loop_no - 1U][dev_no] = (uint8_t)(zone_no - 1U);
 
-    /* 持久化到Flash(A/B双副本) */
-    SaveRecordToFlash();
-
-    /* 通知外部(屏幕刷新等) */
-    NotifyChanged();
+    /* 持久化并通知(批量挂起期间只置脏) */
+    PersistChanges();
 
     DebugPrintf("[FIREZONE] device L%u-%u -> zone %u\r\n",
                 (unsigned int)loop_no, (unsigned int)dev_no, (unsigned int)zone_no);
@@ -529,11 +721,223 @@ uint8_t FireZone_SetZoneName(uint8_t zone_no, const char *name)
     strncpy(s_zone_name[zone_no - 1U], name, FIRE_ZONE_NAME_LEN - 1U);
     s_zone_name[zone_no - 1U][FIRE_ZONE_NAME_LEN - 1U] = '\0';
 
-    /* 持久化到Flash(A/B双副本) */
-    SaveRecordToFlash();
-
-    /* 通知外部(屏幕刷新等) */
-    NotifyChanged();
+    /* 持久化并通知(批量挂起期间只置脏) */
+    PersistChanges();
 
     return 0;  /* 设置成功 */
+}
+
+/*--------------------------------------------------------------
+ * 第七部分：API实现 - 分区启用状态(V2新增)
+ *--------------------------------------------------------------*/
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_GetZoneEnabled
+ * 功能描述：查询分区启用状态
+ *           V2.2脉络: 启用状态仅存储与显示, 不参与联动求值
+ * 输入参数：zone_no - 分区号(1-8)
+ * 返回值   ：1=启用, 0=停用; 参数非法返回1(默认启用)
+ *--------------------------------------------------------------*/
+uint8_t FireZone_GetZoneEnabled(uint8_t zone_no)
+{
+    /* 参数非法按启用处理, 避免误停 */
+    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX)
+    {
+        return 1;
+    }
+
+    return (s_zone_enabled[zone_no - 1U] != 0U) ? 1U : 0U;
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_SetZoneEnabled
+ * 功能描述：设置分区启用状态(非0视为启用)
+ *           状态无变化时不擦写Flash(延长Flash寿命)
+ * 输入参数：zone_no - 分区号(1-8), on - 1=启用 0=停用
+ *--------------------------------------------------------------*/
+void FireZone_SetZoneEnabled(uint8_t zone_no, uint8_t on)
+{
+    /* 参数校验 */
+    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX)
+    {
+        return;
+    }
+
+    on = (on != 0U) ? 1U : 0U;  /* 归一化为0/1 */
+
+    /* 无变化不落盘 */
+    if (s_zone_enabled[zone_no - 1U] == on)
+    {
+        return;
+    }
+
+    s_zone_enabled[zone_no - 1U] = on;
+
+    /* 持久化并通知(批量挂起期间只置脏) */
+    PersistChanges();
+
+    DebugPrintf("[FIREZONE] zone %u enabled=%u\r\n",
+                (unsigned int)zone_no, (unsigned int)on);
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_ToggleZoneEnabled
+ * 功能描述：翻转分区启用状态(供画面启用/停用按钮调用)
+ * 输入参数：zone_no - 分区号(1-8)
+ * 返回值   ：翻转后的状态(1=启用 0=停用; 参数非法返回1且不翻转)
+ *--------------------------------------------------------------*/
+uint8_t FireZone_ToggleZoneEnabled(uint8_t zone_no)
+{
+    /* 参数校验 */
+    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX)
+    {
+        return 1;
+    }
+
+    s_zone_enabled[zone_no - 1U] ^= 1U;  /* 0/1翻转 */
+
+    /* 持久化并通知(批量挂起期间只置脏) */
+    PersistChanges();
+
+    DebugPrintf("[FIREZONE] zone %u toggle -> %u\r\n",
+                (unsigned int)zone_no, (unsigned int)s_zone_enabled[zone_no - 1U]);
+
+    return s_zone_enabled[zone_no - 1U];
+}
+
+/*--------------------------------------------------------------
+ * 第八部分：API实现 - 批量设备范围写(V2新增)
+ *--------------------------------------------------------------*/
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_BeginBatch
+ * 功能描述：挂起自动持久化(支持嵌套调用)
+ *           挂起期间所有修改只更新内存并置脏标志, 不擦写Flash
+ *--------------------------------------------------------------*/
+void FireZone_BeginBatch(void)
+{
+    s_batch_depth++;  /* 嵌套计数递增 */
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_EndBatch
+ * 功能描述：恢复自动持久化; 最外层结束时若挂起期间有改动,
+ *           统一落盘一次并通知(保证一次交互只擦写一次Flash)
+ *--------------------------------------------------------------*/
+void FireZone_EndBatch(void)
+{
+    /* 未配对调用, 防御处理 */
+    if (s_batch_depth == 0U)
+    {
+        return;
+    }
+
+    s_batch_depth--;  /* 嵌套计数递减 */
+
+    /* 最外层结束且挂起期间有改动: 统一落盘一次 */
+    if (s_batch_depth == 0U && s_batch_dirty)
+    {
+        s_batch_dirty = 0;
+        SaveRecordToFlash();
+        NotifyChanged();
+        DebugPrintf("[FIREZONE] batch end, saved\r\n");
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_SetZoneRange
+ * 功能描述：将指定回路的连续地址段划入目标分区(批量写)
+ *           独占语义: 地址映射单值, 设备写入新分区即自动移出旧分区
+ *           内部仅落盘一次(有实际变化时), 无需Begin/EndBatch配对
+ * 输入参数：zone_no - 目标分区号(1-8), loop_no - 回路号(1-4),
+ *           start/end - 设备地址段(含端点, 升序)
+ * 返回值   ：0=成功, 2=参数错误
+ *--------------------------------------------------------------*/
+uint8_t FireZone_SetZoneRange(uint8_t zone_no, uint8_t loop_no, uint8_t start, uint8_t end)
+{
+    uint16_t d;           /* 设备地址循环 */
+    uint16_t dmax;        /* 回路地址上限 */
+    uint8_t changed = 0;  /* 是否有实际变化 */
+
+    /* 分区号校验 */
+    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX)
+    {
+        return 2;
+    }
+
+    /* 回路号校验 */
+    if (loop_no < 1U || loop_no > 4U)
+    {
+        return 2;
+    }
+
+    /* 地址段校验: 回路2地址1-63, 回路1/3/4地址1-30 */
+    dmax = (loop_no == 2U) ? 63U : 30U;
+    if (start < 1U || start > end || (uint16_t)end > dmax)
+    {
+        return 2;
+    }
+
+    /* 逐地址写入目标分区(映射单值, 旧分区归属自动被覆盖) */
+    for (d = start; d <= (uint16_t)end; d++)
+    {
+        if (s_zone_map[loop_no - 1U][d] != (uint8_t)(zone_no - 1U))
+        {
+            s_zone_map[loop_no - 1U][d] = (uint8_t)(zone_no - 1U);
+            changed = 1;
+        }
+    }
+
+    /* 有实际变化才落盘(延长Flash寿命) */
+    if (changed)
+    {
+        PersistChanges();
+        DebugPrintf("[FIREZONE] zone %u <= L%u %u-%u\r\n",
+                    (unsigned int)zone_no, (unsigned int)loop_no,
+                    (unsigned int)start, (unsigned int)end);
+    }
+
+    return 0;  /* 设置成功 */
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_ClearZoneRange
+ * 功能描述：清空目标分区在指定回路的全部设备(归位分区1)
+ *           对应画面输入"00000.00000"的清空归位操作
+ * 输入参数：zone_no - 分区号(1-8), loop_no - 回路号(1-4)
+ * 返回值   ：0=成功, 2=参数错误
+ *--------------------------------------------------------------*/
+uint8_t FireZone_ClearZoneRange(uint8_t zone_no, uint8_t loop_no)
+{
+    uint16_t d;           /* 设备地址循环 */
+    uint16_t dmax;        /* 回路地址上限 */
+    uint8_t changed = 0;  /* 是否有实际变化 */
+
+    /* 参数校验 */
+    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX || loop_no < 1U || loop_no > 4U)
+    {
+        return 2;
+    }
+
+    dmax = (loop_no == 2U) ? 63U : 30U;
+
+    /* 遍历该回路, 把属于目标分区的地址归位分区1(映射值0) */
+    for (d = 1U; d <= dmax; d++)
+    {
+        if (s_zone_map[loop_no - 1U][d] == (uint8_t)(zone_no - 1U))
+        {
+            s_zone_map[loop_no - 1U][d] = 0U;
+            changed = 1;
+        }
+    }
+
+    /* 有实际变化才落盘 */
+    if (changed)
+    {
+        PersistChanges();
+        DebugPrintf("[FIREZONE] zone %u clear L%u\r\n",
+                    (unsigned int)zone_no, (unsigned int)loop_no);
+    }
+
+    return 0;  /* 清空成功 */
 }

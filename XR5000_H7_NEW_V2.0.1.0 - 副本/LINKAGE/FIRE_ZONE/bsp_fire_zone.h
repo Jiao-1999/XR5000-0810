@@ -6,6 +6,7 @@
  *              在同一分区的传感器/动作设备之间设定。
  *              - 设备分区映射: (回路号,设备地址) -> 分区号(1-8)
  *              - 分区名称: 每分区16字节GBK名称
+ *              - 分区启用状态(V2新增): 每分区启用/停用存储与显示
  *              - Flash持久化: W25Qxx 0x084000扇区, A/B双副本
  *              - 出厂默认: 仅分区1, 全部设备属于分区1
  *
@@ -32,7 +33,7 @@
 #define FIRE_ZONE_FLASH_COPY_A FIRE_ZONE_FLASH_ADDR             /* 副本A地址(扇区前半) */
 #define FIRE_ZONE_FLASH_COPY_B (FIRE_ZONE_FLASH_ADDR + 0x800U)  /* 副本B地址(扇区后半) */
 #define FIRE_ZONE_MAGIC        0x46525A31U  /* Flash存储魔数 "FRZ1" */
-#define FIRE_ZONE_VERSION      0x01U        /* 存储格式版本号(结构变更时递增,加载时校验) */
+#define FIRE_ZONE_VERSION      0x03U        /* 存储格式版本号(V3:追加槽位显示文本;加载兼容V1/V2) */
 
 /* 设备标识与地址范围约定(与联动规则校验保持一致):
  *   回路2(MBus控制回路): 设备地址1-63
@@ -78,5 +79,43 @@ uint8_t FireZone_GetZoneDeviceAt(uint8_t zone_no, uint8_t index, uint8_t *loop_n
 uint8_t     FireZone_GetZoneCount(void);                            /* 当前分区总数(非空最高分区号, 至少1) */
 const char* FireZone_GetZoneName(uint8_t zone_no);                  /* 获取分区名称GBK串(参数非法返回空串) */
 uint8_t     FireZone_SetZoneName(uint8_t zone_no, const char *name); /* 设置分区名称(GBK, 超15字节截断, 设置后立即持久化) */
+
+/*--------------------------------------------------------------
+ * 7. API声明 - 分区启用状态(V2新增)
+ *    说明: 启用状态仅存储与显示, 不参与联动求值;
+ *    加载V1旧记录时按默认(全部不启用)补0兼容处理
+ *--------------------------------------------------------------*/
+
+uint8_t FireZone_GetZoneEnabled(uint8_t zone_no);             /* 查询分区启用状态(1=启用 0=停用, 参数非法返回1) */
+void    FireZone_SetZoneEnabled(uint8_t zone_no, uint8_t on); /* 设置分区启用状态(非0视为启用, 设置后持久化) */
+uint8_t FireZone_ToggleZoneEnabled(uint8_t zone_no);          /* 翻转分区启用状态(返回翻转后的状态) */
+
+/*--------------------------------------------------------------
+ * 8. API声明 - 批量设备范围写(V2新增)
+ *    说明: 一次用户输入=一次Flash擦写; 单次范围写内部已保证
+ *    只落盘一次, 常规用法无需配对调用Begin/EndBatch
+ *    返回值约定：0=成功, 2=参数错误
+ *--------------------------------------------------------------*/
+
+void    FireZone_BeginBatch(void);   /* 挂起自动持久化(可嵌套) */
+void    FireZone_EndBatch(void);     /* 恢复自动持久化(挂起期有改动则统一落盘) */
+
+/*--------------------------------------------------------------
+ * 9. API声明 - 槽位显示文本持久化(V3新增)
+ *    设备范围栏"只以屏输入为准": 输入生成的规范化显示文本
+ *    随分区表一并存Flash, 上电自动恢复显示(免重设)。
+ *    slot: 0~5对应屏幕6类设备栏, text为GBK显示串(<=11字节)。
+ *--------------------------------------------------------------*/
+uint8_t FireZone_SetSlotDisp(uint8_t zone_no, uint8_t slot, const char *text);
+void    FireZone_GetSlotDisp(uint8_t zone_no, uint8_t slot, char *out);
+
+/*--------------------------------------------------------------
+ * 10. API声明 - 出厂复位(V3新增)
+ *    清空全部分区数据(映射/名称/启用状态/显示文本),
+ *    恢复出厂默认并立即写Flash。用于调试或强制初始化。
+ *--------------------------------------------------------------*/
+void FireZone_ResetAll(void);
+uint8_t FireZone_SetZoneRange(uint8_t zone_no, uint8_t loop_no, uint8_t start, uint8_t end); /* 将回路地址段划入分区(独占语义,一次落盘) */
+uint8_t FireZone_ClearZoneRange(uint8_t zone_no, uint8_t loop_no); /* 清空分区在指定回路的设备(归位分区1) */
 
 #endif /* __BSP_FIRE_ZONE_H */

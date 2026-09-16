@@ -531,10 +531,11 @@ uint8_t LogicRule_SaveAll(void)
 
     /* 写入前先擦除Flash，因为Flash物理特性决定必须先擦后写 */
     /* 规则区占3个扇区：138字节*64=8832 > 8192(2扇区)，需3个4KB扇区 */
-    W25QXX_Erase_Sector(LOGIC_FLASH_RULES_ADDR);          /* 擦除规则存储扇区1 */
-    W25QXX_Erase_Sector(LOGIC_FLASH_RULES_ADDR + 0x1000); /* 擦除规则存储扇区2 */
-    W25QXX_Erase_Sector(LOGIC_FLASH_RULES_ADDR + 0x2000); /* 擦除规则存储扇区3 */
-    W25QXX_Erase_Sector(LOGIC_FLASH_META_ADDR);           /* 擦除元数据存储扇区 */
+    /* 注意: 驱动W25QXX_Erase_Sector入参为扇区号(内部x4096), 须传字节地址/4096 */
+    W25QXX_Erase_Sector(LOGIC_FLASH_RULES_ADDR / 4096U);             /* 擦除规则存储扇区1 */
+    W25QXX_Erase_Sector((LOGIC_FLASH_RULES_ADDR + 0x1000U) / 4096U); /* 擦除规则存储扇区2 */
+    W25QXX_Erase_Sector((LOGIC_FLASH_RULES_ADDR + 0x2000U) / 4096U); /* 擦除规则存储扇区3 */
+    W25QXX_Erase_Sector(LOGIC_FLASH_META_ADDR / 4096U);              /* 擦除元数据存储扇区 */
 
     /* 写入所有有效规则到Flash */
     write_offset = 0;  /* 写入偏移从0开始 */

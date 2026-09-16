@@ -54,6 +54,7 @@
 #include "bsp_logic_engine.h"  /* Logic module: linkage engine state machine */
 #include "bsp_logic_screen.h"  /* Logic module: screen edit/view UI */
 #include "bsp_fire_zone.h"   /* Fire zone: device fire-zone partition map */
+#include "bsp_fire_zone_screen.h"  /* 防火分区画面UI层: 输入处理与差分刷新 */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -167,9 +168,12 @@ int main(void)
 	/* Linkage logic init: expr(Flash rules) -> dev(register callbacks) -> engine(runtime) -> screen(UI state) */
 	/* 防火分区初始化: 从Flash加载设备分区表(失败回默认:全部设备在分区1) */
 	FireZone_Init();
+	FireZone_SetChangedCallback(FireZoneScreen_OnZoneChanged); /* 分区数据变更通知屏幕层置脏 */
+	/* 一次性清空全部分区信息(RAM+Flash), 烧录运行一次后注释掉本行 */
+	//FireZone_ResetAll();
 	LogicExpr_Init();
 	/* 一次性清空联动规则(RAM+Flash), 烧录运行一次后注释掉本行 */
-	// LogicRule_WipeAllPersistent();
+	//LogicRule_WipeAllPersistent();
 	LogicDev_Register();
 	LogicEngine_Init();
 	LogicScreen_Init();
