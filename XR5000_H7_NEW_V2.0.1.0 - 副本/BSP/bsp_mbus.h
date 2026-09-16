@@ -8,8 +8,12 @@
 
 #define MIXTURE_DEVICE_SUM 201
 #define MIXTURE_DEVICE_MAX_ADDR 100
+#define MBUS1_ISOLATOR_MIN_ADDR 101U
+#define MBUS1_ISOLATOR_MAX_ADDR 110U
+#define MBUS1_ISOLATOR_COUNT (MBUS1_ISOLATOR_MAX_ADDR - MBUS1_ISOLATOR_MIN_ADDR + 1U)
+#define MBUS1_DEVICE_MAX_ADDR MBUS1_ISOLATOR_MAX_ADDR
 #define MIXTURE_DEVICE_FLASH_ADDR 0x111000UL
-#define MIXTURE_DEVICE_FLASH_DATA_LEN (MIXTURE_DEVICE_MAX_ADDR + 1U)
+#define MIXTURE_DEVICE_FLASH_DATA_LEN (MBUS1_DEVICE_MAX_ADDR + 1U)
 #define MIXTURE_DEVICE_DISCONNECT_SUM 3
 #define MIXTURE_DEVICE_RECOVERY_SUM 2U
 #define MIXTURE_DEVICE_RESPONSE_TIMEOUT_MS 120U
@@ -81,6 +85,8 @@ uint8_t getPointTypeMixtureReceiveState(ePointTypeDataOrder detect_data_type, ui
 uint8_t getPointTypeMixtureDetectName(uint8_t detect_id);
 uint16_t MBus1_GetNationalTypeCode(uint8_t addr); /* 获取设备实际返回并保存的0x000D国标类型码 */
 uint16_t MBus1_GetProductCode(uint8_t addr); /* 获取设备实际返回并保存的0x000E内部产品码 */
+uint8_t MBus1_IsShortCircuitIsolator(uint8_t addr);
+uint8_t MBus1_GetIsolatorShortMask(uint8_t addr);
 // 获取探测器监测类型
 uint8_t getPointTypeMixtureDetectType(uint8_t detect_id);
 // 获取探测器上线状态

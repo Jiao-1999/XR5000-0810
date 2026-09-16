@@ -195,7 +195,7 @@ int main(void)
 	// 修改为串口空闲中断加DMA搬运
 	
 //	HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uartbuff[0].recepetion_buff, BUFF_MAX); /* FECbus 双串口改造: USART1 改用 IT 中断接收, 不再用 DMA 方式 20260818 */
-	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, uartbuff[1].recepetion_buff, BUFF_MAX);
+	(void)MBus2UartEnsureRx();
 // HAL_UARTEx_ReceiveToIdle_DMA(&huart3, uartbuff[2].recepetion_buff, BUFF_MAX); /* XR5000_FECBUS_TEST: 停USART3 DMA接收, FECbus接管 */
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart4, uartbuff[3].recepetion_buff, BUFF_MAX);
 	(void)RS485DetectUartEnsureRx();
