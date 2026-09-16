@@ -9,6 +9,7 @@
 
 #include "bsp_logic_set.h"
 #include "bsp_logic_screen.h" /* 联动逻辑界面显示/编辑功能 */
+#include "bsp_fire_zone_screen.h" /* 防火分区画面显示/翻页 */
 
 #include "bsp_debug.h"
 
@@ -3897,6 +3898,7 @@ void UpdateUI(void)
 	
 	FireAlarmTriggerLogicUpdataUI(current_screen_id, fire_alarm_logic_ctrl, fire_alarm_judge);
 	LogicScreen_UpdateUI(current_screen_id); /* 刷新逻辑屏幕当前画面 */
+ FireZoneScreen_UpdateUI(current_screen_id); /* 防火分区画面显示刷新 */
 	
 	FireAlarmThresholdUpdataUI(current_screen_id, fire_alarm_threshold);
 	/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
@@ -4779,6 +4781,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	InternalLinkageMonitorButtonDeal(screen_id, control_id, state);
 	FireAlarmTriggerLogicButtonSet(screen_id, control_id, state, &fire_alarm_logic_ctrl);
 	LogicScreen_OnButton(screen_id, control_id, state); /* 逻辑屏幕按钮处理 */
+ FireZoneScreen_OnButton(screen_id, control_id, state); /* 防火分区画面按钮处理 */
 	SuperAdminButtonCtrl(screen_id, control_id, state, &button_ctrl);
 	SuperAdminPasswordButtonCtrl(screen_id, control_id, state, &super_admin_password);
 	
@@ -5424,7 +5427,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					HmiOpenProtectedPage(ACCESS_LEVEL_III, 43U);
 					break;
 				case 1:
-					HmiOpenProtectedPage(ACCESS_LEVEL_III, 80U);
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 84U);
 					break;
 				case 2: /* 新加功能：画面68菜单19第3项跳转联动规则列表(画面45)；时间：2026-09-10 */
 					bsp_screen_switch_ctrl.target_screen = 45U;

@@ -53,6 +53,7 @@
 #include "bsp_logic_dev.h"     /* Logic module: device abstraction layer */
 #include "bsp_logic_engine.h"  /* Logic module: linkage engine state machine */
 #include "bsp_logic_screen.h"  /* Logic module: screen edit/view UI */
+#include "bsp_fire_zone.h"   /* Fire zone: device fire-zone partition map */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -164,6 +165,8 @@ int main(void)
 	InternalSwitchInterfaceCtrlInit();
 	LinkageDeviceStateInit();
 	/* Linkage logic init: expr(Flash rules) -> dev(register callbacks) -> engine(runtime) -> screen(UI state) */
+	/* 防火分区初始化: 从Flash加载设备分区表(失败回默认:全部设备在分区1) */
+	FireZone_Init();
 	LogicExpr_Init();
 	/* 一次性清空联动规则(RAM+Flash), 烧录运行一次后注释掉本行 */
 	// LogicRule_WipeAllPersistent();

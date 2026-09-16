@@ -339,7 +339,7 @@
               <MiscControls>--locale=english</MiscControls>
               <Define>USE_PWR_LDO_SUPPLY,USE_HAL_DRIVER,STM32H723xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../HMI_DRIVE;../BSP;../FECbus;../LINKAGE;../STORAGE</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../HMI_DRIVE;../BSP;../FECbus;../LINKAGE;../LINKAGE/FIRE_ZONE;../STORAGE</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1203,6 +1203,16 @@
               <FileName>bsp_logic_screen.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\LINKAGE\bsp_logic_screen.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_fire_zone.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\LINKAGE\FIRE_ZONE\bsp_fire_zone.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_fire_zone_screen.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\LINKAGE\FIRE_ZONE\bsp_fire_zone_screen.c</FilePath>
             </File>
             <File>
               <FileName>bsp_storage_test.c</FileName>
