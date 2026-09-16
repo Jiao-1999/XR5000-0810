@@ -238,11 +238,11 @@
 //创建画面故障筛选界面的命令索引ID
 #define  _SCREEN_故障筛选界面                                                       79
 
-//创建画面防火分区的命令索引ID
-#define  _SCREEN_防火分区                                                         80
+//创建画面备用0的命令索引ID
+#define  _SCREEN_备用0                                                          80
 
-//创建画面设备测试的命令索引ID
-#define  _SCREEN_设备测试                                                         81
+//创建画面备用1的命令索引ID
+#define  _SCREEN_备用1                                                          81
 
 //创建画面设备中文命名的命令索引ID
 #define  _SCREEN_设备中文命名                                                       82
@@ -250,8 +250,8 @@
 //创建画面密码设置界面的命令索引ID
 #define  _SCREEN_密码设置界面                                                       83
 
-//创建画面Screen0的命令索引ID
-#define  _SCREEN_SCREEN0                                                      84
+//创建画面防火分区的命令索引ID
+#define  _SCREEN_防火分区                                                         84
 
 //创建画面Screen1的命令索引ID
 #define  _SCREEN_SCREEN1                                                      85
@@ -10353,120 +10353,6 @@
 
 #define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY48                                      61
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY1                                          1
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY2                                          2
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY3                                          3
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY4                                          4
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY5                                          5
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY6                                          6
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY7                                          7
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY8                                          8
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY9                                          9
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY10                                        10
-
-#define  _BTN_防火分区_BUTTON4                                                    22
-
-#define  _BTN_防火分区_BUTTON5                                                    23
-
-#define  _BTN_防火分区_BUTTON6                                                    19
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY11                                        11
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY12                                        12
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY13                                        13
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY14                                        14
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY15                                        15
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY16                                        16
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY17                                        17
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY18                                        18
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY19                                        28
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY20                                        31
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY21                                        32
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY22                                        33
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY23                                        34
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY24                                        35
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY25                                        36
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY26                                        37
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY27                                        38
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY28                                        39
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY29                                        40
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY30                                        41
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY31                                        42
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY32                                        43
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY33                                        44
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY34                                        45
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY35                                        46
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY36                                        47
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY37                                        48
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY38                                        49
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY39                                        50
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY40                                        51
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY41                                        52
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY42                                        53
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY43                                        54
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY44                                        55
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY45                                        56
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY46                                        57
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY47                                        58
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY48                                        59
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY49                                        60
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY50                                        61
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY51                                        62
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY52                                        63
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY53                                        64
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY54                                        65
-
 #define  _TXT_DIS__设备中文命名_TEXT_DISPLAY1                                        1
 
 #define  _TXT_DIS__设备中文命名_TEXT_DISPLAY2                                        2
@@ -10588,6 +10474,92 @@
 #define  _TXT_DIS__密码设置界面_TEXT_DISPLAY23                                      29
 
 #define  _TXT_DIS__密码设置界面_TEXT_DISPLAY24                                      30
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY24                                         3
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY32                                         4
+
+#define  _BTN_防火分区_BUTTON2                                                   106
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY1                                        101
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY11                                         5
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY8                                         26
+
+#define  _BTN_防火分区_BUTTON4                                                   264
+
+#define  _BTN_防火分区_BUTTON5                                                   265
+
+#define  _BTN_防火分区_BUTTON6                                                   266
+
+#define  _BTN_防火分区_BUTTON1                                                   105
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY2                                          9
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY3                                         14
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY5                                         22
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY7                                         18
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY4                                          1
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY6                                        102
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY9                                          6
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY10                                        27
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY12                                        10
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY13                                        15
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY14                                        23
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY15                                        19
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY16                                         2
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY17                                       103
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY18                                         7
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY19                                        28
+
+#define  _BTN_防火分区_BUTTON3                                                   107
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY20                                        11
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY21                                        16
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY22                                        24
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY23                                        20
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY25                                       104
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY26                                         8
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY27                                        29
+
+#define  _BTN_防火分区_BUTTON7                                                   108
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY28                                        12
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY29                                        17
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY30                                        25
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY31                                        21
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY33                                       111
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY34                                       112
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY35                                       113
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY36                                       114
 
 #define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY1                                    300
 
@@ -10748,4 +10720,69 @@
 #define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY26                                     24
 
 #define  _BTN_按设备类型查看_BUTTON5                                                 25
+
+//画面设备自动登记的背景图片
+#define  _IMG_设备自动登记                                                           8
+
+#define  _BTN_设备自动登记_BUTTON11                                                 42
+
+#define  _BTN_设备自动登记_BUTTON36                                                 45
+
+#define  _BTN_设备自动登记_BUTTON37                                                 55
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY1                                       57
+
+#define  _BTN_设备自动登记_BUTTON38                                                 60
+
+#define  _BTN_设备自动登记_BUTTON1                                                   5
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY3                                        6
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY4                                        7
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY5                                        8
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY6                                        9
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY7                                       10
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY8                                       11
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY9                                       12
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY10                                      13
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY11                                      14
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY12                                      15
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY13                                      16
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY14                                      17
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY15                                      18
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY16                                      19
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY17                                      20
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY18                                      21
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY19                                      22
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY20                                      24
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY21                                      25
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY22                                      26
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY23                                      27
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY24                                      28
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY25                                      29
+
+#define  _TXT_DIS__设备自动登记_TEXT_DISPLAY26                                      30
+
+#define  _MENU_设备自动登记_MENU1                                                   77
 
