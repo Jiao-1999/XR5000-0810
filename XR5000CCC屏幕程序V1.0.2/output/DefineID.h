@@ -10475,6 +10475,10 @@
 
 #define  _TXT_DIS__密码设置界面_TEXT_DISPLAY24                                      30
 
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY34                                       112
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY33                                       111
+
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY24                                         3
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY32                                         4
@@ -10552,10 +10556,6 @@
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY30                                        25
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY31                                        21
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY33                                       111
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY34                                       112
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY35                                       113
 
