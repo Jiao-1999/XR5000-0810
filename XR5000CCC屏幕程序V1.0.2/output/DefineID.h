@@ -238,8 +238,8 @@
 //创建画面故障筛选界面的命令索引ID
 #define  _SCREEN_故障筛选界面                                                       79
 
-//创建画面废弃的命令索引ID
-#define  _SCREEN_废弃                                                           80
+//创建画面防火分区的命令索引ID
+#define  _SCREEN_防火分区                                                         80
 
 //创建画面设备测试的命令索引ID
 #define  _SCREEN_设备测试                                                         81
@@ -250,8 +250,8 @@
 //创建画面密码设置界面的命令索引ID
 #define  _SCREEN_密码设置界面                                                       83
 
-//创建画面防火分区的命令索引ID
-#define  _SCREEN_防火分区                                                         84
+//创建画面Screen0的命令索引ID
+#define  _SCREEN_SCREEN0                                                      84
 
 //创建画面Screen1的命令索引ID
 #define  _SCREEN_SCREEN1                                                      85
@@ -267,6 +267,18 @@
 
 //创建画面Screen5的命令索引ID
 #define  _SCREEN_SCREEN5                                                      89
+
+//创建画面网络通信参数界面的命令索引ID
+#define  _SCREEN_网络通信参数界面                                                     90
+
+//创建画面按回路地址查询的命令索引ID
+#define  _SCREEN_按回路地址查询                                                      91
+
+//创建画面按设备类型查看的命令索引ID
+#define  _SCREEN_按设备类型查看                                                      92
+
+//创建画面设备自动登记的命令索引ID
+#define  _SCREEN_设备自动登记                                                       93
 
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
@@ -8212,6 +8224,8 @@
 
 #define  _BTN_按键巡检界面_BUTTON2                                                   3
 
+#define  _TXT_DIS__二级密码界面_TEXT_DISPLAY2                                        5
+
 #define  _TXT_DIS__二级密码界面_TEXT_DISPLAY1                                        2
 
 #define  _BTN_二级密码界面_BUTTON2                                                   3
@@ -10339,119 +10353,119 @@
 
 #define  _TXT_DIS__故障筛选界面_TEXT_DISPLAY48                                      61
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY1                                            1
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY1                                          1
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY2                                            2
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY2                                          2
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY3                                            3
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY3                                          3
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY4                                            4
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY4                                          4
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY5                                            5
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY5                                          5
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY6                                            6
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY6                                          6
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY7                                            7
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY7                                          7
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY8                                            8
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY8                                          8
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY9                                            9
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY9                                          9
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY10                                          10
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY10                                        10
 
-#define  _BTN_废弃_BUTTON4                                                      22
+#define  _BTN_防火分区_BUTTON4                                                    22
 
-#define  _BTN_废弃_BUTTON5                                                      23
+#define  _BTN_防火分区_BUTTON5                                                    23
 
-#define  _BTN_废弃_BUTTON6                                                      19
+#define  _BTN_防火分区_BUTTON6                                                    19
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY11                                          11
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY11                                        11
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY12                                          12
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY12                                        12
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY13                                          13
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY13                                        13
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY14                                          14
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY14                                        14
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY15                                          15
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY15                                        15
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY16                                          16
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY16                                        16
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY17                                          17
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY17                                        17
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY18                                          18
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY18                                        18
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY19                                          28
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY19                                        28
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY20                                          31
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY20                                        31
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY21                                          32
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY21                                        32
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY22                                          33
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY22                                        33
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY23                                          34
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY23                                        34
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY24                                          35
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY24                                        35
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY25                                          36
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY25                                        36
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY26                                          37
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY26                                        37
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY27                                          38
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY27                                        38
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY28                                          39
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY28                                        39
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY29                                          40
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY29                                        40
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY30                                          41
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY30                                        41
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY31                                          42
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY31                                        42
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY32                                          43
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY32                                        43
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY33                                          44
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY33                                        44
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY34                                          45
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY34                                        45
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY35                                          46
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY35                                        46
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY36                                          47
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY36                                        47
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY37                                          48
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY37                                        48
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY38                                          49
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY38                                        49
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY39                                          50
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY39                                        50
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY40                                          51
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY40                                        51
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY41                                          52
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY41                                        52
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY42                                          53
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY42                                        53
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY43                                          54
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY43                                        54
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY44                                          55
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY44                                        55
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY45                                          56
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY45                                        56
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY46                                          57
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY46                                        57
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY47                                          58
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY47                                        58
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY48                                          59
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY48                                        59
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY49                                          60
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY49                                        60
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY50                                          61
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY50                                        61
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY51                                          62
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY51                                        62
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY52                                          63
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY52                                        63
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY53                                          64
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY53                                        64
 
-#define  _TXT_DIS__废弃_TEXT_DISPLAY54                                          65
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY54                                        65
 
 #define  _TXT_DIS__设备中文命名_TEXT_DISPLAY1                                        1
 
@@ -10575,89 +10589,163 @@
 
 #define  _TXT_DIS__密码设置界面_TEXT_DISPLAY24                                      30
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY24                                         3
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY1                                    300
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY32                                         4
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY2                                      1
 
-#define  _BTN_防火分区_BUTTON2                                                   106
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY3                                      2
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY1                                        101
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY4                                      3
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY11                                         5
+#define  _BTN_网络通信参数界面_BUTTON1                                                 4
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY8                                         26
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY5                                      5
 
-#define  _BTN_防火分区_BUTTON4                                                   264
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY6                                      6
 
-#define  _BTN_防火分区_BUTTON5                                                   265
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY7                                      7
 
-#define  _BTN_防火分区_BUTTON6                                                   266
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY8                                      8
 
-#define  _BTN_防火分区_BUTTON1                                                   105
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY9                                      9
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY2                                          9
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY10                                    10
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY3                                         14
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY11                                    11
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY5                                         22
+#define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY12                                    12
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY7                                         18
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY2                                       1
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY4                                          1
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY3                                       2
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY6                                        102
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY4                                       3
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY9                                          6
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY5                                       4
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY10                                        27
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY6                                       5
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY12                                        10
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY7                                       6
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY13                                        15
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY8                                       7
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY14                                        23
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY9                                       8
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY15                                        19
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY10                                      9
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY16                                         2
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY11                                     10
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY17                                       103
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY12                                    500
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY18                                         7
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY13                                    501
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY19                                        28
+#define  _BTN_按回路地址查询_BUTTON1                                                300
 
-#define  _BTN_防火分区_BUTTON3                                                   107
+#define  _BTN_按回路地址查询_BUTTON2                                                301
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY20                                        11
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY15                                    502
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY21                                        16
+#define  _BTN_按回路地址查询_BUTTON3                                                302
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY22                                        24
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY16                                     11
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY23                                        20
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY17                                     12
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY25                                       104
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY18                                     13
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY26                                         8
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY19                                     14
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY27                                        29
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY20                                     15
 
-#define  _BTN_防火分区_BUTTON7                                                   108
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY21                                     16
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY28                                        12
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY22                                     17
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY29                                        17
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY23                                     18
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY30                                        25
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY24                                     19
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY31                                        21
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY25                                     20
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY33                                       111
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY1                                      21
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY34                                       112
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY14                                     22
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY35                                       113
+#define  _BTN_按回路地址查询_BUTTON4                                                 23
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY36                                       114
+#define  _MENU_按回路地址查询_MENU1                                                 350
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY26                                    203
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY28                                     24
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY27                                    204
+
+#define  _TXT_DIS__按回路地址查询_TEXT_DISPLAY29                                     25
+
+#define  _BTN_按回路地址查询_BUTTON5                                                 26
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY2                                       1
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY3                                       2
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY4                                       3
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY5                                       4
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY6                                       5
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY7                                       6
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY8                                       7
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY9                                       8
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY10                                      9
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY11                                     10
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY12                                    500
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY13                                    501
+
+#define  _BTN_按设备类型查看_BUTTON1                                                300
+
+#define  _BTN_按设备类型查看_BUTTON2                                                301
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY15                                    502
+
+#define  _BTN_按设备类型查看_BUTTON3                                                302
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY16                                     11
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY17                                     12
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY18                                     13
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY19                                     14
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY20                                     15
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY21                                     16
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY22                                     17
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY23                                     18
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY24                                     19
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY25                                     20
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY1                                      21
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY14                                     22
+
+#define  _BTN_按设备类型查看_BUTTON4                                                 23
+
+#define  _MENU_按设备类型查看_MENU1                                                 350
+
+#define  _TXT_DIS__按设备类型查看_TEXT_DISPLAY26                                     24
+
+#define  _BTN_按设备类型查看_BUTTON5                                                 25
 
