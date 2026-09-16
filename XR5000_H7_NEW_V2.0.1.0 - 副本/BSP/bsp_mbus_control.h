@@ -49,6 +49,17 @@ typedef enum {
     MBUS_CONTROL_DEV_FCM1011 = 6,
 } MBusCtrlDevType;
 
+/* FCM-1011输入触点经上线学习和运行消抖后的查询状态。 */
+typedef enum {
+    MBUS_FCM_INPUT_IDENTIFYING = 0,
+    MBUS_FCM_INPUT_UNSTABLE,
+    MBUS_FCM_INPUT_NC_NORMAL,
+    MBUS_FCM_INPUT_NC_FEEDBACK,
+    MBUS_FCM_INPUT_NO_NORMAL,
+    MBUS_FCM_INPUT_NO_FEEDBACK,
+    MBUS_FCM_INPUT_ABNORMAL
+} MBusFcmInputMonitorState;
+
 /* 当前XR-SGBJQ协议把声音和灯光作为一个整体线圈控制。 */
 #define MBUS_OUTPUT_SOUND             DEVICE_OUTPUT_1
 #define MBUS_OUTPUT_LIGHT             DEVICE_OUTPUT_2
@@ -135,6 +146,8 @@ uint8_t MBusCtrl_GetAlarmCount(void);                /* 回路2报警设备总数 */
 const char* MBusCtrl_GetDeviceName(uint8_t addr);    /* 根据地址获取设备名称(中文) */
 uint8_t MBusCtrl_GetDeviceState(uint8_t addr);       /* 获取设备传感器状态值 */
 uint8_t MBusCtrl_GetInputChannelState(uint8_t addr, uint8_t channel, uint8_t *state);
+uint8_t MBusCtrl_GetInputMonitorState(uint8_t addr, uint8_t channel);
+uint8_t MBusCtrl_IsInputFeedbackActive(uint8_t addr, uint8_t channel);
 uint8_t MBusCtrl_GetOutputChannelState(uint8_t addr, uint8_t channel, uint8_t *state);
 uint8_t MBusCtrl_IsModuleStarted(uint8_t addr);
 void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state);       /* 注入传感器状态(测试用) */
@@ -149,6 +162,8 @@ uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detect
 /* ---- 通用异步控制 ---- */
 MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request); /* 唯一正式控制入口：只入队，不阻塞等待设备 */
 MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr);                 /* 查询指定地址最近一次控制执行状态 */
+/* 回路1/3固定温烟火警汇总；火警期间声光强制启动，恢复后回到逻辑编程目标。 */
+void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active);
 
 /* ---- Flash持久化 ---- */
 void MBusCtrl_SaveOnlineState(void);                 /* 将在线状态表保存到Flash(0x110000) */

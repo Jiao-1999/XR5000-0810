@@ -65,9 +65,13 @@ typedef enum
 	LED_ON = 1,
 }LED_STATE;
 
+/* 系统反馈灯按业务来源汇总，任一来源有效即点亮。 */
+#define SYSTEM_FEEDBACK_SOURCE_FCM1011  (1UL << 0)
+
 extern void StartupLinkageDevice(void);
 
 void SysStartStateLedCtrl(LED_STATE state);
+void SysFeedbackLedSourceCtrl(uint32_t source_mask, LED_STATE state);
 
 // 系统主面板报警器故障LED控制
 void SysSirenStartLedCtrl(LED_STATE state);
