@@ -1055,6 +1055,11 @@
               <FilePath>..\BSP\bsp_device_registry.c</FilePath>
             </File>
             <File>
+              <FileName>bsp_device_registration.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_device_registration.c</FilePath>
+            </File>
+            <File>
               <FileName>bsp_device_threshold.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\bsp_device_threshold.c</FilePath>

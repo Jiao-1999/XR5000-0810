@@ -33,7 +33,7 @@
 #define getSystemFaultState() (system_fault_state  ? 1 : 0)
 #define getInitiationState()  (sys_start_state     ? 1 : 0)
 #define getStartDelayState()  (start_delay_state   ? 1 : 0)
-#define getFeedbackedState()  (feedbacked_state    ? 1 : 0)
+#define getFeedbackedState()  ((feedbacked_state || system_feedback_source_mask) ? 1 : 0)
 #define getRegulAlarmState()  (regul_alarm_state   ? 1 : 0)
 #define getShieldingState()   (shielding_state     ? 1 : 0)
 #define getSirenStartState()  (siren_start_state   ? 1 : 0)
@@ -154,6 +154,7 @@ uint8_t system_fault_state  = 0; // ????????
 uint8_t sys_start_state = 0; // ??????
 uint8_t start_delay_state   = 0; // ?????????
 uint8_t feedbacked_state    = 0; // ??????
+static uint32_t system_feedback_source_mask = 0U;
 uint8_t regul_alarm_state   = 0; // ????????
 uint8_t shielding_state     = 0; // ??????
 uint8_t siren_start_state   = 0; // ????????????
@@ -200,6 +201,7 @@ void LedStateInit(void)
 	sys_start_state     = 0; // ??????
 	start_delay_state   = 0; // ?????????
 	feedbacked_state    = 0; // ??????
+	system_feedback_source_mask = 0U;
 	regul_alarm_state   = 0; // ????????
 	shielding_state     = 0; // ??????
 	siren_start_state   = 0; // ????????????
@@ -249,6 +251,15 @@ void SysSirenFaultLedCtrl(LED_STATE state)
 void SysStartStateLedCtrl(LED_STATE state)
 {
 	sys_start_state = state;
+}
+
+/* 只更新指定来源，避免一个业务恢复时误熄灭其他反馈来源。 */
+void SysFeedbackLedSourceCtrl(uint32_t source_mask, LED_STATE state)
+{
+	if(state == LED_ON)
+		system_feedback_source_mask |= source_mask;
+	else
+		system_feedback_source_mask &= ~source_mask;
 }
 
 // ????1
