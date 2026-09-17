@@ -31,8 +31,10 @@
 #include "bsp_history_filter.h"
 #include "bsp_mbus_control.h"
 #include "bsp_device_registry.h"
+#include "bsp_device_registration.h"
 #include "bsp_device_alias.h"
 #include "bsp_device_threshold.h"
+#include "bsp_device_disable.h"
 #include "bsp_aht20.h"
 #include "bsp_access_control.h"
 
@@ -1319,6 +1321,7 @@ static void RS485Loop3ClearCurrentState(uint8_t addr);
 static void Loop1ClearCurrentState(uint8_t addr);
 static void Loop1ClearIsolatorState(uint8_t addr);
 static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
+static uint8_t HasUnshieldedDetectorFireAlarm(void);
 static void PointTypeDetectorOnlineButtonCtrl(uint16_t ctrl_id, uint8_t state);
 
 //uint8_t license_allow_use_state = 0; // 默认禁用
@@ -1367,6 +1370,16 @@ static uint8_t g_screen69_page = 0;
 static uint8_t g_screen69_force_redraw = 0;
 static uint8_t g_screen69_transition_pending = 0;
 static uint8_t screen69_circuit = 1; /* XR5000_SCREEN69_NAVIGATION_FIX_20260729: fixed circuit snapshot for one detail session. */
+static uint8_t g_registration_selected_mask = DEVICE_REG_ALL_MASK;
+static uint8_t g_registration_detail_mask = DEVICE_REG_ALL_MASK;
+static uint8_t g_registration_detail_mode = 0U;
+static uint8_t g_registration_clear_armed = 0U;
+static uint32_t g_registration_clear_tick = 0U;
+static DeviceRegEntry g_registration_detail_entries[DEVICE_REG_MAX_ENTRIES];
+static uint16_t g_registration_detail_count = 0U;
+static DeviceRegStats g_registration_display_stats[3U];
+static DeviceRegScanState g_registration_display_state = DEVICE_REG_SCAN_IDLE;
+static uint8_t g_registration_display_valid = 0U;
 #define HMI_DEVICE_QUERY_SCREEN_ADDRESS 91U
 #define HMI_DEVICE_QUERY_SCREEN_TYPE    92U
 #define HMI_DEVICE_QUERY_ROWS           20U
@@ -1742,15 +1755,30 @@ static const char* GetMBusDeviceChineseName(uint8_t addr)
 	}
 }
 
-static const char* GetFCM1011ChannelStateName(uint8_t state)
+static const char* GetFCM1011InputStateName(uint8_t addr)
+{
+	switch(MBusCtrl_GetInputMonitorState(addr, 1U))
+	{
+		case MBUS_FCM_INPUT_UNSTABLE: return "\xD7\xB4\xCC\xAC\xB2\xBB\xCE\xC8\xB6\xA8";
+		case MBUS_FCM_INPUT_NC_NORMAL: return "\xB3\xA3\xB1\xD5\xA1\xA4\xD5\xFD\xB3\xA3";
+		case MBUS_FCM_INPUT_NC_FEEDBACK: return "\xB3\xA3\xB1\xD5\xA1\xA4\xD3\xD0\xB7\xB4\xC0\xA1";
+		case MBUS_FCM_INPUT_NO_NORMAL: return "\xB3\xA3\xBF\xAA\xA1\xA4\xD5\xFD\xB3\xA3";
+		case MBUS_FCM_INPUT_NO_FEEDBACK: return "\xB3\xA3\xBF\xAA\xA1\xA4\xD3\xD0\xB7\xB4\xC0\xA1";
+		case MBUS_FCM_INPUT_ABNORMAL: return "\xD7\xB4\xCC\xAC\xD2\xEC\xB3\xA3";
+		case MBUS_FCM_INPUT_IDENTIFYING:
+		default: return "\xCA\xB6\xB1\xF0\xD6\xD0";
+	}
+}
+
+static const char* GetFCM1011OutputStateName(uint8_t state)
 {
 	switch(state)
 	{
-		case 0U: return "\xBC\xE0\xCA\xD3";
-		case 1U: return "\xC6\xF4\xB6\xAF";
+		case 0U: return "\xCE\xB4\xC6\xF4\xB6\xAF";
+		case 1U: return "\xD2\xD1\xC6\xF4\xB6\xAF";
 		case 2U: return "\xB6\xCC\xC2\xB7\xB9\xCA\xD5\xCF";
-		case 3U: return "\xB6\xCF\xC2\xB7\xB9\xCA\xD5\xCF";
-		case 4U: return "\xCC\xD8\xD5\xF7\xB5\xE7\xD7\xE8\xB2\xBB\xC6\xA5\xC5\xE4";
+		case 3U: return "\xBF\xAA\xC2\xB7\xB9\xCA\xD5\xCF";
+		case 4U: return "\xB5\xE7\xD7\xE8\xD2\xEC\xB3\xA3";
 		default: return "\xCE\xB4\xD6\xAA";
 	}
 }
@@ -2022,15 +2050,13 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 			const char *status_str;
 			if(MBusCtrl_GetDeviceType(addr) == MBUS_CONTROL_DEV_FCM1011)
 			{
-				uint8_t input_state = 0U;
 				uint8_t output_state = 0U;
-				(void)MBusCtrl_GetInputChannelState(addr, 1U, &input_state);
 				(void)MBusCtrl_GetOutputChannelState(addr, 1U, &output_state);
 				status_str = MBusCtrl_IsModuleStarted(addr) != 0U ?
-				             "\xC6\xF4\xB6\xAF" : "\xD5\xFD\xB3\xA3";
+				             "\xD2\xD1\xC6\xF4\xB6\xAF" : "\xD5\xFD\xB3\xA3";
 				n = snprintf(p, remain, "%02d%03d %s \xCA\xE4\xC8\xEB\x31\x3A%s \xCA\xE4\xB3\xF6\x31\x3A%s %s",
-				             circuit, addr, display_name, GetFCM1011ChannelStateName(input_state),
-				             GetFCM1011ChannelStateName(output_state), status_str);
+				             circuit, addr, display_name, GetFCM1011InputStateName(addr),
+				             GetFCM1011OutputStateName(output_state), status_str);
 			}
 			else
 			{
@@ -2684,7 +2710,8 @@ static AccessLevel_t HmiProtectedScreenLevel(uint16_t screen_id)
 	}
 	if(screen_id == 43U || screen_id == 70U || screen_id == 73U ||
 	   screen_id == 74U || screen_id == 75U || screen_id == 80U ||
-	   screen_id == 82U || screen_id == 83U || screen_id == 90U)
+	   screen_id == 82U || screen_id == 83U || screen_id == 90U ||
+	   screen_id == 93U)
 	{
 		return ACCESS_LEVEL_III;
 	}
@@ -2753,6 +2780,144 @@ const uint8_t point_type_detect_button_online_ctrl_val_map[] = {
 
 // static uint8_t g_screen69_page = 0;
 
+static void HmiRegistrationRefresh93(uint8_t force)
+{
+    static uint8_t rendered_clear_armed = 0U;
+    static const uint16_t control[3U][5U] = {
+        {7U, 8U, 9U, 10U, 11U},
+        {13U, 14U, 15U, 16U, 17U},
+        {19U, 20U, 21U, 22U, 24U}
+    };
+    uint8_t loop;
+    uint8_t text[80U];
+    DeviceRegScanState state;
+    if(current_screen_id != 93U) return;
+    DeviceReg_Init();
+    state = DeviceReg_GetState();
+    for(loop = DEVICE_REG_LOOP1; loop <= DEVICE_REG_LOOP3; loop++)
+    {
+        DeviceRegStats stats;
+        uint8_t index = (uint8_t)(loop - 1U);
+        DeviceReg_GetStats(loop, &stats);
+        if(force == 0U && g_registration_display_valid != 0U &&
+           memcmp(&stats, &g_registration_display_stats[index], sizeof(stats)) == 0)
+            continue;
+        g_registration_display_stats[index] = stats;
+        snprintf((char *)text, sizeof(text), "已登记:%u", stats.registered);
+        SetTextValue(93U, control[index][0], text);
+        snprintf((char *)text, sizeof(text), "本次扫描应答:%u", stats.scan_identified);
+        SetTextValue(93U, control[index][1], text);
+        snprintf((char *)text, sizeof(text), "已登记未应答:%u", stats.registered_no_response);
+        SetTextValue(93U, control[index][2], text);
+        snprintf((char *)text, sizeof(text), "未识别设备:%u", stats.unidentified);
+        SetTextValue(93U, control[index][3], text);
+        snprintf((char *)text, sizeof(text), "本次新登记:%u", stats.newly_registered);
+        SetTextValue(93U, control[index][4], text);
+        snprintf((char *)text, sizeof(text), "第%u回路登记 %u/%u", loop,
+                 stats.scanned_addresses, stats.total_addresses);
+        SetTextValue(93U, loop == 1U ? 6U : (loop == 2U ? 12U : 18U), text);
+    }
+    if(force != 0U)
+    {
+        SetTextValue(93U, 57U,
+            g_registration_selected_mask == DEVICE_REG_ALL_MASK ? "全部回路" :
+            (g_registration_selected_mask == 1U ? "回路1" :
+             (g_registration_selected_mask == 2U ? "回路2" : "回路3")));
+        for(loop = 26U; loop <= 30U; loop++) clearTextValue(93U, loop);
+    }
+    if(g_registration_clear_armed != 0U &&
+       (uint32_t)(osKernelGetTickCount() - g_registration_clear_tick) >= 3000U)
+        g_registration_clear_armed = 0U;
+    if(force != 0U || state != g_registration_display_state ||
+       rendered_clear_armed != g_registration_clear_armed ||
+       g_registration_display_valid == 0U)
+    {
+        const char *status = "登记未开始";
+        if(state == DEVICE_REG_SCAN_RUNNING) status = "登记扫描中";
+        else if(state == DEVICE_REG_SCAN_SAVING) status = "登记保存中";
+        else if(state == DEVICE_REG_SCAN_DONE) status = "登记完成";
+        else if(state == DEVICE_REG_SCAN_SAVE_ERROR) status = "登记保存失败，请重试";
+        if(g_registration_clear_armed != 0U)
+            status = "再次点击登记下线以确认";
+        SetTextValue(93U, 25U, (uint8_t *)status);
+        g_registration_display_state = state;
+        rendered_clear_armed = g_registration_clear_armed;
+    }
+    g_registration_display_valid = 1U;
+}
+
+static void HmiRegistrationRenderDetail(uint8_t force)
+{
+    static uint8_t rendered_page = 0xFFU;
+    static uint32_t rendered_revision = 0U;
+    uint16_t start, end, index;
+    uint8_t text[128U];
+    uint32_t revision;
+    if(current_screen_id != 69U || g_registration_detail_mode == 0U) return;
+    revision = DeviceReg_GetRevision();
+    if(force == 0U && rendered_page == g_screen69_page &&
+       rendered_revision == revision) return;
+    g_registration_detail_count = DeviceReg_List(g_registration_detail_mask,
+        g_registration_detail_entries, DEVICE_REG_MAX_ENTRIES);
+    if(g_registration_detail_count == 0U) g_screen69_page = 0U;
+    else if(g_screen69_page > 0U &&
+       (uint16_t)g_screen69_page * 20U >= g_registration_detail_count)
+        g_screen69_page = (uint8_t)((g_registration_detail_count - 1U) / 20U);
+    start = (uint16_t)g_screen69_page * 20U;
+    end = start + 20U;
+    if(end > g_registration_detail_count) end = g_registration_detail_count;
+    HmiTxBatchBegin();
+    SetScreenUpdateEnable(0U);
+    if(g_registration_detail_mask == DEVICE_REG_ALL_MASK)
+        SetTextValue(69U, 200U, "已登记：全部回路");
+    else
+    {
+        snprintf((char *)text, sizeof(text), "已登记：回路%u",
+                 g_registration_detail_mask == 1U ? 1U :
+                 (g_registration_detail_mask == 2U ? 2U : 3U));
+        SetTextValue(69U, 200U, text);
+    }
+    SetTextValue(69U, 400U, "仅显示登记身份和最近扫描结果，非实时报警状态");
+    for(index = 1U; index <= 20U; index++) clearTextValue(69U, index);
+    if(g_registration_detail_count == 0U)
+        SetTextValue(69U, 1U, "没有已登记设备");
+    for(index = start; index < end; index++)
+    {
+        const DeviceRegEntry *entry = &g_registration_detail_entries[index];
+        const char *scan_result = "尚未复查";
+        const char *formal = "仅登记";
+        uint8_t alias[DEVICE_ALIAS_NAME_BYTES] = {0};
+        const char *model = DeviceRegistry_GetName(entry->product_code);
+        if(entry->observation == DEVICE_REG_OBSERVATION_IDENTIFIED)
+            scan_result = "本次扫描应答";
+        else if(entry->observation == DEVICE_REG_OBSERVATION_NO_RESPONSE)
+            scan_result = "本次扫描未应答";
+        else if(entry->observation == DEVICE_REG_OBSERVATION_UNIDENTIFIED)
+            scan_result = "本次型号未识别";
+        if((entry->loop == 1U &&
+            getPointTypeMixtureSettingOnlieState(entry->address) != 0U) ||
+           (entry->loop == 2U && MBusCtrl_GetOnline(entry->address) != 0U) ||
+           (entry->loop == 3U && RS485Detect_GetOnline(entry->address) != 0U))
+            formal = "正式上线";
+        if(DeviceAlias_Get(entry->loop, entry->address,
+                           entry->product_code, alias, sizeof(alias)) == DEVICE_ALIAS_MATCH)
+            snprintf((char *)text, sizeof(text),
+                     "%02u%03u %s（%s） 产品码:%u %s %s",
+                     entry->loop, entry->address, alias, model,
+                     entry->product_code, scan_result, formal);
+        else
+            snprintf((char *)text, sizeof(text),
+                     "%02u%03u %s 产品码:%u %s %s",
+                     entry->loop, entry->address, model,
+                     entry->product_code, scan_result, formal);
+        SetTextValue(69U, (uint16_t)(index - start + 1U), text);
+    }
+    SetScreenUpdateEnable(1U);
+    HmiTxBatchEnd();
+    rendered_page = g_screen69_page;
+    rendered_revision = revision;
+}
+
 /*! 
 *  \brief  画面切换通知
 *  \details  当前画面改变时(或调用GetScreen)，执行此函数
@@ -2762,6 +2927,14 @@ void NotifyScreen(uint16 screen_id)
 {
 	uint16_t prev_screen_id = current_screen_id; /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
 	AccessLevel_t protected_level;
+    if(prev_screen_id == 69U && screen_id == 6U &&
+       g_registration_detail_mode != 0U)
+    {
+        /* 屏幕69既有返回按钮仍指向6；登记查询应原路回到93。 */
+        (void)AccessControl_TransferPageGrant(69U, 93U, ACCESS_LEVEL_III);
+        HmiSwitchScreen(93U);
+        return;
+    }
     //TODO: 添加用户代码
     current_screen_id = screen_id;
 	AccessControl_OnScreenChanged(prev_screen_id, screen_id);
@@ -2789,6 +2962,22 @@ void NotifyScreen(uint16 screen_id)
 	{
 		HmiPasswordManagementReset();
 	}
+    if(screen_id == 93U && prev_screen_id != 93U)
+    {
+        g_registration_selected_mask = DEVICE_REG_ALL_MASK;
+        g_registration_clear_armed = 0U;
+        g_registration_detail_mode = 0U;
+        g_registration_display_valid = 0U;
+    }
+    if(screen_id == 69U)
+    {
+        if(prev_screen_id == 93U)
+        {
+            g_registration_detail_mode = 1U;
+            g_screen69_page = 0U;
+        }
+        else g_registration_detail_mode = 0U;
+    }
     HmiDeviceQueryNotifyScreen(screen_id, prev_screen_id);
     HistoryFilter_NotifyScreen(screen_id);
     DeviceThreshold_NotifyScreen(screen_id); //在工程配置中开启画面切换通知，记录当前画面ID
@@ -2823,6 +3012,8 @@ void NotifyScreen(uint16 screen_id)
 		}
 	
 		/* XR5000_CHECK_CHANGE_20260804: entering/leaving screen 72 owns the physical check indicator. */
+        if(screen_id == 93U && prev_screen_id != 93U)
+            HmiRegistrationRefresh93(1U);
 		if(screen_id == CHECK_SCREEN_ID)
 		{
 			self_check_state = 1U;
@@ -3171,6 +3362,11 @@ void NotifyScreen(uint16 screen_id)
 		}
 		else if(screen_id == 69)
 		{
+			if(g_registration_detail_mode != 0U)
+			{
+				HmiRegistrationRenderDetail(1U);
+				return;
+			}
 			uint8_t temp_buff[128] = {0}; /* XR5000_SCREEN69_ATOMIC_RENDER_20260729: first list row can require 128 bytes. */
 			uint8_t online_list[MBUS1_DEVICE_MAX_ADDR] = {0};
 			uint8_t online_count;
@@ -3232,6 +3428,7 @@ typedef struct {
 	uint16_t sensor_enable;
 	uint8_t temper_alarm;
 	uint8_t smoke_alarm;
+	uint8_t module_input_monitor;
 	uint8_t active;
 	uint8_t addr;
 } Screen69CacheEntry;
@@ -3394,6 +3591,28 @@ static void CheckModeExitToHome(void)
 	bsp_screen_switch_ctrl.switch_flag = 1U;
 }
 
+/* 固定消防规则只汇总当前正式上线且未屏蔽的回路1/3温烟火警。 */
+static uint8_t HasUnshieldedDetectorFireAlarm(void)
+{
+	uint8_t addr;
+	for(addr = 1U; addr <= MIXTURE_DEVICE_MAX_ADDR; addr++)
+	{
+		if(getPointTypeMixtureSettingOnlieState(addr) != 0U &&
+		   DeviceDisableIsLoopAddressSet(1U, addr) == 0U &&
+		   getPointTypeMixtureStateClass(addr) == 2U)
+			return 1U;
+	}
+	for(addr = 1U; addr < RS485_DETECT_MAX_DEVICES; addr++)
+	{
+		if(RS485Detect_GetOnline(addr) != 0U &&
+		   DeviceDisableIsLoopAddressSet(3U, addr) == 0U &&
+		   (RS485Detect_GetSensorState(addr, RS485_SENSOR_TEMPERATURE) == 1U ||
+		    RS485Detect_GetSensorState(addr, RS485_SENSOR_SMOKE) == 1U))
+			return 1U;
+	}
+	return 0U;
+}
+
 void UpdateUI(void)
 {
 	uint8_t pack_disconnect_sum = 0;
@@ -3403,6 +3622,8 @@ void UpdateUI(void)
 	uint8_t mbus2_disconnect_sum = 0;
 	uint8_t shield_sum = 0; // 屏蔽总数
 	uint32_t curr_time_stamp = osKernelGetTickCount(); /* system tick */
+	DeviceReg_ServiceSave();
+	HmiRegistrationRefresh93(0U);
 	DeviceAliasHmiScreenUpdate(current_screen_id);
 	{
 		static uint32_t rendered_alias_revision = 0U;
@@ -3541,6 +3762,7 @@ void UpdateUI(void)
 		// XR5000_LOOP3_CHANGE_20260726: Loop 3 realtime fault/alarm bridge.
 		rs485_detect_disconnect_sum = RS485DetectDataDeal(pcfs, &pcfs_buttom_point);
 		mbus2_disconnect_sum = MBus2DataDeal(pcfs, &pcfs_buttom_point);
+		MBusCtrl_SetDetectorFireAlarmActive(HasUnshieldedDetectorFireAlarm());
 		(void)RefreshCombustibleGasAlarmLed();
 		/* 功能调整：废弃IG3306及4路独立24V输出监测；时间：2026-08-06 */
 		// 判断是否有掉线 吸合故障继电器，新增加对回路三，485探测回路的故障判断
@@ -4167,6 +4389,10 @@ void UpdateUI(void)
 	// 	}
 	// }
 
+	else if (current_screen_id == 69 && g_registration_detail_mode != 0U)
+	{
+		HmiRegistrationRenderDetail(0U);
+	}
 	else if (current_screen_id == 69)
 	{
 		static Screen69CacheEntry g_screen69_cache[20] = {0};
@@ -4240,10 +4466,12 @@ void UpdateUI(void)
 				uint8_t new_type = MBusCtrl_GetDeviceType(addr);
 				uint8_t new_input_state = 0U;
 				uint8_t new_output_state = 0U;
+				uint8_t new_input_monitor = MBUS_FCM_INPUT_IDENTIFYING;
 				if(new_type == MBUS_CONTROL_DEV_FCM1011)
 				{
 					(void)MBusCtrl_GetInputChannelState(addr, 1U, &new_input_state);
 					(void)MBusCtrl_GetOutputChannelState(addr, 1U, &new_output_state);
+					new_input_monitor = MBusCtrl_GetInputMonitorState(addr, 1U);
 				}
 				else
 				{
@@ -4251,12 +4479,14 @@ void UpdateUI(void)
 				}
 
 				if (!cache->active || cache->sensor_enable != new_type ||
-					cache->temper_val != new_input_state || cache->co_val != new_output_state)
+					cache->temper_val != new_input_state || cache->co_val != new_output_state ||
+					cache->module_input_monitor != new_input_monitor)
 				{
 					need_refresh = 1;
 					cache->sensor_enable = new_type;
 					cache->temper_val = new_input_state;
 					cache->co_val = new_output_state;
+					cache->module_input_monitor = new_input_monitor;
 					cache->active = 1;
 				}
 			}
@@ -4515,6 +4745,59 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				/* 仅画面68预授权入口可进入中文命名，授权随目标页转移。 */
 				HmiOpenProtectedPage(ACCESS_LEVEL_III, 82U);
 			}
+			else if(control_id == 34U)
+			{
+				uint16_t count;
+				uint16_t index;
+				uint16_t new_count = 0U;
+				uint8_t changed[3U] = {0U};
+				uint8_t message[72U];
+				DeviceRegScanState reg_state = DeviceReg_GetState();
+				if(reg_state == DEVICE_REG_SCAN_RUNNING ||
+				   reg_state == DEVICE_REG_SCAN_SAVING)
+				{
+					SetTextValue(6U, 33U, "登记正在扫描或保存，请稍候");
+					setkey_Value(6U, 34U, 0U);
+					return;
+				}
+				DeviceReg_Init();
+				count = DeviceReg_List(DEVICE_REG_ALL_MASK,
+				                       g_registration_detail_entries,
+				                       DEVICE_REG_MAX_ENTRIES);
+				for(index = 0U; index < count; index++)
+				{
+					uint8_t loop = g_registration_detail_entries[index].loop;
+					uint8_t address = g_registration_detail_entries[index].address;
+					if(loop == 1U && getPointTypeMixtureSettingOnlieState(address) == 0U)
+					{
+						PointTypeMixtureOnlieStateSingleSetting(address, 1U);
+						changed[0] = 1U;
+						new_count++;
+					}
+					else if(loop == 2U && MBusCtrl_GetOnline(address) == 0U)
+					{
+						MBusCtrl_SetOnline(address, 1U);
+						changed[1] = 1U;
+						new_count++;
+					}
+					else if(loop == 3U && RS485Detect_GetOnline(address) == 0U)
+					{
+						RS485Detect_SetOnline(address, 1U);
+						changed[2] = 1U;
+						new_count++;
+					}
+				}
+				if(changed[0] != 0U) SavePointTypeSetOnlieState();
+				if(changed[1] != 0U) MBusCtrl_SaveOnlineState();
+				if(changed[2] != 0U) RS485Detect_SaveOnlineState();
+				SyncMonitorSwitchSnapshot();
+				BspScreenArrowSite(&bkcnc);
+				home_statistics_force_refresh = 1U;
+				snprintf((char *)message, sizeof(message),
+				         "已登记设备新上线:%u台", new_count);
+				SetTextValue(6U, 33U, message);
+				setkey_Value(6U, 34U, 0U);
+			}
 			else if(control_id == 5)
 			{
 				screen69_circuit = pack_circuit; /* XR5000_SCREEN69_NAVIGATION_FIX_20260729: lock selected circuit before screen switch. */
@@ -4615,6 +4898,49 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				SyncMonitorSwitchSnapshot();
 				BspScreenArrowSite(&bkcnc);
 				home_statistics_force_refresh = 1;
+			}
+		}
+	}
+	else if(screen_id == 93U)
+	{
+		if(state == 1U)
+		{
+			if(control_id == 45U)
+			{
+				g_registration_clear_armed = 0U;
+				if(DeviceReg_StartScan(g_registration_selected_mask) == 0U)
+					SetTextValue(93U, 25U, "登记任务正在进行，请稍候");
+				else HmiRegistrationRefresh93(1U);
+				setkey_Value(93U, 45U, 0U);
+			}
+			else if(control_id == 55U)
+			{
+				uint32_t now = osKernelGetTickCount();
+				if(g_registration_clear_armed == 0U ||
+				   (uint32_t)(now - g_registration_clear_tick) >= 3000U)
+				{
+					g_registration_clear_armed = 1U;
+					g_registration_clear_tick = now;
+					SetTextValue(93U, 25U, "再次点击登记下线以确认");
+				}
+				else
+				{
+					g_registration_clear_armed = 0U;
+					if(DeviceReg_Clear(g_registration_selected_mask) == 0U)
+						SetTextValue(93U, 25U, "登记正在保存，请稍候");
+					else HmiRegistrationRefresh93(1U);
+				}
+				setkey_Value(93U, 55U, 0U);
+			}
+			else if(control_id == 5U)
+			{
+				g_registration_clear_armed = 0U;
+				g_registration_detail_mode = 1U;
+				g_registration_detail_mask = g_registration_selected_mask;
+				g_screen69_page = 0U;
+				(void)AccessControl_TransferPageGrant(93U, 69U, ACCESS_LEVEL_III);
+				/* 查询跳转由主机明确执行，不依赖屏幕按钮自身的跳转属性。 */
+				HmiSwitchScreen(69U);
 			}
 		}
 	}
@@ -5186,6 +5512,20 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	//2026/7/22新增内容
 	else if (screen_id == 69)
 	{
+		if(g_registration_detail_mode != 0U)
+		{
+			if(state == 1U && (control_id == 300U || control_id == 301U))
+			{
+				uint8_t pages = (uint8_t)((g_registration_detail_count + 19U) / 20U);
+				if(pages == 0U) pages = 1U;
+				if(control_id == 300U && g_screen69_page > 0U)
+					g_screen69_page--;
+				else if(control_id == 301U && g_screen69_page + 1U < pages)
+					g_screen69_page++;
+				HmiRegistrationRenderDetail(1U);
+			}
+			return;
+		}
 		if (state == 1)
 		{
 			uint8_t online_list[MBUS1_DEVICE_MAX_ADDR] = {0};
@@ -5822,6 +6162,24 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 			pack_circuit = temp_pack_id;
 		}
 	}
+	else if (screen_id == 93U)
+	{
+		if(control_id == 77U && state == 1U)
+		{
+			if(item < 3U)
+				g_registration_selected_mask = (uint8_t)(1U << item);
+			else if(item == 4U)
+				g_registration_selected_mask = DEVICE_REG_ALL_MASK;
+			else
+			{
+				HmiRegistrationRefresh93(1U);
+				SetTextValue(93U, 25U, "回路4尚未接入，不能登记");
+				return;
+			}
+			g_registration_clear_armed = 0U;
+			HmiRegistrationRefresh93(1U);
+		}
+	}
 	else if (screen_id == 6)
 	{
 		if (control_id == 77 && state == 1)
@@ -5853,6 +6211,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 			switch(item)
 			{
 				case 0:
+					/* 自动登记入口暂时屏蔽，保留画面93和内部登记功能。 */
 					break;
 				case 1:
 					/* 菜单入口已取得三级授权，画面6内操作不重复输密码。 */

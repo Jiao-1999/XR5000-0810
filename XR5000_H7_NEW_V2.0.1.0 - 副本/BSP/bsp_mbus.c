@@ -1,5 +1,6 @@
 #include "bsp_mbus.h"
 #include "bsp_device_registry.h"
+#include "bsp_device_registration.h"
 #include "cmsis_os.h"
 #include "cmd_process.h"
 #include "bsp_debug.h"
@@ -401,6 +402,8 @@ uint16_t getPointTypeMixtureNationalCode(uint8_t detector_id)
 static uint8_t g_mbus1_transaction_pending = 0U;
 static uint8_t g_mbus1_transaction_addr = 0U;
 static uint8_t g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+static uint8_t g_mbus1_registration_probe = 0U;
+static uint8_t g_mbus1_normal_since_probe = 0U;
 static uint32_t g_mbus1_transaction_tick = 0U;
 static uint8_t g_mbus1_poll_addr = 0U;
 static uint8_t g_mbus1_isolator_poll_addr = MBUS1_ISOLATOR_MIN_ADDR - 1U;
@@ -462,6 +465,16 @@ static void MBus1MarkTimeout(void)
                  MIXTURE_DEVICE_RESPONSE_TIMEOUT_MS : MIXTURE_DEVICE_IDENTIFY_RESPONSE_TIMEOUT_MS;
     if((osKernelGetTickCount() - g_mbus1_transaction_tick) < timeout_ms) return;
     addr = g_mbus1_transaction_addr;
+    if(g_mbus1_registration_probe != 0U)
+    {
+        g_mbus1_registration_probe = 0U;
+        g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
+        g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+        g_mbus1_transaction_tick = 0U;
+        DeviceReg_CompleteProbe(DEVICE_REG_LOOP1, addr,
+                                DEVICE_REG_PROBE_NO_RESPONSE, 0U);
+        return; /* 登记探测不累计正式上线设备的掉线次数。 */
+    }
     identify_stage = g_mbus1_transaction_identify_stage;
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
     g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U;
@@ -588,10 +601,50 @@ static void MBus1StartTransaction(uint8_t addr)
         taskEXIT_CRITICAL();
     }
 }
+static uint8_t MBus1StartRegistrationProbe(void)
+{
+    uint8_t addr;
+    uint8_t frame[8];
+    if(g_mbus1_bus_locked != 0U || g_mbus1_transaction_pending != 0U ||
+       DeviceReg_TakeProbe(DEVICE_REG_LOOP1, &addr) == 0U) return 0U;
+    MBus1BuildReadCommand(frame, addr, 0x0000U, 3U);
+    taskENTER_CRITICAL();
+    if(g_mbus1_bus_locked != 0U || g_mbus1_transaction_pending != 0U)
+    {
+        taskEXIT_CRITICAL();
+        DeviceReg_CancelProbe(DEVICE_REG_LOOP1, addr);
+        return 0U;
+    }
+    g_mbus1_transaction_pending = 1U;
+    g_mbus1_transaction_addr = addr;
+    g_mbus1_transaction_identify_stage = MBUS1_STAGE_NATIONAL;
+    g_mbus1_registration_probe = 1U;
+    g_mbus1_transaction_tick = osKernelGetTickCount();
+    taskEXIT_CRITICAL();
+    uartbuff[MBUS1SITE].recepetion_flag = 0U;
+    uartbuff[MBUS1SITE].recepetion_len = 0U;
+    if(HAL_UART_Transmit(&huart7, frame, sizeof(frame), 30U) != HAL_OK)
+    {
+        taskENTER_CRITICAL();
+        g_mbus1_transaction_pending = 0U;
+        g_mbus1_transaction_addr = 0U;
+        g_mbus1_registration_probe = 0U;
+        g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+        g_mbus1_transaction_tick = 0U;
+        taskEXIT_CRITICAL();
+        DeviceReg_CancelProbe(DEVICE_REG_LOOP1, addr);
+        return 0U;
+    }
+    g_mbus1_transaction_tick = osKernelGetTickCount();
+    g_mbus1_normal_since_probe = 0U;
+    return 1U;
+}
 void MixtureDevicePollingManage(void)
 {
     uint8_t addr;
     if(g_mbus1_transaction_pending != 0U) return;
+    if(g_mbus1_retry_addr == 0U && g_mbus1_normal_since_probe >= 8U &&
+       MBus1StartRegistrationProbe() != 0U) return;
     addr = g_mbus1_retry_addr;
     if(addr != 0U)
     {
@@ -612,7 +665,14 @@ void MixtureDevicePollingManage(void)
             g_mbus1_last_poll_was_isolator = 0U;
         }
     }
+    if(addr == 0U)
+    {
+        (void)MBus1StartRegistrationProbe();
+        return;
+    }
     MBus1StartTransaction(addr);
+    if(g_mbus1_transaction_pending != 0U && g_mbus1_normal_since_probe < 8U)
+        g_mbus1_normal_since_probe++;
 }
 
 static void MBus1UpdateIsolatorShortMask(uint8_t addr, uint8_t raw_mask)
@@ -673,6 +733,32 @@ void MBus1ReceiveSlaveDataDeal(void)
     addr = buf[0];
     func = buf[1];
     if(addr != g_mbus1_transaction_addr || addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR) return;
+
+    if(g_mbus1_registration_probe != 0U)
+    {
+        DeviceRegProbeResult result = DEVICE_REG_PROBE_UNIDENTIFIED;
+        uint16_t product_type = 0U;
+        if(func == 0x04U && len == 11U && buf[2] == 6U)
+        {
+            uint16_t national_code = ((uint16_t)buf[3] << 8) | buf[4];
+            uint16_t sensor_mask = ((uint16_t)buf[7] << 8) | buf[8];
+            product_type = ((uint16_t)buf[5] << 8) | buf[6];
+            if(((product_type == DEVICE_PRODUCT_FIM1017 &&
+                 addr >= MBUS1_ISOLATOR_MIN_ADDR && addr <= MBUS1_ISOLATOR_MAX_ADDR) ||
+                (product_type != DEVICE_PRODUCT_FIM1017 && addr <= MIXTURE_DEVICE_MAX_ADDR)) &&
+               DeviceRegistry_IsSupportedOnLoop(product_type, DEVICE_REG_LOOP1) != 0U &&
+               DeviceRegistry_IsNationalProductMatch(national_code, product_type) != 0U &&
+               (DeviceRegistry_RequiresSensorMask(product_type) == 0U ||
+                DeviceRegistry_IsSensorMaskValid(product_type, sensor_mask) != 0U))
+                result = DEVICE_REG_PROBE_IDENTIFIED;
+        }
+        g_mbus1_registration_probe = 0U;
+        g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
+        g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+        g_mbus1_transaction_tick = 0U;
+        DeviceReg_CompleteProbe(DEVICE_REG_LOOP1, addr, result, product_type);
+        return;
+    }
 
     /* A CRC-valid Modbus exception from the requested address proves that the
      * device is communicating. Keep the last sensor values and end this poll. */
@@ -764,6 +850,11 @@ void MBus1ResetAllDevices(void)
     }
 
     taskENTER_CRITICAL();
+    if(g_mbus1_registration_probe != 0U)
+    {
+        DeviceReg_CancelProbe(DEVICE_REG_LOOP1, g_mbus1_transaction_addr);
+        g_mbus1_registration_probe = 0U;
+    }
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
     g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
     taskEXIT_CRITICAL();
