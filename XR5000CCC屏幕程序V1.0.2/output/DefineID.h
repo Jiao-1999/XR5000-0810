@@ -253,8 +253,8 @@
 //创建画面防火分区的命令索引ID
 #define  _SCREEN_防火分区                                                         84
 
-//创建画面Screen1的命令索引ID
-#define  _SCREEN_SCREEN1                                                      85
+//创建画面联动选择的命令索引ID
+#define  _SCREEN_联动选择                                                         85
 
 //创建画面Screen2的命令索引ID
 #define  _SCREEN_SCREEN2                                                      86
@@ -10560,6 +10560,14 @@
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY35                                       113
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY36                                       114
+
+#define  _BTN_联动选择_BUTTON1                                                     0
+
+#define  _BTN_联动选择_BUTTON2                                                     1
+
+#define  _TXT_DIS__联动选择_TEXT_DISPLAY3                                         14
+
+#define  _BTN_联动选择_BUTTON6                                                   266
 
 #define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY1                                    300
 
