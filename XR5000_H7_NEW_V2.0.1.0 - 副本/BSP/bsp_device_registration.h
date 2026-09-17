@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/* 独立的物理登记层；登记标记不等于业务层的设置上线。 */
+/* �����������Ǽǲ㣻�ǼǱ�ǲ�����ҵ�����������ߡ� */
 #define DEVICE_REG_LOOP1 1U
 #define DEVICE_REG_LOOP2 2U
 #define DEVICE_REG_LOOP3 3U

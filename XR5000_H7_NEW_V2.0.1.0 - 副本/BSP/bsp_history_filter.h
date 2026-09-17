@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-/* ç”»é¢78æŠ¥è­¦è®°å½•å’Œç”»é¢79æ•…éšœè®°å½•å…±ç”¨çš„å†å²ç­›é€‰æ¨¡å—ã€‚ */
-void HistoryFilter_NotifyScreen(uint16_t screen_id); /* å¤„ç†é¡µé¢è¿›å…¥é€šçŸ¥å¹¶æ¸…é™¤ä¸Šæ¬¡æ®‹ç•™ã€‚ */
-void HistoryFilter_NotifyButton(uint16_t screen_id, uint16_t control_id, uint8_t state); /* å¤„ç†æŸ¥è¯¢ã€è¿”å›å’Œç¿»é¡µã€‚ */
-void HistoryFilter_NotifyText(uint16_t screen_id, uint16_t control_id, const uint8_t *text); /* æ¥æ”¶æ—¥æœŸè¾“å…¥ã€‚ */
-void HistoryFilter_NotifyMenu(uint16_t screen_id, uint16_t control_id, uint8_t item, uint8_t state); /* æ¥æ”¶ç­›é€‰èœå•ã€‚ */
+/* »­Ãæ78±¨¾¯¼ÇÂ¼ºÍ»­Ãæ79¹ÊÕÏ¼ÇÂ¼¹²ÓÃµÄÀúÊ·É¸Ñ¡Ä£¿é¡£ */
+void HistoryFilter_NotifyScreen(uint16_t screen_id); /* ´¦ÀíÒ³Ãæ½øÈëÍ¨Öª²¢Çå³ıÉÏ´Î²ĞÁô¡£ */
+void HistoryFilter_NotifyButton(uint16_t screen_id, uint16_t control_id, uint8_t state); /* ´¦Àí²éÑ¯¡¢·µ»ØºÍ·­Ò³¡£ */
+void HistoryFilter_NotifyText(uint16_t screen_id, uint16_t control_id, const uint8_t *text); /* ½ÓÊÕÈÕÆÚÊäÈë¡£ */
+void HistoryFilter_NotifyMenu(uint16_t screen_id, uint16_t control_id, uint8_t item, uint8_t state); /* ½ÓÊÕÉ¸Ñ¡²Ëµ¥¡£ */
 
 #endif

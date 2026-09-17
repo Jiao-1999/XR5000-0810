@@ -6,7 +6,7 @@
 #include "bsp_device_registry.h"
 #include "w25qxx.h"
 
-/* ç™»è®°ä½¿ç”¨ç‹¬ç«‹æ‰‡åŒºï¼Œä¸å¤ç”¨ä¸Šçº¿ã€å±è”½ã€ä¸­æ–‡åç§°åŠäº‹ä»¶å†å²åŒºã€‚ */
+/* µÇ¼ÇÊ¹ÓÃ¶ÀÁ¢ÉÈÇø£¬²»¸´ÓÃÉÏÏß¡¢ÆÁ±Î¡¢ÖĞÎÄÃû³Æ¼°ÊÂ¼şÀúÊ·Çø¡£ */
 #define DEVICE_REG_MAIN_ADDR    0x11B000UL
 #define DEVICE_REG_BACKUP_ADDR  0x11C000UL
 #define DEVICE_REG_MAGIC        0x47524544UL
@@ -18,7 +18,7 @@ typedef struct
     uint16_t version;
     uint16_t reserved;
     uint32_t sequence;
-    /* 0è¡¨ç¤ºæœªç™»è®°ï¼›ä¸‹æ ‡å³å®é™…è®¾å¤‡åœ°å€ï¼Œå›è·¯1é¢å¤–è¦†ç›–101ï½110ã€‚ */
+    /* 0±íÊ¾Î´µÇ¼Ç£»ÏÂ±ê¼´Êµ¼ÊÉè±¸µØÖ·£¬»ØÂ·1¶îÍâ¸²¸Ç101¡«110¡£ */
     uint16_t product_code[4U][DEVICE_REG_MAX_ADDRESS + 1U];
     uint32_t crc;
 } DeviceRegStorage;
@@ -248,7 +248,7 @@ void DeviceReg_ServiceSave(void)
     uint8_t backup_valid;
     uint8_t loop;
     if(g_loaded == 0U || g_state != DEVICE_REG_SCAN_SAVING) return;
-    /* ä¿å­˜ç”±ä½é¢‘ç•Œé¢åˆ·æ–°ä»»åŠ¡è´Ÿè´£ï¼Œä¸åœ¨UARTäº‹åŠ¡æˆ–æ¥æ”¶å›è°ƒå†…æ“¦å†™Flashã€‚ */
+    /* ±£´æÓÉµÍÆµ½çÃæË¢ĞÂÈÎÎñ¸ºÔğ£¬²»ÔÚUARTÊÂÎñ»ò½ÓÊÕ»Øµ÷ÄÚ²ÁĞ´Flash¡£ */
     taskENTER_CRITICAL();
     memcpy(&g_verify, &g_candidate, sizeof(g_verify));
     g_verify.sequence = g_saved.sequence + 1U;
@@ -268,7 +268,7 @@ void DeviceReg_ServiceSave(void)
                       (uint16_t)sizeof(g_verify));
         W25QXX_Read((uint8_t *)&g_candidate, DEVICE_REG_MAIN_ADDR,
                      (uint16_t)sizeof(g_candidate));
-        /* å·²æ ¡éªŒçš„å¤‡ä»½å‰¯æœ¬å³ä½¿ä¸»å‰¯æœ¬åˆ·æ–°å¤±è´¥ä¹Ÿè¶³ä»¥æ¢å¤ã€‚ */
+        /* ÒÑĞ£ÑéµÄ±¸·İ¸±±¾¼´Ê¹Ö÷¸±±¾Ë¢ĞÂÊ§°ÜÒ²×ãÒÔ»Ö¸´¡£ */
         taskENTER_CRITICAL();
         memcpy(&g_saved, &g_verify, sizeof(g_saved));
         for(loop = DEVICE_REG_LOOP1; loop <= DEVICE_REG_LOOP3; loop++)

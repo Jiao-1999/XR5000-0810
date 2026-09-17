@@ -9,7 +9,7 @@ static volatile uint32_t g_ordinary_session_tick;
 static volatile uint16_t g_page_grant_screen;
 static volatile AccessLevel_t g_page_grant_level;
 
-/* æ™®é€šç®¡ç†å‘˜æƒé™åªåœ¨éªŒè¯åçš„5åˆ†é’Ÿå†…æœ‰æ•ˆï¼Œå‚å®¶å’Œè¶…çº§å¯†ç ä¸è¿›å…¥è¯¥ä¼šè¯ã€‚ */
+/* ÆÕÍ¨¹ÜÀíÔ±È¨ÏŞÖ»ÔÚÑéÖ¤ºóµÄ5·ÖÖÓÄÚÓĞĞ§£¬³§¼ÒºÍ³¬¼¶ÃÜÂë²»½øÈë¸Ã»á»°¡£ */
 static uint8_t AccessControl_OrdinarySessionValid(void)
 {
     if(g_ordinary_session_valid == 0U)
@@ -37,13 +37,13 @@ void AccessControl_Init(void)
 
 uint8_t AccessControl_IsGranted(AccessLevel_t level, uint16_t screen_id)
 {
-    /* ä¸€çº§æ“ä½œä¸éœ€è¦å¯†ç ã€‚ */
+    /* Ò»¼¶²Ù×÷²»ĞèÒªÃÜÂë¡£ */
     if(level == ACCESS_LEVEL_I)
     {
         return 1U;
     }
 
-    /* è¶…çº§æˆ–å‚å®¶å¯†ç åªæˆæƒè¿›å…¥æ—¶æŒ‡å®šçš„é¡µé¢ï¼Œç¦»å¼€é¡µé¢åè‡ªåŠ¨æ¸…é™¤ã€‚ */
+    /* ³¬¼¶»ò³§¼ÒÃÜÂëÖ»ÊÚÈ¨½øÈëÊ±Ö¸¶¨µÄÒ³Ãæ£¬Àë¿ªÒ³Ãæºó×Ô¶¯Çå³ı¡£ */
     if(g_page_grant_screen == screen_id && g_page_grant_level >= level)
     {
         return 1U;
@@ -67,7 +67,7 @@ uint8_t AccessControl_Verify(AccessLevel_t level, uint32_t password,
 {
     uint8_t valid = 0U;
 
-    /* å‚å®¶å¯†ç æ˜¯æœ€é«˜æƒé™ï¼Œå¯ç”¨äºä»»ä½•å¯†ç è¾“å…¥ä½ç½®ï¼Œä½†ä¸å»ºç«‹5åˆ†é’Ÿä¼šè¯ã€‚ */
+    /* ³§¼ÒÃÜÂëÊÇ×î¸ßÈ¨ÏŞ£¬¿ÉÓÃÓÚÈÎºÎÃÜÂëÊäÈëÎ»ÖÃ£¬µ«²»½¨Á¢5·ÖÖÓ»á»°¡£ */
     if(password == ACCESS_FACTORY_PASSWORD)
     {
         valid = 1U;
@@ -89,13 +89,13 @@ uint8_t AccessControl_Verify(AccessLevel_t level, uint32_t password,
     {
         valid = (password == SystemSaveInfo.super_admin_password) ? 1U : 0U;
     }
-    /* æ™®é€šå¯†ç è¿›å…¥äºŒçº§æƒé™æ—¶åªå»ºç«‹ä¼šè¯ï¼›å…¶ä»–æœ‰æ•ˆå¯†ç æŒ‰ç›®æ ‡é¡µé¢æˆæƒã€‚ */
+    /* ÆÕÍ¨ÃÜÂë½øÈë¶ş¼¶È¨ÏŞÊ±Ö»½¨Á¢»á»°£»ÆäËûÓĞĞ§ÃÜÂë°´Ä¿±êÒ³ÃæÊÚÈ¨¡£ */
     if(valid != 0U && grant_screen != 0U &&
        (level != ACCESS_LEVEL_II ||
         password != SystemSaveInfo.user_password))
     {
         g_page_grant_screen = grant_screen;
-        /* ä¿ç•™å®é™…æˆæƒèº«ä»½ï¼Œä¾›å¯†ç ç®¡ç†é¡µåŒºåˆ†è¶…çº§ç®¡ç†å‘˜ä¸å‚å®¶ç»´æŠ¤ã€‚ */
+        /* ±£ÁôÊµ¼ÊÊÚÈ¨Éí·İ£¬¹©ÃÜÂë¹ÜÀíÒ³Çø·Ö³¬¼¶¹ÜÀíÔ±Óë³§¼ÒÎ¬»¤¡£ */
         g_page_grant_level = (password == ACCESS_FACTORY_PASSWORD) ?
                              ACCESS_LEVEL_FACTORY : level;
     }
@@ -107,7 +107,7 @@ uint8_t AccessControl_TransferPageGrant(uint16_t current_screen,
                                         uint16_t target_screen,
                                         AccessLevel_t level)
 {
-    /* ä»…å…è®¸æŠŠå·²ç»å–å¾—çš„å•é¡µæˆæƒè½¬äº¤ç»™ç´§é‚»çš„ç›®æ ‡è®¾ç½®é¡µé¢ã€‚ */
+    /* ½öÔÊĞí°ÑÒÑ¾­È¡µÃµÄµ¥Ò³ÊÚÈ¨×ª½»¸ø½ôÁÚµÄÄ¿±êÉèÖÃÒ³Ãæ¡£ */
     if(g_page_grant_screen != current_screen ||
        g_page_grant_level < level || target_screen == 0U)
     {
@@ -121,7 +121,7 @@ uint8_t AccessControl_TransferPageGrant(uint16_t current_screen,
 void AccessControl_OnScreenChanged(uint16_t previous_screen,
                                    uint16_t current_screen)
 {
-    /* ç¦»å¼€æˆæƒé¡µé¢åç«‹å³æ’¤é”€ï¼Œç¡®ä¿è¶…çº§å’Œå‚å®¶å¯†ç æ²¡æœ‰è·¨é¡µè®°å¿†ã€‚ */
+    /* Àë¿ªÊÚÈ¨Ò³ÃæºóÁ¢¼´³·Ïú£¬È·±£³¬¼¶ºÍ³§¼ÒÃÜÂëÃ»ÓĞ¿çÒ³¼ÇÒä¡£ */
     if(g_page_grant_screen != 0U && previous_screen == g_page_grant_screen &&
        current_screen != g_page_grant_screen)
     {

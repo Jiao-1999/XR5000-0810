@@ -6253,7 +6253,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 			}
 			else if(item == 1U)
 			{
-				/* ??79:?????????????????Flash??? */
+				/* 画面79: 切换到故障记录界面, 记录数据需从Flash载入 */
 				bsp_screen_switch_ctrl.target_screen = 79U;
 				bsp_screen_switch_ctrl.switch_flag = 1U;
 				SwitchCurrentScreenId(79U);

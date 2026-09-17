@@ -39,7 +39,7 @@ void MX_ADC1_Init(void)
   ADC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
-	hadc1.Init.DMAContinuousRequests = ENABLE;  // ï¿½ï¿½ï¿½ï¿½DMAï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	hadc1.Init.DMAContinuousRequests = ENABLE;  // ¿ªÆôDMAÑ­»·Ä£Ê½
   /* USER CODE END ADC1_Init 1 */
 
   /** Common config

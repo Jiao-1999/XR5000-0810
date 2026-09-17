@@ -1,9 +1,9 @@
 /*
- * ç”»é¢78æŠ¥è­¦å†å²ç­›é€‰ã€‚
+ * »­Ãæ78±¨¾¯ÀúÊ·É¸Ñ¡¡£
  *
- * æœ¬æ¨¡å—åªè¯»å–æ—¢æœ‰æŠ¥è­¦Flashåˆ†åŒºï¼Œä¸ä¿®æ”¹å­˜å‚¨å¸ƒå±€ï¼Œä¹Ÿä¸å‚ä¸å®æ—¶æŠ¥è­¦å¤„ç†ã€‚
- * ä¸‰ä¸ªç­›é€‰æ¡ä»¶ï¼ˆå›è·¯ã€æ—¥æœŸã€æŠ¥è­¦ç±»å‹ï¼‰å‡å¯ç‹¬ç«‹ä½¿ç”¨ï¼›æœªé€‰æ‹©æ—¶æŒ‰â€œå…¨éƒ¨â€å¤„ç†ã€‚
- * æŸ¥è¯¢åŠç¿»é¡µå¤ç”¨ä¸€ä¸ªé™æ€æ‰‡åŒºç¼“å­˜ï¼Œé¿å…åœ¨ä»»åŠ¡æ ˆä¸­ç”³è¯·å¤§æ•°ç»„ã€‚
+ * ±¾Ä£¿éÖ»¶ÁÈ¡¼ÈÓĞ±¨¾¯Flash·ÖÇø£¬²»ĞŞ¸Ä´æ´¢²¼¾Ö£¬Ò²²»²ÎÓëÊµÊ±±¨¾¯´¦Àí¡£
+ * Èı¸öÉ¸Ñ¡Ìõ¼ş£¨»ØÂ·¡¢ÈÕÆÚ¡¢±¨¾¯ÀàĞÍ£©¾ù¿É¶ÀÁ¢Ê¹ÓÃ£»Î´Ñ¡ÔñÊ±°´¡°È«²¿¡±´¦Àí¡£
+ * ²éÑ¯¼°·­Ò³¸´ÓÃÒ»¸ö¾²Ì¬ÉÈÇø»º´æ£¬±ÜÃâÔÚÈÎÎñÕ»ÖĞÉêÇë´óÊı×é¡£
  */
 
 #include "bsp_history_filter.h"
@@ -61,7 +61,7 @@ typedef struct
 } AlarmFilterContext;
 
 static AlarmFilterContext g_alarm_filter;
-static FlashReadCache_t g_history_sector_cache; /* æŠ¥è­¦ä¸æ•…éšœæŸ¥è¯¢å…±ç”¨ï¼Œé¿å…é‡å¤å ç”¨çº¦4KBé™æ€RAMã€‚ */
+static FlashReadCache_t g_history_sector_cache; /* ±¨¾¯Óë¹ÊÕÏ²éÑ¯¹²ÓÃ£¬±ÜÃâÖØ¸´Õ¼ÓÃÔ¼4KB¾²Ì¬RAM¡£ */
 
 static const uint16_t g_serial_ids[ALARM_FILTER_ROWS] = {6U, 7U, 8U, 9U, 10U, 11U, 12U, 13U, 14U, 15U};
 static const uint16_t g_device_ids[ALARM_FILTER_ROWS] = {16U, 17U, 18U, 19U, 20U, 21U, 22U, 23U, 24U, 25U};
@@ -408,7 +408,7 @@ static void AlarmFilter_NotifyButton(uint16_t screen_id, uint16_t control_id, ui
 }
 
 
-/* ç”»é¢79æ•…éšœè®°å½•ç­›é€‰å®ç°ã€‚ */
+/* »­Ãæ79¹ÊÕÏ¼ÇÂ¼É¸Ñ¡ÊµÏÖ¡£ */
 #define FAULT_FILTER_SCREEN_ID            79U
 #define FAULT_FILTER_ROWS                 10U
 #define FAULT_FILTER_RECORDS_PER_SECTOR   500U
@@ -466,7 +466,7 @@ static const uint16_t g_fault_device_ids[FAULT_FILTER_ROWS] = {16U, 17U, 18U, 19
 static const uint16_t g_fault_time_ids[FAULT_FILTER_ROWS] = {26U, 27U, 28U, 29U, 30U, 31U, 32U, 33U, 34U, 35U};
 static const uint16_t g_fault_state_ids[FAULT_FILTER_ROWS] = {36U, 37U, 38U, 39U, 40U, 41U, 42U, 43U, 44U, 45U};
 
-/* æ¸…é™¤å››åˆ—ç»“æœï¼Œé¿å…è¿›å…¥é¡µé¢æˆ–æ›´æ¢ç­›é€‰æ¡ä»¶åæ®‹ç•™ä¸Šæ¬¡å†…å®¹ã€‚ */
+/* Çå³ıËÄÁĞ½á¹û£¬±ÜÃâ½øÈëÒ³Ãæ»ò¸ü»»É¸Ñ¡Ìõ¼şºó²ĞÁôÉÏ´ÎÄÚÈİ¡£ */
 static void FaultFilter_ClearRows(void)
 {
     uint8_t i;
@@ -845,7 +845,7 @@ static void FaultFilter_NotifyButton(uint16_t screen_id, uint16_t control_id, ui
     }
 }
 
-/* HMIç»Ÿä¸€å…¥å£ï¼šæ ¹æ®ç”»é¢IDåˆ†æ´¾åˆ°æŠ¥è­¦æˆ–æ•…éšœç­›é€‰ï¼Œä¿æŒä¸Šå±‚è°ƒç”¨ç®€å•ã€‚ */
+/* HMIÍ³Ò»Èë¿Ú£º¸ù¾İ»­ÃæID·ÖÅÉµ½±¨¾¯»ò¹ÊÕÏÉ¸Ñ¡£¬±£³ÖÉÏ²ãµ÷ÓÃ¼òµ¥¡£ */
 void HistoryFilter_NotifyScreen(uint16_t screen_id)
 {
     AlarmFilter_NotifyScreen(screen_id);
