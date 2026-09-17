@@ -45,6 +45,9 @@
 /* P0-3整改: 设备授权Token(8字节设备识别码).
  * 请求帧的设备ID字段与本Token匹配才视为授权命令, 不匹配则默认忽略.
  * Token值可自行修改(生产位烧录或程序内定义, 与主机保持一致). */
+/* [GB4717 B.1.4.2] 控制器运行数据存储单元应在授权后才能导出和回放存储的信息
+ * [GB4717 B.1.3.1] 应仅能用专用技术手段将记录导出
+ * 8字节设备识别码(授权Token), 与请求帧设备ID逐字节比对, 不符则静默丢帧无响应。 */
 static const uint8_t GB4717_AUTH_TOKEN[8] = {
     'X', 'R', '5', '0', '0', '0', '-', 'A'
 };
@@ -139,6 +142,12 @@ static uint16_t GB4717_CRC16(const uint8_t *data, uint16_t len)
  *         CRC范围: 从记录总数到事件记录(即buf[1]~buf[idx-1])
  *         同时缓存本帧到s_last_resp, 供CMD_RESEND重发
  */
+/* [GB4717 附录B 表B.1] 数据导出与数据存储格式:
+ *   起始符1 | 记录总数3 | 地址1 | 类型2 | 产品编号20 | 数据信息n | CRC16(2,低字节在前) | 停止符1
+ * [GB4717 表B.2] 数据信息格式(17字节)
+ * [GB4717 B.1.3.1] 导出格式必须与存储格式相同
+ * !!! 重点核查(S-3): 表B.1 原文"以上所有数据进行CRC16校验"——"以上"含起始符,
+ *   本函数 CRC 从 buf[1] 起算, 未包含起始符 0x40, 建议与检验机构确认口径。 */
 static void GB4717_SendResponse(uint8_t cmd, const EventRecord_t *rec)
 {
     uint8_t buf[64];
@@ -202,6 +211,9 @@ static uint32_t GB4717_TimeKey(const EventRecord_t *rec)
  * @param  rec: 输出记录
  * @retval 0=读到一条, 1=该区读完(游标已归零)
  */
+/* [GB4717 表B.4] 命令3=读首火警 / 命令4=读火警 / 命令5=读故障(厂商扩展, 国标仅定义1~4)
+ * !!! 重点核查(S-4): B.1.1.2 要求"按照时间顺序提供导出记录信息",
+ *   本函数按物理槽号递增读取, 环形回绕后槽号序 != 时间序, 不满足时间顺序要求。 */
 static uint8_t GB4717_ReadZone(uint8_t zone, uint32_t *cursor, EventRecord_t *rec)
 {
     if (*cursor < StorageRx_GetRecordCount(zone))
@@ -220,6 +232,8 @@ static uint8_t GB4717_ReadZone(uint8_t zone, uint32_t *cursor, EventRecord_t *re
  * @brief  顺序读下一条(4区按时间戳归并, 全局时间升序, P1-5整改)
  * @retval 0=读到一条, 1=全部读完(游标归零, 下轮从头)
  */
+/* [GB4717 B.1.1.2] 应具有按照时间顺序提供导出记录信息的功能
+ * 实现: 4个分区按"记录时间戳"做归并(每次取时间最小者), 保证全局时间升序 */
 static uint8_t GB4717_SeqReadNext(EventRecord_t *rec)
 {
     uint8_t  z;
@@ -316,6 +330,8 @@ static void GB4717_ProcessCommand(uint8_t cmd)
  * @note   复位接收状态机、清空命令缓存、清空读取游标和响应缓存.
  *         主机上电或重连时应调用一次.
  */
+/* [GB4717 B.2.6] 使运行数据存储单元与试样分离后, 仍应能导出全部记录
+ * 本函数复位接收状态机/读取游标, 使导出从头开始(供上电或分离后重新导出) */
 void GB4717_ExportInit(void)
 {
     s_rx_state = RX_STATE_WAIT_START;
@@ -346,6 +362,10 @@ void GB4717_ExportInit(void)
  *     -> TYPE(1) -> CMD_LEN(1) -> CMD_DATA(n) -> CRC_LO(1) -> CRC_HI(1)
  *     -> END_MARK(收到0x40则置位s_cmd_ready) -> 回到WAIT_START
  */
+/* [GB4717 表B.3] 数据导出命令格式:
+ *   起始符1 | 数据导出装置识别码8 | 版本号1(=2) | 地址1(=0x7E) | 类型1(=0x7F)
+ *   | 命令长度1 | 命令数据1 | CRC16(2) | 停止符1
+ * [GB4717 B.1.3.3] 数据导出命令格式及定义见表B.3和表B.4 */
 void GB4717_ExportProcess(void)
 {
     uint16_t byte;

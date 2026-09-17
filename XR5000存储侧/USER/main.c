@@ -1,4 +1,4 @@
-#include "stm32f10x.h"
+﻿#include "stm32f10x.h"
 #include "delay.h"
 #include "sys.h"
 #include "usart.h"
@@ -9,35 +9,41 @@
 #include "led.h"
 #include <stdio.h>
 #include <string.h>
-/* P1-B�޸�: ����Դ���ܿ��� (0=�ر�dump/DBG/R/C����, 1=����) */
+/* P1-B修复: 测试源码总开关 (0=关闭dump/DBG/R/C命令, 1=开启) */
+/* [GB4717 B.1.1.3] 防止存储信息被更改或删除
+ * !!! 重点核查: 该开关为1时, USB接上即可发字符命令 'R'(dump全部记录) / 'C'x2(清空全部分区),
+ *   送检与生产固件【必须置 0】, 否则任何人都能删除全部记录, 直接违反防篡改要求。 */
 #define STX_DEBUG_BUILD  1
 
 extern volatile uint32_t g_usb_isr_count;
 extern volatile uint32_t g_usb_reset_count;
 
 /*==============================================================
- * ���ȫ����ϻ�Ӽ�¼ (��װ����, �� main �����⴦����)
- *   ����: �� StorageRx_EraseAll() ���� W25Q256 �ĸ�����(�׾�/��/
- *            ����/ͨ��)��ȫ����¼����дָ��� 0;
- *         �� GB4717_ExportInit() ��λ����״̬���������ȡ�α�,
- *            ʹ�´� GB4717 ������ͷ��ʼ.
- *   ����: ��Ҫ"����洢��¼"ʱ, �� main() ��ֱ�� Storage_ClearAllRecords();
- *   ע��: ����Ϊ��������(��ɴ�����), �����ж������ĵ���.
+ * 清空全部黑匣子记录 (封装函数, 供 main 内任意处调用)
+ *   作用: ① StorageRx_EraseAll() 擦除 W25Q256 四个分区(首警/火警/
+ *            故障/通用)的全部记录并把写指针归 0;
+ *         ② GB4717_ExportInit() 复位导出状态机与各区读取游标,
+ *            使下次 GB4717 导出从头开始.
+ *   调用: 需要"清掉存储记录"时, 在 main() 里直接 Storage_ClearAllRecords();
+ *   注意: 擦除为阻塞操作(最坏可达数秒), 勿在中断上下文调用.
  *============================================================*/
+/* [GB4717 B.1.1.3] 防止存储信息被更改或删除
+ * 本函数是唯一"删除"入口(EraseAll + 复位导出游标), 仅由调试命令 'C'x2 触发。
+ * 送检/生产必须保证 STX_DEBUG_BUILD=0 使其不可达。 */
 static void Storage_ClearAllRecords(void)
 {
-    StorageRx_EraseAll();   /* ����4����ȫ����¼, дָ���0 */
-    GB4717_ExportInit();    /* ��λ�����α�, �´ε�����ͷ��ʼ */
+    StorageRx_EraseAll();   /* 擦除4分区全部记录, 写指针归0 */
+    GB4717_ExportInit();    /* 复位导出游标, 下次导出从头开始 */
 }
 
 /*==============================================================
- * �洢�������� (ͨ��ͨ��: USART1 + GB4717����/USB CDC)
- * ͨ�Žӿ�˵��:
+ * 存储侧主程序 (通信通道: USART1 + GB4717导出/USB CDC)
+ * 通信接口说明:
  *   W25Q256:  CS-PB12, CLK-PB13, MISO-PB14, MOSI-PB15 (SPI2)
- *   USART1:   PA9(TX), PA10(RX) - �������മ��ͨ�� (115200 8N1)
- *   USB CDC:  PA11(D-), PA12(D+) - ��PCͨ�� (����COM��, GB4717����)
- *             PA11/PA12 Ϊ USB ����ź�����, ������ GPIO ����
- *             PC �˿��� pyserial �򿪶�Ӧ COM ��, ���ڵ��Ե���
+ *   USART1:   PA9(TX), PA10(RX) - 与主机侧串口通信 (115200 8N1)
+ *   USB CDC:  PA11(D-), PA12(D+) - 与PC通信 (虚拟COM口, GB4717导出)
+ *             PA11/PA12 为 USB 差分信号引脚, 需配置 GPIO 复用
+ *             PC 端可用 pyserial 打开对应 COM 口, 用于调试导出
  *============================================================*/
 int main(void)
 {
@@ -47,50 +53,52 @@ const uint8_t test_msg[] = "USB CDC Ready (ST USB-FS-Device_Driver OK)\r\n";
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
 
 
-    /* ��ʼ��USART1 (PA9/PA10, 115200 8N1) - �������മ��ͨ�� */
+    /* 初始化USART1 (PA9/PA10, 115200 8N1) - 与主机侧串口通信 */
     uart_init(115200);
 
-    /* ��ʼ���洢Flash���� (ʹ��W25Q256�ⲿ�洢) */
+    /* 初始化存储Flash驱动 (使用W25Q256外部存储) */
     flash_ok = StorageRx_Init();
 
     delay_ms(100);
 
-    /* W25Q256��ʼ��ʧ��: ��ѭ�� */
+    /* W25Q256初始化失败: 死循环 */
     if (flash_ok != 0)
     {
         while (1) { delay_ms(1000); }
     }
 
-    /* ===== ������: �ϵ�һ��������ȫ���洢(4����+Ԫ����, Լ15s����) =====
-     * ��;: ��¼���Զ��õ��ɾ�����, ���� COM17 �� 'C'��2��
-     * ���������ע��/ɾ��������һ��, �����±�����¼��Ϊ��ʽ�档 */
+    /* ===== 测试用: 上电一次性清零全部存储(4分区+元数据, 约15s阻塞) =====
+     * 用途: 烧录后自动得到干净基线, 无需 COM17 发 'C'×2。
+     * 测试完毕请注释/删除下面这一行, 再重新编译烧录即为正式版。 */
    // Storage_ClearAllRecords();
 
-    /* ��ʼ��GB4717����ģ�� (��λ״̬��, ��ն�ȡ�α�) */
+    /* 初始化GB4717导出模块 (复位状态机, 清空读取游标) */
     GB4717_ExportInit();
 
-    /* ��ʼ��USB CDC���⴮�� (PA11/PA12)
-     * ö����ɺ� PC �˻���ֶ�Ӧ COM ��, �ɲ��� SWD ����
-     * USB ռ�õ����Ÿ��ò�Ӱ�� USART1, ����ͨ���������� */
+    /* 初始化USB CDC虚拟串口 (PA11/PA12)
+     * 枚举完成后 PC 端会出现对应 COM 口, 可并行 SWD 调试
+     * USB 占用的引脚复用不影响 USART1, 串口通信正常并行 */
+    /* [GB4717 B.1.3.2] 应至少提供 USB B型(母口)或 USB C型(母口), 支持 USB2.0 从机模式(Device)
+     * 注: 板上连接器类型需硬件确认。 */
     USB_CDC_Init();
 
-    /* USB CDC �Լ�: ���ͳ�ʼ�������ʾ��Ϣ, �����ж�ͨ����· */
+    /* USB CDC 自检: 发送初始化完成提示信息, 便于判断通信链路 */
     {
         
         USB_CDC_SendData(test_msg, sizeof(test_msg) - 1);
     }
 
-    /* �����Զ�dump: ����ѭ�����ü������ӳ�dump, ��������USB�ж� */
+    /* 开机自动dump: 在主循环中用计数器延迟dump, 避免阻塞USB中断 */
 
     while (1)
     {
         StorageRx_Process();
-        StorageRx_MetaPrepare();  /* P0-A�޸�(v2): ��̨�ֶ�Ԥ��meta bank, ÿȦ�ϵ��1���� */
+        StorageRx_MetaPrepare();  /* P0-A修复(v2): 后台分段预擦meta bank, 每圈上电等1扇区 */
         GB4717_ExportProcess();
         USB_CDC_Poll();
         //USB_CDC_SendData(test_msg, sizeof(test_msg) - 1);
 #if STX_DEBUG_BUILD
-        /* �����Զ�dump: �������ӳٺ�dumpȫ����¼(һ����) */
+        /* 开机自动dump: 计数器延迟后dump全部记录(一次性) */
         {
             static uint8_t dumped = 0;
             static uint32_t dump_delay = 0;
@@ -133,9 +141,9 @@ const uint8_t test_msg[] = "USB CDC Ready (ST USB-FS-Device_Driver OK)\r\n";
             }
         }
 
-        /* USB_CDC �����: PC ͨ�� COM17 �����ַ�����,
-         * 'R' = dumpȫ����¼
-         * 'C' = ��մ洢 (EraseAll, ����) */
+        /* USB_CDC 命令处理: PC 通过 COM17 发送字符命令,
+         * 'R' = dump全部记录
+         * 'C' = 清空存储 (EraseAll, 谨慎) */
         /* P1-6: 0x40-start frames belong to GB4717 parser, peek to route; the
          * IsIdle() gate prevents stealing mid-frame payload bytes (USB packets
          * may split a frame across two drains - theft there poisons the parser
@@ -178,7 +186,7 @@ const uint8_t test_msg[] = "USB CDC Ready (ST USB-FS-Device_Driver OK)\r\n";
             }
             else if (cmd == 'C')
             {
-                /* �洢��λȷ��: ��Ҫ���η���'C'��ִ��, ���� */
+                /* 存储复位确认: 需要两次发送'C'才执行, 防误触 */
                 static uint8_t erase_armed = 0;
                 if (erase_armed == 0)
                 {
@@ -189,16 +197,16 @@ const uint8_t test_msg[] = "USB CDC Ready (ST USB-FS-Device_Driver OK)\r\n";
                 {
                     erase_armed = 0;
                    
-                    Storage_ClearAllRecords();  /* ��װ����: ����4���� + ��λ�����α� */
+                    Storage_ClearAllRecords();  /* 封装函数: 擦除4分区 + 复位导出游标 */
                     USB_CDC_SendData((const uint8_t *)"[STX_ERASE] done\r\n", 18);
                 }
             }
         }
 
-        /* ���Բ���: ͨ�� USB CDC �����������, �� USB_CDC �������֧
-         * bytes=���ο����ۼƽ����ֽ��� last=���һ�ֽ�ֵ idx=֡�����α�λ�� ready=֡������־
-         * �ж�: bytes����0ֵ ? ��֡����; bytes������idx����0 ? ������;
-         *       idx����ready=0 ? ֡δ����; ready=1 ? ֡������ɴ����� */
+        /* 测试参数: 通过 USB CDC 输入参数设置, 见 USB_CDC 命令处理分支
+         * bytes=本次开机累计接收字节数 last=最后一字节值 idx=帧重组游标位置 ready=帧就绪标志
+         * 判断: bytes递增0值 ? 无帧接收; bytes不变且idx不是0 ? 重组中;
+         *       idx递增ready=0 ? 帧未完整; ready=1 ? 帧接收完成待处理 */
 #endif
     }
 }
