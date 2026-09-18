@@ -1,9 +1,9 @@
 /* ============================================================================
  * 模块名称: MBus/回路2设备控制模块 (MBus Control Module)
- * 功能描述: 实现回路2(UART2) MBus总线设备的轮询调度、Modbus RTU通信、
+ * 功能描述: 实现回路2(USART2) MBus总线设备的轮询调度、Modbus RTU通信、
  *          状态管理、声光报警器控制、火灾显示盘事件上报、Flash持久化。
  * 通信协议: Modbus RTU, 功能码01(读线圈)/04(读输入寄存器)/05(写单线圈)/10(写多寄存器),
- *          UART2/115200/8N1, MBUS2SITE=1
+ *          USART2/9600/8N1, MBUS2SITE=1
  * 设备类型: 声光报警器(XR-SGBJQ,地址60)/手动报警器(XR2200,地址61)/火灾显示盘(XR1530,地址62)
  * 轮询流程: 单事务响应驱动，手报/显示盘用04，声光用01读取状态
  * 控制服务: 声光报警器通过05功能码控制, 火灾显示盘通过10功能码上报事件
@@ -1846,7 +1846,7 @@ static void MBus2ReceiveSlaveDataDeal(void)
     }
 }
 
-/* 登记用同一UART2单事务路径发送身份问询，不借用正式上线标志。 */
+/* 登记用同一USART2单事务路径发送身份问询，不借用正式上线标志。 */
 static uint8_t MBusCtrl_TryStartRegistrationProbe(void)
 {
     uint8_t address;
