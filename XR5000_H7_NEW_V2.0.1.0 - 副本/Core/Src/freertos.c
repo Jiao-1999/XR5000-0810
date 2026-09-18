@@ -38,6 +38,7 @@
 #include "bsp_mbus.h"
 #include "bsp_mbus_control.h"
 #include "bsp_rs485_01.h"
+#include "bsp_ig3302.h"
 
 #include "bsp_adc.h"
 #include "bsp_key.h"
@@ -96,10 +97,10 @@ const osThreadAttr_t PackPollingTask_attributes = {
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
-// PACK485 轮询接收任务
-osThreadId_t PackPollAndReceiveTaskHandle; // PACK485轮询接收任务句柄
+// 回路4 IG3302-DC轮询接收任务
+osThreadId_t PackPollAndReceiveTaskHandle; // 回路4 IG3302-DC任务句柄
 const osThreadAttr_t PackPollAndReceiveTask_attributes = {
-	.name = "PackPollAndReceiveTask",
+	.name = "IG3302PollTask",
 	.stack_size = 256 * 4,
 	.priority = (osPriority_t) osPriorityNormal1,
 };
@@ -455,7 +456,7 @@ void MX_FREERTOS_Init(void) {
 //	QueueRcevDealTaskHandle = osThreadNew(QueuePollRecvDealTask, NULL, &QueueRcevDealTask_attributes);
 
 	// 2025/11/25 11:03 启用新功能
-	PackPollAndReceiveTaskHandle = osThreadNew(RS485_01_PollAndRecieve, NULL, &PackPollAndReceiveTask_attributes);
+	PackPollAndReceiveTaskHandle = osThreadNew(IG3302_PollAndReceiveTask, NULL, &PackPollAndReceiveTask_attributes);
 
 
 	// 2025/11/17 17:22 启用MBUS
@@ -731,7 +732,7 @@ void SuspendTask(uint8_t task_id)
 			break;
 		}
 		case 3:{
-			vTaskSuspend(PackPollAndReceiveTaskHandle); // 挂起PACK 485总线
+			vTaskSuspend(PackPollAndReceiveTaskHandle); // 挂起回路4 IG3302-DC通信
 			break;
 		}
 		case 4:{
@@ -769,7 +770,7 @@ void ResumeTask(uint8_t task_id)
 			break;
 		}
 		case 3:{
-			vTaskResume(PackPollAndReceiveTaskHandle); // 挂起PACK 485总线
+			vTaskResume(PackPollAndReceiveTaskHandle); // 恢复回路4 IG3302-DC通信
 			break;
 		}
 		case 4:{

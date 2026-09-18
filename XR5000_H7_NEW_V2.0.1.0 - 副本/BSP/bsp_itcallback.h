@@ -35,6 +35,8 @@ typedef struct
 	uint8_t last_tx_status;
 } MBus2UartDiag_t;
 
+typedef MBus2UartDiag_t IG3302UartDiag_t;
+
 typedef struct
 {
 	uint32_t rx_event_count;
@@ -93,6 +95,7 @@ typedef enum
 extern UartBuffer_t uartbuff[10];
 extern volatile MBus2UartDiag_t g_mbus2_uart_diag;
 extern volatile RS485DetectUartDiag_t g_rs4853_uart_diag;
+extern volatile IG3302UartDiag_t g_ig3302_uart_diag;
 extern uint8_t screendata;
 
 HAL_StatusTypeDef MBus2UartEnsureRx(void);
@@ -102,6 +105,10 @@ HAL_StatusTypeDef RS485DetectUartEnsureRx(void);
 uint16_t RS485DetectUartRead(uint8_t *buffer, uint16_t capacity);
 void RS485DetectUartClearRx(void);
 void RS485DetectUartPrepareTx(void);
+void IG3302UartInitRx(void);
+HAL_StatusTypeDef IG3302UartEnsureRx(void);
+uint16_t IG3302UartRead(uint8_t *buffer, uint16_t capacity);
+void IG3302UartClearRx(void);
 uint8_t RS485DetectUartTakeTxComplete(void);
 
 extern FdcanBuffer_t fdcanbuff[2];

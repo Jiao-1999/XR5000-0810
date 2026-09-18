@@ -1070,6 +1070,11 @@
               <FilePath>..\BSP\bsp_rs485_01.c</FilePath>
             </File>
             <File>
+              <FileName>bsp_ig3302.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_ig3302.c</FilePath>
+            </File>
+            <File>
               <FileName>bsp_rs485_detect.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\bsp_rs485_detect.c</FilePath>

@@ -17,6 +17,7 @@ FdcanBuffer_t fdcanbuff[2];
 __attribute__((section(".sram2"))) UartBuffer_t uartbuff[10];
 volatile MBus2UartDiag_t g_mbus2_uart_diag;
 volatile RS485DetectUartDiag_t g_rs4853_uart_diag;
+volatile IG3302UartDiag_t g_ig3302_uart_diag;
 
 #define MBUS2_RX_RING_SIZE 512U
 #define MBUS2_RX_RING_MASK (MBUS2_RX_RING_SIZE - 1U)
@@ -34,6 +35,15 @@ static uint8_t g_rs4853_rx_ring[RS4853_RX_RING_SIZE];
 static volatile uint16_t g_rs4853_rx_head;
 static volatile uint16_t g_rs4853_rx_tail;
 static volatile uint8_t g_rs4853_tx_complete;
+
+#define IG3302_RX_RING_SIZE 256U
+#define IG3302_RX_RING_MASK (IG3302_RX_RING_SIZE - 1U)
+#define IG3302_DMA_RX_SIZE 64U
+__attribute__((section(".sram2"), aligned(32))) static uint8_t g_ig3302_dma_rx_buffer[IG3302_DMA_RX_SIZE];
+static uint8_t g_ig3302_rx_ring[IG3302_RX_RING_SIZE];
+static volatile uint16_t g_ig3302_rx_head;
+static volatile uint16_t g_ig3302_rx_tail;
+static volatile uint8_t g_ig3302_dma_active;
 
 static void MBus2UartPushFromIsr(const uint8_t *data, uint16_t length)
 {
@@ -148,6 +158,71 @@ uint8_t RS485DetectUartTakeTxComplete(void)
 	return completed;
 }
 
+static void IG3302UartPushFromIsr(const uint8_t *data, uint16_t length)
+{
+	uint16_t head = g_ig3302_rx_head;
+	uint16_t tail = g_ig3302_rx_tail;
+	uint16_t i;
+	for(i = 0U; i < length; i++)
+	{
+		uint16_t next = (uint16_t)((head + 1U) & IG3302_RX_RING_MASK);
+		if(next == tail)
+		{
+			g_ig3302_uart_diag.rx_ring_overflow_count++;
+			break;
+		}
+		g_ig3302_rx_ring[head] = data[i];
+		head = next;
+	}
+	__DMB();
+	g_ig3302_rx_head = head;
+}
+
+uint16_t IG3302UartRead(uint8_t *buffer, uint16_t capacity)
+{
+	uint16_t head;
+	uint16_t tail;
+	uint16_t count = 0U;
+	if(buffer == NULL || capacity == 0U) return 0U;
+	tail = g_ig3302_rx_tail;
+	head = g_ig3302_rx_head;
+	__DMB();
+	while(tail != head && count < capacity)
+	{
+		buffer[count++] = g_ig3302_rx_ring[tail];
+		tail = (uint16_t)((tail + 1U) & IG3302_RX_RING_MASK);
+	}
+	__DMB();
+	g_ig3302_rx_tail = tail;
+	return count;
+}
+
+void IG3302UartClearRx(void)
+{
+	uint16_t head = g_ig3302_rx_head;
+	__DMB();
+	g_ig3302_rx_tail = head;
+}
+
+HAL_StatusTypeDef IG3302UartEnsureRx(void)
+{
+	HAL_StatusTypeDef status;
+	if(g_ig3302_dma_active == 0U) return HAL_ERROR;
+	if(huart9.RxState == HAL_UART_STATE_BUSY_RX) return HAL_OK;
+	status = HAL_UARTEx_ReceiveToIdle_DMA(&huart9, g_ig3302_dma_rx_buffer, IG3302_DMA_RX_SIZE);
+	g_ig3302_uart_diag.last_rx_restart_status = (uint8_t)status;
+	if(status != HAL_OK) g_ig3302_uart_diag.rx_restart_fail_count++;
+	return status;
+}
+
+void IG3302UartInitRx(void)
+{
+	(void)HAL_UART_AbortReceive(&huart9);
+	g_ig3302_rx_head = 0U;
+	g_ig3302_rx_tail = 0U;
+	g_ig3302_dma_active = 1U;
+	(void)IG3302UartEnsureRx();
+}
 HAL_StatusTypeDef MBus2UartEnsureRx(void)
 {
 	HAL_StatusTypeDef status;
@@ -184,6 +259,9 @@ void UartBufferInit(void)
 	g_rs4853_rx_head = 0U;
 	g_rs4853_rx_tail = 0U;
 	g_rs4853_tx_complete = 0U;
+	 g_ig3302_rx_head = 0U;
+	 g_ig3302_rx_tail = 0U;
+	 g_ig3302_dma_active = 0U;
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
@@ -359,13 +437,23 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	}
 	else if (huart->Instance == UART9)
 	{
-		uartbuff[8].recepetion_flag = 1;
-		uartbuff[8].recepetion_len = Size;
-		
-		// ???Cache?????
-    SCB_InvalidateDCache_by_Addr((uint32_t*)uartbuff[8].recepetion_buff, BUFF_MAX);
-		HAL_UARTEx_ReceiveToIdle_DMA(&huart9, uartbuff[8].recepetion_buff, BUFF_MAX);
-		
+		if(g_ig3302_dma_active != 0U)
+		{
+			SCB_InvalidateDCache_by_Addr((uint32_t*)g_ig3302_dma_rx_buffer, IG3302_DMA_RX_SIZE);
+			g_ig3302_uart_diag.rx_event_count++;
+			g_ig3302_uart_diag.last_rx_size = Size;
+			if(Size < 5U) g_ig3302_uart_diag.rx_short_event_count++;
+			if(Size > IG3302_DMA_RX_SIZE) Size = IG3302_DMA_RX_SIZE;
+			IG3302UartPushFromIsr(g_ig3302_dma_rx_buffer, Size);
+			(void)IG3302UartEnsureRx();
+		}
+		else
+		{
+			uartbuff[8].recepetion_flag = 1;
+			uartbuff[8].recepetion_len = Size;
+			SCB_InvalidateDCache_by_Addr((uint32_t*)uartbuff[8].recepetion_buff, BUFF_MAX);
+			HAL_UARTEx_ReceiveToIdle_DMA(&huart9, uartbuff[8].recepetion_buff, BUFF_MAX);
+		}
 	}
 	else if (huart->Instance == USART10)
 	{
@@ -540,7 +628,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 		}
 		else if (huart->Instance == UART9)
 		{
-			HAL_UARTEx_ReceiveToIdle_DMA(&huart9, uartbuff[8].recepetion_buff, BUFF_MAX);
+			if(g_ig3302_dma_active != 0U) (void)IG3302UartEnsureRx();
+			else HAL_UARTEx_ReceiveToIdle_DMA(&huart9, uartbuff[8].recepetion_buff, BUFF_MAX);
 		}
 		else if (huart->Instance == USART10)
 		{

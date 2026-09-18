@@ -10,6 +10,7 @@
 #include "bsp_save_ctrl.h"
 #include "bsp_mbus_control.h"
 #include "bsp_rs485_detect.h"
+#include "bsp_ig3302.h"
 #include "bsp_screen.h"
 #include "hmi_driver.h"
 #include <stdio.h>
@@ -547,7 +548,8 @@ static uint8_t FaultFilter_ValidateDate(void)
 static uint8_t FaultFilter_IsLoopDevice(const FlashSaveDetectFault_t *record)
 {
     uint8_t cluster = record->fs_detect_id.cluster_id;
-    return (uint8_t)(cluster == 0U || cluster == MBUS_CONTROL_FLASH_ID || cluster == RS485_DETECT_FLASH_ID);
+    return (uint8_t)(cluster == 0U || cluster == MBUS_CONTROL_FLASH_ID ||
+                     cluster == RS485_DETECT_FLASH_ID || cluster == IG3302_FLASH_ID);
 }
 
 static uint8_t FaultFilter_IsPower(const FlashSaveDetectFault_t *record)
@@ -632,6 +634,7 @@ static void FaultFilter_FormatDevice(const FlashSaveDetectFault_t *record, uint8
     else if(cluster == 0U) sprintf((char *)buffer, "\xB5\xDA" "1" "\xBB\xD8\xC2\xB7 %u\xBA\xC5", id);
     else if(cluster == MBUS_CONTROL_FLASH_ID) sprintf((char *)buffer, "\xB5\xDA" "2" "\xBB\xD8\xC2\xB7 %u\xBA\xC5", id);
     else if(cluster == RS485_DETECT_FLASH_ID) sprintf((char *)buffer, "\xB5\xDA" "3" "\xBB\xD8\xC2\xB7 %u\xBA\xC5", id);
+    else if(cluster == IG3302_FLASH_ID) sprintf((char *)buffer, "\xB5\xDA" "4" "\xBB\xD8\xC2\xB7 %u\xBA\xC5", id);
     else if(cluster == LINKAGE_CLUSTER_ID)
     {
         switch(id)
@@ -697,6 +700,18 @@ static void FaultFilter_FormatState(const FlashSaveDetectFault_t *record, uint8_
         case FIM1017_BRANCH2_RECOVERY: sprintf((char *)buffer, "\xD6\xA7\xC2\xB7" "2" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); break;
         case FIM1017_BRANCH3_SHORT: sprintf((char *)buffer, "\xD6\xA7\xC2\xB7" "3" "\xB6\xCC\xC2\xB7"); break;
         case FIM1017_BRANCH3_RECOVERY: sprintf((char *)buffer, "\xD6\xA7\xC2\xB7" "3" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); break;
+        case IG3302_FAN1_PUSHROD_FAULT: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "1" "\xCD\xC6\xB8\xCB\xB9\xCA\xD5\xCF"); break;
+        case IG3302_FAN1_PUSHROD_RECOVERY: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "1" "\xCD\xC6\xB8\xCB\xB9\xCA\xD5\xCF\xBB\xD6\xB8\xB4"); break;
+        case IG3302_FAN1_DEVICE_FAULT: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "1" "\xB7\xE7\xBB\xFA\xB9\xCA\xD5\xCF"); break;
+        case IG3302_FAN1_DEVICE_RECOVERY: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "1" "\xB7\xE7\xBB\xFA\xB9\xCA\xD5\xCF\xBB\xD6\xB8\xB4"); break;
+        case IG3302_FAN1_COMBINED_FAULT: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "1" "\xB7\xE7\xBB\xFA\xBC\xB0\xCD\xC6\xB8\xCB\xB9\xCA\xD5\xCF"); break;
+        case IG3302_FAN1_COMBINED_RECOVERY: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "1" "\xB7\xE7\xBB\xFA\xBC\xB0\xCD\xC6\xB8\xCB\xB9\xCA\xD5\xCF\xBB\xD6\xB8\xB4"); break;
+        case IG3302_FAN2_PUSHROD_FAULT: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "2" "\xCD\xC6\xB8\xCB\xB9\xCA\xD5\xCF"); break;
+        case IG3302_FAN2_PUSHROD_RECOVERY: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "2" "\xCD\xC6\xB8\xCB\xB9\xCA\xD5\xCF\xBB\xD6\xB8\xB4"); break;
+        case IG3302_FAN2_DEVICE_FAULT: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "2" "\xB7\xE7\xBB\xFA\xB9\xCA\xD5\xCF"); break;
+        case IG3302_FAN2_DEVICE_RECOVERY: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "2" "\xB7\xE7\xBB\xFA\xB9\xCA\xD5\xCF\xBB\xD6\xB8\xB4"); break;
+        case IG3302_FAN2_COMBINED_FAULT: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "2" "\xB7\xE7\xBB\xFA\xBC\xB0\xCD\xC6\xB8\xCB\xB9\xCA\xD5\xCF"); break;
+        case IG3302_FAN2_COMBINED_RECOVERY: sprintf((char *)buffer, "\xB7\xE7\xBB\xFA" "2" "\xB7\xE7\xBB\xFA\xBC\xB0\xCD\xC6\xB8\xCB\xB9\xCA\xD5\xCF\xBB\xD6\xB8\xB4"); break;
         default: sprintf((char *)buffer, FAULT_TEXT_OTHER_FAULT); break;
     }
 }
