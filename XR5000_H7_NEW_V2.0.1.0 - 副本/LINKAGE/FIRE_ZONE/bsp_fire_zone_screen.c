@@ -273,6 +273,8 @@ static void RefreshPage(uint8_t force)
  * 7. 输入处理(NotifyText分支)
  *--------------------------------------------------------------*/
 
+#if 0 /* [2026-09-18 按需求注释] 分区名GBK合法性校验整体停用(接收限制约束取消),
+       * 名称输入不再校验不再截断, 原样显示与保存 */
 /*--------------------------------------------------------------
  * 函数名称：ValidateNameGBK
  * 功能说明：分区名GBK合法性校验+超长安全截断。
@@ -282,7 +284,7 @@ static void RefreshPage(uint8_t force)
  * 参数说明：src - 输入串, dst - 输出缓冲(容量FIRE_ZONE_NAME_LEN),
  *           truncated - 输出: 1=发生了截断。
  * 返回值：   0=合法, 1=含非法字符。
- *--------------------------------------------------------------*/
+ *--------------------------------------------------------------
 static uint8_t ValidateNameGBK(const char *src, char *dst, uint8_t *truncated)
 {
     uint8_t out = 0;      /* 输出长度 */
@@ -331,6 +333,8 @@ static uint8_t ValidateNameGBK(const char *src, char *dst, uint8_t *truncated)
     dst[out] = '\0';
     return 0;
 }
+--------------------------------------------------------------*/
+#endif /* GBK校验停用结束 */
 
 /*--------------------------------------------------------------
  * 函数名称：HandleNameInput
@@ -340,6 +344,8 @@ static uint8_t ValidateNameGBK(const char *src, char *dst, uint8_t *truncated)
 static void HandleNameInput(uint8_t slot, const char *text)
 {
     uint8_t zone = (uint8_t)(s_page * FIRE_ZONE_PAGE_ZONES + slot + 1U);
+
+#if 0 /* [2026-09-18 按需求注释] 名称校验与截断提示(接收限制约束取消) */
     char clean[FIRE_ZONE_NAME_LEN];
     uint8_t truncated = 0;
 
@@ -348,17 +354,11 @@ static void HandleNameInput(uint8_t slot, const char *text)
         SetTip("名称含非法字符");
         return;
     }
+#endif
     BeginEditSession();                       /* 压住落盘, 返回时统一保存 */
-    (void)FireZone_SetZoneName(zone, clean);  /* GBK串, 内部已截断保护 */
+    (void)FireZone_SetZoneName(zone, text);   /* 原样保存用户输入(不校验不转换) */
     RefreshPage(0);                           /* 回显(名称变化差分写出) */
-    if (truncated != 0U)
-    {
-        SetTip("名称过长已截断");
-    }
-    else
-    {
-        SetTip("已输入,返回保存");
-    }
+    SetTip("已输入,返回保存");
 }
 
 /*--------------------------------------------------------------
@@ -376,14 +376,15 @@ static void HandleRangeInput(uint8_t type, uint8_t slot, const char *text)
 {
     uint8_t zone = (uint8_t)(s_page * FIRE_ZONE_PAGE_ZONES + slot + 1U);
     uint8_t loop = s_fz_loop[type];       /* 本栏对应回路 */
-    char disp[16];                        /* 规范化显示文本(最长11字节+结束符) */
+    /* char disp[16];  [2026-09-18已注释] 不再做格式转换, 显示文本=用户原文 */
     uint16_t dmax = (loop == 2U) ? 63U : 30U;  /* 回路地址上限 */
     size_t len = strlen(text);
-    uint8_t ls, le;                       /* 起/止回路号 */
-    uint16_t as, ae;                      /* 起/止地址 */
+    uint8_t ls = 0, le = 0;               /* 起/止回路号 */
+    uint16_t as = 0, ae = 0;              /* 起/止地址 */
     uint8_t i;
     uint16_t d;
     uint8_t unknown = 0;                  /* 范围内未识别产品码设备数 */
+    uint8_t range_ok = 0U;                /* 输入恰为11位合法格式(仅用于静默更新映射) */
 
     if (len == 11U)
     {
@@ -414,7 +415,11 @@ static void HandleRangeInput(uint8_t type, uint8_t slot, const char *text)
             SetTip("已清空");
             return;
         }
+    }
 
+#if 0 /* [2026-09-18 按需求整体注释] 原九步输入校验+格式转换+拒绝路径
+       * (接收/保存限制约束取消): 不再拒绝任何输入, 不再把输入转换为
+       * "LLAAA-LLAAA"规范化格式, 显示与保存均为用户原文 */
         /* 步骤2: 字符校验(数字, 第6位为'.'分隔符) */
         for (i = 0U; i < 11U; i++)
         {
@@ -505,6 +510,70 @@ static void HandleRangeInput(uint8_t type, uint8_t slot, const char *text)
     {
         SetTip("已输入,返回保存");
     }
+#endif
+
+    /* 静默解析: 仅当输入恰为11位合法"LLAAA.LLAAA"时更新设备分区映射
+     * (供画面85联动分区受限编辑的FireZone_GetDeviceZone查询使用),
+     * 解析失败不做任何提示、不影响显示与保存 */
+    if (len == 11U)
+    {
+        range_ok = 1U;
+        for (i = 0U; i < 11U; i++)
+        {
+            char c = text[i];
+            if (i == 5U)
+            {
+                if (c != '.') { range_ok = 0U; break; }
+            }
+            else if ((c < '0') || (c > '9'))
+            {
+                range_ok = 0U; break;
+            }
+        }
+        if (range_ok != 0U)
+        {
+            ls = (uint8_t)(((text[0] - '0') * 10U) + (uint8_t)(text[1] - '0'));
+            le = (uint8_t)(((text[6] - '0') * 10U) + (uint8_t)(text[7] - '0'));
+            as = (uint16_t)(((uint16_t)(text[2] - '0') * 100U) +
+                            ((uint16_t)(text[3] - '0') * 10U) +
+                            (uint16_t)(text[4] - '0'));
+            ae = (uint16_t)(((uint16_t)(text[8] - '0') * 100U) +
+                            ((uint16_t)(text[9] - '0') * 10U) +
+                            (uint16_t)(text[10] - '0'));
+            if ((ls != le) || (ls < 1U) || (ls > 3U) || (ls != loop) ||
+                (as > ae) || (as < 1U) || (ae > dmax))
+            {
+                range_ok = 0U;  /* 静默放弃映射更新, 不拒绝不提示 */
+            }
+        }
+    }
+    if (range_ok != 0U)
+    {
+        /* 更新分区映射(独占语义: 旧分区归属自动移出);
+         * 落盘延迟到返回键时FlushPendingSave统一一次擦写 */
+        BeginEditSession();
+        (void)FireZone_SetZoneRange(zone, loop, (uint8_t)as, (uint8_t)ae);
+        for (d = as; d <= ae; d++)
+        {
+            if (GetDeviceProductCode(loop, d) == 0U)
+            {
+                unknown++;
+            }
+        }
+        DebugPrintf("[FZS] map z%u t%u L%u %u-%u unknown=%u\r\n",
+                    (unsigned)zone, (unsigned)type, (unsigned)loop,
+                    (unsigned)as, (unsigned)ae, (unsigned)unknown);
+    }
+
+    /* 原样保存用户输入(不校验不转换): 显示文本=用户原文,
+     * 落盘延迟到返回键时FlushPendingSave统一一次擦写 */
+    BeginEditSession();
+    (void)FireZone_SetSlotDisp(zone, type, text);
+    strncpy(s_last_dev[zone - 1U][type], text, FIRE_ZONE_NAME_LEN - 1U);
+    s_last_dev[zone - 1U][type][FIRE_ZONE_NAME_LEN - 1U] = '\0';
+
+    RefreshPage(0);  /* 回显(显示缓存已更新, 差分写出) */
+    SetTip("已输入,返回保存");
 }
 
 /*--------------------------------------------------------------
@@ -630,6 +699,31 @@ uint8_t FireZoneScreen_NotifyText(uint16_t screen_id, uint16_t control_id, const
     {
         return 0;
     }
+
+#if 0 /* [2026-09-18 按需求注释] 接收侧净化过滤取消: 屏端回传文本原样分发,
+       * 不截断尾部字符不去空格, 显示与保存均为用户原文(原防尾部垃圾机制) */
+    char clean[FIRE_ZONE_NAME_LEN + 16]; /* 净化后的输入文本缓冲 */
+    uint8_t n = 0U;       /* 净化后文本长度 */
+
+    /* 屏端键盘回传文本可能携带尾部控制字符(回车0x0D/换行0x0A, 不同屏
+     * 固件版本行为不一), 而设备范围校验严格要求11位、分区名校验拒绝
+     * 0x20以下字符, 尾部垃圾会导致全部输入被拒(84页所有内容保存不了)。
+     * 此处统一截断尾部回车/换行并去除尾部空格后再分发。 */
+    while ((text[n] != '\0') && (text[n] != '\r') && (text[n] != '\n') &&
+           (n < (sizeof(clean) - 1U)))
+    {
+        clean[n] = (char)text[n];
+        n++;
+    }
+    clean[n] = '\0';
+    while ((n > 0U) && (clean[n - 1U] == ' '))
+    {
+        n--;
+        clean[n] = '\0';  /* 去除尾部空格 */
+    }
+    text = (const uint8_t *)clean;  /* 后续统一使用净化后的文本 */
+#endif
+
     if (s_in_page == 0U)
     {
         /* 自愈: 屏端已在本画面(否则不会上送文本), 补做进入初始化,
@@ -640,9 +734,10 @@ uint8_t FireZoneScreen_NotifyText(uint16_t screen_id, uint16_t control_id, const
         RefreshPage(1);
     }
 
-    /* 诊断打印: 确认文本通知到达本模块(控件/文本) */
-    DebugPrintf("[FZS] notify ctl=%u text=%s\r\n",
-                (unsigned)control_id, (const char *)text);
+    /* 诊断打印: 确认文本通知到达本模块(控件/原文长度/文本) */
+    DebugPrintf("[FZS] notify ctl=%u len=%u text=%s\r\n",
+                (unsigned)control_id, (unsigned)strlen((const char *)text),
+                (const char *)text);
 
     /* 分区名输入框(1~4) */
     if ((control_id >= FIRE_ZONE_IN_NAME_0) && (control_id <= FIRE_ZONE_IN_NAME_3))

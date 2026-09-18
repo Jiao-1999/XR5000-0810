@@ -599,7 +599,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 						outfire_key_val = temp_key_val;
 						switch(temp_key_val)
 						{
-							case KEY1_INFORM_CERTAIN  : StorageEvent_LogConfirmButton(); /* 黑匣子:信息确认按钮动作(EVT_CONFIRM_BUTTON=128), GB4717-2024 B.1.1.1b */ // 信息确认
+							case KEY1_INFORM_CERTAIN  : StorageEvent_LogConfirmButton();  /* [GB4717 B.1.1.1b] 信息确认按钮动作(EVT 128) */ /* 黑匣子:信息确认按钮动作(EVT_CONFIRM_BUTTON=128), GB4717-2024 B.1.1.1b */ // 信息确认
 								break;
 							case KEY2_SELF_INSPECTION :  // 系统自检
 								HmiRequestInternalProtectedAction(SELFCHECK_KEY);
@@ -697,7 +697,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为手动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_HAND, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* 黑匣子:系统手动 */
+									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 1);  /* [GB4717 B.1.1.1a/c] 系统切手动(EVT 55/56) */ /* 黑匣子:系统手动 */
 								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* FECbus:系统手动 */
 								}
 								break;
@@ -708,7 +708,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为自动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_AUTO, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* 黑匣子:系统自动 */
+									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 0);  /* [GB4717 B.1.1.1a/c] 系统切自动 */ /* 黑匣子:系统自动 */
 								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* FECbus:系统自动 */
 								}
 								break;
@@ -723,7 +723,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为手动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_HAND, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* 黑匣子:分区1手动 */
+									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 1);  /* [GB4717 B.1.1.1a/c] 分区1切手动 */ /* 黑匣子:分区1手动 */
 								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* FECbus:分区1手动 */
 								}
 								break;
@@ -734,7 +734,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为自动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_AUTO, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* 黑匣子:分区1自动 */
+									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 0);  /* [GB4717 B.1.1.1a/c] 分区1切自动 */ /* 黑匣子:分区1自动 */
 								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* FECbus:分区1自动 */
 								}
 								break;
@@ -749,7 +749,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为手动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_HAND, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* 黑匣子:分区2手动 */
+									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 1);  /* [GB4717 B.1.1.1a/c] 分区2切手动 */ /* 黑匣子:分区2手动 */
 								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* FECbus:分区2手动 */
 								}
 								break;
@@ -760,7 +760,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为自动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_AUTO, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
-									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* 黑匣子:分区2自动 */
+									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 0);  /* [GB4717 B.1.1.1a/c] 分区2切自动 */ /* 黑匣子:分区2自动 */
 								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* FECbus:分区2自动 */
 								}
 								break;

@@ -214,7 +214,7 @@ void InternalScreenRTCSetting(uint16_t screen_id, uint16_t control_id, uint8_t *
 
 				set_RTC(SystemTime.year,SystemTime.month,SystemTime.day,SystemTime.hours,SystemTime.minutes,SystemTime.seconds);
 				BM8563_Soft_I2C_SetTime(&SystemTime);
-				StorageEvent_LogClockAdjust(); /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
+				StorageEvent_LogClockAdjust();  /* [GB4717 B.1.1.1d] 时钟调整(EVT 131), 时间戳=调整后新值 */ /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
 			}
 		}
 		else if(control_id == 17)      // 月
@@ -230,7 +230,7 @@ void InternalScreenRTCSetting(uint16_t screen_id, uint16_t control_id, uint8_t *
 
 				set_RTC(SystemTime.year,SystemTime.month,SystemTime.day,SystemTime.hours,SystemTime.minutes,SystemTime.seconds);
 				BM8563_Soft_I2C_SetTime(&SystemTime);
-				StorageEvent_LogClockAdjust(); /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
+				StorageEvent_LogClockAdjust();  /* [GB4717 B.1.1.1d] 时钟调整(EVT 131), 时间戳=调整后新值 */ /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
 			}
 		}
 		else if(control_id == 18)      // 日
@@ -246,7 +246,7 @@ void InternalScreenRTCSetting(uint16_t screen_id, uint16_t control_id, uint8_t *
 
 				set_RTC(SystemTime.year,SystemTime.month,SystemTime.day,SystemTime.hours,SystemTime.minutes,SystemTime.seconds);
 				BM8563_Soft_I2C_SetTime(&SystemTime);
-				StorageEvent_LogClockAdjust(); /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
+				StorageEvent_LogClockAdjust();  /* [GB4717 B.1.1.1d] 时钟调整(EVT 131), 时间戳=调整后新值 */ /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
 			}
 		}
 		else if(control_id == 19)      // 时
@@ -262,7 +262,7 @@ void InternalScreenRTCSetting(uint16_t screen_id, uint16_t control_id, uint8_t *
 
 				set_RTC(SystemTime.year,SystemTime.month,SystemTime.day,SystemTime.hours,SystemTime.minutes,SystemTime.seconds);
 				BM8563_Soft_I2C_SetTime(&SystemTime);
-				StorageEvent_LogClockAdjust(); /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
+				StorageEvent_LogClockAdjust();  /* [GB4717 B.1.1.1d] 时钟调整(EVT 131), 时间戳=调整后新值 */ /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
 			}
 		}
 		else if(control_id == 20)      // 分
@@ -278,7 +278,7 @@ void InternalScreenRTCSetting(uint16_t screen_id, uint16_t control_id, uint8_t *
 
 				set_RTC(SystemTime.year,SystemTime.month,SystemTime.day,SystemTime.hours,SystemTime.minutes,SystemTime.seconds);
 				BM8563_Soft_I2C_SetTime(&SystemTime);
-				StorageEvent_LogClockAdjust(); /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
+				StorageEvent_LogClockAdjust();  /* [GB4717 B.1.1.1d] 时钟调整(EVT 131), 时间戳=调整后新值 */ /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
 			}
 		}
 		else if(control_id == 21)      // 秒
@@ -294,7 +294,7 @@ void InternalScreenRTCSetting(uint16_t screen_id, uint16_t control_id, uint8_t *
 
 				set_RTC(SystemTime.year,SystemTime.month,SystemTime.day,SystemTime.hours,SystemTime.minutes,SystemTime.seconds);
 				BM8563_Soft_I2C_SetTime(&SystemTime);
-				StorageEvent_LogClockAdjust(); /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
+				StorageEvent_LogClockAdjust();  /* [GB4717 B.1.1.1d] 时钟调整(EVT 131), 时间戳=调整后新值 */ /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
 			}
 		}
 	}

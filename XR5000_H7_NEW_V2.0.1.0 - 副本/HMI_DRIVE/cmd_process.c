@@ -2638,7 +2638,7 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 			GetScreen();
 			SetTextValue(1U, 4U, "控制器复位中...请稍候...");
 			BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_SELF_CHECK, LINKAGE_CLUSTER_ID, SYS_SELFCHECK_Package_ID);
-			StorageEvent_LogSelfCheck(0U);
+			StorageEvent_LogSelfCheck(0U);  /* [GB4717 B.1.1.1d] 自检操作(EVT 123/124) */
 			SpecialSelfCheckLedCtrl(LED_ON);
 			return 1U;
 
@@ -2648,8 +2648,8 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 			GetScreen();
 			SetTextValue(1U, 4U, "控制器复位中...请稍候...");
 			BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_RESET, LINKAGE_CLUSTER_ID, SYS_RESET_Package_ID);
-			StorageEvent_ResetFirstFire();
-			StorageEvent_LogReset();
+			StorageEvent_ResetFirstFire();  /* [GB4717 B.1.2.2] 复位重置首警标志, 下次火警重新记首警 */
+			StorageEvent_LogReset();  /* [GB4717 B.1.1.1d] 复位操作(EVT 122) */
 			kaijiyanshi = (ONLINE_TIMEOUT > 6) ? (ONLINE_TIMEOUT - 6) : 0;
 			ResetAllBusDevice();
 			return 1U;
@@ -2660,8 +2660,8 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 
 		case LINKAGE_START_KEY:
 			StartupLinkageDevice();
-			StorageEvent_LogLinkageStartButton(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);
-			StorageEvent_LogStart(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);
+			StorageEvent_LogLinkageStartButton(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);  /* [GB4717 B.1.1.1b] 联动启动按钮动作(EVT 130) */
+			StorageEvent_LogStart(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);  /* [GB4717 B.1.1.1c] 联动设备启动(EVT 19) */
 			FecbusReport_Start(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);
 			break;
 
@@ -3645,7 +3645,7 @@ void UpdateUI(void)
 	{
 		check_record_pending = 0U;
 		BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_CHECK, LINKAGE_CLUSTER_ID, SYS_CHECK_Package_ID);
-		StorageEvent_LogCheckButton(); /* 黑匣子:检查功能按钮动作(EVT_CHECK_BUTTON=129), 复用去重机制只记一条 */
+		StorageEvent_LogCheckButton();  /* [GB4717 B.1.1.1d] 检查操作(EVT 129) */ /* 黑匣子:检查功能按钮动作(EVT_CHECK_BUTTON=129), 复用去重机制只记一条 */
 	}
 
 	/* XR5000_CHECK_CHANGE_20260804: refresh screen 72 and enforce non-blocking inactivity exit. */
@@ -3858,7 +3858,7 @@ void UpdateUI(void)
 			screen_show_siren_information |= 0xF0; // 标记执行过 
 			// 记录到火警分区中 按键按下 存入FLASH在前可以少一次获取RTC操作
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, 0xFFFF);
-			StorageEvent_LogFire(ALARM_ANNUNCIATOR_ID, DEV_TYPE_SOUND_LIGHT, 1, 0);
+			StorageEvent_LogFire(ALARM_ANNUNCIATOR_ID, DEV_TYPE_SOUND_LIGHT, 1, 0);  /* [GB4717 B.1.1.1a] 声光警报器火灾报警 */
 //			// 存入cache缓冲区
 //			StoragePackCabinForeWarn(&pcfws, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey);
 			// 存入火灾报警区域 
@@ -3878,7 +3878,7 @@ void UpdateUI(void)
 			setDealHandPaperState();
 			// 存入FLASH
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, HANDPOT_Package_ID, 0xFFFF);
-			StorageEvent_LogFire(HANDPOT_Package_ID, DEV_TYPE_HAND_REPORT, 1, 0);
+			StorageEvent_LogFire(HANDPOT_Package_ID, DEV_TYPE_HAND_REPORT, 1, 0);  /* [GB4717 B.1.1.1a] 手动火灾报警按钮 */
 			//
 		}
 		
@@ -8512,7 +8512,7 @@ static void FireExtinguishDeviceStateUpdate(FireExtinguishDeviceActionSave *feda
 		Part1FeedbackLedCtrl(LED_ON);
 		// 记录到FLASH中 反馈一动作
 		BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_FEEDBACK1, LINKAGE_CLUSTER_ID, FEEDBK1_Package_ID);
-		StorageEvent_LogFeedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0); /* 记录:反馈1动作 */
+		StorageEvent_LogFeedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0);  /* [GB4717 B.1.1.1c] 联动设备反馈(EVT 26); [核查 CHK-04]仅反馈1 */ /* 记录:反馈1动作 */
 		FecbusReport_Feedback(FEEDBK1_Package_ID, DEV_TYPE_CONTROL_DEV, 0);    /* FECbus:反馈1动作 */
 
 		// 创建一条新纪录
@@ -12419,7 +12419,7 @@ static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state)
 	if(main_power_state == 0 && (back_power_state == open_circuit || back_power_state == short_circuit))
 	{
 		BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_TURN_OFF, LINKAGE_CLUSTER_ID, SYS_TURN_OFF_Package_ID);
-		StorageEvent_LogPowerOff(); /* 黑匣子:关机事件(EVT_POWER_OFF=121), 主备电全失 */
+		StorageEvent_LogPowerOff();  /* [GB4717 B.1.1.1d] 关机操作(EVT 121), 主备电全失 */ /* 黑匣子:关机事件(EVT_POWER_OFF=121), 主备电全失 */
 	}
 	else
 	{
@@ -12834,18 +12834,18 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
                 RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, old_temp, temp_state);
                 /* V2.21协议：温度state=1直接进入火警，不再生成温度预警。 */
                 if(old_temp == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_RECOVERY);
-                if(old_temp == 8U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 1);
+                if(old_temp == 8U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 1);  /* [GB4717 B.1.1.1a] 回路3感温故障恢复 */
                 if(temp_state == 1U)
                 {
                     getBM8563TimeToSystemTime();
                     StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Temperature); fire_alarm_check_new_flag = 1;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE));
-                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0);
+                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0);  /* [GB4717 B.1.1.1a] 回路3感温火灾报警 */
                 }
                 else if(temp_state == 8U)
 				{
 					RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_FAULT);
-                    StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 0);
+                    StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 0);  /* [GB4717 B.1.1.1a] 回路3感温故障发生(EVT 80) */
 				}
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_TEMPERATURE] = temp_state;
 			}
@@ -12854,25 +12854,25 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
                 RS485Loop3PostDisplayTransition(addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, old_smoke, smoke_state);
                 if(old_smoke == 8U) RS485Loop3RemoveFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_RECOVERY);
-                if(old_smoke == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 1);
+                if(old_smoke == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 1);  /* [GB4717 B.1.1.1a] 回路3感烟故障恢复 */
                 if(type == RS485_DETECT_TYPE_XR805 && smoke_state == 1U)
                 {
                     getBM8563TimeToSystemTime();
                     StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Smoke); fire_alarm_check_new_flag = 1;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_SMOKE));
-                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);
+                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);  /* [GB4717 B.1.1.1a] 回路3感烟火灾报警 */
                 }
                 else if(type != RS485_DETECT_TYPE_XR805 && smoke_state == 1U)
 				{
 					getBM8563TimeToSystemTime();
 					StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Smoke); fire_alarm_check_new_flag = 1;
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, RS485_DETECT_FLASH_ID, addr, 0xFFFF);
-                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);
+                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);  /* [GB4717 B.1.1.1a] 回路3感烟火灾报警 */
 				}
                 else if(smoke_state == 8U)
 				{
                     RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_SMOKE, RS485_SMOKE_POLLUTION_FAULT);
-                    StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 0);
+                    StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 3, 0, 0);  /* [GB4717 B.1.1.1a] 回路3感烟故障发生 */
 				}
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_SMOKE] = smoke_state;
 			}
@@ -12949,14 +12949,14 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 				getBM8563TimeToSystemTime();
 				StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Temperature); fire_alarm_check_new_flag = 1;
 				BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE));
-                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0);
+                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0);  /* [GB4717 B.1.1.1a] 回路3感温火灾报警 */
 			}
 			if(smoke_state != 0U && old_smoke == 0U)
 			{
 				getBM8563TimeToSystemTime();
 				StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Smoke); fire_alarm_check_new_flag = 1;
 				BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, RS485_DETECT_FLASH_ID, addr, 0xFFFF);
-                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);
+                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);  /* [GB4717 B.1.1.1a] 回路3感烟火灾报警 */
 			}
 			if(co_state != 0U && old_co == 0U)
 			{
@@ -13310,7 +13310,7 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
             {
                 if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_RECOVERY);
                 /* 记录温度传感器故障恢复 */
-                if(old_state == 8U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1);
+                if(old_state == 8U) StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1);  /* [GB4717 B.1.1.1a] 回路1感温故障恢复(EVT 100) */
                 if(old_state == 8U) FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 1); /* FECbus:温度传感器故障恢复 */
                 setPointTypeMixtureDetectTempertureMemory(addr, raw_state == 1U ? 1U : 0U);
 
@@ -13326,7 +13326,7 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, 0U, addr, value);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FIRE);
                     /* 记录:温度传感器Loop1火警(温度值上报) */
-                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 1, 0);
+                    StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 1, 0);  /* [GB4717 B.1.1.1a] 回路1感温火灾报警 */
                     FecbusReport_Fire(addr, DEV_TYPE_TEMPERATURE, 1, 0); /* FECbus:上报温度火警 */
                 }
                 else if(raw_state == 8U)
@@ -13342,7 +13342,7 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
             {
                 if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_SMOKE_POLLUTION, LOOP1_SMOKE_POLLUTION_RECOVERY);
                 /* 记录烟雾传感器故障恢复 */
-                if(old_state == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);
+                if(old_state == 8U) StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 1);  /* [GB4717 B.1.1.1a] 回路1感烟故障恢复 */
                 if(old_state == 8U) FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 1); /* FECbus:烟雾污染故障恢复 */
                 setPointTypeMixtureDetectSmokeMemory(addr, raw_state == 1U ? 1U : 0U);
 
@@ -13358,7 +13358,7 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, 0U, addr, value);
                     MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FIRE);
                     /* 记录:烟雾传感器Loop1火警(烟雾火警上报) */
-                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 1, 0);
+                    StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 1, 0);  /* [GB4717 B.1.1.1a] 回路1感烟火灾报警 */
                     FecbusReport_Fire(addr, DEV_TYPE_SMOKE, 1, 0); /* FECbus:上报烟雾火警 */
                 }
                 else if(raw_state == 8U)

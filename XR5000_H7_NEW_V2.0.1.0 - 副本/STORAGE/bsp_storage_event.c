@@ -94,6 +94,19 @@
  *     8. 事件代码:     见 bsp_storage_tx.h 的 EVT_xxx 宏
  *     9. 命令码分配:   0x01普通/0x02首警/0x03火警/0x04故障
  */
+/* ================================================================
+ * 【GB4717-2024 附录B 存储接入点索引】 搜索关键字: [GB4717
+ *   B.1.1.1a 触发器件: 火警/屏蔽/故障/监管/手自动 -> LogFire/LogFault/LogShield/LogManualAuto/LogSupervise
+ *   B.1.1.1b 信息确认键/联动启动键动作        -> LogConfirmButton/LogLinkageStartButton
+ *   B.1.1.1c 联动设备: 启动/反馈/屏蔽/故障/手自动 -> LogStart/LogFeedback/LogShield/LogManualAuto/LogLinkageAction
+ *   B.1.1.1d 开关机/复位/检查/时钟调整        -> LogPowerOn/LogPowerOff/LogReset/LogCheckButton/LogSelfCheck/LogClockAdjust
+ *   B.1.1.1e 集中型记录区域型信息             -> 【不适用】本机为区域型控制器
+ *   B.1.1.2   同步记录年月日时分秒            -> Enqueue -> FillTimestamp
+ *   B.1.2.2   首警/火警/故障独立记录          -> cmd: 0x02/0x03/0x04
+ *   [核查 CHK-01] 火警接入源: 回路1(温度/烟雾)+回路3(RS485 6类)+声光+手报; 回路2未接(P0-2)
+ *   [核查 CHK-03] 监管无信号源, 按不适用备档
+ *   [核查 CHK-04] 反馈仅反馈1接入, 反馈2/3待硬件确认
+ * ================================================================ */
 #include "bsp_storage_event.h"
 #include <string.h>
 
@@ -118,6 +131,9 @@ static uint8_t s_first_fire_recorded = 0;
  * @note   填充 controller_no=1, 自动调 FillTimestamp 填入RTC时间,
  *         调用 QueueRecord 异步入队(非阻塞, 队列满则丢最旧).
  */
+/* [GB4717 B.1.1.2] 同步记录年月日时分秒(FillTimestamp读RTC)
+ * [GB4717 B.1.2.2] cmd决定独立分区: 0x02首警/0x03火警/0x04故障/0x01通用
+ * [缺陷 DEF-N5] 队列(32)满丢最旧, 此处忽略QueueRecord返回值->丢记录无告警 */
 static void StorageEvent_Enqueue(uint8_t cmd,
                                  uint8_t dev_no, uint16_t dev_type,
                                  uint8_t unit_no, uint8_t channel_no,
@@ -148,6 +164,9 @@ static void StorageEvent_Enqueue(uint8_t cmd,
  * 公开API
  *============================================================*/
 
+/* [GB4717 B.1.1.1a] 火灾报警触发器件的"火灾报警信息"
+ * [GB4717 B.1.2.2]  首火警(0x02)/火灾报警(0x03)独立记录, 不被覆盖
+ * [试验 TST-B.2.2] 触发火警->确认->复位->再触发: 第4次应再出0x02首警 */
 void StorageEvent_LogFire(uint8_t dev_no, uint16_t dev_type,
                           uint8_t unit_no, uint8_t channel_no)
 {
@@ -164,6 +183,9 @@ void StorageEvent_LogFire(uint8_t dev_no, uint16_t dev_type,
                          EVT_FIRE, 0U);
 }
 
+/* [GB4717 B.1.1.1a] 触发器件"故障信息"(含恢复EVT 100), 存0x04故障独立区段
+ * [核查 CHK-02] 接入源: 回路1(温度/烟雾)+回路3(6类); 回路2未接
+ * [核查 CHK-02] 控制器自身故障(主备电/总线)不属B.1.1.1记录范围, 走另一套存储 */
 void StorageEvent_LogFault(uint8_t dev_no, uint16_t dev_type,
                            uint8_t unit_no, uint8_t channel_no,
                            uint8_t is_recover)
@@ -176,6 +198,8 @@ void StorageEvent_LogFault(uint8_t dev_no, uint16_t dev_type,
                          event_code, 0U);
 }
 
+/* [GB4717 B.1.1.1c] 消防联动设备的"反馈信息"(EVT 26), 存0x01通用区段
+ * [核查 CHK-04] 目前仅反馈1接入(cmd_process.c), 反馈2/3待硬件确认 */
 void StorageEvent_LogFeedback(uint8_t dev_no, uint16_t dev_type,
                               uint16_t state_code)
 {
@@ -185,11 +209,15 @@ void StorageEvent_LogFeedback(uint8_t dev_no, uint16_t dev_type,
                          EVT_FEEDBACK, state_code);
 }
 
+/* [GB4717 B.1.2.2] 复位"首火警"标志: 下次火警重新判定并写首警独立区段
+ * [试验 TST-B.2.2] 复位后再发火警, 应再次出现0x02首警记录 */
 void StorageEvent_ResetFirstFire(void)
 {
     s_first_fire_recorded = 0U;
 }
 
+/* [GB4717 B.1.1.1a] 触发器件手动/自动状态 + [B.1.1.1c] 联动设备手自动
+ * [核查 CHK-01] 接入: 系统+分区1+分区2 各手动/自动 共6处(bsp_internal_board.c) */
 void StorageEvent_LogManualAuto(uint8_t dev_no, uint8_t is_manual)
 {
     uint16_t event_code = (is_manual != 0U) ? EVT_MANUAL : EVT_AUTO;
@@ -200,6 +228,8 @@ void StorageEvent_LogManualAuto(uint8_t dev_no, uint8_t is_manual)
                          event_code, 0U);
 }
 
+/* [GB4717 B.1.1.1a] 触发器件屏蔽/解除屏蔽(EVT 72/73) + [B.1.1.1c] 联动设备屏蔽
+ * [试验 TST-B.2.4] 手动屏蔽探测器->解除: 应出2条记录(72+73) */
 void StorageEvent_LogShield(uint8_t dev_no, uint16_t dev_type, uint8_t is_release)
 {
     uint16_t event_code = (is_release != 0U) ? EVT_SHIELD_RELEASE : EVT_SHIELD;
@@ -210,6 +240,7 @@ void StorageEvent_LogShield(uint8_t dev_no, uint16_t dev_type, uint8_t is_releas
                          event_code, 0U);
 }
 
+/* [GB4717 B.1.1.1c] 消防联动设备的"启动信息"(EVT 19), 存0x01通用区段 */
 void StorageEvent_LogStart(uint8_t dev_no, uint16_t dev_type)
 {
     /* 联动启动按键存入0x01普通区段 */
@@ -218,6 +249,8 @@ void StorageEvent_LogStart(uint8_t dev_no, uint16_t dev_type)
                          EVT_START, 0U);
 }
 
+/* [GB4717 B.1.1.1d] 控制器"复位"操作信息(EVT 122)
+ * [试验 TST-B.2.3] 手动复位后应出EVT_RESET记录 */
 void StorageEvent_LogReset(void)
 {
     /* 系统复位: 控制器号1, EVT_RESET(122), state=0, 存入0x01普通区段
@@ -232,6 +265,8 @@ void StorageEvent_LogReset(void)
  * 新增API(GB4717-2024附录B.1.1.1整改, 2026-08-24)
  *============================================================*/
 
+/* [GB4717 B.1.1.1d] 控制器"开机"操作信息(EVT 120)
+ * [试验 TST-B.2.3] 开机后应出EVT_POWER_ON记录 */
 void StorageEvent_LogPowerOn(void)
 {
     /* 控制器开机: EVT_POWER_ON(120), 存入0x01普通区段
@@ -241,6 +276,8 @@ void StorageEvent_LogPowerOn(void)
                          EVT_POWER_ON, 0U);
 }
 
+/* [GB4717 B.1.1.1d] 控制器"关机"操作信息(EVT 121)
+ * [核查] 关机瞬间异步入队可能来不及发出, 尽力而为(固有限制) */
 void StorageEvent_LogPowerOff(void)
 {
     /* 控制器关机: EVT_POWER_OFF(121), 存入0x01普通区段
@@ -251,6 +288,8 @@ void StorageEvent_LogPowerOff(void)
                          EVT_POWER_OFF, 0U);
 }
 
+/* [GB4717 B.1.1.1b] 信息确认按钮动作(EVT 128)
+ * [试验 TST-B.2.2] 确认键按下应出EVT_CONFIRM_BUTTON记录 */
 void StorageEvent_LogConfirmButton(void)
 {
     /* 信息确认按钮动作: EVT_CONFIRM_BUTTON(128), 存入0x01普通区段
@@ -260,6 +299,7 @@ void StorageEvent_LogConfirmButton(void)
                          EVT_CONFIRM_BUTTON, 0U);
 }
 
+/* [GB4717 B.1.1.1d] 控制器"检查"操作信息(EVT 129) */
 void StorageEvent_LogCheckButton(void)
 {
     /* 检查功能按钮动作: EVT_CHECK_BUTTON(129), 存入0x01普通区段
@@ -269,6 +309,8 @@ void StorageEvent_LogCheckButton(void)
                          EVT_CHECK_BUTTON, 0U);
 }
 
+/* [GB4717 B.1.1.1b] 联动启动控制按钮动作(EVT 130)
+ * 注: 与LogStart(19=设备已启动)不同——本API记录"按钮按下"动作本身 */
 void StorageEvent_LogLinkageStartButton(uint8_t dev_no, uint16_t dev_type)
 {
     /* 联动启动按钮动作: EVT_LINKAGE_START_BUTTON(130), 存入0x01普通区段
@@ -279,6 +321,8 @@ void StorageEvent_LogLinkageStartButton(uint8_t dev_no, uint16_t dev_type)
                          EVT_LINKAGE_START_BUTTON, 0U);
 }
 
+/* [GB4717 B.1.1.1d] 控制器"时钟调整"操作信息(EVT 131)
+ * [试验 TST-B.2.3] 画面41改任一字段应出记录; 时间戳=调整后新值 */
 void StorageEvent_LogClockAdjust(void)
 {
     /* 时钟调整: EVT_CLOCK_ADJUST(131), 存入0x01普通区段
@@ -289,6 +333,7 @@ void StorageEvent_LogClockAdjust(void)
                          EVT_CLOCK_ADJUST, 0U);
 }
 
+/* [GB4717 B.1.1.1d] 控制器"检查(自检)"操作信息(EVT 123/124) */
 void StorageEvent_LogSelfCheck(uint8_t is_fail)
 {
     /* 自检/自检失败: EVT_SELF_CHECK(123)/EVT_SELF_CHECK_FAIL(124), 存入0x01普通区段
@@ -300,6 +345,9 @@ void StorageEvent_LogSelfCheck(uint8_t is_fail)
                          event_code, 0U);
 }
 
+/* [GB4717 B.1.1.1a] 触发器件"监管信息"(EVT 70/71)
+ * [核查 CHK-03] 本机三回路均无监管类信号源(水流/压力/信号阀), 该项按"不适用"备档;
+ *               本API仅供FECbus外部装置通告路径调用(bsp_fecbus_rx.c) */
 void StorageEvent_LogSupervise(uint8_t dev_no, uint16_t dev_type,
                                uint8_t is_release)
 {
@@ -313,6 +361,8 @@ void StorageEvent_LogSupervise(uint8_t dev_no, uint16_t dev_type,
                          event_code, 0U);
 }
 
+/* [GB4717 B.1.1.1c] 联动设备启动(19)/停止(29)
+ * [核查 CHK-05] 联动设备"故障"未接入本机直控路径(仅FECbus通告) */
 void StorageEvent_LogLinkageAction(uint8_t dev_no, uint8_t channel,
                                    uint8_t action)
 {

@@ -50,6 +50,8 @@ extern "C" {
 #define STX_TIMEOUT_TESTLOG_MS 1000 /* TestLog(透传)ACK等待: 短于IWDG的8.2s, 阻塞最坏6s; 透传丢失无碍账目(2026-09-04端到端测试) */      /* 发送队列深度(条数) */
 
 /* 存储命令码 */
+/* [GB4717 B.1.2.2] 首警/火警/故障须独立记录且不被覆盖:
+ * 0x02/0x03/0x04对应存储侧三个独立物理分区, 0x01进通用区, 互不侵占 */
 #define STX_CMD_STORE_EVENT        0x01    /* 存储事件(普通) */
 #define STX_CMD_STORE_FIRST_ALARM  0x02    /* 存储首警(独立区段) */
 #define STX_CMD_STORE_FIRE_ALARM   0x03    /* 存储火警(独立区段) */
@@ -71,6 +73,7 @@ extern "C" {
 #pragma pack(push, 1)
 /* 事件记录结构体 共17字节(紧凑打包, 字段顺序与协议一致) */
 typedef struct {
+/* [GB4717 表B.2] 数据信息格式(17字节), 字段顺序必须与国标一致 */
     uint16_t controller_no;   /* 控制器号         2字节(小端) */
     uint8_t  unit_no;         /* 单元号           1字节 */
     uint8_t  device_no;       /* 设备号           1字节 */

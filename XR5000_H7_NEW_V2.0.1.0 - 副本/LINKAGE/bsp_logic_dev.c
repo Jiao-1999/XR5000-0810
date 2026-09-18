@@ -593,7 +593,7 @@ static void LinkageEventNotify(uint8_t loop_no, uint16_t dev_no,
                                uint8_t channel, uint8_t action)
 {
     (void)loop_no;  /* 联动控制固定为回路2, 黑匣子记录仅回路号固定, 故不传递 */
-    StorageEvent_LogLinkageAction((uint8_t)dev_no, channel, action);
+    StorageEvent_LogLinkageAction((uint8_t)dev_no, channel, action);  /* [GB4717 B.1.1.1c] 联动设备启动/停止(EVT 19/29) */
 }
 
 /* A9: 手动联动启动查询回调 - 查询"外联设备启动"按键状态(由cmd_process.c的LINKAGE_START_KEY

@@ -567,7 +567,7 @@ void StartDefaultTask(void *argument)
 	/* 存储端初始化: 启动LPUART1发送通道, 等待接收端ACK=0确认链路正常 */
 	HAL_IWDG_Refresh(&hiwdg1);
 	StorageTx_Init();
-	StorageEvent_LogPowerOn();  /* GB4717-2024 B.1.1.1d: 控制器开机事件(EVT_POWER_ON=120)记录 */
+	StorageEvent_LogPowerOn();  /* [GB4717 B.1.1.1d] 开机操作(EVT 120); [缺陷 DEF-P01] 此处应同时调BM8563_EnsureValid()对时 */  /* GB4717-2024 B.1.1.1d: 控制器开机事件(EVT_POWER_ON=120)记录 */
 
   /* Infinite loop */
 	DebugPrintf("XR5000 Boot OK\r\n");  /* UART4调试串口输出 */

@@ -265,6 +265,8 @@ static uint16_t StorageTx_CRC16(const uint8_t *data, uint16_t len)
  *         len = 命令码(1) + payload_len; CRC16范围从len字节到最后一个payload,
  *         小端存储. 封装到buf后逐字节发送.
  */
+/* [GB4717 B.1.2.2] 命令码决定独立分区: 0x02首警/0x03火警/0x04故障/0x01通用
+ * [核查 CHK-10] 帧格式[0xA5][长度18][命令码][17B][CRC16低][CRC16高][0x5A], 与存储侧一致 */
 static void StorageTx_SendFrame(uint8_t cmd, const uint8_t *payload, uint16_t payload_len)
 {
     uint8_t buf[260];  /* 最大: 1+1+1+255+2+1 = 261 */
@@ -317,6 +319,9 @@ static void StorageTx_SendFrame(uint8_t cmd, const uint8_t *payload, uint16_t pa
  *          应答帧格式: [0xA5][len][cmd_echo][ack_code][CRC16][0x5A].
  *          存储已满(STX_ACK_ERR_FULL)直接返回不重试.
  */
+/* [GB4717 B.1.1.3] 发送失败重试(3次x4000ms), 保证记录可靠落盘
+ * [核查 CHK-12] 超时4000ms 覆盖存储侧meta切库最坏3.2s, 防ACK丢失重发
+ * [缺陷 DEF-N2] 3次全败后记录被丢弃不重新入队->记录永久丢失(仅报一次存储故障) */
 uint8_t StorageTx_SendRecord(uint8_t cmd, const EventRecord_t *record)
 {
     if (!s_initialized || record == NULL) {
@@ -497,6 +502,9 @@ uint8_t StorageTx_Heartbeat(void)
  * @note    先读RTC到SystemTime, 再写入记录. 年份存储为公历年-2000
  *         (如2026 -> 26).
  */
+/* [GB4717 B.1.1.2] 每条记录同步记录年月日时分秒; [5.4.1.11] 日计时误差<=6s
+ * [缺陷 DEF-P01] 依赖开机调用 BM8563_EnsureValid() 对时, 该调用当前缺失->
+ *                RTC未对时会记非法时间戳(曾出现年=00月=00), 必须修复 */
 void StorageTx_FillTimestamp(EventRecord_t *rec)
 {
     BM8563_TimeTypeDef rtc;
@@ -524,6 +532,8 @@ void StorageTx_FillTimestamp(EventRecord_t *rec)
  *         映射: 火警类事件置bit3, 故障置bit7, 屏蔽置bit8,
  *         关机置bit2, 启动类置bit4, 反馈置bit5, 自动置bit0, 监管置bit6, 其余事件清零.
  */
+/* [GB4717 附录C 表C.18] 状态代码位图 -> 记录state_code字段来源
+ * [核查 CHK-08] 调用方state_code=0时自动填充; 显式非0则保留 */
 void StorageTx_FillStateMask(EventRecord_t *rec)
 {
     uint16_t mask = 0;
@@ -596,6 +606,8 @@ void StorageTx_FillStateMask(EventRecord_t *rec)
  * @note    填充固定字段(控制器号=1, 单元号=1, 通道号=0)和
  *         可变字段, 最后调用FillTimestamp填入RTC时间.
  */
+/* [GB4717 表B.2] 数据信息格式: 控制器2+单元1+设备1+通道1+类型2+事件2+状态2+时间6=17字节
+ * [GB4717 B.1.2.3] 十六进制格式存储 */
 void StorageTx_BuildRecord(EventRecord_t *rec,
                            uint8_t dev_no,
                            uint16_t dev_type,
@@ -643,6 +655,8 @@ void StorageTx_BuildRecord(EventRecord_t *rec,
  * @note    适合中断/任务上下文. 队列满时丢弃最旧一条记录再尝试, 保证最新
  *          事件不丢失. 实际发送由StorageTx_TaskLoop处理.
  */
+/* [GB4717 B.1.1.2] 入队前已完成时间戳填充
+ * [核查 CHK-12] 队列深32; 满时丢最旧(返回1), 调用方Enqueue忽略返回值(见DEF-N5) */
 uint8_t StorageTx_QueueRecord(uint8_t cmd, const EventRecord_t *record)
 {
     if (!s_initialized || s_tx_queue == NULL || record == NULL) {
@@ -704,7 +718,9 @@ void StorageTx_TaskLoop(void)
         /* 发送记录(内含等待应答) */
         send_ret = StorageTx_SendRecord(item.cmd, &item.record);
 
-        /* P0-4整改: 存储写入故障上报(失败码: 1超时/2CRC错/3满/4忙) */
+        /* P0-4整改: 存储写入故障上报(失败码: 1超时/2CRC错/3满/4忙)
+         * [核查 CHK-24] 满足5.4.3.4e)与控制器连接的存储单元故障自报(type=18,evt=80)
+         * [缺陷 DEF-N2] 失败记录被丢弃不重新入队; [缺陷 DEF-N6] 恢复时只清标志不发恢复记录 */
         if (send_ret == 0U)
         {
             /* 发送成功: 标记启动完成; 若此前报过存储故障, 清标志(故障恢复) */

@@ -498,6 +498,8 @@ DeviceDisableResult DeviceDisableSet(const DeviceIdentity *identity)
         DeviceDisableSaveState();
         return DEVICE_DISABLE_STORAGE_ERROR;
     }
+    /* [GB4717 B.1.1.1a/c] 屏蔽接入点: 下方LogShield写黑匣子(0x01区) + FecbusReport上报
+     * [试验 TST-B.2.4] 屏蔽->解除应出EVT 72/73两条记录 */
     shielding_state = 1U;
     StorageEvent_LogShield((uint8_t)identity->address,
                            DeviceDisableMapStorageType(info.type), 0U); /* 黑匣子:记录屏蔽 */
@@ -547,6 +549,8 @@ DeviceDisableResult DeviceDisableClear(const DeviceIdentity *identity)
         DeviceDisableSaveState();
         return DEVICE_DISABLE_STORAGE_ERROR;
     }
+    /* [GB4717 B.1.1.1a/c] 解除屏蔽接入点: 下方LogShield(EVT 73) + FecbusReport上报
+     * [试验 TST-B.2.4] 解除后应出EVT 73记录 */
     shielding_state = g_disable_state.disabled_count != 0U;
     StorageEvent_LogShield((uint8_t)identity->address,
                            DeviceDisableMapStorageType(info.type), 1U); /* 黑匣子:记录解除屏蔽 */

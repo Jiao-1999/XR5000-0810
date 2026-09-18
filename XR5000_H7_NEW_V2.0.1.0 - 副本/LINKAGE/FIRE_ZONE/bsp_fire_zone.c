@@ -307,7 +307,12 @@ static uint8_t LoadRecord(uint32_t addr, FireZoneRecord_t *rec)
  *--------------------------------------------------------------*/
 static void SaveRecordToFlash(void)
 {
-    FireZoneRecord_t rec;  /* 待写入的存储记录 */
+    /* [2026-09-18 修复] rec改为静态: 本函数在InterScreenUpdataTask任务
+     * (栈仅1536字节)内经FlushPendingSave/EndBatch调用, 1170字节的任务栈
+     * 局部变量必然溢出任务栈导致内存破坏/复位, 实测表现为"画面84按返回
+     * 保存后重新进入分区数据全部丢失" */
+    static FireZoneRecord_t rec;         /* 待写入的存储记录(移出任务栈) */
+    static FireZoneRecord_t verify_buf;  /* 回读校验缓冲(同样避免占任务栈) */
 
     /* 组装存储记录 */
     rec.magic   = FIRE_ZONE_MAGIC;
@@ -327,6 +332,18 @@ static void SaveRecordToFlash(void)
      * 用BspFlashWrite免检直写(带事务锁, 与bsp_save_ctrl用法一致) */
     BspFlashWrite((uint8_t *)&rec, FIRE_ZONE_FLASH_COPY_A, sizeof(FireZoneRecord_t));
     BspFlashWrite((uint8_t *)&rec, FIRE_ZONE_FLASH_COPY_B, sizeof(FireZoneRecord_t));
+
+    /* 回读校验副本A(魔数+CRC), 结果打UART4便于实机确认保存是否成功 */
+    W25QXX_Read((uint8_t *)&verify_buf, FIRE_ZONE_FLASH_COPY_A, sizeof(verify_buf));
+    if ((verify_buf.magic == FIRE_ZONE_MAGIC) &&
+        (verify_buf.crc == CalcRecordCRC(&verify_buf)))
+    {
+        DebugPrintf("[FIREZONE] save verify OK\r\n");
+    }
+    else
+    {
+        DebugPrintf("[FIREZONE] save verify FAIL!\r\n");
+    }
 }
 
 /*--------------------------------------------------------------
