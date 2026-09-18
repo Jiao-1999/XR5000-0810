@@ -16,6 +16,7 @@
 #include "bsp_screen.h"
 
 #include "bsp_rs485_01.h"
+#include "bsp_ig3302.h"
 
 #include "bsp_internal_board.h"
 
@@ -723,6 +724,16 @@ static uint8_t loop1_raw_state_memory[MIXTURE_DEVICE_MAX_ADDR + 1U] = {0}; /* XR
 static uint8_t loop1_isolator_short_memory[MBUS1_ISOLATOR_COUNT] = {0};
 static uint8_t mbus2_disconnect_memory[MBUS_CONTROL_MAX_DEVICES] = {0};
 static uint8_t mbus2_hand_alarm_memory[MBUS_CONTROL_MAX_DEVICES] = {0};
+static uint8_t ig3302_disconnect_memory[IG3302_MAX_ADDRESS + 1U] = {0};
+static uint8_t ig3302_fan_state_memory[IG3302_MAX_ADDRESS + 1U][2U];
+static uint8_t ig3302_memory_initialized;
+#define IG3302_FAULT_OFFLINE       0U
+#define IG3302_FAULT_FAN1_PUSHROD  1U
+#define IG3302_FAULT_FAN1_DEVICE   2U
+#define IG3302_FAULT_FAN1_COMBINED 3U
+#define IG3302_FAULT_FAN2_PUSHROD  4U
+#define IG3302_FAULT_FAN2_DEVICE   5U
+#define IG3302_FAULT_FAN2_COMBINED 6U
 
 uint8_t pack_bianhaobuf[30];
 uint8_t mhqdbiaozhi = 0;
@@ -979,6 +990,9 @@ void ClearDetectorHistoryData(void)
 	memset(rs485_detect_alarm_memory, 0, sizeof(rs485_detect_alarm_memory));
 	memset(rs485_detect_pas_memory, 0, sizeof(rs485_detect_pas_memory));
 	memset(mbus2_disconnect_memory, 0, sizeof(mbus2_disconnect_memory));
+	memset(ig3302_disconnect_memory, 0, sizeof(ig3302_disconnect_memory));
+	memset(ig3302_fan_state_memory, 0xFF, sizeof(ig3302_fan_state_memory));
+	ig3302_memory_initialized = 1U;
 	
 	memset(CU_zx_buf, 0, sizeof(CU_zx_buf));
 	
@@ -1321,6 +1335,8 @@ static void RS485Loop3ClearCurrentState(uint8_t addr);
 static void Loop1ClearCurrentState(uint8_t addr);
 static void Loop1ClearIsolatorState(uint8_t addr);
 static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
+static uint8_t IG3302DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point);
+static void IG3302ClearCurrentState(uint8_t addr);
 static uint8_t HasUnshieldedDetectorFireAlarm(void);
 static void PointTypeDetectorOnlineButtonCtrl(uint16_t ctrl_id, uint8_t state);
 
@@ -1433,6 +1449,12 @@ static uint8_t GetCircuitOnlineList(uint8_t circuit, uint8_t *list, uint8_t max)
             {
                 if (RS485Detect_IsOnline(i) && RS485Detect_GetType(i) != RS485_DETECT_TYPE_UNKNOWN)
                     list[count++] = i;
+            }
+            break;
+        case 4:
+            for (i = 1U; i <= IG3302_MAX_ADDRESS && count < max; i++)
+            {
+                if (IG3302_IsConfigured(i) != 0U) list[count++] = i;
             }
             break;
     }
@@ -1783,6 +1805,31 @@ static const char* GetFCM1011OutputStateName(uint8_t state)
 	}
 }
 
+static const char *IG3302FaultName(uint8_t fault_type)
+{
+	switch(fault_type)
+	{
+		case IG3302_FAULT_OFFLINE: return "掉线";
+		case IG3302_FAULT_FAN1_PUSHROD: return "风机1推杆故障";
+		case IG3302_FAULT_FAN1_DEVICE: return "风机1风机故障";
+		case IG3302_FAULT_FAN1_COMBINED: return "风机1风机及推杆故障";
+		case IG3302_FAULT_FAN2_PUSHROD: return "风机2推杆故障";
+		case IG3302_FAULT_FAN2_DEVICE: return "风机2风机故障";
+		case IG3302_FAULT_FAN2_COMBINED: return "风机2风机及推杆故障";
+		default: return "故障";
+	}
+}
+
+static uint8_t FormatIG3302FaultLine(uint8_t *buf, uint8_t sequence,
+                                     PackCabinFaultStorage *entry, uint8_t index)
+{
+	if(entry[index].da.cluster_id != IG3302_FLASH_ID) return 0U;
+	sprintf((char *)buf, "%03d %d/%02d/%02d %02d:%02d:%02d 第4回路 %d号 %s",
+		sequence, entry[index].atr.years, entry[index].atr.months, entry[index].atr.days,
+		entry[index].atr.hours, entry[index].atr.minute, entry[index].atr.second,
+		entry[index].da.pack_id, IG3302FaultName(entry[index].fault_type));
+	return 1U;
+}
 static uint8_t FormatMBus2FaultLine(uint8_t *buf, uint8_t sequence, PackCabinFaultStorage *pcfs_entry, uint8_t data_index)
 {
 	if (pcfs_entry[data_index].da.cluster_id != MBUS_CONTROL_FLASH_ID)
@@ -2039,6 +2086,21 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 				while (cur < target && remain > 0) { *p++ = ' '; remain--; cur++; }
 				*p = '\0';
 			}
+			break;
+		}
+		case 4:
+		{
+			static const char *fan_state_name[] = {
+				"停止", "运行", "推杆故障", "风机故障", "风机及推杆故障"
+			};
+			uint8_t fan1 = IG3302_GetFanState(addr, 1U);
+			uint8_t fan2 = IG3302_GetFanState(addr, 2U);
+			if(IG3302_IsActive(addr) == 0U || fan1 > IG3302_FAN_AND_PUSHROD_FAULT ||
+			   fan2 > IG3302_FAN_AND_PUSHROD_FAULT)
+				snprintf(p, remain, "%02d-%03d 风机控制器 离线", circuit, addr);
+			else
+				snprintf(p, remain, "%02d-%03d 风机控制器 风机1:%s 风机2:%s",
+				         circuit, addr, fan_state_name[fan1], fan_state_name[fan2]);
 			break;
 		}
 		case 2:
@@ -3117,6 +3179,15 @@ void NotifyScreen(uint16 screen_id)
 			SetTextValue(screen_id, 22, temp_buff);
 			sprintf((char *)temp_buff, "屏蔽设备:0");
 			SetTextValue(screen_id, 24, temp_buff); 
+			// 回路4：IG3302-DC风机控制器
+			sprintf((char *)temp_buff, "设置上线:%d", IG3302_GetConfiguredCount());
+			SetTextValue(screen_id, 26, temp_buff);
+			sprintf((char *)temp_buff, "设备在线:%d", IG3302_GetActiveCount());
+			SetTextValue(screen_id, 27, temp_buff);
+			sprintf((char *)temp_buff, "设备故障:%d", IG3302_GetFaultDeviceCount());
+			SetTextValue(screen_id, 28, temp_buff);
+			SetTextValue(screen_id, 29, "报警设备:0");
+			SetTextValue(screen_id, 30, "屏蔽设备:0");
 		}
 		else if(screen_id == 7) // 
 		{
@@ -3620,6 +3691,7 @@ void UpdateUI(void)
 	uint8_t point_type_disconnect_sum = 0;
 	uint8_t rs485_detect_disconnect_sum = 0;
 	uint8_t mbus2_disconnect_sum = 0;
+	uint8_t ig3302_fault_sum = 0;
 	uint8_t shield_sum = 0; // 屏蔽总数
 	uint32_t curr_time_stamp = osKernelGetTickCount(); /* system tick */
 	DeviceReg_ServiceSave();
@@ -3762,11 +3834,12 @@ void UpdateUI(void)
 		// XR5000_LOOP3_CHANGE_20260726: Loop 3 realtime fault/alarm bridge.
 		rs485_detect_disconnect_sum = RS485DetectDataDeal(pcfs, &pcfs_buttom_point);
 		mbus2_disconnect_sum = MBus2DataDeal(pcfs, &pcfs_buttom_point);
+		ig3302_fault_sum = IG3302DataDeal(pcfs, &pcfs_buttom_point);
 		MBusCtrl_SetDetectorFireAlarmActive(HasUnshieldedDetectorFireAlarm());
 		(void)RefreshCombustibleGasAlarmLed();
 		/* 功能调整：废弃IG3306及4路独立24V输出监测；时间：2026-08-06 */
 		// 判断是否有掉线 吸合故障继电器，新增加对回路三，485探测回路的故障判断
-		FaultRelayCtrlAppFun(pack_disconnect_sum + cabin_disconnect_sum + point_type_disconnect_sum + rs485_detect_disconnect_sum + mbus2_disconnect_sum);
+		FaultRelayCtrlAppFun(pack_disconnect_sum + cabin_disconnect_sum + point_type_disconnect_sum + rs485_detect_disconnect_sum + mbus2_disconnect_sum + ig3302_fault_sum);
 		// 判断是否有预警 吸合预警继电器
 		ForeWarmRelayCtrlAppFun(&pcfws);
 		// 判断是否有火警 吸合火警继电器
@@ -4011,13 +4084,13 @@ void UpdateUI(void)
 			uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
 			uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
 
-			uint16_t total_devices = ds.curr_num + rs485_online + mbus2_online;
+			uint16_t total_devices = ds.curr_num + rs485_online + mbus2_online + IG3302_GetConfiguredCount();
 			if (ds.last_num != total_devices || home_statistics_force_refresh)
 			{
 				ds.last_num = total_devices;
 				SetTextInt32(current_screen_id, 5, total_devices, 0, 1);
 			}
-			uint16_t total_online = (uint16_t)((ds.curr_num - getPointDetectorSetUpCount()) - (pack_disconnect_sum + cabin_disconnect_sum) + getPointDetectorSetUpLive() + RS485Detect_GetActiveCount() + MBusCtrl_GetActiveCount());
+			uint16_t total_online = (uint16_t)((ds.curr_num - getPointDetectorSetUpCount()) - (pack_disconnect_sum + cabin_disconnect_sum) + getPointDetectorSetUpLive() + RS485Detect_GetActiveCount() + MBusCtrl_GetActiveCount() + IG3302_GetActiveCount());
 			if (last_online_detector_num != total_online || home_statistics_force_refresh)
 			{
 				last_online_detector_num = total_online;
@@ -4128,6 +4201,15 @@ void UpdateUI(void)
         SetTextValue(6, 22, temp_buff); 
 		sprintf((char *)temp_buff, "屏蔽设备:0"); 
 		SetTextValue(6, 24, temp_buff);
+		// 回路4：IG3302-DC风机控制器
+		sprintf((char *)temp_buff, "设置上线:%d", IG3302_GetConfiguredCount());
+		SetTextValue(6, 26, temp_buff);
+		sprintf((char *)temp_buff, "设备在线:%d", IG3302_GetActiveCount());
+		SetTextValue(6, 27, temp_buff);
+		sprintf((char *)temp_buff, "设备故障:%d", IG3302_GetFaultDeviceCount());
+		SetTextValue(6, 28, temp_buff);
+		SetTextValue(6, 29, "报警设备:0");
+		SetTextValue(6, 30, "屏蔽设备:0");
 	}
 	else if(current_screen_id == 7)
 	{
@@ -4521,6 +4603,21 @@ void UpdateUI(void)
 					cache->active = 1;
 				}
 			}
+			else if (screen69_circuit == 4)
+			{
+				uint8_t active = IG3302_IsActive(addr);
+				uint8_t fan1 = IG3302_GetFanState(addr, 1U);
+				uint8_t fan2 = IG3302_GetFanState(addr, 2U);
+				if(!cache->active || cache->sensor_enable != active ||
+				   cache->temper_val != fan1 || cache->co_val != fan2)
+				{
+					need_refresh = 1U;
+					cache->sensor_enable = active;
+					cache->temper_val = fan1;
+					cache->co_val = fan2;
+					cache->active = 1U;
+				}
+			}
 
 			if (need_refresh)
 			{
@@ -4840,6 +4937,11 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					RS485Detect_SaveOnlineState();
 					RS485Detect_LoadOnlineState();
 					break;
+				case 4:
+					for(uint8_t i = 1U; i <= IG3302_MAX_ADDRESS; i++)
+						(void)IG3302_SetOnline(i, 1U);
+					IG3302_SaveOnlineState();
+					break;
 				default:
 					break;
 				}
@@ -4891,6 +4993,14 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 					}
 					RS485Detect_SaveOnlineState();
 					RS485Detect_LoadOnlineState();
+					break;
+				case 4:
+					for(uint8_t i = 1U; i <= IG3302_MAX_ADDRESS; i++)
+					{
+						(void)IG3302_SetOnline(i, 0U);
+						IG3302ClearCurrentState(i);
+					}
+					IG3302_SaveOnlineState();
 					break;
 				default:
 					break;
@@ -5753,6 +5863,19 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 							 }
 								break;
 							case 4:
+							{
+								if(x > IG3302_MAX_ADDRESS || y > IG3302_MAX_ADDRESS) break;
+								uint8_t modify_flag = 0U;
+								if(x > y)
+								{
+									x ^= y;
+									y ^= x;
+									x ^= y;
+								}
+								for(uint8_t i = (uint8_t)x; i <= (uint8_t)y; i++)
+									modify_flag |= IG3302_SetOnline(i, 1U);
+								if(modify_flag != 0U) IG3302_SaveOnlineState();
+							}
 								break;
 							default:
 								break;
@@ -7409,6 +7532,9 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 				else if(FormatRS485DetectFaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
 				{
 					// XR5000_LOOP3_CHANGE_20260726: Loop 3 fault display uses "第3回路 X号".
+				}
+				else if(FormatIG3302FaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
+				{
 				}
 				else if(FormatMBus2FaultLine(baojingneirong, temp_sequence_count, pcfs, data_index) == 1)
 				{
@@ -11764,6 +11890,10 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 							{
 								// XR5000_LOOP3_CHANGE_20260726: Loop 3 history fault display uses "第3回路 X号".
 							}
+							else if(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id == IG3302_FLASH_ID)
+							{
+								sprintf((char *)show_buff, "第4回路 %d号", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
+							}
 							else if(read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cluster_id == MBUS_CONTROL_FLASH_ID)
 							{
 								sprintf((char *)show_buff, "第2回路 %d号", read_data[x_sector].fs_sys_fault[data_index].fs_detect_id.cabin_or_pack_id);
@@ -11930,6 +12060,18 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == FIM1017_BRANCH2_RECOVERY) { sprintf((char *)show_buff, "\xD6\xA7\xC2\xB7" "2" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); }
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == FIM1017_BRANCH3_SHORT) { sprintf((char *)show_buff, "\xD6\xA7\xC2\xB7" "3" "\xB6\xCC\xC2\xB7"); }
 						else if(read_data[x_sector].fs_sys_fault[data_index].state == FIM1017_BRANCH3_RECOVERY) { sprintf((char *)show_buff, "\xD6\xA7\xC2\xB7" "3" "\xB6\xCC\xC2\xB7\xBB\xD6\xB8\xB4"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN1_PUSHROD_FAULT) { sprintf((char *)show_buff, "风机1推杆故障"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN1_PUSHROD_RECOVERY) { sprintf((char *)show_buff, "风机1推杆故障恢复"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN1_DEVICE_FAULT) { sprintf((char *)show_buff, "风机1风机故障"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN1_DEVICE_RECOVERY) { sprintf((char *)show_buff, "风机1风机故障恢复"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN1_COMBINED_FAULT) { sprintf((char *)show_buff, "风机1风机及推杆故障"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN1_COMBINED_RECOVERY) { sprintf((char *)show_buff, "风机1风机及推杆故障恢复"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN2_PUSHROD_FAULT) { sprintf((char *)show_buff, "风机2推杆故障"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN2_PUSHROD_RECOVERY) { sprintf((char *)show_buff, "风机2推杆故障恢复"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN2_DEVICE_FAULT) { sprintf((char *)show_buff, "风机2风机故障"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN2_DEVICE_RECOVERY) { sprintf((char *)show_buff, "风机2风机故障恢复"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN2_COMBINED_FAULT) { sprintf((char *)show_buff, "风机2风机及推杆故障"); }
+						else if(read_data[x_sector].fs_sys_fault[data_index].state == IG3302_FAN2_COMBINED_RECOVERY) { sprintf((char *)show_buff, "风机2风机及推杆故障恢复"); }
 						else { sprintf((char *)show_buff, "\xCE\xB4\xD6\xAA\xD7\xB4\xCC\xAC"); }
 						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //刷新状态
 						
@@ -13009,6 +13151,159 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 
 	if(pcfs_buttom_point > 0) disconnect_state = 1;
 	return fault_sum;
+}
+static uint8_t IG3302FindFault(uint8_t addr, uint8_t fault_type)
+{
+	for(uint8_t i = 0U; i < pcfs_buttom_point; i++)
+	{
+		if(pcfs[i].da.cluster_id == IG3302_FLASH_ID && pcfs[i].da.pack_id == addr &&
+		   pcfs[i].fault_type == fault_type) return i;
+	}
+	return 0xFFU;
+}
+
+static FlashSaveType IG3302FaultFlashType(uint8_t fan, uint8_t state)
+{
+	if(fan == 1U)
+	{
+		if(state == IG3302_FAN_PUSHROD_FAULT) return IG3302_FAN1_PUSHROD_FAULT;
+		if(state == IG3302_FAN_FAULT) return IG3302_FAN1_DEVICE_FAULT;
+		return IG3302_FAN1_COMBINED_FAULT;
+	}
+	if(state == IG3302_FAN_PUSHROD_FAULT) return IG3302_FAN2_PUSHROD_FAULT;
+	if(state == IG3302_FAN_FAULT) return IG3302_FAN2_DEVICE_FAULT;
+	return IG3302_FAN2_COMBINED_FAULT;
+}
+
+static FlashSaveType IG3302RecoveryFlashType(uint8_t fan, uint8_t state)
+{
+	if(fan == 1U)
+	{
+		if(state == IG3302_FAN_PUSHROD_FAULT) return IG3302_FAN1_PUSHROD_RECOVERY;
+		if(state == IG3302_FAN_FAULT) return IG3302_FAN1_DEVICE_RECOVERY;
+		return IG3302_FAN1_COMBINED_RECOVERY;
+	}
+	if(state == IG3302_FAN_PUSHROD_FAULT) return IG3302_FAN2_PUSHROD_RECOVERY;
+	if(state == IG3302_FAN_FAULT) return IG3302_FAN2_DEVICE_RECOVERY;
+	return IG3302_FAN2_COMBINED_RECOVERY;
+}
+
+static uint8_t IG3302RuntimeFaultType(uint8_t fan, uint8_t state)
+{
+	if(fan == 1U) return (uint8_t)(IG3302_FAULT_FAN1_PUSHROD + state - IG3302_FAN_PUSHROD_FAULT);
+	return (uint8_t)(IG3302_FAULT_FAN2_PUSHROD + state - IG3302_FAN_PUSHROD_FAULT);
+}
+
+static void IG3302AddFault(uint8_t addr, uint8_t fault_type, FlashSaveType flash_type)
+{
+	if(IG3302FindFault(addr, fault_type) != 0xFFU || pcfs_buttom_point >= 224U) return;
+	getBM8563TimeToSystemTime();
+	pcfs[pcfs_buttom_point].detector_class = PackClassID;
+	pcfs[pcfs_buttom_point].da.cluster_id = IG3302_FLASH_ID;
+	pcfs[pcfs_buttom_point].da.pack_id = addr;
+	pcfs[pcfs_buttom_point].da.cabin_id = 0U;
+	pcfs[pcfs_buttom_point].atr.years = years + 2000;
+	pcfs[pcfs_buttom_point].atr.months = months;
+	pcfs[pcfs_buttom_point].atr.days = days;
+	pcfs[pcfs_buttom_point].atr.hours = hours;
+	pcfs[pcfs_buttom_point].atr.minute = minutes;
+	pcfs[pcfs_buttom_point].atr.second = secs;
+	pcfs[pcfs_buttom_point].fault_type = fault_type;
+	pcfs_buttom_point++;
+	fault_check_new_flag = 1U;
+	beep_fault_ctrl = 2U;
+	silencers_state = 0U;
+	disconnect_state = 1U;
+	BspCommonDataSaveApp(FAULT_FLASH_SAVE, flash_type, IG3302_FLASH_ID, addr);
+}
+
+static void IG3302RemoveFault(uint8_t addr, uint8_t fault_type, FlashSaveType recovery_type)
+{
+	uint8_t index = IG3302FindFault(addr, fault_type);
+	if(index == 0xFFU) return;
+	deletRecoveryRecord(index);
+	fault_check_new_flag = 1U;
+	BspCommonDataSaveApp(FAULT_FLASH_SAVE, recovery_type, IG3302_FLASH_ID, addr);
+}
+
+static void IG3302ClearCurrentState(uint8_t addr)
+{
+	for(uint8_t i = pcfs_buttom_point; i > 0U; i--)
+	{
+		uint8_t index = (uint8_t)(i - 1U);
+		if(pcfs[index].da.cluster_id == IG3302_FLASH_ID && pcfs[index].da.pack_id == addr)
+			deletRecoveryRecord(index);
+	}
+	if(addr <= IG3302_MAX_ADDRESS)
+	{
+		ig3302_disconnect_memory[addr] = 0U;
+		ig3302_fan_state_memory[addr][0] = IG3302_FAN_STATE_INVALID;
+		ig3302_fan_state_memory[addr][1] = IG3302_FAN_STATE_INVALID;
+	}
+	fault_check_new_flag = 1U;
+}
+
+static uint8_t IG3302DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
+{
+	uint8_t addr;
+	uint8_t fault_device_count = 0U;
+	(void)pcfs_entry;
+	(void)pcfs_point;
+	if(ig3302_memory_initialized == 0U)
+	{
+		memset(ig3302_fan_state_memory, 0xFF, sizeof(ig3302_fan_state_memory));
+		ig3302_memory_initialized = 1U;
+	}
+	for(addr = 1U; addr <= IG3302_MAX_ADDRESS; addr++)
+	{
+		uint8_t fan;
+		uint8_t device_has_fault = 0U;
+		if(IG3302_IsConfigured(addr) == 0U)
+		{
+			if(ig3302_disconnect_memory[addr] != 0U ||
+			   IG3302FindFault(addr, IG3302_FAULT_FAN1_PUSHROD) != 0xFFU ||
+			   IG3302FindFault(addr, IG3302_FAULT_FAN1_DEVICE) != 0xFFU ||
+			   IG3302FindFault(addr, IG3302_FAULT_FAN1_COMBINED) != 0xFFU ||
+			   IG3302FindFault(addr, IG3302_FAULT_FAN2_PUSHROD) != 0xFFU ||
+			   IG3302FindFault(addr, IG3302_FAULT_FAN2_DEVICE) != 0xFFU ||
+			   IG3302FindFault(addr, IG3302_FAULT_FAN2_COMBINED) != 0xFFU)
+				IG3302ClearCurrentState(addr);
+			continue;
+		}
+		if(IG3302_IsDisconnected(addr) != 0U)
+		{
+			if(ig3302_disconnect_memory[addr] == 0U)
+			{
+				ig3302_disconnect_memory[addr] = 1U;
+				IG3302AddFault(addr, IG3302_FAULT_OFFLINE, DISCONNECT);
+			}
+			fault_device_count++;
+			continue;
+		}
+		if(IG3302_IsActive(addr) == 0U) continue;
+		if(ig3302_disconnect_memory[addr] != 0U)
+		{
+			IG3302RemoveFault(addr, IG3302_FAULT_OFFLINE, DIS_RECOVERY);
+			ig3302_disconnect_memory[addr] = 0U;
+		}
+		for(fan = 1U; fan <= 2U; fan++)
+		{
+			uint8_t old_state = ig3302_fan_state_memory[addr][fan - 1U];
+			uint8_t new_state = IG3302_GetFanState(addr, fan);
+			if(old_state != new_state)
+			{
+				if(old_state >= IG3302_FAN_PUSHROD_FAULT && old_state <= IG3302_FAN_AND_PUSHROD_FAULT)
+					IG3302RemoveFault(addr, IG3302RuntimeFaultType(fan, old_state), IG3302RecoveryFlashType(fan, old_state));
+				if(new_state >= IG3302_FAN_PUSHROD_FAULT && new_state <= IG3302_FAN_AND_PUSHROD_FAULT)
+					IG3302AddFault(addr, IG3302RuntimeFaultType(fan, new_state), IG3302FaultFlashType(fan, new_state));
+				ig3302_fan_state_memory[addr][fan - 1U] = new_state;
+			}
+			if(new_state >= IG3302_FAN_PUSHROD_FAULT && new_state <= IG3302_FAN_AND_PUSHROD_FAULT)
+				device_has_fault = 1U;
+		}
+		if(device_has_fault != 0U) fault_device_count++;
+	}
+	return fault_device_count;
 }
 static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
@@ -14384,7 +14679,7 @@ UART_HandleTypeDef *getSimulateSirealPortSendHandle(uint8_t port_comid)
 			break;
 		}
 		case 3:{
-			uart_handle = &huart9; // PACK A/B
+			uart_handle = &huart9; // 回路4 IG3302-DC
 			break;
 		}
 		case 4:{
@@ -14422,7 +14717,7 @@ eUartOrder getSimulateSirealPortReceiveIndex(uint8_t port_comid)
 			break;
 		}
 		case 3:{
-			temp_order = PACKSITE; // PACK A/B
+			temp_order = PACKSITE; // 回路4 UART9（枚举名保留兼容）
 			break;
 		}
 		case 4:{
