@@ -6229,7 +6229,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 			switch(item)
 			{
 				case 0:
-					HmiOpenProtectedPage(ACCESS_LEVEL_III, 43U);
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 85U);
 					break;
 				case 1:
 					HmiOpenProtectedPage(ACCESS_LEVEL_III, 84U);
