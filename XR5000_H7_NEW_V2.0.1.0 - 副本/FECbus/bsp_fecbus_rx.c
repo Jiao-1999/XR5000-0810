@@ -623,6 +623,7 @@ static uint16_t FecbusRx_BuildDevList(uint8_t level, uint8_t *out, uint16_t cap)
  *               [8]状态低[9]状态高[10]年[11]月[12]日[13]时[14]分[15]秒
  * @retval 0=已入库/已处理(调用方回显应答); FECBUS_STAT_PARAM_ERR(7)=未识别事件码
  * @note   事件代码分派依据 GB4717 附录C 事件代码表; 0x13 调试通告仅打印不入库。
+ * [GB4717 B.1.1.1a/c] 外部装置事件接入黑匣子的唯一路径: 将FECbus通告的从机事件(11H/12H/13H)转为本机黑匣子记录
  */
 static uint8_t FecbusRx_LogEvent(uint8_t func, const uint8_t *buf)
 {
@@ -642,14 +643,17 @@ static uint8_t FecbusRx_LogEvent(uint8_t func, const uint8_t *buf)
     switch (event_code) {
     case 2:   /* 首警 */
     case 3:   /* 火警 */
+        /* [GB4717 B.1.1.1a] 外部装置火灾报警(首警/火警) -> 黑匣子 */
         StorageEvent_LogFire(dev_no, dev_type, unit_no, channel_no);
         return 0;
     case 19:  /* 启动 */
+        /* [GB4717 B.1.1.1c] 外部装置联动设备启动 -> 黑匣子 */
         StorageEvent_LogStart(dev_no, dev_type);
         return 0;
     case 26:  /* 反馈 */
     case 27:
     case 28:
+        /* [GB4717 B.1.1.1c] 外部装置联动设备反馈 -> 黑匣子 */
         StorageEvent_LogFeedback(dev_no, dev_type, state_code);
         return 0;
     case 70:  /* 监管 */
@@ -659,6 +663,7 @@ static uint8_t FecbusRx_LogEvent(uint8_t func, const uint8_t *buf)
         StorageEvent_LogSupervise(dev_no, dev_type, 1);
         return 0;
     case 72:  /* 屏蔽 */
+        /* [GB4717 B.1.1.1a/c] 外部装置屏蔽 -> 黑匣子 */
         StorageEvent_LogShield(dev_no, dev_type, 0);
         return 0;
     case 73:  /* 解除屏蔽 */
@@ -676,6 +681,7 @@ static uint8_t FecbusRx_LogEvent(uint8_t func, const uint8_t *buf)
 
     /* 范围类事件码 */
     if (event_code >= 80 && event_code <= 90) {          /* 故障 */
+        /* [GB4717 B.1.1.1a] 外部装置故障 -> 黑匣子 */
         StorageEvent_LogFault(dev_no, dev_type, unit_no, channel_no, 0);
         return 0;
     }

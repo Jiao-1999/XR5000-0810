@@ -51,6 +51,7 @@
  * @param  event_code: 事件代码
  * @param  state_code: 状态代码
  * @note   默认 da=0 (广播), 由 Fecbus_QueueEvent 异步入队(非阻塞).
+ * [GB4717 B.1.1.1] FECbus事件上报的公共入队路径(所有上报API经此)
  */
 static void FecbusReport_Enqueue(uint8_t func_code, uint8_t pa,
                                   uint8_t dev_no, uint16_t dev_type,
@@ -77,6 +78,7 @@ static void FecbusReport_Enqueue(uint8_t func_code, uint8_t pa,
 
 /**
  * @brief  上报火警事件 (功能码5, 紧急, PA=1)
+ * [GB4717 B.1.1.1a] 火灾报警信息 - 经FECbus对外上报
  */
 void FecbusReport_Fire(uint8_t dev_no, uint16_t dev_type,
                        uint8_t unit_no, uint8_t channel_no)
@@ -88,6 +90,7 @@ void FecbusReport_Fire(uint8_t dev_no, uint16_t dev_type,
 
 /**
  * @brief  上报故障事件 (功能码6, 一般, PA=3)
+ * [GB4717 B.1.1.1a] 故障信息(含恢复 EVT 100) - 经FECbus对外上报
  */
 void FecbusReport_Fault(uint8_t dev_no, uint16_t dev_type,
                         uint8_t unit_no, uint8_t channel_no,
@@ -101,6 +104,7 @@ void FecbusReport_Fault(uint8_t dev_no, uint16_t dev_type,
 
 /**
  * @brief  上报反馈事件 (功能码5, 紧急, PA=1)
+ * [GB4717 B.1.1.1c] 消防联动设备反馈信息 - 经FECbus对外上报
  */
 void FecbusReport_Feedback(uint8_t dev_no, uint16_t dev_type,
                             uint16_t state_code)
@@ -112,6 +116,7 @@ void FecbusReport_Feedback(uint8_t dev_no, uint16_t dev_type,
 
 /**
  * @brief  上报手动/自动切换事件 (功能码5, 紧急, PA=1)
+ * [GB4717 B.1.1.1a/c] 手动/自动状态信息 - 经FECbus对外上报
  */
 void FecbusReport_ManualAuto(uint8_t dev_no, uint8_t is_manual)
 {
@@ -123,6 +128,7 @@ void FecbusReport_ManualAuto(uint8_t dev_no, uint8_t is_manual)
 
 /**
  * @brief  上报屏蔽/解除屏蔽事件 (功能码6, 一般, PA=3)
+ * [GB4717 B.1.1.1a/c] 屏蔽/解除屏蔽信息 - 经FECbus对外上报
  */
 void FecbusReport_Shield(uint8_t dev_no, uint16_t dev_type, uint8_t is_release)
 {
@@ -134,6 +140,7 @@ void FecbusReport_Shield(uint8_t dev_no, uint16_t dev_type, uint8_t is_release)
 
 /**
  * @brief  上报启动事件 (功能码5, 紧急, PA=1)
+ * [GB4717 B.1.1.1c] 联动设备启动信息 - 经FECbus对外上报
  */
 void FecbusReport_Start(uint8_t dev_no, uint16_t dev_type)
 {
@@ -144,6 +151,7 @@ void FecbusReport_Start(uint8_t dev_no, uint16_t dev_type)
 
 /**
  * @brief  上报系统复位事件 (功能码1, 广播, PA=1)
+ * [GB4717 B.1.1.1d] 控制器复位操作信息 - 经FECbus广播
  */
 void FecbusReport_Reset(void)
 {
@@ -154,6 +162,7 @@ void FecbusReport_Reset(void)
 
 /**
  * @brief  上报系统消音事件 (功能码2, 广播, PA=1)
+ * [GB4717 B.1.1.1d] 控制器消音操作信息 - 经FECbus广播
  */
 void FecbusReport_Silence(void)
 {
@@ -164,6 +173,7 @@ void FecbusReport_Silence(void)
 
 /**
  * @brief  上报系统自检事件 (功能码3, 广播, A9: PA=3, 表C.3 自检 PA=03H)
+ * [GB4717 B.1.1.1d] 控制器自检操作信息 - 经FECbus广播
  */
 void FecbusReport_SelfCheck(void)
 {
