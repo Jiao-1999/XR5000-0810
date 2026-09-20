@@ -1773,6 +1773,7 @@ static const char* GetMBusDeviceChineseName(uint8_t addr)
 		case MBUS_CONTROL_DEV_XR2200: return "手动报警器";
 		case MBUS_CONTROL_DEV_FIRE_DISPLAY: return "火灾显示盘";
 		case MBUS_CONTROL_DEV_FCM1011: return "\xCA\xE4\xC8\xEB\xCA\xE4\xB3\xF6\xC4\xA3\xBF\xE9";
+		case MBUS_CONTROL_DEV_FAN_BUTTON: return "\xB7\xE7\xBB\xFA\xC6\xF4\xCD\xA3\xB0\xB4\xC5\xA5";
 		default: return "未知设备";
 	}
 }
@@ -2122,7 +2123,10 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 			}
 			else
 			{
-				status_str = MBusCtrl_IsAlarmState(addr) ? "报警" : "正常";
+				if(MBusCtrl_GetDeviceType(addr) == MBUS_CONTROL_DEV_FAN_BUTTON)
+					status_str = MBusCtrl_GetDeviceState(addr) != 0U ? "\xC6\xF4\xB6\xAF" : "\xBC\xE0\xCA\xD3";
+				else
+					status_str = MBusCtrl_IsAlarmState(addr) ? "报警" : "正常";
 				n = snprintf(p, remain, "%02d%03d %s %s", circuit, addr, display_name, status_str);
 			}
 			p += n;

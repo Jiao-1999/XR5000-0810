@@ -105,6 +105,7 @@ const char *DeviceAliasDevice_GetTypeText(uint8_t loop_id, uint8_t address)
             case MBUS_CONTROL_DEV_XR2200: return "手动报警器";
             case MBUS_CONTROL_DEV_FIRE_DISPLAY: return "火灾显示盘";
             case MBUS_CONTROL_DEV_FCM1011: return "输入输出模块";
+            case MBUS_CONTROL_DEV_FAN_BUTTON: return "风机启停按钮";
             default: return "未知设备";
         }
     }

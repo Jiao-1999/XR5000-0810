@@ -47,6 +47,7 @@ typedef enum {
     MBUS_CONTROL_DEV_GCM1002 = 4,
     MBUS_CONTROL_DEV_FIM1017 = 5,   /* XR1530 火灾显示盘 */
     MBUS_CONTROL_DEV_FCM1011 = 6,
+    MBUS_CONTROL_DEV_FAN_BUTTON = 7, /* 风机启停按钮，内部产品码18 */
 } MBusCtrlDevType;
 
 /* FCM-1011输入触点经上线学习和运行消抖后的查询状态。 */
@@ -145,6 +146,7 @@ uint8_t MBusCtrl_GetAlarmCount(void);                /* 回路2报警设备总数 */
 /* ---- 设备信息查询 ---- */
 const char* MBusCtrl_GetDeviceName(uint8_t addr);    /* 根据地址获取设备名称(中文) */
 uint8_t MBusCtrl_GetDeviceState(uint8_t addr);       /* 获取设备传感器状态值 */
+uint8_t MBusCtrl_HasActiveFanButton(void);            /* 任一风机启停按钮处于启动状态 */
 uint8_t MBusCtrl_GetInputChannelState(uint8_t addr, uint8_t channel, uint8_t *state);
 uint8_t MBusCtrl_GetInputMonitorState(uint8_t addr, uint8_t channel);
 uint8_t MBusCtrl_IsInputFeedbackActive(uint8_t addr, uint8_t channel);
