@@ -474,20 +474,31 @@ static void StorageRx_MetaSave(void)
     }
     meta.crc = StorageRx_CRC16((const uint8_t *)&meta, sizeof(StorageMeta_t) - 2);
 
-    /* 当前库空间不足: 切换到另一库并擦除之 */
+    /* 当前库空间不足: 切换到另一库 */
     if (s_meta_off + sizeof(StorageMeta_t) > STX_META_BANK_SIZE)
     {
         uint8_t  new_bank = s_meta_bank ^ 1U;
         uint32_t bank_base = STX_META_BASE + (uint32_t)new_bank * STX_META_BANK_SIZE;
         uint32_t sec;
 
-        for (sec = 0; sec < STX_META_BANK_SIZE / STX_SECTOR_SIZE; sec++)
+        /* [修复 2026-09-20] 若 StorageRx_MetaPrepare() 已把目标库整库预擦完毕
+         * (prep_done=1 且 8 个扇区全擦完 且 目标库正是本次要切换的库),
+         * 则直接切换使用, 跳过同步整库擦除 —— 消除写路径上最坏约 3.2s 的阻塞
+         * (该窗口内主控发来的帧因单帧缓冲必然丢弃, 只能靠主控 4000msx3 重试兜底)。
+         * 未预擦完(含预擦过程中掉电)或目标库不匹配时, 仍照旧整库擦除, 保证写入前
+         * 目标区为全 0xFF(否则 W25QXX_Write 只能 1->0, 会写出位与后的错误数据)。 */
+        if (!((s_meta_prep_done != 0U) &&
+              (s_meta_prep_sec >= (STX_META_BANK_SIZE / STX_SECTOR_SIZE)) &&
+              (s_meta_prep_bank == new_bank)))
         {
-            W25QXX_Erase_Sector(bank_base / STX_SECTOR_SIZE + sec);
+            for (sec = 0; sec < STX_META_BANK_SIZE / STX_SECTOR_SIZE; sec++)
+            {
+                W25QXX_Erase_Sector(bank_base / STX_SECTOR_SIZE + sec);
+            }
         }
         s_meta_bank = new_bank;
         s_meta_off = 0;
-        s_meta_prep_done = 1U;  /* P0-A(v2): 复位预擦状态机, 下一周期预擦旧当前库 */
+        s_meta_prep_done = 1U;  /* P0-A(v2): 复位预擦状态机, 下一周期预擦新的"另一库" */
         s_meta_prep_sec  = 0U;
     }
 

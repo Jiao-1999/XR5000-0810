@@ -13203,6 +13203,10 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			pas[pas_pointer].atr.minute = minutes;
 			pas[pas_pointer].atr.second = secs;
 			pas_pointer++;
+			/* [GB4717 B.1.1.1a] 回路3 多传感复合探测器火警(温度+烟雾/VOC/CH4 复合判据):
+			 * 补记黑匣子. dev_type=50 多传感复合探测器(表C.16); unit_no=3 回路3;
+			 * 由 rs485_detect_pas_memory 天然去重, 同一火警周期只记一条 */
+			StorageEvent_LogFire(addr, DEV_TYPE_MULTI_SENSOR, 3, 0);
 			rs485_detect_pas_memory[addr] = 1;
 		}
 	}
