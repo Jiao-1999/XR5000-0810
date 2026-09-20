@@ -714,6 +714,7 @@ void USB_CDC_ISR(void)
  * Public API
  *============================================================*/
 
+/* [GB4717 B.1.3.2] USB2.0 Device 接口(CDC虚拟串口)初始化; 连接器须为B型/C型母口 */
 void USB_CDC_Init(void)
 {
     NVIC_InitTypeDef NVIC_InitStructure;
@@ -737,6 +738,7 @@ void USB_CDC_Init(void)
     NVIC_Init(&NVIC_InitStructure);
 }
 
+/* [GB4717 B.1.3.1] 记录导出数据发送(专用技术手段经USB输出) */
 void USB_CDC_SendData(const uint8_t *data, uint16_t len)
 {
     if (len == 0) return;
@@ -766,11 +768,13 @@ void USB_CDC_SendData(const uint8_t *data, uint16_t len)
     }
 }
 
+/* [GB4717 B.1.3.3] 导出命令接收: 可读字节数(表B.3/B.4 请求帧) */
 uint16_t USB_CDC_Available(void)
 {
     return s_rx_count;
 }
 
+/* [GB4717 B.1.3.3] 导出命令接收: 读取一个字节 */
 uint16_t USB_CDC_ReadByte(void)
 {
     uint16_t ret;
@@ -833,6 +837,7 @@ void USB_CDC_Poll(void)
     }
 }
 
+/* [GB4717 B.1.3.2] USB 连接状态查询 */
 uint8_t USB_CDC_IsConfigured(void)
 {
     return s_usb_configured;

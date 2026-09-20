@@ -22,7 +22,7 @@
  *     偏移0:  controller_no(2) + unit_no(1) + device_no(1) + channel_no(1)
  *     偏移5:  dev_type(2) + event_code(2) + state_code(2)
  *     偏移11: year(1) + month(1) + day(1) + hour(1) + minute(1) + second(1) = 17字节
- *     event_code取值: 2=火警, 3=故障 (参考GB4717事件编码)
+ *     event_code取值: 2=首火警, 3=火警, 80=故障 (GB4717-2024 表C.17)
  */
 #ifndef __BSP_STORAGE_RX_H
 #define __BSP_STORAGE_RX_H

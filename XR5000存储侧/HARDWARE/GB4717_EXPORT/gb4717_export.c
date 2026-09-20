@@ -203,19 +203,21 @@ static void GB4717_SendResponse(uint8_t cmd, const EventRecord_t *rec)
 
 /**
  * @brief  记录时间键(用于顺序读的4区时间归并, P1-5整改)
- * @note   年月日时分秒打包为uint32, 数值大=时间晚
+ * @note   年月日时分秒打包为uint64, 数值大=时间晚 (D10: 原uint32在2064年溢出)
  * [GB4717 B.1.1.2] 时间归并键: 保证跨分区导出结果全局时间升序。
  * [核查 CHK-25] 位域分配: year<<26(6bit,0~63) | month<<22(4bit,0~15) | day<<17(5bit,0~31)
  *   | hour<<12(5bit,0~31) | minute<<6(6bit,0~63) | second(6bit,0~63)。
- *   因 year 语义为"年份-2000", 故**2063年(值63)是最后一个安全年份, 2064年溢出**。
- *   预期: 2063-12-31 23:59:59 之前排序正确; 溢出后时间序反转, 需在 2064 年前处理。
+ * [已修复 D10 2026-09-20] 归并键类型由 uint32_t 改为 uint64_t:
+ *   原 uint32_t 下 year 字段仅 6 位(0~63), 而"年份-2000"到 2063 年即为 63,
+ *   >=2064 年时 year<<26 溢出, 时间排序反转。改 uint64_t 后位域与排序语义完全不变,
+ *   彻底消除 2064 年溢出。调用方 GB4717_SeqReadNext 的 t/best_time 已同步改 uint64_t。
  * [试验 TST-SORT] 跨区时间序: 分别向四个分区写入记录使四区时间相互交错,
  *   判据: 命令1 顺序读出的记录时间戳必须单调不减, 且与各分区真实写入时间一致。 */
-static uint32_t GB4717_TimeKey(const EventRecord_t *rec)
+static uint64_t GB4717_TimeKey(const EventRecord_t *rec)
 {
-    return ((uint32_t)rec->year << 26) | ((uint32_t)rec->month << 22)
-         | ((uint32_t)rec->day << 17) | ((uint32_t)rec->hour << 12)
-         | ((uint32_t)rec->minute << 6) | (uint32_t)rec->second;
+    return ((uint64_t)rec->year << 26) | ((uint64_t)rec->month << 22)
+         | ((uint64_t)rec->day << 17) | ((uint64_t)rec->hour << 12)
+         | ((uint64_t)rec->minute << 6) | (uint64_t)rec->second;
 }
 
 /**
@@ -257,7 +259,7 @@ static uint8_t GB4717_SeqReadNext(EventRecord_t *rec)
 {
     uint8_t  z;
     uint8_t  best = 0xFF;
-    uint32_t best_time = 0;
+    uint64_t best_time = 0;   /* [D10] 与 GB4717_TimeKey 返回类型一致 */
     EventRecord_t tmp;
 
     /* 取4个区当前游标位置处时间最小的记录 */
@@ -267,7 +269,7 @@ static uint8_t GB4717_SeqReadNext(EventRecord_t *rec)
         {
             if (StorageRx_ReadRecord(z, s_seq_cursor[z], &tmp) == 0)
             {
-                uint32_t t = GB4717_TimeKey(&tmp);
+                uint64_t t = GB4717_TimeKey(&tmp);   /* [D10] uint64 避免 2064 年溢出 */
                 if (best == 0xFF || t < best_time)
                 {
                     best = z;

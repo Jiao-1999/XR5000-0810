@@ -144,7 +144,8 @@ volatile uint32_t g_stx_isr_frame_count  = 0;  /* ISR累计收到的完整帧数
  *============================================================*/
 static uint16_t StorageRx_CRC16(const uint8_t *data, uint16_t len);
 static uint32_t StorageRx_ZoneSlotAddr(const ZoneState_t *z, uint32_t slot);
-static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec);
+static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec, uint8_t *overwrote);
+static void StorageRx_ZoneCommit(ZoneState_t *z, uint8_t overwrote);
 static void StorageRx_MetaSave(void);
 static void StorageRx_MetaLoad(void);
 static void StorageRx_SendByte(uint8_t data);
@@ -330,16 +331,20 @@ static uint32_t StorageRx_ZoneSlotAddr(const ZoneState_t *z, uint32_t slot)
  *   判据: (1)回绕后 GetRecordCount() 恒等于该区 capacity, 不得 >capacity;
  *         (2)导出前 100 条与后 100 条逐字节比对, 不得出现全 0xFF 空洞;
  *         (3)回绕前后各区 count 之和与 MetaLoad 恢复值一致(允许 ±0 误差)。
- * [缺陷 DEF-N1b] 本函数内部先完成 slot_head++/count++(RAM态), 而调用方 StorageRx_Process
- *   在读回校验失败时直接 return 未回滚本函数的指针推进 -> RAM count 虚高 1 条,
- *   下一帧成功时 MetaSave 会把虚高值固化到 Flash(幽灵记录跨帧累积)。
- *   修复方向: 拆分为 WriteRaw(仅写Flash不动指针) + Commit(校验通过后推进指针)。 */
-static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
+ * [已修复 DEF-N1b 2026-09-20] 原实现在本函数内部先完成 slot_head++/count++(RAM态),
+ *   而调用方 StorageRx_Process 在读回校验失败时直接 return 未回滚指针推进 ->
+ *   RAM count 虚高 1 条, 下一帧成功时 MetaSave 会把虚高值固化到 Flash(幽灵记录跨帧累积)。
+ *   已按原修复方向落地: 本函数只写 Flash 不动指针(覆盖判定经 overwrote 出参上报),
+ *   账目推进由 StorageRx_ZoneCommit 在读回校验通过后执行。
+ * [试验 TST-N1] 账目一致性: 写 N 条后逐条读回比对, 判据: GetRecordCount == 实际落盘成功条数。 */
+static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec, uint8_t *overwrote)
 {
     uint32_t addr = StorageRx_ZoneSlotAddr(z, z->slot_head);
     uint8_t  tmp[STX_RECORD_SIZE];
     uint8_t  i;
     uint8_t  blank = 1;
+
+    if (overwrote != NULL) { *overwrote = 0U; }
 
     /* 读取目标位置, 判断是否覆盖旧数据 */
     W25QXX_Read(tmp, addr, STX_RECORD_SIZE);
@@ -357,8 +362,32 @@ static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
         /* S-2 已修复 2026-09-17: 整扇区擦除丢的是本扇区全部 STX_SLOT_PER_SECTOR 条旧记录,
          * 原 count -= (STX_SLOT_PER_SECTOR-1) 会少减1条 -> 每次覆盖多记1条 ->
          * 环形回绕后 count 系统性偏大, 导出按 count 读取会越界到 0xFF 空洞.
-         * 本处减满 STX_SLOT_PER_SECTOR 后, 函数末尾 count++ 净变化 -239, 账目正确 */
+         * [已修复 DEF-N1b 2026-09-20] 擦除动作仍在此执行(必须在写入前),
+         * 但账目扣减已移到 StorageRx_ZoneCommit: 只有读回校验通过才变更
+         * slot_head/count, 校验失败时账目保持原值, 不再出现"幽灵记录"跨帧累积。 */
         W25QXX_Erase_Sector(addr / STX_SECTOR_SIZE);
+        if (overwrote != NULL) { *overwrote = 1U; }
+    }
+
+    W25QXX_Write((uint8_t *)rec, addr, STX_RECORD_SIZE);
+
+    /* [DEF-N1b] 本函数不再推进 slot_head/count, 由调用方在读回校验通过后调 Commit */
+    return addr;
+}
+
+/**
+ * @brief  提交一次分区写入(读回校验通过后调用, 推进账目)
+ * @param  z: 分区状态指针
+ * @param  overwrote: ZoneWrite 输出: 1=本次擦除了整扇区(需扣减 STX_SLOT_PER_SECTOR 条)
+ * @note   [已修复 DEF-N1b 2026-09-20] 账目变更(覆盖扣减 + 写指针推进 + count++)
+ *         统一在读回校验通过后执行, 保证 RAM 账目与 Flash 实际内容严格一致:
+ *           - 校验失败: 调用方直接返回, 账目不动 -> 不再有虚高 count 被 MetaSave 固化;
+ *           - 校验通过: 先按覆盖情况扣减, 再推进 slot_head 并 count++(净变化 -239 或 +1)。
+ */
+static void StorageRx_ZoneCommit(ZoneState_t *z, uint8_t overwrote)
+{
+    if (overwrote != 0U)
+    {
         if (z->count >= STX_SLOT_PER_SECTOR)
         {
             z->count -= STX_SLOT_PER_SECTOR;
@@ -369,16 +398,12 @@ static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
         }
     }
 
-    W25QXX_Write((uint8_t *)rec, addr, STX_RECORD_SIZE);
-
     /* 环形推进写指针; 条数达到容量后保持(每写一条丢一条最旧) */
     z->slot_head = (z->slot_head + 1) % z->capacity;
     if (z->count < z->capacity)
     {
         z->count++;
     }
-
-    return addr;
 }
 
 /**
@@ -600,9 +625,10 @@ uint8_t StorageRx_Init(void)
  * [核查 CHK-28] 单帧缓冲: s_frame_ready=1 期间到达的新帧被直接丢弃(无乒乓缓冲),
  *   依赖主控侧 3 次重试(STX_TIMEOUT_MS=4000ms)兜底补偿。
  *   预期: 连续高频事件下不得漏记; 若观测到丢帧, 应查 g_stx_frame_ready_snap 计数。
- * [核查 CHK-29] 长度字段下溢: s_frame_payload_len = data - 1, 当收到的长度字节为 0 时
- *   uint8 下溢为 255, 需等待 261 字节才复位。因 s_rx_buf(96) 溢出保护最终会复位,
- *   故不会死锁, 但会引入最长 261 字节的接收窗口抖动。 */
+ * [已修复 CHK-29 2026-09-20] 长度字段下溢: s_frame_payload_len 为 uint16_t,
+ *   data-1 在 data=0 时下溢为 65535(非原注释所写 255), 会导致 s_frame_total 回绕为 5
+ *   (可能误判帧完整), 且 StorageRx_VerifyCRC 越界读 s_frame_buf[65538]。
+ *   现已在长度接收处直接丢弃长度=0 的非法帧并重新同步。 */
 void StorageRx_OnByte(uint8_t data)
 {
     /* 统计: 记录接收字节数和最近字节(调试用) */
@@ -629,6 +655,16 @@ void StorageRx_OnByte(uint8_t data)
             break;
 
         case 1:  /* 接收长度字节 */
+            if (data == 0U)
+            {
+                /* [已修复 CHK-29 2026-09-20] 长度字段非法(0): 丢弃本帧并重新同步。
+                 * s_frame_payload_len 是 uint16_t, data-1 在 data=0 时下溢为 65535:
+                 *   (1) s_frame_total = 3+65535+2+1 回绕为 5, 可能在第 5 字节误判帧完整;
+                 *   (2) StorageRx_VerifyCRC 的 crc_len 回绕为 1, 且 crc_recv 读
+                 *       s_frame_buf[3+65535] = s_frame_buf[65538], 严重越界(缓冲仅263字节)。 */
+                s_rx_idx = 0;
+                break;
+            }
             s_frame_len = data;
             s_frame_payload_len = data - 1;  /* 负载长度 = 长度 - 命令码(1) */
             s_rx_idx = 2;
@@ -833,25 +869,27 @@ void StorageRx_Process(void)
                 (unsigned)((EventRecord_t *)&s_frame_buf[3])->event_code);
             USB_CDC_SendData((const uint8_t *)log_buf, len);
         }
-        /* P0-1/P0-2: 按命令码路由分区, 环形FIFO写入(覆盖最旧) + 指针持久化 */
+        /* P0-1/P0-2: 按命令码路由分区, 环形FIFO写入(覆盖最旧) + 读回校验 + 提交账目 */
         {
             uint8_t zone_idx = (s_frame_cmd == STX_CMD_STORE_EVENT)
                                ? STX_ZONE_GENERAL
                                : (uint8_t)(s_frame_cmd - STX_CMD_STORE_FIRST_ALARM);
+            uint8_t zone_overwrote = 0U;
+            uint8_t readback[STX_RECORD_SIZE];
+
             /* [核查 CHK-13] 分区路由: 0x01->Z3通用 / 0x02->Z0首警 / 0x03->Z1火警 / 0x04->Z2故障
              * [缺陷 DEF-N9] 此处写入与记账(MetaSave)非原子: 擦除后掉电->count偏大->导出0xFF空洞
-             * [已修复 DEF-N1 2026-09-20] 记账已后移到读回校验通过之后(见下方步骤5之后) */
-            s_last_wr_addr = StorageRx_ZoneWrite(&s_zones[zone_idx], &s_frame_buf[3]);
-        }
+             * [已修复 DEF-N1  2026-09-20] 记账已后移到读回校验通过之后(见下方步骤5之后)
+             * [已修复 DEF-N1b 2026-09-20] 指针推进同样后移: ZoneWrite 只写Flash不记账,
+             *   读回校验通过后才由 ZoneCommit 推进 slot_head/count, 校验失败时账目保持原值 */
+            s_last_wr_addr = StorageRx_ZoneWrite(&s_zones[zone_idx], &s_frame_buf[3], &zone_overwrote);
 
-        /* 5. 读回校验 */
-        {
-            uint8_t readback[STX_RECORD_SIZE];
+            /* 5. 读回校验 */
             W25QXX_Read(readback, s_last_wr_addr, STX_RECORD_SIZE);  /* [已修复 DEF-N4 2026-09-20] 随DEF-N1一并解决: 记账在校验之后, 失败重试不再累加count */
 
             if (memcmp(&s_frame_buf[3], readback, STX_RECORD_SIZE) != 0)
             {
-                /* 读回校验失败 */
+                /* 读回校验失败: ZoneCommit 未执行, 账目保持原值, 不产生幽灵记录 */
                 uint16_t len = (uint16_t)snprintf(log_buf, sizeof(log_buf),
                     "[STX_WR] FAIL reason=VERIFY addr=0x%08lX\r\n",
                     (unsigned long)s_last_wr_addr);
@@ -861,12 +899,15 @@ void StorageRx_Process(void)
                 s_rx_idx = 0;
                 return;
             }
+
+            /* [已修复 DEF-N1b 2026-09-20] 校验通过, 提交本次写入的账目 */
+            StorageRx_ZoneCommit(&s_zones[zone_idx], zone_overwrote);
         }
 
         /* [已修复 DEF-N1 2026-09-20] 读回校验通过后才记账(meta持久化count):
          *   原实现在校验之前记账 -> 写坏时账目已+1, 导出读到坏记录(幽灵记录);
          *   同时消除 DEF-N4: 校验失败重试不再反复累加 count, 坏记录不再累积。
-         *   现顺序: 写入 -> 读回校验 -> 通过才记账 -> ACK */
+         *   现顺序: 写入 -> 读回校验 -> 提交账目(ZoneCommit) -> MetaSave -> ACK */
         StorageRx_MetaSave();
 
         /* 6. 校验通过, 记录写入成功, 回复ACK */
