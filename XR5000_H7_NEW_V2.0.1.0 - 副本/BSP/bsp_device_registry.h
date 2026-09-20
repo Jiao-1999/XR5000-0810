@@ -27,7 +27,8 @@ typedef enum
     DEVICE_PRODUCT_XR1503        = 11,
     DEVICE_PRODUCT_GCM1002       = 12,
     DEVICE_PRODUCT_FIM1017       = 13,
-    DEVICE_PRODUCT_FCM1011       = 14
+    DEVICE_PRODUCT_FCM1011       = 14,
+    DEVICE_PRODUCT_FAN_BUTTON    = 18
 } DeviceProductCode;
 
 typedef enum
@@ -45,7 +46,8 @@ typedef enum
     DEVICE_PARSER_GCM1002,
     DEVICE_PARSER_FIM1017,
     DEVICE_PARSER_FCM1011,
-    DEVICE_PARSER_DLYGWG
+    DEVICE_PARSER_DLYGWG,
+    DEVICE_PARSER_FAN_BUTTON
 } DeviceParserType;
 
 typedef enum

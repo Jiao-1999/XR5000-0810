@@ -1,4 +1,5 @@
 #include "bsp_ig3302.h"
+#include "bsp_ig3302_policy.h"
 
 #include <string.h>
 #include "cmsis_os.h"
@@ -21,6 +22,8 @@
 #define IG3302_CONTROL_QUEUE_SIZE    8U
 #define IG3302_MAX_CONTROL_BURST     2U
 #define IG3302_RX_STREAM_SIZE        64U
+#define IG3302_AUTO_RETRY_MS         1000U
+#define IG3302_POLICY_REFRESH_MS      50U
 
 typedef struct
 {
@@ -67,6 +70,17 @@ static uint32_t g_transaction_start_tick;
 static uint32_t g_last_transaction_end_tick;
 static uint32_t g_revision;
 static uint32_t g_storage_sequence;
+static uint8_t g_all_fan_target_valid;
+static uint8_t g_all_fan_target_start;
+static uint32_t g_all_fan_target_generation;
+static uint32_t g_auto_applied_generation[IG3302_MAX_ADDRESS + 1U][2];
+static uint32_t g_auto_last_attempt_tick[IG3302_MAX_ADDRESS + 1U][2];
+static uint8_t g_auto_next_address = 1U;
+static uint8_t g_auto_next_fan = 1U;
+static uint8_t g_transaction_is_auto;
+static uint8_t g_transaction_fan;
+static uint32_t g_transaction_auto_generation;
+static uint32_t g_last_policy_refresh_tick;
 
 static uint32_t IG3302_StorageCrc(const uint8_t *data, uint32_t length)
 {
@@ -108,6 +122,10 @@ static void IG3302_ResetRuntime(uint8_t address)
     g_devices[address].recovery_count = 0U;
     g_devices[address].fan_state[0] = IG3302_FAN_STATE_INVALID;
     g_devices[address].fan_state[1] = IG3302_FAN_STATE_INVALID;
+    g_auto_applied_generation[address][0] = 0U;
+    g_auto_applied_generation[address][1] = 0U;
+    g_auto_last_attempt_tick[address][0] = 0U;
+    g_auto_last_attempt_tick[address][1] = 0U;
 }
 
 void IG3302_LoadOnlineState(void)
@@ -169,6 +187,7 @@ void IG3302_Init(void)
     g_control_tail = 0U;
     g_rx_stream_length = 0U;
     g_transaction_type = IG3302_TRANSACTION_NONE;
+    g_transaction_is_auto = 0U;
     g_last_transaction_end_tick = osKernelGetTickCount();
     IG3302_LoadOnlineState();
     IG3302UartInitRx();
@@ -295,6 +314,31 @@ static uint8_t IG3302_PopControl(IG3302CtrlRequest *request)
     return 1U;
 }
 
+static void IG3302_UpdateAutoTarget(void)
+{
+    uint8_t new_target;
+    uint32_t now = osKernelGetTickCount();
+
+    if(g_all_fan_target_valid != 0U &&
+       (now - g_last_policy_refresh_tick) < IG3302_POLICY_REFRESH_MS)
+        return;
+    g_last_policy_refresh_tick = now;
+    new_target = IG3302Policy_GetAllFanTarget();
+
+    if(g_all_fan_target_valid == 0U || g_all_fan_target_start != new_target)
+    {
+        g_all_fan_target_valid = 1U;
+        g_all_fan_target_start = new_target;
+        g_all_fan_target_generation++;
+        if(g_all_fan_target_generation == 0U)
+            g_all_fan_target_generation = 1U;
+        /* Do not let a previous start retry delay a higher-priority fire stop. */
+        memset(g_auto_last_attempt_tick, 0, sizeof(g_auto_last_attempt_tick));
+        g_auto_next_address = 1U;
+        g_auto_next_fan = 1U;
+    }
+}
+
 static void IG3302_RecordPollFailure(uint8_t address)
 {
     IG3302Device *device;
@@ -315,6 +359,8 @@ static void IG3302_RecordPollSuccess(uint8_t address, uint8_t fan1, uint8_t fan2
 {
     IG3302Device *device = &g_devices[address];
     uint8_t changed = 0U;
+    uint8_t was_active = (uint8_t)(device->data_valid != 0U &&
+                                   device->disconnected == 0U);
     if(device->fan_state[0] != fan1 || device->fan_state[1] != fan2 ||
        device->data_valid == 0U) changed = 1U;
     device->fan_state[0] = fan1;
@@ -336,6 +382,12 @@ static void IG3302_RecordPollSuccess(uint8_t address, uint8_t fan1, uint8_t fan2
     {
         device->recovery_count = 0U;
     }
+    if(was_active == 0U && device->disconnected == 0U)
+    {
+        /* A newly responding or recovered controller inherits the live target. */
+        g_auto_applied_generation[address][0] = 0U;
+        g_auto_applied_generation[address][1] = 0U;
+    }
     if(changed != 0U) g_revision++;
 }
 
@@ -344,6 +396,9 @@ static void IG3302_EndTransaction(void)
     g_transaction_type = IG3302_TRANSACTION_NONE;
     g_transaction_address = 0U;
     g_transaction_start_tick = 0U;
+    g_transaction_is_auto = 0U;
+    g_transaction_fan = 0U;
+    g_transaction_auto_generation = 0U;
     g_last_transaction_end_tick = osKernelGetTickCount();
 }
 
@@ -377,7 +432,8 @@ static uint8_t IG3302_StartPoll(uint8_t address)
     return IG3302_StartTransaction(frame, address, IG3302_TRANSACTION_POLL);
 }
 
-static uint8_t IG3302_StartControl(const IG3302CtrlRequest *request)
+static uint8_t IG3302_StartControl(const IG3302CtrlRequest *request,
+                                   uint8_t is_auto, uint32_t auto_generation)
 {
     uint16_t crc;
     uint16_t coil = (uint16_t)(request->fan - 1U);
@@ -387,8 +443,18 @@ static uint8_t IG3302_StartControl(const IG3302CtrlRequest *request)
     crc = CalcCrc16(frame, 6U);
     frame[6] = (uint8_t)(crc & 0xFFU);
     frame[7] = (uint8_t)(crc >> 8U);
-    return IG3302_StartTransaction(frame, request->address,
-                                   IG3302_TRANSACTION_CONTROL);
+    g_transaction_is_auto = is_auto;
+    g_transaction_fan = request->fan;
+    g_transaction_auto_generation = auto_generation;
+    if(IG3302_StartTransaction(frame, request->address,
+                               IG3302_TRANSACTION_CONTROL) == 0U)
+    {
+        g_transaction_is_auto = 0U;
+        g_transaction_fan = 0U;
+        g_transaction_auto_generation = 0U;
+        return 0U;
+    }
+    return 1U;
 }
 
 static uint8_t IG3302_NextConfiguredAddress(void)
@@ -401,6 +467,68 @@ static uint8_t IG3302_NextConfiguredAddress(void)
         g_next_poll_address++;
         if(g_next_poll_address > IG3302_MAX_ADDRESS) g_next_poll_address = 1U;
         if(g_devices[address].configured != 0U) return address;
+    }
+    return 0U;
+}
+
+static uint8_t IG3302_NextAutoControl(IG3302CtrlRequest *request,
+                                      uint32_t *generation)
+{
+    uint8_t checked;
+    uint8_t address;
+    uint8_t fan;
+    uint8_t actual;
+    uint32_t now;
+
+    if(request == NULL || generation == NULL || g_all_fan_target_valid == 0U)
+        return 0U;
+    now = osKernelGetTickCount();
+
+    for(checked = 0U; checked < (IG3302_MAX_ADDRESS * 2U); checked++)
+    {
+        address = g_auto_next_address;
+        fan = g_auto_next_fan;
+        g_auto_next_fan++;
+        if(g_auto_next_fan > 2U)
+        {
+            g_auto_next_fan = 1U;
+            g_auto_next_address++;
+            if(g_auto_next_address > IG3302_MAX_ADDRESS)
+                g_auto_next_address = 1U;
+        }
+
+        if(IG3302_IsActive(address) == 0U) continue;
+        actual = g_devices[address].fan_state[fan - 1U];
+
+        if(g_auto_applied_generation[address][fan - 1U] !=
+           g_all_fan_target_generation)
+        {
+            if(actual == g_all_fan_target_start)
+            {
+                g_auto_applied_generation[address][fan - 1U] =
+                    g_all_fan_target_generation;
+                continue;
+            }
+        }
+        else
+        {
+            /* Retry only a valid contradictory state. Fault states are handled
+             * by the normal fault path and must not flood UART9. */
+            if(actual > IG3302_FAN_RUNNING || actual == g_all_fan_target_start)
+                continue;
+        }
+
+        if(g_auto_last_attempt_tick[address][fan - 1U] != 0U &&
+           (now - g_auto_last_attempt_tick[address][fan - 1U]) <
+               IG3302_AUTO_RETRY_MS)
+            continue;
+
+        request->address = address;
+        request->fan = fan;
+        request->start = g_all_fan_target_start;
+        *generation = g_all_fan_target_generation;
+        g_auto_last_attempt_tick[address][fan - 1U] = now;
+        return 1U;
     }
     return 0U;
 }
@@ -501,6 +629,12 @@ static uint8_t IG3302_ProcessRxFrame(void)
                 memcmp(g_rx_stream, g_tx_frame, 6U) == 0)
         {
             uint8_t address = g_transaction_address;
+            if(g_transaction_is_auto != 0U && g_transaction_fan >= 1U &&
+               g_transaction_fan <= 2U)
+            {
+                g_auto_applied_generation[address][g_transaction_fan - 1U] =
+                    g_transaction_auto_generation;
+            }
             IG3302_RemoveStreamBytes(expected_length);
             g_next_poll_address = address;
             IG3302_EndTransaction();
@@ -521,11 +655,13 @@ void IG3302_PollAndReceiveTask(void *argument)
     IG3302CtrlRequest request;
     uint8_t address;
     uint32_t now;
+    uint32_t auto_generation;
     (void)argument;
     IG3302_Init();
 
     for(;;)
     {
+        IG3302_UpdateAutoTarget();
         IG3302_AppendRx();
         (void)IG3302_ProcessRxFrame();
         now = osKernelGetTickCount();
@@ -542,9 +678,16 @@ void IG3302_PollAndReceiveTask(void *argument)
         else if((now - g_last_transaction_end_tick) >= IG3302_INTER_FRAME_GUARD_MS)
         {
             if(g_control_burst < IG3302_MAX_CONTROL_BURST &&
-               IG3302_PopControl(&request) != 0U)
+               IG3302_NextAutoControl(&request, &auto_generation) != 0U)
             {
-                if(IG3302_StartControl(&request) != 0U) g_control_burst++;
+                if(IG3302_StartControl(&request, 1U, auto_generation) != 0U)
+                    g_control_burst++;
+            }
+            else if(g_control_burst < IG3302_MAX_CONTROL_BURST &&
+                    IG3302_PopControl(&request) != 0U)
+            {
+                if(IG3302_StartControl(&request, 0U, 0U) != 0U)
+                    g_control_burst++;
             }
             else if((now - g_last_transaction_end_tick) >= IG3302_POLL_INTERVAL_MS)
             {
