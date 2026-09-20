@@ -13010,6 +13010,25 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 	if(pcfs_buttom_point > 0) disconnect_state = 1;
 	return fault_sum;
 }
+/* [GB4717 B.1.1.1a] 回路2(MBus2 二总线) 内部设备类型编号 -> 国标表C.16 设备类型代码
+ * [核查 CHK-26] 回路2 内部编号(0~6, 见 bsp_mbus_control.h)与表C.16国标码不是同一套,
+ *   送入黑匣子前必须经本函数映射, 不可直接使用内部编号。
+ *   映射依据(国标码见 bsp_storage_tx.h):
+ *     MBUS_CONTROL_DEV_SGBJQ (1) XR-SGBJQ声光报警器 -> DEV_TYPE_SOUND_LIGHT (17) 声光警报回路
+ *     MBUS_CONTROL_DEV_XR2200(2) XR2200手动报警器   -> DEV_TYPE_HAND_REPORT (61) 手动报警按钮
+ * [待确认] MBUS_CONTROL_DEV_FIRE_DISPLAY(3)、GCM1002(4)、FIM1017(5, XR1530火灾显示盘)、
+ *          FCM1011(6) 在表C.16 中的确切代码尚未核对, 暂统一按控制设备(163)处理,
+ *          与 DeviceDisableMapStorageType() 的 default 惯例一致。 */
+static uint16_t MBus2MapStorageType(uint8_t mbus_type)
+{
+    switch (mbus_type)
+    {
+    case MBUS_CONTROL_DEV_SGBJQ:  return DEV_TYPE_SOUND_LIGHT;  /* 1 -> 17 声光警报回路 */
+    case MBUS_CONTROL_DEV_XR2200: return DEV_TYPE_HAND_REPORT;  /* 2 -> 61 手动报警按钮 */
+    default:                      return DEV_TYPE_CONTROL_DEV;  /* 其余 -> 163 控制设备 */
+    }
+}
+
 static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
 	uint8_t disconnect_sum = 0;
@@ -13040,6 +13059,7 @@ static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			if (mbus2_disconnect_memory[addr] == 0)
 			{
 				mbus2_disconnect_memory[addr] = 1;
+				StorageEvent_LogFault(addr, MBus2MapStorageType(MBusCtrl_GetDeviceType(addr)), 2U, 0U, 0U);  /* [GB4717 B.1.1.1a] 回路2设备掉线故障(EVT 80) -> 黑匣子0x04故障区, unit_no=2 */
 				if (creatNewFaultRecordToCache(MBUS_CONTROL_FLASH_ID, addr, 0) == 0)
 				{
 					beep_fault_ctrl = 2;
@@ -13057,7 +13077,8 @@ static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 			if (index != 0xFF)
 			{
 				deletRecoveryRecord(index);
-				BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, MBUS_CONTROL_FLASH_ID, addr);
+				StorageEvent_LogFault(addr, MBus2MapStorageType(MBusCtrl_GetDeviceType(addr)), 2U, 0U, 1U);  /* [GB4717 B.1.1.1a] 回路2设备掉线恢复(EVT 100) -> 黑匣子0x04故障区, unit_no=2 */
+			BspCommonDataSaveApp(FAULT_FLASH_SAVE, DIS_RECOVERY, MBUS_CONTROL_FLASH_ID, addr);
 			}
 			mbus2_disconnect_memory[addr] = 0;
 		}
@@ -13069,6 +13090,7 @@ static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 				if (mbus2_hand_alarm_memory[addr] == 0)
 				{
 					mbus2_hand_alarm_memory[addr] = 1;
+					StorageEvent_LogFire(addr, DEV_TYPE_HAND_REPORT, 2U, 0U);  /* [GB4717 B.1.1.1a] 回路2 XR2200手动报警 -> 黑匣子: 首警0x02 + 火警0x03, unit_no=2, 类型=手动报警按钮(61) */
 					/* XR5000_FIRE_DISPLAY_GENERIC_NAMES_20260729: store XR2200 record in fire history only; do not add pcfas. */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, MBUS2_HAND_ALARM, MBUS_CONTROL_FLASH_ID, addr, 1);
 					MBusCtrl_PostFireDisplayEvent(2, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL, MBUS_FIRE_DISPLAY_ALARM_FIRE);

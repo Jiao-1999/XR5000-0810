@@ -161,7 +161,12 @@ static uint8_t StorageRx_VerifyCRC(void);
  * @param  len:  数据长度
  * @retval CRC16值
  * @note   初值0xFFFF, 每个字节右移8次, 最低位为1则异或0xA001
- */
+ * [GB4717 B.1.1.3] 帧完整性校验算法(多项式0xA001, 低字节在前)
+ * [核查 CHK-27] 本函数必须与主控侧 StorageTx_CRC16(bsp_storage_tx.c) 算法完全一致:
+ *   多项式 0xA001 / 初值 0xFFFF / 无输入反转 / 无输出反转 / 校验范围=(长度+命令码+负载)。
+ *   预期: 任意相同报文两侧计算结果相同; 若任一侧改动其一, 全部帧将被判 CRC 错误并静默丢弃。
+ * [缺陷 DEF-N2] 主控侧发送失败(ACK超时/CRC错)3次重试全败后记录即被丢弃且不重新入队
+ *   -> 该类事件永久丢失; 本函数仅能保证"收到的帧未被篡改", 无法弥补链路丢帧。 */
 static uint16_t StorageRx_CRC16(const uint8_t *data, uint16_t len)
 {
     uint16_t crc = 0xFFFF;
@@ -318,9 +323,17 @@ static uint32_t StorageRx_ZoneSlotAddr(const ZoneState_t *z, uint32_t slot)
  *         (各区容量巨大, 30天正常运行不会触发覆盖).
  */
 /* [GB4717 B.1.2.2] 存储超出容量后应"始终保持最新的状态信息记录"(环形覆盖最旧)
- * !!! 重点核查(S-2): 覆盖时擦掉整扇区(240槽)却只 count -= 239 再 count++ (净 -238),
- *   实际净变化 -239, 每次覆盖多记 1 条 -> 环形回绕后 count 系统性偏大 ->
- *   导出按 count 读取会越界到 0xFF 空洞。正确应为 count -= STX_SLOT_PER_SECTOR。 */
+ * [S-2 已修复 2026-09-17] 覆盖时擦掉整扇区(240槽)却只 count -= 239 再 count++ (净 -238),
+ *   实际净变化应为 -239, 每次覆盖多记 1 条 -> 环形回绕后 count 系统性偏大 ->
+ *   导出按 count 读取会越界到 0xFF 空洞。已改为 count -= STX_SLOT_PER_SECTOR。
+ * [试验 TST-S2] 容量回绕: 向故障区(Z2)连续写入 >122880 条使环形回绕一轮,
+ *   判据: (1)回绕后 GetRecordCount() 恒等于该区 capacity, 不得 >capacity;
+ *         (2)导出前 100 条与后 100 条逐字节比对, 不得出现全 0xFF 空洞;
+ *         (3)回绕前后各区 count 之和与 MetaLoad 恢复值一致(允许 ±0 误差)。
+ * [缺陷 DEF-N1b] 本函数内部先完成 slot_head++/count++(RAM态), 而调用方 StorageRx_Process
+ *   在读回校验失败时直接 return 未回滚本函数的指针推进 -> RAM count 虚高 1 条,
+ *   下一帧成功时 MetaSave 会把虚高值固化到 Flash(幽灵记录跨帧累积)。
+ *   修复方向: 拆分为 WriteRaw(仅写Flash不动指针) + Commit(校验通过后推进指针)。 */
 static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
 {
     uint32_t addr = StorageRx_ZoneSlotAddr(z, z->slot_head);
@@ -341,12 +354,14 @@ static uint32_t StorageRx_ZoneWrite(ZoneState_t *z, const uint8_t *rec)
 
     if (blank == 0)
     {
-        /* P0-B修复: 整扇区擦除会使该扇区其余(STX_SLOT_PER_SECTOR-1)槽旧记录一并消失,
-         * 必须同步修正count, 否则导出会出现FF空洞/垃圾记录 */
+        /* S-2 已修复 2026-09-17: 整扇区擦除丢的是本扇区全部 STX_SLOT_PER_SECTOR 条旧记录,
+         * 原 count -= (STX_SLOT_PER_SECTOR-1) 会少减1条 -> 每次覆盖多记1条 ->
+         * 环形回绕后 count 系统性偏大, 导出按 count 读取会越界到 0xFF 空洞.
+         * 本处减满 STX_SLOT_PER_SECTOR 后, 函数末尾 count++ 净变化 -239, 账目正确 */
         W25QXX_Erase_Sector(addr / STX_SECTOR_SIZE);
         if (z->count >= STX_SLOT_PER_SECTOR)
         {
-            z->count -= (STX_SLOT_PER_SECTOR - 1U);
+            z->count -= STX_SLOT_PER_SECTOR;
         }
         else
         {
@@ -410,7 +425,14 @@ void StorageRx_MetaPrepare(void)
  *         每库32KB/42字节约780条, 两库共1560次写入才擦一轮.
  */
 /* [GB4717 B.1.1.3]  防止存储信息被更改或删除(元数据带魔数+CRC16校验)
- * [GB4717 B.1.4.4]  断电后数据保持不丢失: A/B双库顺序写, 任一时刻至少一库有效 */
+ * [GB4717 B.1.4.4]  断电后数据保持不丢失: A/B双库顺序写, 任一时刻至少一库有效
+ * [缺陷 DEF-N9] 记账与数据写入非原子: 本函数落在 ZoneWrite 之后, 若在
+ *   ZoneWrite 已完成而 MetaSave 尚未落盘之间掉电 -> 数据已写但 count 未累加(少记),
+ *   或在擦除旧扇区过程中掉电 -> 该扇区 240 条旧记录全丢而账目未同步。
+ * [试验 TST-N9] 随机掉电 100 次: 持续灌入事件并在随机时刻断电(覆盖写入窗口/擦除窗口/meta窗口),
+ *   判据: (1)每次上电 MetaLoad 均能恢复出合法 meta(magic=0x58525354 且 CRC 通过), 不得返回"全新Flash";
+ *         (2)恢复后各区 count <= capacity, 且导出不得出现全 0xFF 空洞记录;
+ *         (3)[GB4717 B.1.4.4] 断电保持: 单次断电 14d 后上电, 记录条数与断电前一致。 */
 static void StorageRx_MetaSave(void)
 {
     StorageMeta_t meta;
@@ -574,7 +596,13 @@ uint8_t StorageRx_Init(void)
  *           state 3+: 接收负载+CRC+帧尾, 总长=3+payload+2+1
  *         收到完整帧且帧尾为0x5A时, 复制到s_frame_buf并置位s_frame_ready.
  *         如果已有未处理帧(s_frame_ready=1), 直接丢弃新帧.
- */
+ * [GB4717 B.1.1.1] 中断级帧入口: 主控发出的每一条记录经此进入黑匣子链路。
+ * [核查 CHK-28] 单帧缓冲: s_frame_ready=1 期间到达的新帧被直接丢弃(无乒乓缓冲),
+ *   依赖主控侧 3 次重试(STX_TIMEOUT_MS=4000ms)兜底补偿。
+ *   预期: 连续高频事件下不得漏记; 若观测到丢帧, 应查 g_stx_frame_ready_snap 计数。
+ * [核查 CHK-29] 长度字段下溢: s_frame_payload_len = data - 1, 当收到的长度字节为 0 时
+ *   uint8 下溢为 255, 需等待 261 字节才复位。因 s_rx_buf(96) 溢出保护最终会复位,
+ *   故不会死锁, 但会引入最长 261 字节的接收窗口抖动。 */
 void StorageRx_OnByte(uint8_t data)
 {
     /* 统计: 记录接收字节数和最近字节(调试用) */
@@ -686,7 +714,11 @@ static uint8_t StorageRx_VerifyCRC(void)
  *           写W25Q256并读回校验通过后回复ACK_OK; 失败则回复相应错误ACK
  *         - 其他未知命令: 回复ACK_ERR_BUSY
  *         处理完成后复位s_frame_ready和s_rx_idx
- */
+ * [试验 TST-N1] 写100条逐条比对: 主控连续下发 100 条事件(覆盖 0x01~0x04 四类命令码),
+ *   判据: (1)存储侧串口打印 [STX_WR] OK 应为 100 条, 无 VERIFY / CRC / LEN 失败;
+ *         (2)结束后 GetTotalCount() == 100, 且各分区 count 与下发路由一致;
+ *         (3)导出读取的每条记录与主控下发的原始 17 字节逐字节相同(含时间戳);
+ *         (4)StorageTx_GetQueueDropCount() == 0(主控侧未发生队列满丢弃)。 */
 void StorageRx_Process(void)
 {
     char log_buf[96];
@@ -806,14 +838,16 @@ void StorageRx_Process(void)
             uint8_t zone_idx = (s_frame_cmd == STX_CMD_STORE_EVENT)
                                ? STX_ZONE_GENERAL
                                : (uint8_t)(s_frame_cmd - STX_CMD_STORE_FIRST_ALARM);
+            /* [核查 CHK-13] 分区路由: 0x01->Z3通用 / 0x02->Z0首警 / 0x03->Z1火警 / 0x04->Z2故障
+             * [缺陷 DEF-N9] 此处写入与记账(MetaSave)非原子: 擦除后掉电->count偏大->导出0xFF空洞
+             * [已修复 DEF-N1 2026-09-20] 记账已后移到读回校验通过之后(见下方步骤5之后) */
             s_last_wr_addr = StorageRx_ZoneWrite(&s_zones[zone_idx], &s_frame_buf[3]);
-            StorageRx_MetaSave();
         }
 
         /* 5. 读回校验 */
         {
             uint8_t readback[STX_RECORD_SIZE];
-            W25QXX_Read(readback, s_last_wr_addr, STX_RECORD_SIZE);
+            W25QXX_Read(readback, s_last_wr_addr, STX_RECORD_SIZE);  /* [已修复 DEF-N4 2026-09-20] 随DEF-N1一并解决: 记账在校验之后, 失败重试不再累加count */
 
             if (memcmp(&s_frame_buf[3], readback, STX_RECORD_SIZE) != 0)
             {
@@ -828,6 +862,12 @@ void StorageRx_Process(void)
                 return;
             }
         }
+
+        /* [已修复 DEF-N1 2026-09-20] 读回校验通过后才记账(meta持久化count):
+         *   原实现在校验之前记账 -> 写坏时账目已+1, 导出读到坏记录(幽灵记录);
+         *   同时消除 DEF-N4: 校验失败重试不再反复累加 count, 坏记录不再累积。
+         *   现顺序: 写入 -> 读回校验 -> 通过才记账 -> ACK */
+        StorageRx_MetaSave();
 
         /* 6. 校验通过, 记录写入成功, 回复ACK */
         {
@@ -860,9 +900,13 @@ void StorageRx_Process(void)
  * 查询存储记录数
  *============================================================*/
 /**
- * @brief  查询存储记录数
- * @retval 存储记录数 = 当前写入数 / 记录固定大小(17)
- */
+ * @brief  查询指定分区的现存记录条数
+ * @retval 该分区现存条数(取值范围 0 ~ 分区capacity)
+ * [GB4717 表B.1] 本返回值即导出响应帧中"记录总数(3字节大端)"字段的来源之一
+ *   (分区直读取本值, 顺序读取四区之和 StorageRx_GetTotalCount)。
+ * [核查 CHK-30] count 必须与实际"落盘且通过读回校验"的条数严格相等。
+ *   已知偏差来源: DEF-N1b(RAM态虚高)、DEF-N9(记账未落盘)、N3(ACK丢失导致重帧重复写)。
+ *   预期: 稳态下 GetRecordCount(zone) == 该区实际有效记录数, 误差 0。 */
 uint32_t StorageRx_GetRecordCount(uint8_t zone)
 {
     if (zone >= STX_ZONE_COUNT)
@@ -916,7 +960,15 @@ uint32_t StorageRx_GetRemainingCount(void)
  */
 /* [GB4717 B.1.1.2] 应具有按照时间顺序提供导出记录信息的功能
  *   约定 index=0 为最旧记录, 顺序读即时间升序
- * [GB4717 B.1.3.1] 数据导出的取数来源(仅专用手段经USB导出) */
+ * [GB4717 B.1.3.1] 数据导出的取数来源(仅专用手段经USB导出)
+ * [核查 CHK-26] index 越界保护: index >= count 时返回 1(失败), 调用方(GB4717_ReadZone)
+ *   读到返回值 1 视作"该区读完", 故 count 虚高会把尚未写入的空洞当作有效记录导出。
+ *   预期: StorageRx_GetRecordCount(zone) 必须与实际落盘成功条数严格相等。
+ * [试验 TST-EXP] 导出比对: 用 com17_export.py 顺序读全部记录,
+ *   判据: (1)上位机逐帧 CRC16 校验(含/不含起始符按 S-3 确认口径)须全部通过;
+ *         (2)导出条数 == StorageRx_GetTotalCount();
+ *         (3)与主控侧同步记录的原始事件比对: 设备号/事件码/时间戳三项逐条一致, 无多余项、无缺失项;
+ *         (4)时间戳单调不减严格成立(允许同秒并列)。 */
 uint8_t StorageRx_ReadRecord(uint8_t zone, uint32_t index, EventRecord_t *rec)
 {
     uint32_t addr;
@@ -951,12 +1003,14 @@ uint8_t StorageRx_ReadRecord(uint8_t zone, uint32_t index, EventRecord_t *rec)
  *         分区深处的历史数据不参与账目对账, 不影响测试判定
  */
 /* [GB4717 B.1.1.3] 控制器运行数据存储单元应有防止存储信息被更改或删除的功能
- * !!! 重点核查(S-1) !!!
- *   本函数两处 W25QXX_Erase_Sector() 传入的是【字节地址】, 而该API形参是【扇区号】
- *   (w25qxx.c 内部会 Dst_Addr *= 4096)。叠加 uint32 溢出后实际擦到扇区0附近,
- *   声称清空的"每分区头部256KB + meta区64KB"并未被擦除。
- *   后果: meta 未擦 -> 重启后 MetaLoad 取 seq 最大者 -> 恢复旧 count, "清空"被撤销。
- *   另: 本函数是 'C' 调试命令的后端, 生产构建应关闭(见 USER/main.c 的 STX_DEBUG_BUILD)。 */
+ * [S-1 已修复 2026-09-17] 两处 W25QXX_Erase_Sector() 原传【字节地址】, 而该API形参是
+ *   【扇区号】(w25qxx.c 内部会 Dst_Addr *= 4096)。叠加 uint32 溢出后实际擦到扇区0附近,
+ *   声称清空的"每分区头部256KB + meta区64KB"并未被擦除; meta 未擦会导致重启后
+ *   MetaLoad 取 seq 最大者恢复旧 count, 使"清空"被撤销。现改为 字节地址/4096 + 扇区偏移。
+ *   另: 本函数是 'C' 调试命令的后端, 生产构建应关闭(见 USER/main.c 的 STX_DEBUG_BUILD)。
+ * [核查 CHK-08] 生产/送检构建必须置 STX_DEBUG_BUILD=0 —— 否则现场或审查方可通过
+ *   USB CDC 发送 'C' 命令删除全部记录, 直接违反 B.1.1.3"防止存储信息被更改或删除"。
+ *   预期: 送检固件中搜索不到 'C' 命令分支, 或 Storage_ClearAllRecords 不可达。 */
 void StorageRx_EraseAll(void)
 {
     uint8_t z;
@@ -971,13 +1025,15 @@ void StorageRx_EraseAll(void)
         addr = zone_base[z];
         for (sec = 0; sec < 64U; sec++)
         {
-            W25QXX_Erase_Sector(addr + sec * STX_SECTOR_SIZE);
+            /* P0-1修复: W25QXX_Erase_Sector形参为扇区号(内部再乘4096),
+             * 原写法传字节地址会溢出并擦到扇区0附近, 现改为字节地址/4096+偏移 */
+            W25QXX_Erase_Sector(addr / STX_SECTOR_SIZE + sec);
         }
     }
     /* 元数据区64KB(16扇区): A/B双库状态一并擦除 */
     for (sec = 0; sec < 16U; sec++)
     {
-        W25QXX_Erase_Sector(STX_META_BASE + sec * STX_SECTOR_SIZE);
+        W25QXX_Erase_Sector(STX_META_BASE / STX_SECTOR_SIZE + sec);
     }
     /* P0-1整改: 分区指针/条数全部清零, 元数据状态复位 */
     for (z = 0; z < STX_ZONE_COUNT; z++)

@@ -504,7 +504,13 @@ uint8_t StorageTx_Heartbeat(void)
  */
 /* [GB4717 B.1.1.2] 每条记录同步记录年月日时分秒; [5.4.1.11] 日计时误差<=6s
  * [缺陷 DEF-P01] 依赖开机调用 BM8563_EnsureValid() 对时, 该调用当前缺失->
- *                RTC未对时会记非法时间戳(曾出现年=00月=00), 必须修复 */
+ *                RTC未对时会记非法时间戳(曾出现年=00月=00), 必须修复
+ * [试验 TST-CLK] 时间戳合法性与日计时误差:
+ *   (1)合法性: 断电拔掉纽扣电池使 RTC 失准后重新上电, 读取一条记录,
+ *      判据: year/month/day/hour/minute/second 必须构成合法日期时间, 不得出现 00 年或 00 月;
+ *   (2)精度: 连续运行 24h 后与标准时间比对,
+ *      判据: 日计时误差 <= 6s(§5.4.1.11);
+ *   (3)对时: 经画面41调整时钟后, 下一条记录的时间戳应为调整后的新值, 且与 RTC 读数一致。 */
 void StorageTx_FillTimestamp(EventRecord_t *rec)
 {
     BM8563_TimeTypeDef rtc;
@@ -657,6 +663,16 @@ void StorageTx_BuildRecord(EventRecord_t *rec,
  */
 /* [GB4717 B.1.1.2] 入队前已完成时间戳填充
  * [核查 CHK-12] 队列深32; 满时丢最旧(返回1), 调用方Enqueue忽略返回值(见DEF-N5) */
+/* [已修复 DEF-N5 2026-09-20] 入队丢弃计数: 队列满时丢弃最旧记录,
+ * 原实现调用方(StorageEvent_Enqueue)忽略返回值 -> 丢记录无任何感知。
+ * 此处累计丢弃次数并打印告警, 可用 StorageTx_GetQueueDropCount() 查询。 */
+static uint32_t s_queue_drop_count = 0;
+
+uint32_t StorageTx_GetQueueDropCount(void)
+{
+    return s_queue_drop_count;
+}
+
 uint8_t StorageTx_QueueRecord(uint8_t cmd, const EventRecord_t *record)
 {
     if (!s_initialized || s_tx_queue == NULL || record == NULL) {
@@ -680,6 +696,9 @@ uint8_t StorageTx_QueueRecord(uint8_t cmd, const EventRecord_t *record)
     /* 队列满: 丢弃最旧一条再尝试 */
     StorageTx_QueueItem_t old;
     xQueueReceive(s_tx_queue, &old, 0);
+    s_queue_drop_count++;
+    DebugPrintf("[STX-Q ] WARN queue full, dropped oldest (total=%lu cmd=%d evt=%d)\r\n",
+                (unsigned long)s_queue_drop_count, (int)cmd, (int)record->event_code);
     if (xQueueSend(s_tx_queue, &item, 0) == pdTRUE) {
         return 1;  /* 成功, 丢弃最旧记录 */
     }
@@ -727,8 +746,22 @@ void StorageTx_TaskLoop(void)
             s_boot_completed = 1;
             if (s_fault_reported != 0U)
             {
+                EventRecord_t rec_ok;
+
+                memset(&rec_ok, 0, sizeof(EventRecord_t));
+                rec_ok.controller_no = 1;                     /* 控制器号固定1 */
+                rec_ok.unit_no       = 1;
+                rec_ok.device_no     = 1;                     /* 存储单元设备号1 */
+                rec_ok.dev_type      = DEV_TYPE_STORAGE;      /* 18=运行数据存储单元(表C.16) */
+                rec_ok.event_code    = EVT_FAULT_RECOVER;     /* 100=故障恢复 */
+                rec_ok.state_code    = 0x0000;                /* bit7有故障位清零(表C.18) */
+                StorageTx_FillTimestamp(&rec_ok);
+                /* [已修复 DEF-N6 2026-09-20] 原实现恢复时只清标志不发记录 ->
+                 *   故障只有发生(EVT 80)没有恢复, 导出无法判断恢复时刻。
+                 *   现补发 EVT_FAULT_RECOVER(100), 与故障记录成对; 只入队不发送, 无递归风险 */
+                (void)StorageTx_QueueRecord(STX_CMD_STORE_FAULT, &rec_ok);
                 s_fault_reported = 0;
-                DebugPrintf("[STX-TX] storage fault recovered\r\n");
+                DebugPrintf("[STX-TX] storage fault recovered, evt=100 logged\r\n");
             }
         }
         else

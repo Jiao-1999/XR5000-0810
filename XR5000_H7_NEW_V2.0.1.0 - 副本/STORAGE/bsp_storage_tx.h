@@ -162,6 +162,8 @@ uint8_t StorageTx_SendRecord(uint8_t cmd, const EventRecord_t *record);
  * @note   适合中断/任务调用, 真正发送由StorageTxTask完成
  */
 uint8_t StorageTx_QueueRecord(uint8_t cmd, const EventRecord_t *record);
+/* [DEF-N5] 查询累计的入队丢弃次数(队列满丢最旧), 用于测试核查是否发生记录丢失 */
+uint32_t StorageTx_GetQueueDropCount(void);
 
 /**
  * @brief  发送测试日志到存储侧(同步发送+等ACK, 存储侧USB转发不写Flash)

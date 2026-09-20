@@ -106,7 +106,14 @@ static uint32_t s_seq_cursor[STX_ZONE_COUNT]; /* 顺序读游标(4区时间归�
  * @param  len:  数据长度
  * @retval CRC16值(低字节在前存放)
  * @note   与bsp_storage_rx的CRC算法一致, 用于请求/响应帧校验
- */
+ * [GB4717 表B.1] 导出帧校验和: 多项式0xA001, 低字节在前。
+ * [核查 CHK-21] 校验范围是否包含起始符 —— 待检验机构确认(S-3):
+ *   国标原文"以上所有数据进行CRC16校验", "以上"字面理解为含起始符 0x40;
+ *   当前代码从 buf[1] 起算(不含起始符)。
+ *   注意: 本改动会影响上位机 com17_export.py 的校验实现, 两侧必须同步修改。
+ *   预期: 确认后如需修改, 应改为 GB4717_CRC16(&buf[0], idx-1) 并同步更新上位机脚本。
+ * [缺陷 DEF-S3] 校验范围口径未定: 若检验机构按"含起始符"口径, 当前实现将被判不合规;
+ *   反之若改为含起始符而上位机未同步, 则全部导出帧校验失败。属需外部确认的阻塞项。 */
 static uint16_t GB4717_CRC16(const uint8_t *data, uint16_t len)
 {
     uint16_t crc = 0xFFFF;
@@ -146,8 +153,9 @@ static uint16_t GB4717_CRC16(const uint8_t *data, uint16_t len)
  *   起始符1 | 记录总数3 | 地址1 | 类型2 | 产品编号20 | 数据信息n | CRC16(2,低字节在前) | 停止符1
  * [GB4717 表B.2] 数据信息格式(17字节)
  * [GB4717 B.1.3.1] 导出格式必须与存储格式相同
- * !!! 重点核查(S-3): 表B.1 原文"以上所有数据进行CRC16校验"——"以上"含起始符,
- *   本函数 CRC 从 buf[1] 起算, 未包含起始符 0x40, 建议与检验机构确认口径。 */
+ * [核查 CHK-21] S-3 落地位置: 本行即 CRC 起算点, 当前为 GB4717_CRC16(&buf[1], idx-1),
+ *   未包含起始符 0x40。详见 GB4717_CRC16 处的 CHK-21 与缺陷 DEF-S3 说明。
+ *   修改此处前必须先同步上位机 com17_export.py 的校验范围, 否则导出全量失败。 */
 static void GB4717_SendResponse(uint8_t cmd, const EventRecord_t *rec)
 {
     uint8_t buf[64];
@@ -196,7 +204,13 @@ static void GB4717_SendResponse(uint8_t cmd, const EventRecord_t *rec)
 /**
  * @brief  记录时间键(用于顺序读的4区时间归并, P1-5整改)
  * @note   年月日时分秒打包为uint32, 数值大=时间晚
- */
+ * [GB4717 B.1.1.2] 时间归并键: 保证跨分区导出结果全局时间升序。
+ * [核查 CHK-25] 位域分配: year<<26(6bit,0~63) | month<<22(4bit,0~15) | day<<17(5bit,0~31)
+ *   | hour<<12(5bit,0~31) | minute<<6(6bit,0~63) | second(6bit,0~63)。
+ *   因 year 语义为"年份-2000", 故**2063年(值63)是最后一个安全年份, 2064年溢出**。
+ *   预期: 2063-12-31 23:59:59 之前排序正确; 溢出后时间序反转, 需在 2064 年前处理。
+ * [试验 TST-SORT] 跨区时间序: 分别向四个分区写入记录使四区时间相互交错,
+ *   判据: 命令1 顺序读出的记录时间戳必须单调不减, 且与各分区真实写入时间一致。 */
 static uint32_t GB4717_TimeKey(const EventRecord_t *rec)
 {
     return ((uint32_t)rec->year << 26) | ((uint32_t)rec->month << 22)
@@ -212,8 +226,13 @@ static uint32_t GB4717_TimeKey(const EventRecord_t *rec)
  * @retval 0=读到一条, 1=该区读完(游标已归零)
  */
 /* [GB4717 表B.4] 命令3=读首火警 / 命令4=读火警 / 命令5=读故障(厂商扩展, 国标仅定义1~4)
- * !!! 重点核查(S-4): B.1.1.2 要求"按照时间顺序提供导出记录信息",
- *   本函数按物理槽号递增读取, 环形回绕后槽号序 != 时间序, 不满足时间顺序要求。 */
+ * [核查 CHK-22] S-4 结论(2026-09-20 重新核对): 本函数虽按 index 递增读取, 但配合的
+ *   StorageRx_ReadRecord 已做环形映射 slot=(slot_head+capacity-count+index)%capacity,
+ *   使 index=0 恒为最旧记录、index 递增即写入顺序递增, 因此**单区内满足时间顺序**。
+ *   命令3/4 均为单区读取, 故原"S-4 不满足时间顺序"的定性偏保守, 现已修正。
+ *   残余风险: 仅当 RTC 被回拨或跨零点乱序写入时可能破坏时间序, 属设备侧问题而非导出实现。
+ * [核查 CHK-23] 命令5(读故障)为厂商扩展, 国标表B.4 仅定义命令1~4,
+ *   应在协议补充文件中声明, 供型式试验查表。 */
 static uint8_t GB4717_ReadZone(uint8_t zone, uint32_t *cursor, EventRecord_t *rec)
 {
     if (*cursor < StorageRx_GetRecordCount(zone))
@@ -282,7 +301,13 @@ static uint8_t GB4717_SeqReadNext(EventRecord_t *rec)
  *           GB4717_CMD_READ_FIRE(4):  按event_code=3筛选火警记录;
  *           GB4717_CMD_RESEND(2):     重发上一帧响应(从s_last_resp缓存);
  *           其他:                     发送空记录响应.
- */
+ * [GB4717 表B.4] 命令分发: 1=顺序读 / 2=重发 / 3=读首警 / 4=读火警 / 5=读故障(厂商扩展)。
+ * [试验 TST-B.2.6] 存储单元与试样分离后的导出回放(B.2.6):
+ *   (1)断电使存储单元与主控分离 -> 独立供电/或保持 Flash 不动;
+ *   (2)经 USB 重新发送命令1~4;
+ *   判据: 导出帧格式符合表B.1, 记录条数与分离前一致, 时间戳连续且可读, CRC 校验通过。
+ * [核查 CHK-24] 命令2(重发)幂等性: 连续多次发送命令2 必须返回完全相同的上一帧,
+ *   重内容不得推进游标; 预期: 两次响应字节流完全一致。 */
 static void GB4717_ProcessCommand(uint8_t cmd)
 {
     EventRecord_t rec;
@@ -486,7 +511,11 @@ void GB4717_ExportProcess(void)
 
 /* P1-6: idle query - 1 when the receiver state machine is in WAIT_START
  * (no frame being reassembled). main.c uses this to gate the 'R'/'C' debug
- * command block so it never steals mid-frame GB4717 payload bytes. */
+ * command block so it never steals mid-frame GB4717 payload bytes.
+ * [GB4717 B.1.4.2] 授权态查询: 处于 WAIT_START 表示当前无正在重组的导出命令帧,
+ *   用于隔离调试命令与国标导出帧, 避免未受控的删除/导出入口被触发。
+ * [核查 CHK-08b] 与 CHK-08 联动: 生产构建除关闭 STX_DEBUG_BUILD 外,
+ *   还应保证 'R'/'C' 调试命令不可达, 否则 B.1.1.3 防删除要求存在绕过路径。 */
 uint8_t GB4717_IsIdle(void)
 {
     return (s_rx_state == RX_STATE_WAIT_START) ? 1U : 0U;
