@@ -8,10 +8,10 @@
 
 /* ============================================================================
  * 模块名称: MBus/回路2设备控制模块 (MBus Control Module)
- * 功能描述: 管理回路2(UART2) MBus总线设备(声光报警器/手动报警器/火灾显示盘)的
+ * 功能描述: 管理回路2(USART2) MBus总线设备(声光报警器/手动报警器/火灾显示盘)的
  *          轮询调度、Modbus RTU通信、状态管理、Flash持久化。
  * 通信协议: Modbus RTU, 功能码04(读输入寄存器)/05(写单线圈)/10(写多寄存器),
- *          UART2/115200/8N1, MBUS2SITE=1
+ *          USART2/9600/8N1, MBUS2SITE=1
  * 轮询机制: FreeRTOS任务每200ms(10×20ms)轮询一个在线设备, 地址范围1~63
  * 设备类型: 声光报警器(XR-SGBJQ,地址60)/手动报警器(XR2200,地址61)/火灾显示盘(XR1530,地址62)
  * 掉线检测: 连续10次无响应判定掉线
@@ -47,6 +47,7 @@ typedef enum {
     MBUS_CONTROL_DEV_GCM1002 = 4,
     MBUS_CONTROL_DEV_FIM1017 = 5,   /* XR1530 火灾显示盘 */
     MBUS_CONTROL_DEV_FCM1011 = 6,
+    MBUS_CONTROL_DEV_FAN_BUTTON = 7, /* 风机启停按钮，内部产品码18 */
 } MBusCtrlDevType;
 
 /* FCM-1011输入触点经上线学习和运行消抖后的查询状态。 */
@@ -145,6 +146,7 @@ uint8_t MBusCtrl_GetAlarmCount(void);                /* 回路2报警设备总数 */
 /* ---- 设备信息查询 ---- */
 const char* MBusCtrl_GetDeviceName(uint8_t addr);    /* 根据地址获取设备名称(中文) */
 uint8_t MBusCtrl_GetDeviceState(uint8_t addr);       /* 获取设备传感器状态值 */
+uint8_t MBusCtrl_HasActiveFanButton(void);            /* 任一风机启停按钮处于启动状态 */
 uint8_t MBusCtrl_GetInputChannelState(uint8_t addr, uint8_t channel, uint8_t *state);
 uint8_t MBusCtrl_GetInputMonitorState(uint8_t addr, uint8_t channel);
 uint8_t MBusCtrl_IsInputFeedbackActive(uint8_t addr, uint8_t channel);

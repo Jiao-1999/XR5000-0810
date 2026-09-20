@@ -1,9 +1,9 @@
 /* ============================================================================
  * 模块名称: MBus/回路2设备控制模块 (MBus Control Module)
- * 功能描述: 实现回路2(UART2) MBus总线设备的轮询调度、Modbus RTU通信、
+ * 功能描述: 实现回路2(USART2) MBus总线设备的轮询调度、Modbus RTU通信、
  *          状态管理、声光报警器控制、火灾显示盘事件上报、Flash持久化。
  * 通信协议: Modbus RTU, 功能码01(读线圈)/04(读输入寄存器)/05(写单线圈)/10(写多寄存器),
- *          UART2/115200/8N1, MBUS2SITE=1
+ *          USART2/9600/8N1, MBUS2SITE=1
  * 设备类型: 声光报警器(XR-SGBJQ,地址60)/手动报警器(XR2200,地址61)/火灾显示盘(XR1530,地址62)
  * 轮询流程: 单事务响应驱动，手报/显示盘用04，声光用01读取状态
  * 控制服务: 声光报警器通过05功能码控制, 火灾显示盘通过10功能码上报事件
@@ -171,7 +171,14 @@ static uint8_t MBusCtrl_MapProductType(uint16_t product_code)
     if(parser == DEVICE_PARSER_GCM1002) return MBUS_CONTROL_DEV_GCM1002;
     if(parser == DEVICE_PARSER_FIM1017) return MBUS_CONTROL_DEV_FIM1017;
     if(parser == DEVICE_PARSER_FCM1011) return MBUS_CONTROL_DEV_FCM1011;
+    if(parser == DEVICE_PARSER_FAN_BUTTON) return MBUS_CONTROL_DEV_FAN_BUTTON;
     return MBUS_CONTROL_DEV_UNKNOWN;
+}
+
+static uint8_t MBusCtrl_IsFastInputType(uint8_t dev_type)
+{
+    return (dev_type == MBUS_CONTROL_DEV_XR2200 ||
+            dev_type == MBUS_CONTROL_DEV_FAN_BUTTON) ? 1U : 0U;
 }
 
 
@@ -1096,6 +1103,20 @@ uint8_t MBusCtrl_GetDeviceState(uint8_t addr)
     return g_mbus_ctrl_devices[addr].sensor_state;
 }
 
+uint8_t MBusCtrl_HasActiveFanButton(void)
+{
+    uint8_t addr;
+    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
+    {
+        if(g_mbus_ctrl_devices[addr].online != 0U &&
+           g_mbus_ctrl_devices[addr].type_confirmed != 0U &&
+           g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_FAN_BUTTON &&
+           g_mbus_ctrl_devices[addr].sensor_state == 1U)
+            return 1U;
+    }
+    return 0U;
+}
+
 uint8_t MBusCtrl_GetInputChannelState(uint8_t addr, uint8_t channel, uint8_t *state)
 {
     if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES || channel != 1U || state == 0 ||
@@ -1222,7 +1243,7 @@ static uint8_t MBusCtrl_IsNormalPollDue(uint8_t addr, uint32_t now)
     uint32_t last_tick;
     if(g_mbus_ctrl_devices[addr].type_confirmed != 0U)
     {
-        if(g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_XR2200)
+        if(MBusCtrl_IsFastInputType(g_mbus_ctrl_devices[addr].dev_type) != 0U)
             interval_ms = MBUS_HAND_REPORT_POLL_INTERVAL_MS;
         else if(g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_SGBJQ)
             interval_ms = MBUS_SOUND_LIGHT_POLL_INTERVAL_MS;
@@ -1247,7 +1268,7 @@ static uint8_t MBusCtrl_FindNextPollAddress(uint32_t now, uint8_t mode)
         addr++;
         if(addr >= MBUS_CONTROL_MAX_DEVICES) addr = 1U;
         is_hand_report = (g_mbus_ctrl_devices[addr].type_confirmed != 0U &&
-                          g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_XR2200) ? 1U : 0U;
+                          MBusCtrl_IsFastInputType(g_mbus_ctrl_devices[addr].dev_type) != 0U) ? 1U : 0U;
         if((mode == 1U && is_hand_report == 0U) ||
            (mode == 2U && is_hand_report != 0U)) continue;
         if(g_mbus_ctrl_devices[addr].online == 0U ||
@@ -1307,7 +1328,7 @@ static void MBusControlPollingManage(void)
     if(selected_addr == 0U) return;
     g_mbus_ctrl_polling_addr = selected_addr;
     if(g_mbus_ctrl_devices[selected_addr].type_confirmed != 0U &&
-       g_mbus_ctrl_devices[selected_addr].dev_type == MBUS_CONTROL_DEV_XR2200)
+       MBusCtrl_IsFastInputType(g_mbus_ctrl_devices[selected_addr].dev_type) != 0U)
         g_mbus_hand_poll_cursor = selected_addr;
     else
         g_mbus_other_poll_cursor = selected_addr;
@@ -1846,7 +1867,7 @@ static void MBus2ReceiveSlaveDataDeal(void)
     }
 }
 
-/* 登记用同一UART2单事务路径发送身份问询，不借用正式上线标志。 */
+/* 登记用同一USART2单事务路径发送身份问询，不借用正式上线标志。 */
 static uint8_t MBusCtrl_TryStartRegistrationProbe(void)
 {
     uint8_t address;
