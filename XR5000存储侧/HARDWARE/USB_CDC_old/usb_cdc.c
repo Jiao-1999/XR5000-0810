@@ -24,6 +24,10 @@
  *     Host sees pull-up, sends RESET -> RESET ISR fires
  *     RESET handler: configure EPs -> CNTR=CTRM|RESETM|SUSPM -> DADDR=EF
  *     Host sends SETUP -> CTR ISR -> enumerate
+ *
+ *   [GB4717 B.1.3.2] 数据导出接口: 应至少提供 USB B型(母口)或 USB C型(母口),
+ *     支持 USB2.0 从机模式(Device) —— 本驱动即 USB2.0 Full-Speed Device 实现。
+ *     板上连接器类型(母口)待硬件确认。
  */
 #include "usb_cdc.h"
 #include "usb_regs.h"

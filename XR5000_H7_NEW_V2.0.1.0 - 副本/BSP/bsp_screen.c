@@ -214,6 +214,9 @@ void InternalScreenRTCSetting(uint16_t screen_id, uint16_t control_id, uint8_t *
 
 				set_RTC(SystemTime.year,SystemTime.month,SystemTime.day,SystemTime.hours,SystemTime.minutes,SystemTime.seconds);
 				BM8563_Soft_I2C_SetTime(&SystemTime);
+				/* [试验 TST-B.2.3] 时钟调整: 画面41修改任一字段 -> 查记录
+				 *   判据: (1)每修改一个字段产生 1 条 EVT 131 记录(共6个控件, 不去重);
+				 *         (2)记录时间戳为调整后的新值, 而非调整前的旧值 */
 				StorageEvent_LogClockAdjust();  /* [GB4717 B.1.1.1d] 时钟调整(EVT 131), 时间戳=调整后新值 */ /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
 			}
 		}
@@ -230,6 +233,7 @@ void InternalScreenRTCSetting(uint16_t screen_id, uint16_t control_id, uint8_t *
 
 				set_RTC(SystemTime.year,SystemTime.month,SystemTime.day,SystemTime.hours,SystemTime.minutes,SystemTime.seconds);
 				BM8563_Soft_I2C_SetTime(&SystemTime);
+				/* [试验 TST-B.2.3] 时钟调整(字段2): 判据同上, 应产生 EVT 131 记录 */
 				StorageEvent_LogClockAdjust();  /* [GB4717 B.1.1.1d] 时钟调整(EVT 131), 时间戳=调整后新值 */ /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
 			}
 		}
@@ -246,6 +250,7 @@ void InternalScreenRTCSetting(uint16_t screen_id, uint16_t control_id, uint8_t *
 
 				set_RTC(SystemTime.year,SystemTime.month,SystemTime.day,SystemTime.hours,SystemTime.minutes,SystemTime.seconds);
 				BM8563_Soft_I2C_SetTime(&SystemTime);
+				/* [试验 TST-B.2.3] 时钟调整(字段3): 判据同上, 应产生 EVT 131 记录 */
 				StorageEvent_LogClockAdjust();  /* [GB4717 B.1.1.1d] 时钟调整(EVT 131), 时间戳=调整后新值 */ /* 黑匣子:时钟调整事件(EVT_CLOCK_ADJUST=131), 时间戳=调整后新值 */
 			}
 		}

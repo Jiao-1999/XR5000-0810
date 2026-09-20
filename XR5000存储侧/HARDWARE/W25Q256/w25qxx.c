@@ -222,6 +222,7 @@ uint16_t W25QXX_ReadID(void)
  * pBuffer: 数据存储区
  * ReadAddr: 开始读取的地址
  * NumByteToRead: 要读取的字节数(最大65535)
+ * [GB4717 B.1.2.2] 记录读回校验取数来源; [GB4717 B.1.3.1] 导出数据由此读出
  *============================================================*/
 void W25QXX_Read(uint8_t* pBuffer, uint32_t ReadAddr, uint16_t NumByteToRead)
 {
@@ -278,6 +279,7 @@ void W25QXX_Write_Page(uint8_t* pBuffer, uint32_t WriteAddr, uint16_t NumByteToW
 /*==============================================================
  * 无校验写SPI FLASH (具有自动换页功能)
  * 必须确保所写地址范围内的数据全为0XFF
+ * [GB4717 B.1.2.3] 记录以十六进制原样落盘; 页边界自动换页保证17字节记录不跨页出错
  *============================================================*/
 void W25QXX_Write_NoCheck(uint8_t* pBuffer, uint32_t WriteAddr, uint16_t NumByteToWrite)
 {
@@ -321,6 +323,8 @@ void W25QXX_Write_NoCheck(uint8_t* pBuffer, uint32_t WriteAddr, uint16_t NumByte
  * pBuffer: 数据存储区
  * WriteAddr: 开始写入的地址
  * NumByteToWrite: 要写入的字节数(最大65535)
+ * [GB4717 B.1.2.2] 事件记录写入W25Q256的底层入口(记录区经 ZoneWrite 使用)
+ * [GB4717 B.1.4.4] 数据落盘后断电保持不丢失
  *============================================================*/
 uint8_t W25QXX_BUFFER[4096];  /* 扇区缓存 */
 
@@ -407,6 +411,8 @@ void W25QXX_Erase_Chip(void)
 /*==============================================================
  * 擦除一个扇区
  * Dst_Addr: 扇区号 (实际地址 = Dst_Addr * 4096)
+ * [缺陷 DEF-S1 已修复 2026-09-18] 形参是【扇区号】不是字节地址(内部 *4096);
+ *   StorageRx_EraseAll 曾误传字节地址致地址溢出, 调用方必须传 addr/4096。
  *============================================================*/
 void W25QXX_Erase_Sector(uint32_t Dst_Addr)
 {
@@ -429,6 +435,7 @@ void W25QXX_Erase_Sector(uint32_t Dst_Addr)
 
 /*==============================================================
  * 等待空闲
+ * [缺陷 DEF-W1] 本函数无超时退出, Flash异常时死等; 依赖 IWDG(约8.2s)复位兜底
  *============================================================*/
 void W25QXX_Wait_Busy(void)
 {

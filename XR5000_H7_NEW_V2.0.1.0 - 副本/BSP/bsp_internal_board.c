@@ -599,6 +599,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 						outfire_key_val = temp_key_val;
 						switch(temp_key_val)
 						{
+							/* [试验 TST-B.2.2] 信息确认键: 火警状态下按下信息确认键 -> 查记录
+							 *   判据: 产生 EVT 128 记录, 其时间戳落在火警记录之后、复位记录之前。 */
 							case KEY1_INFORM_CERTAIN  : StorageEvent_LogConfirmButton();  /* [GB4717 B.1.1.1b] 信息确认按钮动作(EVT 128) */ /* 黑匣子:信息确认按钮动作(EVT_CONFIRM_BUTTON=128), GB4717-2024 B.1.1.1b */ // 信息确认
 								break;
 							case KEY2_SELF_INSPECTION :  // 系统自检
@@ -681,6 +683,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 							case KEY_SYSTEM_ANNOUNCIAT :  // 系统报警器启动
 								HmiRequestInternalProtectedAction(SIREN_KEY);
 								break;
+							/* [核查 CHK-07] 联动启动控制按键: 本处仅触发受保护动作, 尚未调用
+							 *   StorageEvent_LogLinkageStartButton() 记录 EVT 130, 型式试验前需补齐接入 */
 							case KEY_SYSTEM_LINKAGE_S  :  // 联动启动按下
 								HmiRequestInternalProtectedAction(LINKAGE_START_KEY);
 								break;
@@ -697,6 +701,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为手动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_HAND, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
+									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
 									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 1);  /* [GB4717 B.1.1.1a/c] 系统切手动(EVT 55/56) */ /* 黑匣子:系统手动 */
 								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* FECbus:系统手动 */
 								}
@@ -708,6 +713,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为自动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_AUTO, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
+									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
 									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 0);  /* [GB4717 B.1.1.1a/c] 系统切自动 */ /* 黑匣子:系统自动 */
 								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* FECbus:系统自动 */
 								}
@@ -723,6 +729,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为手动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_HAND, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
+									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
 									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 1);  /* [GB4717 B.1.1.1a/c] 分区1切手动 */ /* 黑匣子:分区1手动 */
 								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* FECbus:分区1手动 */
 								}
@@ -734,6 +741,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为自动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_AUTO, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
+									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
 									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 0);  /* [GB4717 B.1.1.1a/c] 分区1切自动 */ /* 黑匣子:分区1自动 */
 								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* FECbus:分区1自动 */
 								}
@@ -749,6 +757,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为手动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_HAND, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
+									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
 									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 1);  /* [GB4717 B.1.1.1a/c] 分区2切手动 */ /* 黑匣子:分区2手动 */
 								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* FECbus:分区2手动 */
 								}
@@ -760,6 +769,7 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 									SystemInfoSave();
 									// 存入气灭分区 状态切换为自动
 									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_AUTO, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
+									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
 									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 0);  /* [GB4717 B.1.1.1a/c] 分区2切自动 */ /* 黑匣子:分区2自动 */
 								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* FECbus:分区2自动 */
 								}

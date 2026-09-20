@@ -2638,6 +2638,8 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 			GetScreen();
 			SetTextValue(1U, 4U, "控制器复位中...请稍候...");
 			BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_SELF_CHECK, LINKAGE_CLUSTER_ID, SYS_SELFCHECK_Package_ID);
+			/* [试验 TST-B.2.3] 自检操作: 密码页53执行自检 -> 查记录
+			 *   判据: 产生 EVT 123 记录; 自检失败时应产生 EVT 124(当前无失败判定属预留) */
 			StorageEvent_LogSelfCheck(0U);  /* [GB4717 B.1.1.1d] 自检操作(EVT 123/124) */
 			SpecialSelfCheckLedCtrl(LED_ON);
 			return 1U;
@@ -2648,6 +2650,9 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 			GetScreen();
 			SetTextValue(1U, 4U, "控制器复位中...请稍候...");
 			BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_RESET, LINKAGE_CLUSTER_ID, SYS_RESET_Package_ID);
+			/* [试验 TST-B.2.3] 复位操作: 执行复位 -> 导出查记录
+			 *   判据: (1)产生 EVT 122 记录, 时间戳为操作时刻;
+			 *         (2)复位同时清除首警标志, 下次火警重新成为首警。 */
 			StorageEvent_ResetFirstFire();  /* [GB4717 B.1.2.2] 复位重置首警标志, 下次火警重新记首警 */
 			StorageEvent_LogReset();  /* [GB4717 B.1.1.1d] 复位操作(EVT 122) */
 			kaijiyanshi = (ONLINE_TIMEOUT > 6) ? (ONLINE_TIMEOUT - 6) : 0;
@@ -3645,6 +3650,8 @@ void UpdateUI(void)
 	{
 		check_record_pending = 0U;
 		BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_CHECK, LINKAGE_CLUSTER_ID, SYS_CHECK_Package_ID);
+		/* [试验 TST-B.2.3] 检查操作: 按下检查键 -> 查记录
+		 *   判据: 产生 EVT 129 记录; 连按多次应去重只记1条。 */
 		StorageEvent_LogCheckButton();  /* [GB4717 B.1.1.1d] 检查操作(EVT 129) */ /* 黑匣子:检查功能按钮动作(EVT_CHECK_BUTTON=129), 复用去重机制只记一条 */
 	}
 
@@ -12419,6 +12426,7 @@ static void PowerManageCtrl(uint8_t main_power_state, uint8_t back_power_state)
 	if(main_power_state == 0 && (back_power_state == open_circuit || back_power_state == short_circuit))
 	{
 		BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_TURN_OFF, LINKAGE_CLUSTER_ID, SYS_TURN_OFF_Package_ID);
+		/* [核查 CHK-06] 关机为异步入队, 掉电前来不及发出属固有限制, 试验记录中注明 */
 		StorageEvent_LogPowerOff();  /* [GB4717 B.1.1.1d] 关机操作(EVT 121), 主备电全失 */ /* 黑匣子:关机事件(EVT_POWER_OFF=121), 主备电全失 */
 	}
 	else
@@ -12800,6 +12808,8 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 			{
 				rs485_detect_disconnect_memory[addr] = 1;
 				RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_OFFLINE, DISCONNECT);
+				/* [试验 TST-B.2.5] 故障与恢复成对: 制造故障 -> 查记录 -> 排除故障 -> 再查记录
+				 *   判据: 故障发生产生 EVT 80, 恢复产生 EVT 100; 两者设备号一致且成对出现 */
 				StorageEvent_LogFault(addr, DEV_TYPE_MULTI_SENSOR, 3, 0, 0);
 			}
 			continue;
@@ -12840,11 +12850,14 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
                     getBM8563TimeToSystemTime();
                     StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Temperature); fire_alarm_check_new_flag = 1;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_TEMPERATURE));
+                    /* [试验 TST-B.2.2] 火警全周期: 触发火警 -> 查记录 -> 信息确认 -> 复位 -> 再触发火警
+                     *   判据: 第1次出 EVT 2 首警 + EVT 3 火警; 第2到3次只出 EVT 3; 复位后第4次重新出 EVT 2 */
                     StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 3, 0);  /* [GB4717 B.1.1.1a] 回路3感温火灾报警 */
                 }
                 else if(temp_state == 8U)
 				{
 					RS485Loop3AddFault(addr, RS485_LOOP3_FAULT_TEMPERATURE, RS485_TEMP_SENSOR_FAULT);
+                    /* [试验 TST-B.2.5] 故障与恢复成对: 故障发生(EVT 80)与恢复(EVT 100)须成对且设备号一致 */
                     StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 3, 0, 0);  /* [GB4717 B.1.1.1a] 回路3感温故障发生(EVT 80) */
 				}
 				rs485_detect_alarm_memory[addr][RS485_SENSOR_TEMPERATURE] = temp_state;
@@ -12860,6 +12873,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
                     getBM8563TimeToSystemTime();
                     StoragePackFireAlarm(&pcfas, RS485_DETECT_FLASH_ID, addr, Smoke); fire_alarm_check_new_flag = 1;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_SMOKE));
+                    /* [试验 TST-B.2.2] 火警全周期判据同上: 首警(EVT 2)仅首次出现, 复位后重新判定 */
                     StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 3, 0);  /* [GB4717 B.1.1.1a] 回路3感烟火灾报警 */
                 }
                 else if(type != RS485_DETECT_TYPE_XR805 && smoke_state == 1U)
