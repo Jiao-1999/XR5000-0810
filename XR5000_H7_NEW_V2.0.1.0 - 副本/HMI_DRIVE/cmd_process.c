@@ -2751,6 +2751,46 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 	return 0U;
 }
 
+/* [GB4717-2024 5.4.8.1 系统兼容功能] FECbus(集中型)远程系统指令执行入口。
+ * 动作序列与 HMI 路径一致, 但去掉 HMI 授权与界面操作:
+ *   复位 = HmiExecuteInternalProtectedAction(RESET_KEY) 去掉 SetScreen/SetTextValue 部分
+ *   消音 = 首页消音键(屏幕1 控件10)同序列
+ *   自检 = HmiExecuteInternalProtectedAction(SELFCHECK_KEY) 去掉界面部分
+ * action: 0=系统复位 1=系统消音 2=系统自检; 返回 1=已执行, 0=不支持 */
+uint8_t BspExecSystemAction(uint8_t action)
+{
+	switch(action)
+	{
+		case 0U:	/* 系统复位 */
+			StorageEvent_ResetFirstFire();
+			StorageEvent_LogReset();
+			kaijiyanshi = (ONLINE_TIMEOUT > 6) ? (ONLINE_TIMEOUT - 6) : 0;
+			ResetAllBusDevice();
+			return 1U;
+
+		case 1U:	/* 系统消音 */
+			if( main_power_beep_ctrl     != 0 ||
+				linkage_beep_ctrl        != 0 ||
+				beep_fire_ctrl           != 0 ||
+				beep_fault_ctrl          != 0 ||
+				beep_spray_feedback_ctrl != 0 ||
+				beep_general_io_ctrl     != 0 )
+			{
+				silencers_state = 1; /* 消音标志 */
+			}
+			BspBeepStateClear();
+			return 1U;
+
+		case 2U:	/* 系统自检 */
+			StorageEvent_LogSelfCheck(0U);
+			SpecialSelfCheckLedCtrl(LED_ON);
+			return 1U;
+
+		default:
+			return 0U;
+	}
+}
+
 void HmiRequestInternalProtectedAction(uint8_t action)
 {
 	uint8_t request_pending;

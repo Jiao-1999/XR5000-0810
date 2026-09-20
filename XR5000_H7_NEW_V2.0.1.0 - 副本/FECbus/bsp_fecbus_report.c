@@ -150,6 +150,29 @@ void FecbusReport_Start(uint8_t dev_no, uint16_t dev_type)
 }
 
 /**
+ * @brief  上报停止事件 (功能码5, 紧急, PA=1)
+ * [GB4717-2024 5.4.8.1] 区域型向集中型发送"火灾报警控制"完整信息(含停止) - 经FECbus对外上报
+ */
+void FecbusReport_Stop(uint8_t dev_no, uint16_t dev_type)
+{
+    FecbusReport_Enqueue(FECBUS_FUNC_URGENT_EVT, FECBUS_PA_URGENT,
+                         dev_no, dev_type, 1, 0,
+                         EVT_STOP, 0);
+}
+
+/**
+ * @brief  上报监管/监管解除事件 (功能码5, 紧急, PA=1)
+ * [GB4717-2024 5.4.8.1] 区域型向集中型发送"监管报警"完整信息 - 经FECbus对外上报
+ */
+void FecbusReport_Supervise(uint8_t dev_no, uint16_t dev_type, uint8_t is_release)
+{
+    uint16_t evt = (is_release != 0) ? EVT_SUPERVISED_RELEASE : EVT_SUPERVISED;
+    FecbusReport_Enqueue(FECBUS_FUNC_URGENT_EVT, FECBUS_PA_URGENT,
+                         dev_no, dev_type, 1, 0,
+                         evt, 0);
+}
+
+/**
  * @brief  上报系统复位事件 (功能码1, 广播, PA=1)
  * [GB4717 B.1.1.1d] 控制器复位操作信息 - 经FECbus广播
  */

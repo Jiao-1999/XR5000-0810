@@ -152,6 +152,16 @@ void NotifyTouchXY(uint8 press,uint16 x,uint16 y);
 */
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state);
 void HmiRequestInternalProtectedAction(uint8_t action);
+
+/*! 
+ *  @brief  [GB4717-2024 5.4.8.1 系统兼容功能] 供 FECbus(集中型)远程指令直接执行系统级动作
+ *  @param  action: 0=系统复位  1=系统消音  2=系统自检
+ *  @retval 1=已执行  0=不支持的动作
+ *  @note   动作序列与 HMI 按键路径保持一致(复位/自检取自 HmiExecuteInternalProtectedAction,
+ *          消音取自首页消音键"屏幕1 控件10"), 但不做 HMI 授权与界面操作。
+ *          仅可在任务上下文调用(内部含 Flash/总线操作), 不可在中断中调用。
+ */
+uint8_t BspExecSystemAction(uint8_t action);
 /*! 
 *  \brief  文本控件通知
 *  \details  当文本通过键盘更新(或调用GetControlValue)时，执行此函数

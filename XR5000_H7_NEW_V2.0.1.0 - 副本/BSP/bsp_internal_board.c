@@ -683,8 +683,8 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 							case KEY_SYSTEM_ANNOUNCIAT :  // 系统报警器启动
 								HmiRequestInternalProtectedAction(SIREN_KEY);
 								break;
-							/* [核查 CHK-07] 联动启动控制按键: 本处仅触发受保护动作, 尚未调用
-							 *   StorageEvent_LogLinkageStartButton() 记录 EVT 130, 型式试验前需补齐接入 */
+							/* [核查 CHK-07] 联动启动控制按键: 本处触发受保护动作(LINKAGE_START_KEY),
+							 *   实际由 cmd_process.c 的 LINKAGE_START_KEY 分支记录 EVT 130 与 EVT 19 */
 							case KEY_SYSTEM_LINKAGE_S  :  // 联动启动按下
 								HmiRequestInternalProtectedAction(LINKAGE_START_KEY);
 								break;

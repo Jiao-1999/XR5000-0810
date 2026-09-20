@@ -18,6 +18,7 @@
  *
  *   功能码与优先级映射:
  *     火警/首警/启动/反馈/手自动切换 -> 功能码5 (紧急事件, PA=1)
+ *     停止/监管/监管解除          -> 功能码5 (紧急事件, PA=1)
  *     故障/故障恢复/屏蔽/解除屏蔽  -> 功能码6 (一般事件, PA=3)
  *     系统复位                     -> 功能码1 (广播, PA=1)
  *     系统消音                     -> 功能码2 (广播, PA=1)
@@ -106,6 +107,25 @@ void FecbusReport_Shield(uint8_t dev_no, uint16_t dev_type, uint8_t is_release);
  * @note   异步入队, 非阻塞. 事件代码 EVT_START.
  */
 void FecbusReport_Start(uint8_t dev_no, uint16_t dev_type);
+
+/**
+ * @brief  上报停止事件 (功能码5, 紧急, PA=1)
+ * @param  dev_no:    设备号(LINKAGE_CLUSTER_ID)
+ * @param  dev_type:  设备类型代码(DEV_TYPE_CONTROL_DEV)
+ * @note   异步入队, 非阻塞. 事件代码 EVT_STOP(29, 表C.17 停止/紧急事件)。
+ * [GB4717-2024 5.4.8.1 系统兼容功能] 区域型应能向集中型发送"火灾报警控制"完整信息(含停止)
+ */
+void FecbusReport_Stop(uint8_t dev_no, uint16_t dev_type);
+
+/**
+ * @brief  上报监管/监管解除事件 (功能码5, 紧急, PA=1)
+ * @param  dev_no:      设备号
+ * @param  dev_type:    设备类型代码(DEV_TYPE_xxx)
+ * @param  is_release:  0=监管(EVT_SUPERVISED 70) 1=监管解除(EVT_SUPERVISED_RELEASE 71)
+ * @note   异步入队, 非阻塞. 表C.17 将 70/71 归为紧急事件, 故走功能码5(紧急事件), PA=1。
+ * [GB4717-2024 5.4.8.1 系统兼容功能] 区域型应能向集中型发送"监管报警"完整信息
+ */
+void FecbusReport_Supervise(uint8_t dev_no, uint16_t dev_type, uint8_t is_release);
 
 /**
  * @brief  上报系统复位事件 (功能码1, 广播, PA=1)

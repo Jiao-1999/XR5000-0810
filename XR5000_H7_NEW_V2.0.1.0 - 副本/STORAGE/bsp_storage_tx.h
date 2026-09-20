@@ -99,8 +99,8 @@ typedef struct {
 #define DEV_TYPE_TEMPERATURE    31    /* 感温探测器 */
 #define DEV_TYPE_CO             53    /* 一氧化碳探测器 */
 #define DEV_TYPE_HAND_REPORT    61    /* 手动报警按钮 */
-#define DEV_TYPE_FIRE_ALARM     82    /* 火灾报警器件 */
-#define DEV_TYPE_CONTROL_DEV    163   /* 控制设备 */
+#define DEV_TYPE_FIRE_ALARM     82    /* 火灾声光警报器(表C.16); 注: 全工程未引用 */
+#define DEV_TYPE_CONTROL_DEV    163   /* 消防电气控制装置(表C.16), 用于被控联动设备 */
 #define DEV_TYPE_STORAGE        18    /* 运行数据存储单元(表C.16, 存储故障上报用) */
 #define DEV_TYPE_MULTI_SENSOR   50    /* 多传感复合探测器(表C.16) */
 

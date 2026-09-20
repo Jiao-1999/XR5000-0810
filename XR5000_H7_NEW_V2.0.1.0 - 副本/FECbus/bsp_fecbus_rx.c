@@ -21,6 +21,7 @@
 #include "system.h"              /* B2: SystemSaveInfo (0x22 手/自动状态位) */
 #include "bsp_super.h"           /* B2: fire_alarm_threshold (0x25 设备参量) */
 #include <string.h>
+#include "bsp_rtc.h"             /* B3: BM8563 授时(0x04 广播时钟) */
 
 /*--------------------------------------------------------------
  * 常量定义
@@ -112,6 +113,10 @@ static uint8_t s_last_evt_valid;
 
 /* 0x24 设备标识(7字节, 生产者规定 C.4.5.12): 厂商占位, 待定正式标识 */
 static const uint8_t s_dev_id[7] = { 'X', 'R', '5', '0', '0', '0', '0' };
+
+/* [GB4717-2024 5.4.8.1 系统兼容功能] 集中型下发的系统级指令执行入口
+ * (cmd_process.c 定义; action: 0=系统复位 1=系统消音 2=系统自检) */
+extern uint8_t BspExecSystemAction(uint8_t action);
 
 /* 系统级状态获取(cmd_process.c 定义, 无头文件声明, 此处 extern; 用于 0x22 状态位聚合) */
 extern uint8_t getCurrentSystemRunState(void);        /* 0=静默 1=底点动作 2=报警 */
@@ -792,6 +797,77 @@ static void FecbusRx_AsmFeed(const FecbusRxFrame_t *f)
 /*--------------------------------------------------------------
  * 帧分发：协议层闭环 + 业务 TODO 接口
  *--------------------------------------------------------------*/
+/*--------------------------------------------------------------
+ * B3: 集中型->区域型 系统指令与授时 (GB4717-2024 5.4.8.1 / 5.4.8.4)
+ *--------------------------------------------------------------*/
+/**
+ * @brief  B3: 执行集中型下发的系统级指令(0x01 复位 / 0x02 消音 / 0x03 自检)并回显应答
+ * @param  req: 请求帧(data[0] = 功能码)
+ * @note   动作由 cmd_process.c 的 BspExecSystemAction() 统一执行(与 HMI 按键路径同序列),
+ *         本层只做协议映射与应答; 应答按表C.4/C.6: FT=1, DLC=1, 原样回显功能码。
+ *         仅可在任务上下文调用(内部含 Flash/总线操作)。
+ */
+static void FecbusRx_ExecRemoteCmd(const FecbusRxFrame_t *req)
+{
+    uint8_t func = req->data[0];
+    uint8_t act;
+
+    switch (func) {
+    case FECBUS_FUNC_RESET:    act = 0; break;   /* 系统复位 */
+    case FECBUS_FUNC_SILENCE:  act = 1; break;   /* 系统消音 */
+    case FECBUS_FUNC_SELFTEST: act = 2; break;   /* 系统自检 */
+    default:
+        FecbusRx_ReplyStatus(req, FECBUS_STAT_INVALID_SVC);
+        return;
+    }
+
+    if (BspExecSystemAction(act) == 0) {
+        FecbusRx_ReplyStatus(req, FECBUS_STAT_INVALID_SVC);
+        return;
+    }
+    DebugPrintf("[FECBUS-B3] remote cmd func=%02X act=%d\r\n", func, act);
+    FecbusRx_ReplyEchoFunc(req, func);
+}
+
+/**
+ * @brief  B3: 0x04 广播时钟授时 (GB4717-2024 5.4.8.4 集中型向区域型授时)
+ * @param  req: 请求帧; 数据格式(表C.3 行4): [04H][控制器编号][年-2000][月][日][时][分][秒], DLC=8
+ * @note   参数非法回 0FH 参数错; 成功则写 BM8563 + 同步 SystemTime + 记 EVT131(表C.17 调整时钟),
+ *         并回显功能码应答。星期寄存器不在报文中, 保持原值。
+ */
+static void FecbusRx_ApplyClock(const FecbusRxFrame_t *req)
+{
+    BM8563_TimeTypeDef t;
+
+    if (req->dlc < 8) {
+        FecbusRx_ReplyStatus(req, FECBUS_STAT_PARAM_ERR);
+        return;
+    }
+    if (req->data[3] < 1 || req->data[3] > 12 ||
+        req->data[4] < 1 || req->data[4] > 31 ||
+        req->data[5] > 23 || req->data[6] > 59 || req->data[7] > 59) {
+        FecbusRx_ReplyStatus(req, FECBUS_STAT_PARAM_ERR);
+        return;
+    }
+
+    t.year    = (uint16_t)(2000 + req->data[2]);
+    t.month   = req->data[3];
+    t.day     = req->data[4];
+    t.hours   = req->data[5];
+    t.minutes = req->data[6];
+    t.seconds = req->data[7];
+    t.weekday = SystemTime.weekday;
+
+    BM8563_Soft_I2C_SetTime(&t);
+    SystemTime = t;
+    StorageEvent_LogClockAdjust();   /* [表C.17] 131 调整时钟 */
+
+    DebugPrintf("[FECBUS-B3] clock set %04d-%02d-%02d %02d:%02d:%02d\r\n",
+                (int)t.year, (int)t.month, (int)t.day,
+                (int)t.hours, (int)t.minutes, (int)t.seconds);
+    FecbusRx_ReplyEchoFunc(req, FECBUS_FUNC_CLOCK_BC);
+}
+
 static void FecbusRx_Dispatch(const FecbusRxFrame_t *f)
 {
     /* 1) 应答帧(FT=1): D4 识别回显帧(正常应答) 与 0FH 状态帧(结束/异常) */
@@ -838,6 +914,24 @@ static void FecbusRx_Dispatch(const FecbusRxFrame_t *f)
     case FECBUS_FUNC_NOTIFY_NORMAL:  /* 0x12 装置一般通告 */
     case FECBUS_FUNC_NOTIFY_DEBUG:   /* 0x13 装置调试通告 */
         FecbusRx_AsmFeed(f);         /* 首帧(TN=1)入口; 续帧由分发前会话路由处理 */
+        return;
+    /* B3(GB4717-2024 5.4.8.1 / 5.4.8.4): 集中型->区域型 系统指令与授时
+     *   0x00 同步节拍 / 0x01 系统复位 / 0x02 系统消音 / 0x03 系统自检 / 0x04 广播时钟
+     *   动作由 BspExecSystemAction() 统一执行; 应答按表C.4 回显功能码(FT=1 DLC=1)。 */
+    case FECBUS_FUNC_SYNC_BEAT:  /* 0x00 同步系统节拍: 仅回显应答 */
+        FecbusRx_ReplyEcho(f);
+        return;
+    case FECBUS_FUNC_RESET:      /* 0x01 系统复位: 执行本机复位 + 回显应答 */
+        FecbusRx_ExecRemoteCmd(f);
+        return;
+    case FECBUS_FUNC_SILENCE:    /* 0x02 系统消音: 执行本机消音 + 回显应答 */
+        FecbusRx_ExecRemoteCmd(f);
+        return;
+    case FECBUS_FUNC_SELFTEST:   /* 0x03 系统自检: 执行本机自检 + 回显应答 */
+        FecbusRx_ExecRemoteCmd(f);
+        return;
+    case FECBUS_FUNC_CLOCK_BC:   /* 0x04 广播时钟(授时): 校时 + 回显应答 */
+        FecbusRx_ApplyClock(f);
         return;
     case FECBUS_FUNC_HEARTBEAT:  /* 0x14 装->控心跳: 回显应答 (TODO: 更新该装置在线时间戳) */
         FecbusRx_ReplyEcho(f);
