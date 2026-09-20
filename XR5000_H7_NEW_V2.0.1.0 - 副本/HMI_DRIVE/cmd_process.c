@@ -3982,7 +3982,7 @@ void UpdateUI(void)
 			screen_show_siren_information |= 0xF0; // 标记执行过 
 			// 记录到火警分区中 按键按下 存入FLASH在前可以少一次获取RTC操作
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, 0xFFFF);
-			StorageEvent_LogFire(ALARM_ANNUNCIATOR_ID, DEV_TYPE_SOUND_LIGHT, 1, 0);  /* [GB4717 B.1.1.1a] 声光警报器火灾报警 */
+			StorageEvent_LogFire(ALARM_ANNUNCIATOR_ID, DEV_TYPE_FIRE_ALARM, 1, 0);  /* [GB4717 B.1.1.1a] 声光警报器火灾报警; 82=火灾声光警报器(表C.16 B6修复) */
 //			// 存入cache缓冲区
 //			StoragePackCabinForeWarn(&pcfws, LINKAGE_CLUSTER_ID, ALARM_ANNUNCIATOR_ID, AlarmCtrlKey);
 			// 存入火灾报警区域 
@@ -13214,7 +13214,7 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
  * [核查 CHK-26] 回路2 内部编号(0~6, 见 bsp_mbus_control.h)与表C.16国标码不是同一套,
  *   送入黑匣子前必须经本函数映射, 不可直接使用内部编号。
  *   映射依据(国标码见 bsp_storage_tx.h):
- *     MBUS_CONTROL_DEV_SGBJQ (1) XR-SGBJQ声光报警器 -> DEV_TYPE_SOUND_LIGHT (17) 声光警报回路
+ *     MBUS_CONTROL_DEV_SGBJQ (1) XR-SGBJQ声光报警器 -> DEV_TYPE_FIRE_ALARM (82) 火灾声光警报器
  *     MBUS_CONTROL_DEV_XR2200(2) XR2200手动报警器   -> DEV_TYPE_HAND_REPORT (61) 手动报警按钮
  * [待确认] MBUS_CONTROL_DEV_FIRE_DISPLAY(3)、GCM1002(4)、FIM1017(5, XR1530火灾显示盘)、
  *          FCM1011(6) 在表C.16 中的确切代码尚未核对, 暂统一按控制设备(163)处理,
@@ -13223,7 +13223,7 @@ static uint16_t MBus2MapStorageType(uint8_t mbus_type)
 {
     switch (mbus_type)
     {
-    case MBUS_CONTROL_DEV_SGBJQ:  return DEV_TYPE_SOUND_LIGHT;  /* 1 -> 17 声光警报回路 */
+    case MBUS_CONTROL_DEV_SGBJQ:  return DEV_TYPE_FIRE_ALARM;   /* 1 -> 82 火灾声光警报器(器件, 表C.16) */
     case MBUS_CONTROL_DEV_XR2200: return DEV_TYPE_HAND_REPORT;  /* 2 -> 61 手动报警按钮 */
     default:                      return DEV_TYPE_CONTROL_DEV;  /* 其余 -> 163 控制设备 */
     }

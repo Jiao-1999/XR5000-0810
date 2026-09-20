@@ -155,6 +155,45 @@ uint8_t BM8563_Soft_I2C_Init(void)
     return 0;
 }
 
+/*==============================================================
+ * [修复 DEF-P01] RTC 时间有效性检查与校正
+ * 背景: BM8563 秒寄存器 bit7 = VL(Voltage Low)标志。若 RTC 曾掉电(纽扣电池耗尽/
+ *   首次上电), VL=1 且寄存器内容不可信(常见读出 year=0, month=0)。此时若直接给
+ *   黑匣子记录签时间戳, 会产生"00年00月"的非法日期, 违反 GB4717 B.1.1.2 对
+ *   "同步记录年月日时分秒"的要求, 也使导出记录无法按时间排序。
+ * 做法: 确保 CTRL1 为正常模式 -> 读秒寄存器 VL 位 -> VL=1 则用基准时间
+ *   (SystemTime 编译初值)重写 RTC, 并把新时间同步到全局年月日时分秒。
+ * @retval 0=时间有效(未改动)  1=时间无效(已用基准时间重写)  2=I2C无应答
+ * [GB4717 B.1.1.2] 记录时间戳合法性前置保障
+ *==============================================================*/
+uint8_t BM8563_EnsureValid(void)
+{
+    uint8_t sec_reg = 0;
+
+    /* 1. 确保控制寄存器1为正常模式(24小时制); 原 Init 全工程无调用, 此处补上 */
+    (void)BM8563_Soft_I2C_Init();
+
+    /* 2. 读秒寄存器(0x02) */
+    SOFT_I2C_Start();
+    if (SOFT_I2C_WriteByte(BM8563_I2C_ADDR << 1)) { SOFT_I2C_Stop(); return 2; }
+    if (SOFT_I2C_WriteByte(BM8563_REG_SEC))       { SOFT_I2C_Stop(); return 2; }
+    SOFT_I2C_Stop();
+
+    SOFT_I2C_Start();
+    if (SOFT_I2C_WriteByte((BM8563_I2C_ADDR << 1) | 0x01)) { SOFT_I2C_Stop(); return 2; }
+    sec_reg = SOFT_I2C_ReadByte(1);   /* 只取秒寄存器, 读后发 NACK */
+    SOFT_I2C_Stop();
+
+    /* 3. VL=1 表示时间不可信, 用基准时间重写 */
+    if (sec_reg & 0x80)
+    {
+        BM8563_Soft_I2C_SetTime(&SystemTime);
+        getBM8563TimeToSystemTime();
+        return 1;
+    }
+    return 0;
+}
+
 // 设置时间
 void BM8563_Soft_I2C_SetTime(BM8563_TimeTypeDef *time)
 {

@@ -44,6 +44,10 @@ uint8_t BM8563_Soft_I2C_Init(void);
 void BM8563_Soft_I2C_SetTime(BM8563_TimeTypeDef *time);
 void BM8563_Soft_I2C_GetTime(BM8563_TimeTypeDef *time);
 
+// [修复 DEF-P01] 检查RTC时间有效性(VL位), 无效时用 SystemTime 基准时间重写并同步全局时间变量
+// 返回: 0=时间有效  1=时间无效(已重写)  2=I2C无应答
+uint8_t BM8563_EnsureValid(void);
+
 // 从RTC芯片中读取时间 并赋值到系统定义的时间变量中
 void getBM8563TimeToSystemTime(void);
 
