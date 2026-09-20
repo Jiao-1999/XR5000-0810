@@ -45,6 +45,7 @@ extern "C" {
  * @note   首次调用自动先发0x02(首警)再发0x03(火警); 之后只发0x03.
  *         异步入队, 非阻塞. 首警标志需在系统复位时通过
  *         StorageEvent_ResetFirstFire() 清除.
+ * [GB4717 B.1.1.1a] 火灾报警触发器件 - 火灾报警信息
  */
 void StorageEvent_LogFire(uint8_t dev_no, uint16_t dev_type,
                           uint8_t unit_no, uint8_t channel_no);
@@ -58,6 +59,7 @@ void StorageEvent_LogFire(uint8_t dev_no, uint16_t dev_type,
  * @param  is_recover:  0=故障发生(EVT_FAULT) 1=故障恢复(EVT_FAULT_RECOVER)
  * @note   使用0x04命令码存入故障独立区段, 不被普通事件覆盖.
  *         异步入队, 非阻塞.
+ * [GB4717 B.1.1.1a] 火灾报警触发器件 - 故障信息(含故障恢复)
  */
 void StorageEvent_LogFault(uint8_t dev_no, uint16_t dev_type,
                            uint8_t unit_no, uint8_t channel_no,
@@ -70,6 +72,7 @@ void StorageEvent_LogFault(uint8_t dev_no, uint16_t dev_type,
  * @param  state_code:  状态代码(反馈状态值)
  * @note   使用0x01命令码存入普通区段(先进先出覆盖).
  *         异步入队, 非阻塞.
+ * [GB4717 B.1.1.1c] 消防联动设备 - 反馈信息
  */
 void StorageEvent_LogFeedback(uint8_t dev_no, uint16_t dev_type,
                               uint16_t state_code);
@@ -77,6 +80,7 @@ void StorageEvent_LogFeedback(uint8_t dev_no, uint16_t dev_type,
 /**
  * @brief  复位首警标志
  * @note   在 BspCmdProcessInit() 末尾调用, 使下次火警重新判定首警.
+ * [GB4717 B.1.2.2] 首火警独立记录 - 复位后重新判定
  */
 void StorageEvent_ResetFirstFire(void);
 
@@ -86,6 +90,7 @@ void StorageEvent_ResetFirstFire(void);
  * @param  is_manual:  1=手动(EVT_MANUAL) 0=自动(EVT_AUTO)
  * @note   使用0x01命令码存入普通区段. dev_type固定为DEV_TYPE_CONTROL_DEV.
  *         异步入队, 非阻塞.
+ * [GB4717 B.1.1.1a/c] 触发器件的手动/自动状态信息
  */
 void StorageEvent_LogManualAuto(uint8_t dev_no, uint8_t is_manual);
 
@@ -99,6 +104,7 @@ void StorageEvent_LogManualAuto(uint8_t dev_no, uint8_t is_manual);
  *           DEVICE_TYPE_SMOKE        → DEV_TYPE_SMOKE(21)
  *           DEVICE_TYPE_TEMPERATURE  → DEV_TYPE_TEMPERATURE(31)
  *           DEVICE_TYPE_MULTI_SENSOR → DEV_TYPE_MULTI_SENSOR(50, 表C.16)
+ * [GB4717 B.1.1.1a/c] 屏蔽/解除屏蔽信息
  */
 void StorageEvent_LogShield(uint8_t dev_no, uint16_t dev_type, uint8_t is_release);
 
@@ -107,6 +113,7 @@ void StorageEvent_LogShield(uint8_t dev_no, uint16_t dev_type, uint8_t is_releas
  * @param  dev_no:    设备号(LINKAGE_CLUSTER_ID)
  * @param  dev_type:  设备类型代码(DEV_TYPE_CONTROL_DEV)
  * @note   使用0x01命令码存入普通区段. 异步入队, 非阻塞.
+ * [GB4717 B.1.1.1c] 消防联动设备 - 启动信息
  */
 void StorageEvent_LogStart(uint8_t dev_no, uint16_t dev_type);
 
@@ -117,6 +124,7 @@ void StorageEvent_LogStart(uint8_t dev_no, uint16_t dev_type);
  *         使用0x01命令码存入普通区段(规范B.1.2.2仅要求首警/火警/故障独立记录,
  *         复位属其他运行状态信息, 不得写入首警独立区段).
  *         异步入队, 非阻塞. 复位时StorageTx可能未就绪, 入队失败可接受.
+ * [GB4717 B.1.1.1d] 控制器操作 - 复位
  */
 void StorageEvent_LogReset(void);
 
@@ -129,6 +137,7 @@ void StorageEvent_LogReset(void);
  * @note   调用点: freertos.c StartDefaultTask() 中 StorageTx_Init() 之后.
  *         dev_no=1, dev_type=DEV_TYPE_CONTROLLER.
  *         不能在 StorageTx_Init() 之前调用(LPUART1未初始化必丢).
+ * [GB4717 B.1.1.1d] 控制器操作 - 开机
  */
 void StorageEvent_LogPowerOn(void);
 
@@ -136,6 +145,7 @@ void StorageEvent_LogPowerOn(void);
  * @brief  记录关机事件到黑匣子(EVT_POWER_OFF=121)
  * @note   调用点: bsp_adc.c 备电耗尽处 + cmd_process.c PowerManageCtrl() 主备全失处.
  *         关机瞬间系统即将断电, 异步入队可能来不及发出, 尽力而为.
+ * [GB4717 B.1.1.1d] 控制器操作 - 关机
  */
 void StorageEvent_LogPowerOff(void);
 
@@ -143,6 +153,7 @@ void StorageEvent_LogPowerOff(void);
  * @brief  记录信息确认按钮动作到黑匣子(EVT_CONFIRM_BUTTON=128)
  * @note   调用点: bsp_internal_board.c KEY1_INFORM_CERTAIN case(空case处补入).
  *         该键不走密码页, 按键动作本身直接记录.
+ * [GB4717 B.1.1.1b] 信息确认按钮(键)动作信息
  */
 void StorageEvent_LogConfirmButton(void);
 
@@ -150,6 +161,7 @@ void StorageEvent_LogConfirmButton(void);
  * @brief  记录检查功能按钮动作到黑匣子(EVT_CHECK_BUTTON=129)
  * @note   调用点: cmd_process.c UpdateUI() 中 check_record_pending 消费点,
  *         与EEPROM记录并排(复用去重+延迟机制, 连按只记1条).
+ * [GB4717 B.1.1.1d] 控制器操作 - 检查
  */
 void StorageEvent_LogCheckButton(void);
 
@@ -158,6 +170,7 @@ void StorageEvent_LogCheckButton(void);
  * @note   调用点: bsp_internal_board.c KEY_SYSTEM_LINKAGE_S case,
  *         与现有 StorageEvent_LogStart(19=设备已启动) 并存:
  *         130=用户按下按钮(动作), 19=联动设备已启动(结果), 两者是不同事件.
+ * [GB4717 B.1.1.1b] 联动启动控制按钮(键)动作信息
  */
 void StorageEvent_LogLinkageStartButton(uint8_t dev_no, uint16_t dev_type);
 
@@ -166,6 +179,7 @@ void StorageEvent_LogLinkageStartButton(uint8_t dev_no, uint16_t dev_type);
  * @note   调用点: bsp_screen.c InternalScreenRTCSetting() 画面41六个控件,
  *         每修改一个字段记录一条(不去重, 用户确认).
  *         时间戳由 FillTimestamp 入队时实时读RTC, 即调整后新值.
+ * [GB4717 B.1.1.1d] 控制器操作 - 时钟调整
  */
 void StorageEvent_LogClockAdjust(void);
 
@@ -174,6 +188,7 @@ void StorageEvent_LogClockAdjust(void);
  * @param  is_fail: 0=自检(123), 1=自检失败(124)
  * @note   调用点: cmd_process.c 密码页53 SELFCHECK_KEY case.
  *         当前工程无自检失败判定, is_fail参数预留.
+ * [GB4717 B.1.1.1d] 控制器操作 - 自检
  */
 void StorageEvent_LogSelfCheck(uint8_t is_fail);
 
@@ -185,6 +200,8 @@ void StorageEvent_LogSelfCheck(uint8_t is_fail);
  * @note   XR5000三回路均无监管类信号源(水流指示器/压力开关/信号阀),
  *         本API仅补齐供型式试验查表, 接入点待监管设备协议接入后
  *         挂到对应 raw_state 解析处.
+ * [GB4717 B.1.1.1a] 监管信息 - 本机无监管源, 按不适用备档
+ * [核查 CHK-03] 本机三回路均无监管类信号源(水流指示器/压力开关/信号阀), 该项按不适用备档
  */
 void StorageEvent_LogSupervise(uint8_t dev_no, uint16_t dev_type,
                                uint8_t is_release);
@@ -198,6 +215,7 @@ void StorageEvent_LogSupervise(uint8_t dev_no, uint16_t dev_type,
  *         LogicEngine_SetEventFunc注入引擎), 仅在控制指令受理成功时打点;
  *         dev_type固定为DEV_TYPE_CONTROL_DEV(163);
  *         state=0时FillStateMask自动填bit4(启动状态), 停止事件位图填0.
+ * [GB4717 B.1.1.1c] 消防联动设备 - 启动/停止执行记录
  */
 void StorageEvent_LogLinkageAction(uint8_t dev_no, uint8_t channel,
                                    uint8_t action);
