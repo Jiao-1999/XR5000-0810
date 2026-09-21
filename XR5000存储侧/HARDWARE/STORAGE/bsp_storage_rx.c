@@ -126,6 +126,15 @@ static uint8_t s_meta_prep_done = 1;   /* 预擦空闲/完成标志(1=空闲) */
 
 static uint32_t s_last_wr_addr = 0;     /* 最近一次写入地址(日志/读回验证用) */
 
+/* [修复 DEF-N3 2026-09-21] 最近一条成功落盘的记录内容。
+ * 用于识别主控"未收到 ACK"后的重发: StorageTx_SendRecord() 超时或丢 ACK 会重发同一条,
+ * 存储侧若不识别就会写两遍, 表现为同一秒出现两条完全相同的记录
+ * (实测: 同秒 2 条温度首警 + 2 条温度火警 + 1 条复合火警)。
+ * 判据: 新帧负载与上一条成功落盘的记录逐字节相同 -> 视为重发, 回 ACK_OK 但不重复写。
+ * 注意: 该判断只在"上一条刚写入"时生效, 不影响正常的连续同类记录(时间戳不同)。 */
+static uint8_t  s_last_rec[STX_RECORD_SIZE];
+static uint8_t  s_last_rec_valid = 0U;
+
 volatile uint32_t g_stx_rx_byte_count = 0;
 volatile uint8_t  g_stx_last_byte = 0;
 volatile uint8_t  g_stx_rx_idx_snap = 0;
@@ -893,6 +902,19 @@ void StorageRx_Process(void)
              * [已修复 DEF-N1  2026-09-20] 记账已后移到读回校验通过之后(见下方步骤5之后)
              * [已修复 DEF-N1b 2026-09-20] 指针推进同样后移: ZoneWrite 只写Flash不记账,
              *   读回校验通过后才由 ZoneCommit 推进 slot_head/count, 校验失败时账目保持原值 */
+            /* [修复 DEF-N3] 与上一条成功落盘的记录完全相同 -> 判为主控重发, 回 ACK 但不重复写 */
+            if (s_last_rec_valid != 0U &&
+                memcmp(s_last_rec, &s_frame_buf[3], STX_RECORD_SIZE) == 0)
+            {
+                uint16_t len = (uint16_t)snprintf(log_buf, sizeof(log_buf),
+                    "[STX_WR] SKIP dup-retry cmd=0x%02X\r\n", (unsigned)s_frame_cmd);
+                USB_CDC_SendData((const uint8_t *)log_buf, len);
+                StorageRx_SendAck(s_frame_cmd, STX_ACK_OK);
+                s_frame_ready = 0;
+                s_rx_idx = 0;
+                return;
+            }
+
             s_last_wr_addr = StorageRx_ZoneWrite(&s_zones[zone_idx], &s_frame_buf[3], &zone_overwrote);
 
             /* 5. 读回校验 */
@@ -913,6 +935,10 @@ void StorageRx_Process(void)
 
             /* [已修复 DEF-N1b 2026-09-20] 校验通过, 提交本次写入的账目 */
             StorageRx_ZoneCommit(&s_zones[zone_idx], zone_overwrote);
+
+            /* [修复 DEF-N3] 记住本次成功落盘的记录, 供识别主控重发 */
+            memcpy(s_last_rec, &s_frame_buf[3], STX_RECORD_SIZE);
+            s_last_rec_valid = 1U;
         }
 
         /* [已修复 DEF-N1 2026-09-20] 读回校验通过后才记账(meta持久化count):
@@ -1096,4 +1122,15 @@ void StorageRx_EraseAll(void)
     s_meta_bank = 0;
     s_meta_off = 0;
     s_meta_seq = 0;
+
+    /* 擦除后上一条记录已不存在, 重置重发识别缓存 */
+    s_last_rec_valid = 0U;
+
+    /* [修复 2026-09-21] 擦除后立即把"零状态"固化到 Flash。
+     * 不固化的话: 本函数只重置了 RAM 里的 slot_head/count, 一旦断电重启,
+     * MetaLoad 会恢复出残留的旧 count, 于是已擦除分区深处的旧记录又被当作
+     * 有效记录读出(实测: 擦除后 total=0, 断电重启后整批旧记录"复活",
+     * 并伴随 count 虚高导致的全 0xFF 空洞记录)。
+     * 固化后 MetaLoad 只能取到这条 count=0 的最新元数据, 擦除结果得以保持。 */
+    StorageRx_MetaSave();
 }
