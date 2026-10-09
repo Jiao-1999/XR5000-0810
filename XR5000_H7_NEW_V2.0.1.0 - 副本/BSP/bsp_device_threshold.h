@@ -24,13 +24,19 @@ void DeviceThreshold_NotifyText(uint16_t screen_id, uint16_t control_id, const u
 void DeviceThreshold_NotifyMenu(uint16_t screen_id, uint16_t control_id, uint8_t item, uint8_t state);
 void DeviceThreshold_UpdateUI(uint16_t screen_id, uint8_t fire_active);
 
-/* UART5 owner integration.  Frames are always eight bytes. */
+/* Loop communication-owner integration. Frames are always eight bytes.
+ * The original APIs remain loop-3 compatibility wrappers. */
+uint8_t DeviceThreshold_BuildNextFrameForLoop(uint8_t loop, uint8_t frame[8], uint8_t *address);
+uint8_t DeviceThreshold_HandleResponseForLoop(uint8_t loop, const uint8_t *frame, uint16_t length);
+void DeviceThreshold_HandleTimeoutForLoop(uint8_t loop);
+void DeviceThreshold_NotifyNormalPollForLoop(uint8_t loop);
 uint8_t DeviceThreshold_BuildNextFrame(uint8_t frame[8], uint8_t *address);
 uint8_t DeviceThreshold_HandleResponse(const uint8_t *frame, uint16_t length);
 void DeviceThreshold_HandleTimeout(void);
 void DeviceThreshold_NotifyNormalPoll(void);
 
-/* Implemented by bsp_rs485_detect.c without changing its existing public API. */
+/* Implemented by the existing loop owners without changing their public APIs. */
+uint8_t DeviceThreshold_GetLoop1Identity(uint8_t address, DeviceThresholdIdentity *identity);
 uint8_t DeviceThreshold_GetLoop3Identity(uint8_t address, DeviceThresholdIdentity *identity);
 
 #endif

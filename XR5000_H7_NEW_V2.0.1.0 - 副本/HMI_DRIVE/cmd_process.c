@@ -2638,6 +2638,7 @@ static HmiPasswordTarget_t hmi_password_target = HMI_PASSWORD_TARGET_NONE;
 static uint32_t hmi_password_current_super;
 static uint32_t hmi_password_new;
 static uint32_t hmi_password_confirm;
+static uint16_t g_screen6_return_screen = 68U;
 
 static void HmiSwitchScreen(uint16_t target_screen)
 {
@@ -3038,6 +3039,8 @@ void NotifyScreen(uint16 screen_id)
 {
 	uint16_t prev_screen_id = current_screen_id; /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
 	AccessLevel_t protected_level;
+	if(screen_id == 6U && (prev_screen_id == 1U || prev_screen_id == 68U))
+		g_screen6_return_screen = prev_screen_id;
     if(prev_screen_id == 69U && screen_id == 6U &&
        g_registration_detail_mode != 0U)
     {
@@ -4790,6 +4793,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			if(license_allow_use_state == 1)
 			{
 				/* 画面1进入设备页仅查看；修改操作在画面6内单独鉴权。 */
+				g_screen6_return_screen = 1U;
 				HmiSwitchScreen(6U);
 			}
 		}
@@ -4880,6 +4884,12 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 	{
 		if(state == 1)
 		{
+			if(control_id == 42U)
+			{
+				uint16_t target_screen = (g_screen6_return_screen == 1U) ? 1U : 68U;
+				HmiSwitchScreen(target_screen);
+				return;
+			}
 			if((control_id == 32U || control_id == 34U ||
 			    control_id == 45U || control_id == 55U) &&
 			   AccessControl_IsGranted(ACCESS_LEVEL_III, 6U) == 0U)
@@ -5745,6 +5755,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 		HmiAuthorizationBegin(protected_level, return_screen, screen_id, screen_id, NONE_KEY);
 		return;
 	}
+   DeviceThreshold_NotifyText(screen_id, control_id, str);
    HistoryFilter_NotifyText(screen_id, control_id, str);
    DeviceAliasHmiText(screen_id, control_id, str);
    if(HmiDeviceQueryNotifyText(screen_id, control_id, str) != 0U) return;
@@ -6389,6 +6400,7 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					break;
 				case 1:
 					/* 菜单入口已取得三级授权，画面6内操作不重复输密码。 */
+					g_screen6_return_screen = 68U;
 					HmiOpenProtectedPage(ACCESS_LEVEL_III, 6U);
 					break;
 				case 2:

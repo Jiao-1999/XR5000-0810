@@ -10,7 +10,7 @@
 
 #define THRESHOLD_SCREEN_SET             73U
 #define THRESHOLD_SCREEN_QUERY           76U
-#define THRESHOLD_MAX_TARGETS            32U
+#define THRESHOLD_MAX_TARGETS           100U
 #define THRESHOLD_ITEM_COUNT              7U
 #define THRESHOLD_NORMAL_POLLS_BETWEEN    4U
 #define THRESHOLD_VERIFY_RETRY_LIMIT       2U
@@ -38,11 +38,13 @@
 typedef struct
 {
     uint16_t reg;
-    uint16_t maximum;
-    uint16_t default_value;
+    int32_t minimum;
+    int32_t maximum;
+    int32_t default_value;
     uint8_t sensor_bit;
     uint16_t value_control;
     uint16_t status_control;
+    uint8_t signed_value;
 } ThresholdDefinition;
 
 typedef struct
@@ -66,10 +68,11 @@ typedef struct
     uint8_t transaction_address;
     uint8_t transaction_item;
     uint8_t transaction_function;
+    uint8_t transaction_loop;
     uint8_t verify_retry_count;
     uint16_t address_or_code;
-    uint16_t requested[THRESHOLD_ITEM_COUNT];
-    uint16_t values[THRESHOLD_ITEM_COUNT];
+    int32_t requested[THRESHOLD_ITEM_COUNT];
+    int32_t values[THRESHOLD_ITEM_COUNT];
     uint8_t requested_valid[THRESHOLD_ITEM_COUNT];
     uint8_t results[THRESHOLD_ITEM_COUNT];
     uint8_t targets[THRESHOLD_MAX_TARGETS];
@@ -80,13 +83,13 @@ typedef struct
 
 static const ThresholdDefinition g_threshold_defs[THRESHOLD_ITEM_COUNT] =
 {
-    {0x0008U,  200U,   78U, 5U, 22U, 43U}, /* temperature fire */
-    {0x000FU, 3000U, 1500U, 3U, 23U, 44U}, /* VOC alarm */
-    {0x000BU, 5000U,  500U, 4U, 31U, 45U}, /* CO low */
-    {0x000CU, 5000U,  800U, 4U, 38U, 45U}, /* CO high */
-    {0x000DU, 5000U,  500U, 2U, 32U, 46U}, /* H2 low */
-    {0x000EU, 5000U,  800U, 2U, 39U, 46U}, /* H2 high */
-    {0x0012U, 5000U, 1200U, 6U, 26U, 47U}  /* pressure alarm */
+    {0x0016U, -40,  200,   78, 5U, 25U, 46U, 1U}, /* temperature alarm */
+    {0x0030U,   0, 3000, 1500, 3U, 24U, 45U, 0U}, /* VOC alarm */
+    {0x001EU,   0, 5000,  250, 4U, 30U, 44U, 0U}, /* CO low */
+    {0x001FU,   0, 5000, 1500, 4U, 37U, 44U, 0U}, /* CO high */
+    {0x0027U,   0, 5000,  200, 2U, 29U, 43U, 0U}, /* H2 low */
+    {0x0028U,   0, 5000, 1000, 2U, 36U, 43U, 0U}, /* H2 high */
+    {0x0041U,   0, 5000, 1200, 6U, 26U, 47U, 0U}  /* pressure alarm */
 };
 
 static ThresholdContext g_threshold;
@@ -224,6 +227,45 @@ static void threshold_query_clear_target_input(void)
     SetTextValue(THRESHOLD_SCREEN_QUERY, 6U, (uint8_t *)"");
 }
 
+static uint8_t threshold_get_identity(uint8_t loop, uint8_t address, DeviceThresholdIdentity *identity)
+{
+    if(loop == 1U) return DeviceThreshold_GetLoop1Identity(address, identity);
+    if(loop == 3U) return DeviceThreshold_GetLoop3Identity(address, identity);
+    return 0U;
+}
+
+static uint8_t threshold_max_address(uint8_t loop)
+{
+    return (loop == 1U) ? 100U : ((loop == 3U) ? (RS485_DETECT_MAX_DEVICES - 1U) : 0U);
+}
+
+static uint8_t threshold_is_fixed_control(uint16_t screen_id, uint16_t control_id)
+{
+    static const uint16_t setting_fixed[] = {22U, 23U, 28U, 31U, 32U, 33U, 34U, 35U, 38U, 39U, 40U};
+    static const uint16_t query_fixed[] = {22U, 23U, 31U, 32U, 33U, 38U, 39U, 40U, 41U, 42U, 48U};
+    const uint16_t *controls = (screen_id == THRESHOLD_SCREEN_SET) ? setting_fixed : query_fixed;
+    uint8_t count = (uint8_t)((screen_id == THRESHOLD_SCREEN_SET) ?
+                    (sizeof(setting_fixed) / sizeof(setting_fixed[0])) :
+                    (sizeof(query_fixed) / sizeof(query_fixed[0])));
+    uint8_t index;
+    for(index = 0U; index < count; index++)
+        if(controls[index] == control_id) return 1U;
+    return 0U;
+}
+
+static void threshold_show_fixed_controls(uint16_t screen_id)
+{
+    static const uint16_t setting_fixed[] = {22U, 23U, 28U, 31U, 32U, 33U, 34U, 35U, 38U, 39U, 40U};
+    static const uint16_t query_fixed[] = {22U, 23U, 31U, 32U, 33U, 38U, 39U, 40U, 41U, 42U, 48U};
+    const uint16_t *controls = (screen_id == THRESHOLD_SCREEN_SET) ? setting_fixed : query_fixed;
+    uint8_t count = (uint8_t)((screen_id == THRESHOLD_SCREEN_SET) ?
+                    (sizeof(setting_fixed) / sizeof(setting_fixed[0])) :
+                    (sizeof(query_fixed) / sizeof(query_fixed[0])));
+    uint8_t index;
+    for(index = 0U; index < count; index++)
+        SetTextValue(screen_id, controls[index], (uint8_t *)"----");
+}
+
 static uint8_t threshold_has_result(void)
 {
     uint8_t item;
@@ -236,7 +278,6 @@ static uint8_t threshold_item_supported(const DeviceThresholdIdentity *identity,
 {
     if(identity == NULL || item >= THRESHOLD_ITEM_COUNT) return 0U;
     if((identity->sensor_enable & (uint16_t)(1U << g_threshold_defs[item].sensor_bit)) == 0U) return 0U;
-    if(item == 6U && identity->device_type == RS485_DETECT_TYPE_XR805) return 0U;
     return 1U;
 }
 
@@ -261,23 +302,25 @@ static void threshold_clear_results(void)
 static uint8_t threshold_collect_targets(void)
 {
     uint8_t address;
+    uint8_t max_address;
     DeviceThresholdIdentity identity;
     g_threshold.target_count = 0U;
 
-    if(g_threshold.loop != 3U) return 0U;
+    max_address = threshold_max_address(g_threshold.loop);
+    if(max_address == 0U) return 0U;
     if(g_threshold.mode == THRESHOLD_MODE_SINGLE)
     {
-        if(g_threshold.address_or_code == 0U || g_threshold.address_or_code >= RS485_DETECT_MAX_DEVICES) return 0U;
-        if(DeviceThreshold_GetLoop3Identity((uint8_t)g_threshold.address_or_code, &identity) == 0U ||
+        if(g_threshold.address_or_code == 0U || g_threshold.address_or_code > max_address) return 0U;
+        if(threshold_get_identity(g_threshold.loop, (uint8_t)g_threshold.address_or_code, &identity) == 0U ||
            identity.online == 0U || identity.identified == 0U) return 0U;
         g_threshold.targets[0] = (uint8_t)g_threshold.address_or_code;
         g_threshold.target_count = 1U;
         return 1U;
     }
 
-    for(address = 1U; address < RS485_DETECT_MAX_DEVICES && g_threshold.target_count < THRESHOLD_MAX_TARGETS; address++)
+    for(address = 1U; address <= max_address && g_threshold.target_count < THRESHOLD_MAX_TARGETS; address++)
     {
-        if(DeviceThreshold_GetLoop3Identity(address, &identity) == 0U || identity.online == 0U || identity.identified == 0U) continue;
+        if(threshold_get_identity(g_threshold.loop, address, &identity) == 0U || identity.online == 0U || identity.identified == 0U) continue;
         if(g_threshold.mode == THRESHOLD_MODE_NATIONAL && identity.national_code != g_threshold.address_or_code) continue;
         g_threshold.targets[g_threshold.target_count++] = address;
     }
@@ -288,16 +331,17 @@ static uint8_t threshold_validate_requested(void)
 {
     uint8_t index;
     uint8_t any = 0U;
-    uint16_t co_low;
-    uint16_t co_high;
-    uint16_t h2_low;
-    uint16_t h2_high;
+    int32_t co_low;
+    int32_t co_high;
+    int32_t h2_low;
+    int32_t h2_high;
     for(index = 0U; index < THRESHOLD_ITEM_COUNT; index++)
     {
         if(g_threshold.requested_valid[index] != 0U)
         {
             any = 1U;
-            if(g_threshold.requested[index] > g_threshold_defs[index].maximum) return 0U;
+            if(g_threshold.requested[index] < g_threshold_defs[index].minimum ||
+               g_threshold.requested[index] > g_threshold_defs[index].maximum) return 0U;
         }
     }
     if((g_threshold.requested_valid[2] != 0U) != (g_threshold.requested_valid[3] != 0U) &&
@@ -350,7 +394,7 @@ static uint8_t threshold_advance_to_supported(void)
     while(g_threshold.target_index < g_threshold.target_count)
     {
         uint8_t address = g_threshold.targets[g_threshold.target_index];
-        if(DeviceThreshold_GetLoop3Identity(address, &identity) == 0U || identity.online == 0U || identity.identified == 0U)
+        if(threshold_get_identity(g_threshold.loop, address, &identity) == 0U || identity.online == 0U || identity.identified == 0U)
         {
             g_threshold.failure_count++;
             g_threshold.target_index++;
@@ -449,14 +493,21 @@ void DeviceThreshold_NotifyMenu(uint16_t screen_id, uint16_t control_id, uint8_t
 
 void DeviceThreshold_NotifyText(uint16_t screen_id, uint16_t control_id, const uint8_t *text)
 {
-    uint32_t value = 0U;
+    long value = 0;
     uint8_t item;
     if((screen_id != THRESHOLD_SCREEN_SET && screen_id != THRESHOLD_SCREEN_QUERY) || text == NULL) return;
-    if(sscanf((const char *)text, "%lu", &value) != 1) return;
-    if(value > 0xFFFFUL) value = 0xFFFFUL;
+    if(threshold_is_fixed_control(screen_id, control_id) != 0U)
+    {
+        SetTextValue(screen_id, control_id, (uint8_t *)"----");
+        threshold_set_overall((const char *)g_text_unsupported);
+        return;
+    }
+    if(sscanf((const char *)text, "%ld", &value) != 1) return;
     threshold_cancel();
     if(control_id == 7U || (screen_id == THRESHOLD_SCREEN_QUERY && control_id == 6U))
     {
+        if(value < 0) value = 0;
+        if(value > 0xFFFFL) value = 0xFFFFL;
         if(screen_id == THRESHOLD_SCREEN_SET)
             memset(g_threshold.requested_valid, 0, sizeof(g_threshold.requested_valid));
         g_threshold.address_or_code = (uint16_t)value;
@@ -473,7 +524,7 @@ void DeviceThreshold_NotifyText(uint16_t screen_id, uint16_t control_id, const u
     {
         if(control_id == g_threshold_defs[item].value_control)
         {
-            g_threshold.requested[item] = (uint16_t)value;
+            g_threshold.requested[item] = (int32_t)value;
             g_threshold.requested_valid[item] = 1U;
             g_threshold.restore_armed = 0U;
             return;
@@ -515,11 +566,12 @@ void DeviceThreshold_NotifyButton(uint16_t screen_id, uint16_t control_id, uint8
     }
 }
 
-uint8_t DeviceThreshold_BuildNextFrame(uint8_t frame[8], uint8_t *address)
+uint8_t DeviceThreshold_BuildNextFrameForLoop(uint8_t loop, uint8_t frame[8], uint8_t *address)
 {
     const ThresholdDefinition *definition;
     uint16_t value;
     if(frame == NULL || address == NULL || g_threshold.running == 0U || g_threshold.waiting != 0U) return 0U;
+    if(loop != g_threshold.loop) return 0U;
     if(g_threshold.skip_normal_polls != 0U) return 0U;
     if(threshold_advance_to_supported() == 0U) return 0U;
 
@@ -535,7 +587,8 @@ uint8_t DeviceThreshold_BuildNextFrame(uint8_t frame[8], uint8_t *address)
     }
     else
     {
-        value = (g_threshold.operation == THRESHOLD_OP_DEFAULT) ? definition->default_value : g_threshold.requested[g_threshold.item_index];
+        value = (uint16_t)((g_threshold.operation == THRESHOLD_OP_DEFAULT) ?
+                definition->default_value : g_threshold.requested[g_threshold.item_index]);
         frame[1] = 0x06U;
         frame[2] = (uint8_t)(definition->reg >> 8);
         frame[3] = (uint8_t)definition->reg;
@@ -548,12 +601,18 @@ uint8_t DeviceThreshold_BuildNextFrame(uint8_t frame[8], uint8_t *address)
     g_threshold.transaction_address = *address;
     g_threshold.transaction_item = g_threshold.item_index;
     g_threshold.transaction_function = frame[1];
+    g_threshold.transaction_loop = loop;
     if(g_threshold.target_count == 1U) g_threshold.results[g_threshold.item_index] = THRESHOLD_RESULT_WAIT;
     g_threshold.ui_dirty = 1U;
     return 1U;
 }
 
-static void threshold_finish_item(uint8_t success, uint16_t value)
+uint8_t DeviceThreshold_BuildNextFrame(uint8_t frame[8], uint8_t *address)
+{
+    return DeviceThreshold_BuildNextFrameForLoop(3U, frame, address);
+}
+
+static void threshold_finish_item(uint8_t success, int32_t value)
 {
     uint8_t item = g_threshold.transaction_item;
     g_threshold.waiting = 0U;
@@ -604,11 +663,12 @@ static void threshold_retry_verify_or_finish(void)
     }
 }
 
-uint8_t DeviceThreshold_HandleResponse(const uint8_t *frame, uint16_t length)
+uint8_t DeviceThreshold_HandleResponseForLoop(uint8_t loop, const uint8_t *frame, uint16_t length)
 {
     uint16_t value;
     uint16_t expected;
     if(frame == NULL || length < 5U) return 0U;
+    if(loop != g_threshold.transaction_loop) return 0U;
     /* A page/fire cancellation invalidates the UI job but the UART owner must
      * still consume the already transmitted response and release its lock. */
     if(g_threshold.waiting == 0U)
@@ -629,7 +689,9 @@ uint8_t DeviceThreshold_HandleResponse(const uint8_t *frame, uint16_t length)
 
     if(frame[1] == 0x06U)
     {
-        expected = (g_threshold.operation == THRESHOLD_OP_DEFAULT) ? g_threshold_defs[g_threshold.transaction_item].default_value : g_threshold.requested[g_threshold.transaction_item];
+        expected = (uint16_t)((g_threshold.operation == THRESHOLD_OP_DEFAULT) ?
+                   g_threshold_defs[g_threshold.transaction_item].default_value :
+                   g_threshold.requested[g_threshold.transaction_item]);
         if(length == 8U &&
            frame[2] == (uint8_t)(g_threshold_defs[g_threshold.transaction_item].reg >> 8) &&
            frame[3] == (uint8_t)g_threshold_defs[g_threshold.transaction_item].reg &&
@@ -647,10 +709,17 @@ uint8_t DeviceThreshold_HandleResponse(const uint8_t *frame, uint16_t length)
     if(frame[1] == 0x03U && length == 7U && frame[2] == 2U)
     {
         value = (uint16_t)(((uint16_t)frame[3] << 8) | frame[4]);
-        if(g_threshold.operation == THRESHOLD_OP_QUERY) threshold_finish_item(1U, value);
+        if(g_threshold.operation == THRESHOLD_OP_QUERY)
+        {
+            int32_t display_value = g_threshold_defs[g_threshold.transaction_item].signed_value != 0U ?
+                                    (int32_t)(int16_t)value : (int32_t)value;
+            threshold_finish_item(1U, display_value);
+        }
         else
         {
-            expected = (g_threshold.operation == THRESHOLD_OP_DEFAULT) ? g_threshold_defs[g_threshold.transaction_item].default_value : g_threshold.requested[g_threshold.transaction_item];
+            expected = (uint16_t)((g_threshold.operation == THRESHOLD_OP_DEFAULT) ?
+                       g_threshold_defs[g_threshold.transaction_item].default_value :
+                       g_threshold.requested[g_threshold.transaction_item]);
             if(value == expected) threshold_finish_item(1U, value);
             else threshold_retry_verify_or_finish();
         }
@@ -663,9 +732,14 @@ uint8_t DeviceThreshold_HandleResponse(const uint8_t *frame, uint16_t length)
     return 1U;
 }
 
-void DeviceThreshold_HandleTimeout(void)
+uint8_t DeviceThreshold_HandleResponse(const uint8_t *frame, uint16_t length)
 {
-    if(g_threshold.waiting == 0U) return;
+    return DeviceThreshold_HandleResponseForLoop(3U, frame, length);
+}
+
+void DeviceThreshold_HandleTimeoutForLoop(uint8_t loop)
+{
+    if(g_threshold.waiting == 0U || loop != g_threshold.transaction_loop) return;
     if(g_threshold.transaction_function == 0x06U &&
        g_threshold.operation != THRESHOLD_OP_QUERY &&
        g_threshold.phase == THRESHOLD_PHASE_WRITE)
@@ -678,9 +752,19 @@ void DeviceThreshold_HandleTimeout(void)
         threshold_finish_item(0U, 0U);
 }
 
+void DeviceThreshold_HandleTimeout(void)
+{
+    DeviceThreshold_HandleTimeoutForLoop(3U);
+}
+
+void DeviceThreshold_NotifyNormalPollForLoop(uint8_t loop)
+{
+    if(loop == g_threshold.loop && g_threshold.skip_normal_polls != 0U) g_threshold.skip_normal_polls--;
+}
+
 void DeviceThreshold_NotifyNormalPoll(void)
 {
-    if(g_threshold.skip_normal_polls != 0U) g_threshold.skip_normal_polls--;
+    DeviceThreshold_NotifyNormalPollForLoop(3U);
 }
 
 void DeviceThreshold_UpdateUI(uint16_t screen_id, uint8_t fire_active)
@@ -716,13 +800,14 @@ void DeviceThreshold_UpdateUI(uint16_t screen_id, uint8_t fire_active)
             if(item != 3U && item != 5U)
                 SetTextValue(screen_id, g_threshold_defs[item].status_control, (uint8_t *)"");
         }
+        threshold_show_fixed_controls(screen_id);
         if(screen_id == THRESHOLD_SCREEN_QUERY) threshold_query_clear_identity();
     }
 
     if(screen_id == THRESHOLD_SCREEN_QUERY && g_threshold.target_count == 1U)
     {
         DeviceThresholdIdentity identity;
-        if(DeviceThreshold_GetLoop3Identity(g_threshold.targets[0], &identity) != 0U)
+        if(threshold_get_identity(g_threshold.loop, g_threshold.targets[0], &identity) != 0U)
         {
             SetTextValue(screen_id, 8U, (uint8_t *)DeviceRegistry_GetName(identity.product_code));
             SetTextInt32(screen_id, 27U, identity.national_code, 0U, 1U);
