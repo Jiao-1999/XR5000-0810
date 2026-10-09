@@ -1,6 +1,7 @@
 #include "bsp_mbus.h"
 #include "bsp_device_registry.h"
 #include "bsp_device_registration.h"
+#include "bsp_device_threshold.h"
 #include "cmsis_os.h"
 #include "cmd_process.h"
 #include "bsp_debug.h"
@@ -339,6 +340,7 @@ static uint8_t g_mbus1_identify_fail_count[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
 static uint32_t g_mbus1_last_identify_tick[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
 static uint16_t g_mbus1_national_code[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
 static uint16_t g_mbus1_product_code[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
+static uint16_t g_mbus1_sensor_enable[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
 static uint8_t g_mbus1_identify_stage[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
 static uint32_t g_mbus1_last_offline_probe_tick[MBUS1_DEVICE_MAX_ADDR + 1U] = {0};
 #define MBUS1_STAGE_NATIONAL 0U
@@ -359,6 +361,19 @@ uint16_t MBus1_GetProductCode(uint8_t addr)
 {
     if(addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR) return 0U;
     return g_mbus1_product_code[addr];
+}
+
+uint8_t DeviceThreshold_GetLoop1Identity(uint8_t address, DeviceThresholdIdentity *identity)
+{
+    if(identity == NULL || address == 0U || address > MIXTURE_DEVICE_MAX_ADDR) return 0U;
+    identity->online = (uint8_t)(PointTypeMixtureOnlieState[address] != 0U &&
+                       PointTypeMixtureDisconnectCount[address] < MIXTURE_DEVICE_DISCONNECT_SUM);
+    identity->identified = g_mbus1_type_confirmed[address];
+    identity->device_type = 0U;
+    identity->national_code = g_mbus1_national_code[address];
+    identity->product_code = g_mbus1_product_code[address];
+    identity->sensor_enable = g_mbus1_sensor_enable[address];
+    return 1U;
 }
 
 uint8_t MBus1_IsShortCircuitIsolator(uint8_t addr)
@@ -382,6 +397,7 @@ static void MBus1ClearIdentification(uint8_t addr)
     g_mbus1_last_identify_tick[addr] = 0U;
     g_mbus1_national_code[addr] = 0U;
     g_mbus1_product_code[addr] = 0U;
+    g_mbus1_sensor_enable[addr] = 0U;
     g_mbus1_identify_stage[addr] = MBUS1_STAGE_NATIONAL;
     g_mbus1_last_offline_probe_tick[addr] = 0U;
     PointTypeMixtureDetecteName[addr] = 0U;
@@ -402,6 +418,7 @@ uint16_t getPointTypeMixtureNationalCode(uint8_t detector_id)
 static uint8_t g_mbus1_transaction_pending = 0U;
 static uint8_t g_mbus1_transaction_addr = 0U;
 static uint8_t g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+static uint8_t g_mbus1_transaction_threshold = 0U;
 static uint8_t g_mbus1_registration_probe = 0U;
 static uint8_t g_mbus1_normal_since_probe = 0U;
 static uint32_t g_mbus1_transaction_tick = 0U;
@@ -425,6 +442,8 @@ static uint8_t MBus1InterFrameGuardElapsed(void)
 
 static void MBus1FinishTransaction(uint8_t addr)
 {
+    uint8_t normal_poll = (uint8_t)(g_mbus1_transaction_threshold == 0U &&
+                          g_mbus1_transaction_identify_stage == MBUS1_STAGE_COMPLETE);
     if(PointTypeMixtureDisconnectCount[addr] >= MIXTURE_DEVICE_DISCONNECT_SUM)
     {
         if(g_mbus1_recovery_success_count[addr] < MIXTURE_DEVICE_RECOVERY_SUM)
@@ -441,9 +460,11 @@ static void MBus1FinishTransaction(uint8_t addr)
         g_mbus1_recovery_success_count[addr] = 0U;
     }
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
-    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
+    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+    g_mbus1_transaction_threshold = 0U;
+    g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
+    if(normal_poll != 0U) DeviceThreshold_NotifyNormalPollForLoop(1U);
 }
-
 static void MBus1MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error)
 {
     if(addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR) return;
@@ -465,19 +486,33 @@ static void MBus1MarkTimeout(void)
                  MIXTURE_DEVICE_RESPONSE_TIMEOUT_MS : MIXTURE_DEVICE_IDENTIFY_RESPONSE_TIMEOUT_MS;
     if((osKernelGetTickCount() - g_mbus1_transaction_tick) < timeout_ms) return;
     addr = g_mbus1_transaction_addr;
+    if(g_mbus1_transaction_threshold != 0U)
+    {
+        DeviceThreshold_HandleTimeoutForLoop(1U);
+        g_mbus1_transaction_threshold = 0U;
+        g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
+        g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+        g_mbus1_transaction_tick = 0U;
+        return;
+    }
     if(g_mbus1_registration_probe != 0U)
     {
         g_mbus1_registration_probe = 0U;
         g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
         g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+        g_mbus1_transaction_threshold = 0U;
         g_mbus1_transaction_tick = 0U;
         DeviceReg_CompleteProbe(DEVICE_REG_LOOP1, addr,
                                 DEVICE_REG_PROBE_NO_RESPONSE, 0U);
-        return; /* 登记探测不累计正式上线设备的掉线次数。 */
+        return; /* Registration probes do not change formal-device disconnect counters. */
     }
     identify_stage = g_mbus1_transaction_identify_stage;
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
-    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U;
+    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+    g_mbus1_transaction_threshold = 0U;
+    g_mbus1_transaction_tick = 0U;
+    if(identify_stage == MBUS1_STAGE_COMPLETE)
+        DeviceThreshold_NotifyNormalPollForLoop(1U);
     if(addr > 0U && addr <= MBUS1_DEVICE_MAX_ADDR && PointTypeMixtureOnlieState[addr] != 0U)
     {
         if(identify_stage != MBUS1_STAGE_COMPLETE)
@@ -491,7 +526,6 @@ static void MBus1MarkTimeout(void)
         }
     }
 }
-
 static uint8_t MBus1FindNextOnlineAddress(void)
 {
     uint8_t attempt;
@@ -578,7 +612,9 @@ static void MBus1StartTransaction(uint8_t addr)
         return;
     }
     g_mbus1_transaction_pending = 1U; g_mbus1_transaction_addr = addr;
-    g_mbus1_transaction_identify_stage = identify_stage; g_mbus1_transaction_tick = transaction_tick;
+    g_mbus1_transaction_identify_stage = identify_stage;
+    g_mbus1_transaction_threshold = 0U;
+    g_mbus1_transaction_tick = transaction_tick;
     taskEXIT_CRITICAL();
 
     uartbuff[MBUS1SITE].recepetion_flag = 0U; uartbuff[MBUS1SITE].recepetion_len = 0U;
@@ -601,6 +637,51 @@ static void MBus1StartTransaction(uint8_t addr)
         taskEXIT_CRITICAL();
     }
 }
+
+static uint8_t MBus1StartThresholdTransaction(void)
+{
+    uint8_t frame[8];
+    uint8_t addr = 0U;
+    uint32_t transaction_tick;
+    if(g_mbus1_bus_locked != 0U || g_mbus1_transaction_pending != 0U) return 0U;
+    if(DeviceThreshold_BuildNextFrameForLoop(1U, frame, &addr) == 0U) return 0U;
+    transaction_tick = osKernelGetTickCount();
+
+    taskENTER_CRITICAL();
+    if(g_mbus1_bus_locked != 0U || g_mbus1_transaction_pending != 0U)
+    {
+        taskEXIT_CRITICAL();
+        DeviceThreshold_HandleTimeoutForLoop(1U);
+        return 0U;
+    }
+    g_mbus1_transaction_pending = 1U;
+    g_mbus1_transaction_addr = addr;
+    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+    g_mbus1_transaction_threshold = 1U;
+    g_mbus1_transaction_tick = transaction_tick;
+    taskEXIT_CRITICAL();
+
+    uartbuff[MBUS1SITE].recepetion_flag = 0U;
+    uartbuff[MBUS1SITE].recepetion_len = 0U;
+    if(HAL_UART_Transmit(&huart7, frame, sizeof(frame), 30U) != HAL_OK)
+    {
+        DeviceThreshold_HandleTimeoutForLoop(1U);
+        taskENTER_CRITICAL();
+        if(g_mbus1_transaction_threshold != 0U && g_mbus1_transaction_addr == addr)
+        {
+            g_mbus1_transaction_pending = 0U;
+            g_mbus1_transaction_addr = 0U;
+            g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+            g_mbus1_transaction_threshold = 0U;
+            g_mbus1_transaction_tick = 0U;
+        }
+        taskEXIT_CRITICAL();
+        return 0U;
+    }
+    g_mbus1_transaction_tick = osKernelGetTickCount();
+    return 1U;
+}
+
 static uint8_t MBus1StartRegistrationProbe(void)
 {
     uint8_t addr;
@@ -618,6 +699,7 @@ static uint8_t MBus1StartRegistrationProbe(void)
     g_mbus1_transaction_pending = 1U;
     g_mbus1_transaction_addr = addr;
     g_mbus1_transaction_identify_stage = MBUS1_STAGE_NATIONAL;
+    g_mbus1_transaction_threshold = 0U;
     g_mbus1_registration_probe = 1U;
     g_mbus1_transaction_tick = osKernelGetTickCount();
     taskEXIT_CRITICAL();
@@ -734,6 +816,19 @@ void MBus1ReceiveSlaveDataDeal(void)
     func = buf[1];
     if(addr != g_mbus1_transaction_addr || addr == 0U || addr > MBUS1_DEVICE_MAX_ADDR) return;
 
+    if(g_mbus1_transaction_threshold != 0U)
+    {
+        if(DeviceThreshold_HandleResponseForLoop(1U, buf, len) != 0U)
+        {
+            g_mbus1_transaction_threshold = 0U;
+            g_mbus1_transaction_pending = 0U;
+            g_mbus1_transaction_addr = 0U;
+            g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+            g_mbus1_transaction_tick = 0U;
+        }
+        return;
+    }
+
     if(g_mbus1_registration_probe != 0U)
     {
         DeviceRegProbeResult result = DEVICE_REG_PROBE_UNIDENTIFIED;
@@ -804,6 +899,7 @@ void MBus1ReceiveSlaveDataDeal(void)
         {
             g_mbus1_national_code[addr] = national_code;
             g_mbus1_product_code[addr] = product_type;
+            g_mbus1_sensor_enable[addr] = sensor_mask;
             PointTypeMixtureDetecteName[addr] = product_type;
             PointTypeMixtureDetecteType[addr] = product_type == DEVICE_PRODUCT_XR8002_TEMP ? 0x20U :
                                                 (product_type == DEVICE_PRODUCT_XR8001_SMOKE ? 0x01U : 0U);
@@ -849,6 +945,8 @@ void MBus1ResetAllDevices(void)
         osDelay(1U);
     }
 
+    if(g_mbus1_transaction_threshold != 0U)
+        DeviceThreshold_HandleTimeoutForLoop(1U);
     taskENTER_CRITICAL();
     if(g_mbus1_registration_probe != 0U)
     {
@@ -856,7 +954,9 @@ void MBus1ResetAllDevices(void)
         g_mbus1_registration_probe = 0U;
     }
     g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
-    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE; g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
+    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+    g_mbus1_transaction_threshold = 0U;
+    g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
     taskEXIT_CRITICAL();
     uartbuff[MBUS1SITE].recepetion_flag = 0U; uartbuff[MBUS1SITE].recepetion_len = 0U;
     HAL_UART_Transmit(&huart7, reset_command, sizeof(reset_command), 30U);
@@ -877,7 +977,11 @@ void MBus1PollSlaveAndReceiveTask(void* parameter)
         MBus1ReceiveSlaveDataDeal();
         MBus1MarkTimeout();
         if(g_mbus1_bus_locked == 0U && g_mbus1_transaction_pending == 0U &&
-           MBus1InterFrameGuardElapsed() != 0U) MixtureDevicePollingManage();
+           MBus1InterFrameGuardElapsed() != 0U)
+        {
+            if(MBus1StartThresholdTransaction() == 0U)
+                MixtureDevicePollingManage();
+        }
         osDelay(MIXTURE_DEVICE_TASK_INTERVAL_MS);
     }
 }
