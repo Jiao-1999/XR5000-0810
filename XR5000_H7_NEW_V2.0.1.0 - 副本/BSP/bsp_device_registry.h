@@ -28,6 +28,7 @@ typedef enum
     DEVICE_PRODUCT_GCM1002       = 12,
     DEVICE_PRODUCT_FIM1017       = 13,
     DEVICE_PRODUCT_FCM1011       = 14,
+    DEVICE_PRODUCT_FCM1012       = 15,
     DEVICE_PRODUCT_FAN_BUTTON    = 18
 } DeviceProductCode;
 
@@ -46,6 +47,7 @@ typedef enum
     DEVICE_PARSER_GCM1002,
     DEVICE_PARSER_FIM1017,
     DEVICE_PARSER_FCM1011,
+    DEVICE_PARSER_FCM1012,
     DEVICE_PARSER_DLYGWG,
     DEVICE_PARSER_FAN_BUTTON
 } DeviceParserType;
@@ -79,7 +81,8 @@ typedef enum
     DEVICE_CONTROL_DRIVER_NONE = 0,          /* 输入设备或尚未实现控制协议 */
     DEVICE_CONTROL_DRIVER_SGBJQ,             /* XR-SGBJQ声光报警器05功能码驱动 */
     DEVICE_CONTROL_DRIVER_FIRE_DISPLAY,      /* 火灾显示盘10功能码事件驱动 */
-    DEVICE_CONTROL_DRIVER_FCM1011             /* FCM-1011 active output, FC05 coil 0x0000 */
+    DEVICE_CONTROL_DRIVER_FCM1011,            /* FCM-1011有源输出1，FC05线圈0x0000 */
+    DEVICE_CONTROL_DRIVER_FCM1012             /* FCM-1012两路有源输出，FC05线圈0x0000/0x0001 */
 } DeviceControlDriver;
 
 typedef struct
@@ -88,7 +91,7 @@ typedef struct
     const char *name;              /* 产品名称，主要用于调试和详情显示 */
     uint8_t loop_mask;             /* 允许接入的回路位掩码 */
     uint8_t parser_type;           /* 识别成功后采用的状态数据解析器 */
-    uint8_t register_count;        /* 正常轮询从0x0000开始读取的寄存器数量 */
+    uint8_t register_count;        /* 状态轮询读取数量；起始地址由所属回路驱动确定 */
     uint16_t national_type_code;   /* 0x000D期望值；0表示该产品暂不校验国标码 */
     uint16_t sensor_mask_allowed;  /* 0x000F允许出现的位；0表示无需读取0x000F */
     uint32_t capabilities;         /* 通用能力位，旧产品省略初始化时自动为0 */

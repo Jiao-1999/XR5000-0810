@@ -34,6 +34,7 @@ static uint8_t g_mbus_other_poll_cursor = 1U; /* …˘π‚/œ‘ æ≈Ã/ƒ£øÈπ≤”√µƒπ´∆Ω¬÷—ØŒ
 #define MBUS_SOUND_LIGHT_POLL_INTERVAL_MS      200U /* …˘π‚◊¥Ã¨Œﬁ–Ë∏ﬂ∆µÀ¢–¬£¨ΩµµÕ…Ë±∏Õ®–≈∏∫‘ÿ */
 #define MBUS_FIRE_DISPLAY_POLL_INTERVAL_MS     200U
 #define MBUS_FCM1011_POLL_INTERVAL_MS          200U
+#define MBUS_FCM1012_POLL_INTERVAL_MS          200U
 #define MBUS_HAND_REPORT_MAX_POLL_BURST          3U
 #define MBUS2_INTER_FRAME_GUARD_MS               20U
 static uint8_t g_mbus_poll_wait_response = 0U;       /* ∆’Õ®◊¥Ã¨Œ —Ø÷ª‘ –Ì“ª∏ˆ‘⁄Õæ ¬ŒÒ */
@@ -62,7 +63,9 @@ static uint8_t g_mbus_poll_recovery_count[MBUS_CONTROL_MAX_DEVICES];
 #define MBUS_SGBJQ_ALL_STATE_BITS                 0x03U
 #define MBUS_FCM1011_INPUT_START_ADDR          0x0007U
 #define MBUS_FCM1011_OUTPUT_COIL_ADDR           0x0000U
-#define MBUS_FCM1011_REGISTER_COUNT             3U
+#define MBUS_FCM1012_OUTPUT_START_ADDR          0x0009U
+#define MBUS_FCM1012_OUTPUT1_COIL_ADDR          0x0000U
+#define MBUS_FCM1012_OUTPUT2_COIL_ADDR          0x0001U
 #define MBUS_FCM1011_IDENTIFY_STABLE_COUNT       5U
 #define MBUS_FCM1011_UNSTABLE_SAMPLE_COUNT      10U
 #define MBUS_FCM1011_FEEDBACK_CONFIRM_COUNT      2U
@@ -171,6 +174,7 @@ static uint8_t MBusCtrl_MapProductType(uint16_t product_code)
     if(parser == DEVICE_PARSER_GCM1002) return MBUS_CONTROL_DEV_GCM1002;
     if(parser == DEVICE_PARSER_FIM1017) return MBUS_CONTROL_DEV_FIM1017;
     if(parser == DEVICE_PARSER_FCM1011) return MBUS_CONTROL_DEV_FCM1011;
+    if(parser == DEVICE_PARSER_FCM1012) return MBUS_CONTROL_DEV_FCM1012;
     if(parser == DEVICE_PARSER_FAN_BUTTON) return MBUS_CONTROL_DEV_FAN_BUTTON;
     return MBUS_CONTROL_DEV_UNKNOWN;
 }
@@ -345,7 +349,7 @@ static uint8_t MBusCtrl_CanExecute(const MBusQueuedControl *control)
     return DeviceRegistry_GetControlDriver(g_mbus_ctrl_devices[addr].product_code) == control->driver_id ? 1U : 0U;
 }
 
-/* µ±«∞÷ªµ«º«XR-SGBJQ«˝∂Ø£∫05π¶ƒ‹¬Î–¥œﬂ»¶0£¨ ‰≥ˆ1±Ì æ…˘π‚’˚ÃÂ◊¥Ã¨°£ */
+/* ∞¥≤˙∆∑«˝∂Ø∫ÕÕ®µ¿Œª…˙≥…µ•œﬂ»¶øÿ÷∆÷°£ª∂‡Õ®µ¿…Ë±∏√ø¥Œ÷ª∑¢ÀÕ“ª∏ˆÕ®µ¿°£ */
 static uint8_t MBusCtrl_BuildControlFrame(const MBusQueuedControl *control, uint8_t *frame, uint8_t *length)
 {
     uint16_t crc16;
@@ -362,6 +366,29 @@ static uint8_t MBusCtrl_BuildControlFrame(const MBusQueuedControl *control, uint
         if(control->request.target_mask != DEVICE_OUTPUT_1) return 0U;
         channel_bit = DEVICE_OUTPUT_1;
         coil_addr = MBUS_FCM1011_OUTPUT_COIL_ADDR;
+    }
+    else if(control->driver_id == DEVICE_CONTROL_DRIVER_FCM1012)
+    {
+        if(g_active_control_retry_phase == 0U)
+            pending_mask = control->request.target_mask & (DEVICE_OUTPUT_1 | DEVICE_OUTPUT_2) &
+                           ~g_active_control_attempted_mask;
+        else
+            pending_mask = control->request.target_mask & (DEVICE_OUTPUT_1 | DEVICE_OUTPUT_2) &
+                           ~g_active_control_sent_mask;
+        if((pending_mask & DEVICE_OUTPUT_1) != 0U)
+        {
+            channel_bit = DEVICE_OUTPUT_1;
+            coil_addr = MBUS_FCM1012_OUTPUT1_COIL_ADDR;
+        }
+        else if((pending_mask & DEVICE_OUTPUT_2) != 0U)
+        {
+            channel_bit = DEVICE_OUTPUT_2;
+            coil_addr = MBUS_FCM1012_OUTPUT2_COIL_ADDR;
+        }
+        else
+        {
+            return 0U;
+        }
     }
     else if(control->driver_id == DEVICE_CONTROL_DRIVER_SGBJQ)
     {
@@ -420,14 +447,25 @@ static uint8_t MBusCtrl_SendActiveControl(void)
     return 1U;
 }
 
-/*  ◊¬÷”≈œ»∞—…˘“Ù∫Õµ∆π‚∂º∑¢≥ˆ£ªŒ¥»∑»œµƒÕ®µ¿‘⁄ ◊¬÷Ω· ¯∫Ûµ•∂¿≤π∑¢°£ */
+/* ∂‡Õ®µ¿ ◊¬÷“¿¥Œ∑¢ÀÕ»´≤øƒø±ÍÕ®µ¿£ªŒ¥»∑»œÕ®µ¿‘⁄ ◊¬÷Ω· ¯∫Ûµ•∂¿≤π∑¢°£ */
 static void MBusCtrl_CompleteActiveChannel(MBusCtrlStatus channel_result)
 {
     uint8_t addr = g_active_control.request.addr;
-    uint32_t target_mask = g_active_control.request.target_mask &
-                           (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT);
-    uint32_t done_bit = (g_active_control_coil_addr == 0x0018U) ? MBUS_OUTPUT_SOUND :
-                        (g_active_control_coil_addr == 0x0021U) ? MBUS_OUTPUT_LIGHT : 0U;
+    uint32_t target_mask = 0U;
+    uint32_t done_bit = 0U;
+
+    if(g_active_control.driver_id == DEVICE_CONTROL_DRIVER_FCM1012)
+    {
+        target_mask = g_active_control.request.target_mask & (DEVICE_OUTPUT_1 | DEVICE_OUTPUT_2);
+        done_bit = (g_active_control_coil_addr == MBUS_FCM1012_OUTPUT1_COIL_ADDR) ? DEVICE_OUTPUT_1 :
+                   (g_active_control_coil_addr == MBUS_FCM1012_OUTPUT2_COIL_ADDR) ? DEVICE_OUTPUT_2 : 0U;
+    }
+    else if(g_active_control.driver_id == DEVICE_CONTROL_DRIVER_SGBJQ)
+    {
+        target_mask = g_active_control.request.target_mask & (MBUS_OUTPUT_SOUND | MBUS_OUTPUT_LIGHT);
+        done_bit = (g_active_control_coil_addr == MBUS_SGBJQ_SOUND_COIL_ADDR) ? MBUS_OUTPUT_SOUND :
+                   (g_active_control_coil_addr == MBUS_SGBJQ_LIGHT_COIL_ADDR) ? MBUS_OUTPUT_LIGHT : 0U;
+    }
 
     g_control_wait_response = 0U;
     g_control_wait_ticks = 0U;
@@ -449,6 +487,12 @@ static void MBusCtrl_CompleteActiveChannel(MBusCtrlStatus channel_result)
         {
             MBusCtrl_FinishActiveControl(channel_result);
         }
+        return;
+    }
+
+    if(target_mask == 0U || done_bit == 0U)
+    {
+        MBusCtrl_FinishActiveControl(MBUS_CTRL_STATUS_RESPONSE_ERROR);
         return;
     }
 
@@ -548,7 +592,8 @@ static uint8_t MBusCtrl_ServiceControlRequest(void)
     }
     else if(g_control_wait_response != 0U)
     {
-        uint8_t wait_limit = g_active_control.driver_id == DEVICE_CONTROL_DRIVER_FCM1011 ?
+        uint8_t wait_limit = (g_active_control.driver_id == DEVICE_CONTROL_DRIVER_FCM1011 ||
+                              g_active_control.driver_id == DEVICE_CONTROL_DRIVER_FCM1012) ?
                              MBUS_NORMAL_POLL_RESPONSE_WAIT_TICKS :
                              (g_active_control_retry_phase == 0U ?
                               MBUS_SOUND_LIGHT_FIRST_WAIT_TICKS :
@@ -912,6 +957,7 @@ void MBusCtrl_Init(void)
         g_mbus_ctrl_devices[i].sensor_state = 0;
         g_mbus_ctrl_devices[i].input_state = 0U;
         g_mbus_ctrl_devices[i].output_state = 0U;
+        g_mbus_ctrl_devices[i].output_state_2 = 0U;
         MBusCtrl_ResetFcm1011Input(i);
         g_mbus_ctrl_devices[i].disconnect_memory = 0;
         g_mbus_ctrl_devices[i].product_code = 0U;
@@ -954,6 +1000,7 @@ void MBusCtrl_SetOnline(uint8_t addr, uint8_t state)
         g_mbus_ctrl_devices[addr].sensor_state = 0;
         g_mbus_ctrl_devices[addr].input_state = 0U;
         g_mbus_ctrl_devices[addr].output_state = 0U;
+        g_mbus_ctrl_devices[addr].output_state_2 = 0U;
         MBusCtrl_ResetFcm1011Input(addr);
         g_mbus_ctrl_devices[addr].disconnect_memory = 0;
         g_mbus_ctrl_devices[addr].product_code = 0U;
@@ -1153,20 +1200,37 @@ uint8_t MBusCtrl_IsInputFeedbackActive(uint8_t addr, uint8_t channel)
 
 uint8_t MBusCtrl_GetOutputChannelState(uint8_t addr, uint8_t channel, uint8_t *state)
 {
-    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES || channel != 1U || state == 0 ||
-       g_mbus_ctrl_devices[addr].dev_type != MBUS_CONTROL_DEV_FCM1011)
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES || state == 0)
         return 0U;
-    *state = g_mbus_ctrl_devices[addr].output_state;
-    return 1U;
+    if(g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_FCM1011 && channel == 1U)
+    {
+        *state = g_mbus_ctrl_devices[addr].output_state;
+        return 1U;
+    }
+    if(g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_FCM1012)
+    {
+        if(channel == 1U)
+            *state = g_mbus_ctrl_devices[addr].output_state;
+        else if(channel == 2U)
+            *state = g_mbus_ctrl_devices[addr].output_state_2;
+        else
+            return 0U;
+        return 1U;
+    }
+    return 0U;
 }
 
 uint8_t MBusCtrl_IsModuleStarted(uint8_t addr)
 {
-    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES ||
-       g_mbus_ctrl_devices[addr].dev_type != MBUS_CONTROL_DEV_FCM1011)
+    if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES)
         return 0U;
-    return (g_fcm1011_feedback_active[addr] != 0U ||
-            g_mbus_ctrl_devices[addr].output_state == 1U) ? 1U : 0U;
+    if(g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_FCM1011)
+        return (g_fcm1011_feedback_active[addr] != 0U ||
+                g_mbus_ctrl_devices[addr].output_state == 1U) ? 1U : 0U;
+    if(g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_FCM1012)
+        return (g_mbus_ctrl_devices[addr].output_state == 1U ||
+                g_mbus_ctrl_devices[addr].output_state_2 == 1U) ? 1U : 0U;
+    return 0U;
 }
 
 /* ªÒ»°…Ë±∏π˙±Í…Ë±∏¿‡–Õ¬Î(π©¡™∂Ø¬ﬂº≠œ‘ æ”√), µÿ÷∑Œﬁ–ß∑µªÿ0 */
@@ -1251,6 +1315,8 @@ static uint8_t MBusCtrl_IsNormalPollDue(uint8_t addr, uint32_t now)
             interval_ms = MBUS_FIRE_DISPLAY_POLL_INTERVAL_MS;
         else if(g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_FCM1011)
             interval_ms = MBUS_FCM1011_POLL_INTERVAL_MS;
+        else if(g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_FCM1012)
+            interval_ms = MBUS_FCM1012_POLL_INTERVAL_MS;
     }
     if(interval_ms == 0U) return 1U;
     last_tick = g_mbus_poll_last_send_tick[addr];
@@ -1363,14 +1429,20 @@ static void MBusControlPollingManage(void)
         }
         else
         {
+            uint8_t dev_type = g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].dev_type;
             modbus_buff[1]=0x04U;
             modbus_buff[2]=0U;
-            modbus_buff[3]=(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].dev_type ==
-                           MBUS_CONTROL_DEV_FIRE_DISPLAY) ? 0x1FU : 0x07U;
+            if(dev_type == MBUS_CONTROL_DEV_FIRE_DISPLAY)
+                modbus_buff[3]=0x1FU;
+            else if(dev_type == MBUS_CONTROL_DEV_FCM1012)
+                modbus_buff[3]=(uint8_t)MBUS_FCM1012_OUTPUT_START_ADDR;
+            else
+                modbus_buff[3]=0x07U;
         }
         modbus_buff[4]=0U;
-        modbus_buff[5]=(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].dev_type ==
-                       MBUS_CONTROL_DEV_FCM1011) ? MBUS_FCM1011_REGISTER_COUNT : 1U;
+        modbus_buff[5]=DeviceRegistry_GetRegisterCount(
+                          g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].product_code);
+        if(modbus_buff[5] == 0U) modbus_buff[5]=1U;
     }
     modbus_buff[0]=g_mbus_ctrl_polling_addr;
     if(g_mbus_ctrl_devices[g_mbus_ctrl_polling_addr].type_confirmed == 0U)
@@ -1589,9 +1661,11 @@ static void MBus2ProcessReceivedFrame(const uint8_t *buf, uint16_t len)
     }
     else if(buf[1] == 0x04U && MBusCtrl_IsActiveNormalPoll(dev_addr, 0x04U) != 0U)
     {
+        uint8_t register_count = DeviceRegistry_GetRegisterCount(
+                                     g_mbus_ctrl_devices[dev_addr].product_code);
         uint8_t expected_byte_count =
-            (g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U ||
-             g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_FCM1011) ? 6U : 2U;
+            g_mbus_ctrl_devices[dev_addr].identify_request_pending != 0U ? 6U :
+            (register_count != 0U ? (uint8_t)(register_count * 2U) : 2U);
         if(len != (uint16_t)(expected_byte_count + 5U) || buf[2] != expected_byte_count)
         {
             g_mbus2_uart_diag.rx_invalid_length_count++;
@@ -1638,6 +1712,20 @@ static void MBus2ProcessReceivedFrame(const uint8_t *buf, uint16_t len)
                 if(output_state <= 4U)
                     g_mbus_ctrl_devices[dev_addr].output_state = (uint8_t)output_state;
             }
+            else if(g_mbus_ctrl_devices[dev_addr].dev_type == MBUS_CONTROL_DEV_FCM1012)
+            {
+                uint16_t output1_state = ((uint16_t)buf[3] << 8) | buf[4];
+                uint16_t output2_state = ((uint16_t)buf[5] << 8) | buf[6];
+                MBusCtrl_MarkCommunicationAlive(dev_addr);
+                if(output1_state <= 4U)
+                    g_mbus_ctrl_devices[dev_addr].output_state = (uint8_t)output1_state;
+                else
+                    g_mbus2_uart_diag.rx_protocol_exception_count++;
+                if(output2_state <= 4U)
+                    g_mbus_ctrl_devices[dev_addr].output_state_2 = (uint8_t)output2_state;
+                else
+                    g_mbus2_uart_diag.rx_protocol_exception_count++;
+            }
             else
             {
                 MBusCtrl_MarkCommunicationAlive(dev_addr);
@@ -1679,7 +1767,8 @@ static void MBus2ProcessReceivedFrame(const uint8_t *buf, uint16_t len)
             g_control_wait_response != 0U &&
             dev_addr == g_active_control.request.addr &&
             (g_active_control.driver_id == DEVICE_CONTROL_DRIVER_SGBJQ ||
-             g_active_control.driver_id == DEVICE_CONTROL_DRIVER_FCM1011) &&
+             g_active_control.driver_id == DEVICE_CONTROL_DRIVER_FCM1011 ||
+             g_active_control.driver_id == DEVICE_CONTROL_DRIVER_FCM1012) &&
             len == 8U &&
             (((uint16_t)buf[2] << 8) | buf[3]) == g_active_control_coil_addr &&
             (((uint16_t)buf[4] << 8) | buf[5]) == g_active_control_coil_value)
