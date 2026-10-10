@@ -72,10 +72,10 @@ void SystemInfoLoad(void)
 			SystemSaveInfo.user_password = SYSTEM_DEFAULT_USER_PASSWORD;
 			SystemSaveInfo.super_admin_password = SYSTEM_DEFAULT_SUPER_PASSWORD;
 			SystemSaveInfo.password_config_state = SYSTEM_PASSWORD_CONFIG_STATE;
-			// 默认全部手动
-			SystemSaveInfo.system_hand_or_auto_state = 0;//手动自动切换，0自动，1手动
-			SystemSaveInfo.part1_hand_or_auto_state = 0;//手动自动切换，0自动，1手动
-			SystemSaveInfo.part2_hand_or_auto_state = 0;//手动自动切换，0自动，1手动
+			// 默认全部自动
+			SystemSaveInfo.system_hand_or_auto_state = 2U;//手动自动切换，1手动，2自动
+			SystemSaveInfo.part1_hand_or_auto_state = 2U;//手动自动切换，1手动，2自动
+			SystemSaveInfo.part2_hand_or_auto_state = 2U;//手动自动切换，1手动，2自动
 
 			// 出场日期设置
 			SystemSaveInfo.factory_release_year = 25;
@@ -142,6 +142,34 @@ void SystemInfoLoad(void)
 			SystemSaveInfo.super_admin_password = SYSTEM_DEFAULT_SUPER_PASSWORD;
 			SystemSaveInfo.password_config_state = SYSTEM_PASSWORD_CONFIG_STATE;
 			SystemInfoSave();
+		}
+
+		/* Normalize legacy/invalid hand-auto values: 1=manual, 2=auto. */
+		{
+			uint8_t hand_auto_state_changed = 0U;
+
+			if((SystemSaveInfo.system_hand_or_auto_state != 1U) &&
+			   (SystemSaveInfo.system_hand_or_auto_state != 2U))
+			{
+				SystemSaveInfo.system_hand_or_auto_state = 2U;
+				hand_auto_state_changed = 1U;
+			}
+			if((SystemSaveInfo.part1_hand_or_auto_state != 1U) &&
+			   (SystemSaveInfo.part1_hand_or_auto_state != 2U))
+			{
+				SystemSaveInfo.part1_hand_or_auto_state = 2U;
+				hand_auto_state_changed = 1U;
+			}
+			if((SystemSaveInfo.part2_hand_or_auto_state != 1U) &&
+			   (SystemSaveInfo.part2_hand_or_auto_state != 2U))
+			{
+				SystemSaveInfo.part2_hand_or_auto_state = 2U;
+				hand_auto_state_changed = 1U;
+			}
+			if(hand_auto_state_changed != 0U)
+			{
+				SystemInfoSave();
+			}
 		}
 			//CAN设备地址
     if((SystemSaveInfo.can2_slave_addr < 1) || (SystemSaveInfo.can2_slave_addr > 300))
