@@ -1,3 +1,12 @@
+/*
+ * 设备中文名称存储模块。
+ *
+ * 本文件按“回路 + 设备地址 + 产品码”保存用户设置的中文名称。每个回路使用
+ * 主、备两个外部 Flash 扇区，依靠版本标识、递增序号和 CRC 校验选择有效副本。
+ * 名称只作为附加显示属性，不修改设备原有型号、状态及通信参数；同一地址更换
+ * 为不同产品码后，旧名称不会自动套用到新设备。
+ */
+
 #include "bsp_device_alias.h"
 
 #include <string.h>
@@ -39,6 +48,7 @@ static DeviceAliasLoopStorage g_alias_verify;
 static uint8_t g_alias_loaded;
 static uint32_t g_alias_revision;
 
+/* 计算存储镜像的 CRC32，用于检测外部 Flash 数据是否完整。 */
 static uint32_t DeviceAliasCrc(const uint8_t *data, uint32_t length)
 {
     uint32_t crc = 0xFFFFFFFFUL;
@@ -53,6 +63,7 @@ static uint32_t DeviceAliasCrc(const uint8_t *data, uint32_t length)
     return ~crc;
 }
 
+/* 校验指定回路的存储镜像，包括魔数、版本、回路号和 CRC。 */
 static uint8_t DeviceAliasStorageValid(const DeviceAliasLoopStorage *storage,
                                        uint8_t loop_id)
 {
@@ -74,6 +85,7 @@ static uint8_t DeviceAliasStorageValid(const DeviceAliasLoopStorage *storage,
     return 1U;
 }
 
+/* 将一个回路的内存镜像恢复为空白且结构合法的初始状态。 */
 static void DeviceAliasStorageReset(DeviceAliasLoopStorage *storage,
                                     uint8_t loop_id)
 {
@@ -83,6 +95,7 @@ static void DeviceAliasStorageReset(DeviceAliasLoopStorage *storage,
     storage->loop_id = loop_id;
 }
 
+/* 首次访问时加载三条回路的名称数据，并从主、备副本中选择较新的有效副本。 */
 static void DeviceAliasLoad(void)
 {
     uint8_t index;
@@ -111,6 +124,7 @@ static void DeviceAliasLoad(void)
     g_alias_loaded = 1U;
 }
 
+/* 将指定回路的名称镜像先写备份区、校验后再刷新主区。成功返回1，否则返回0。 */
 static uint8_t DeviceAliasSaveLoop(uint8_t loop_id)
 {
     DeviceAliasLoopStorage *storage;
@@ -143,6 +157,7 @@ static uint8_t DeviceAliasSaveLoop(uint8_t loop_id)
     return 1U;
 }
 
+/* 校验名称是否非空、未超过13个字符，并且只包含中文、字母、数字或空格。 */
 DeviceAliasResult DeviceAlias_ValidateName(const uint8_t *name)
 {
     uint8_t index = 0U;
@@ -175,6 +190,10 @@ DeviceAliasResult DeviceAlias_ValidateName(const uint8_t *name)
     return DEVICE_ALIAS_OK;
 }
 
+/*
+ * 查询指定设备的中文名称。只有保存时的产品码与当前产品码一致才返回匹配，
+ * 从而避免设备更换后错误沿用旧名称。
+ */
 DeviceAliasLookupResult DeviceAlias_Get(uint8_t loop_id, uint8_t address,
                                         uint16_t product_code, uint8_t *name,
                                         uint8_t name_size)
@@ -196,6 +215,7 @@ DeviceAliasLookupResult DeviceAlias_Get(uint8_t loop_id, uint8_t address,
     return DEVICE_ALIAS_MATCH;
 }
 
+/* 设置并持久化单台设备的中文名称；写入失败时恢复修改前的内存数据。 */
 DeviceAliasResult DeviceAlias_Set(uint8_t loop_id, uint8_t address,
                                   uint16_t product_code, const uint8_t *name)
 {
@@ -230,6 +250,7 @@ DeviceAliasResult DeviceAlias_Set(uint8_t loop_id, uint8_t address,
     return DEVICE_ALIAS_OK;
 }
 
+/* 清除单台设备的中文名称；写入失败时恢复修改前的内存数据。 */
 DeviceAliasResult DeviceAlias_Clear(uint8_t loop_id, uint8_t address)
 {
     DeviceAliasRecord rollback_record;
@@ -256,6 +277,7 @@ DeviceAliasResult DeviceAlias_Clear(uint8_t loop_id, uint8_t address)
     return DEVICE_ALIAS_OK;
 }
 
+/* 清除三条回路保存的全部中文名称，并分别写入对应的主、备存储区。 */
 DeviceAliasResult DeviceAlias_ClearAll(void)
 {
     uint8_t loop_id;
@@ -277,6 +299,7 @@ DeviceAliasResult DeviceAlias_ClearAll(void)
     return DEVICE_ALIAS_OK;
 }
 
+/* 返回名称数据的内存修订号，供显示层判断是否需要重新刷新。 */
 uint32_t DeviceAlias_GetRevision(void)
 {
     return g_alias_revision;

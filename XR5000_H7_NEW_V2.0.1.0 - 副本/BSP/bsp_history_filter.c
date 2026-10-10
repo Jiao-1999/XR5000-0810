@@ -1,9 +1,9 @@
 /*
- * 画面78报警历史筛选。
+ * 历史报警与历史故障筛选模块。
  *
- * 本模块只读取既有报警Flash分区，不修改存储布局，也不参与实时报警处理。
- * 三个筛选条件（回路、日期、报警类型）均可独立使用；未选择时按“全部”处理。
- * 查询及翻页复用一个静态扇区缓存，避免在任务栈中申请大数组。
+ * 本文件为画面78提供报警历史筛选，为画面79提供故障历史筛选。模块只读取
+ * 既有Flash记录，不修改存储布局，也不参与实时报警和故障判定。回路、日期、
+ * 事件类型等条件可以独立组合；查询和翻页复用静态扇区缓存，避免占用任务栈。
  */
 
 #include "bsp_history_filter.h"
@@ -70,6 +70,7 @@ static const uint16_t g_time_ids[ALARM_FILTER_ROWS] = {26U, 27U, 28U, 29U, 30U, 
 static const uint16_t g_state_ids[ALARM_FILTER_ROWS] = {36U, 37U, 38U, 39U, 40U, 41U, 42U, 43U, 44U, 45U};
 static const uint16_t g_value_ids[ALARM_FILTER_ROWS] = {86U, 87U, 88U, 89U, 90U, 91U, 92U, 93U, 94U, 95U};
 
+/* 清空画面78的历史报警列表行。 */
 static void AlarmFilter_ClearRows(void)
 {
     uint8_t i;
@@ -83,6 +84,7 @@ static void AlarmFilter_ClearRows(void)
     }
 }
 
+/* 清除报警筛选结果、页码和扫描状态。 */
 static void AlarmFilter_ResetResult(void)
 {
     g_alarm_filter.query_valid = 0U;
@@ -94,11 +96,13 @@ static void AlarmFilter_ResetResult(void)
     clearTextValue(ALARM_FILTER_SCREEN_ID, ALARM_FILTER_MESSAGE_ID);
 }
 
+/* 判断指定年份是否为闰年。 */
 static uint8_t AlarmFilter_IsLeapYear(uint16_t year)
 {
     return (uint8_t)(((year % 400U) == 0U) || (((year % 4U) == 0U) && ((year % 100U) != 0U)));
 }
 
+/* 将YYYYMMDD文本解析为日期键，并校验年月日。 */
 static uint8_t AlarmFilter_ParseDatePart(const char *text, uint32_t *date_key)
 {
     static const uint8_t month_days[12] = {31U, 28U, 31U, 30U, 31U, 30U, 31U, 31U, 30U, 31U, 30U, 31U};
@@ -123,6 +127,7 @@ static uint8_t AlarmFilter_ParseDatePart(const char *text, uint32_t *date_key)
     return 1U;
 }
 
+/* 校验起止日期输入，并生成报警筛选使用的日期范围。 */
 static uint8_t AlarmFilter_ValidateDate(void)
 {
     size_t len = strlen(g_alarm_filter.date_text);
@@ -148,6 +153,7 @@ static uint8_t AlarmFilter_ValidateDate(void)
     return 1U;
 }
 
+/* 判断报警记录是否满足当前回路筛选条件。 */
 static uint8_t AlarmFilter_MatchLoop(const FlashSaveFireAlarm_t *record)
 {
     uint8_t cluster = record->fs_base.fs_detect_id.cluster_id;
@@ -158,6 +164,7 @@ static uint8_t AlarmFilter_MatchLoop(const FlashSaveFireAlarm_t *record)
     return 0U;
 }
 
+/* 判断报警记录是否满足当前报警类型筛选条件。 */
 static uint8_t AlarmFilter_MatchState(const FlashSaveFireAlarm_t *record)
 {
     uint8_t state = record->fs_base.state;
@@ -198,6 +205,7 @@ static uint8_t AlarmFilter_MatchState(const FlashSaveFireAlarm_t *record)
     return (uint8_t)(supported && group == g_alarm_filter.state_filter);
 }
 
+/* 判断报警记录日期是否位于当前起止日期范围内。 */
 static uint8_t AlarmFilter_MatchDate(const FlashSaveFireAlarm_t *record)
 {
     FlashSaveTime_t time_value = {0};
@@ -208,11 +216,13 @@ static uint8_t AlarmFilter_MatchDate(const FlashSaveFireAlarm_t *record)
     return (uint8_t)(key >= g_alarm_filter.date_begin && key <= g_alarm_filter.date_end);
 }
 
+/* 综合回路、报警类型和日期条件判断记录是否命中。 */
 static uint8_t AlarmFilter_Match(const FlashSaveFireAlarm_t *record)
 {
     return (uint8_t)(AlarmFilter_MatchLoop(record) && AlarmFilter_MatchState(record) && AlarmFilter_MatchDate(record));
 }
 
+/* 将报警记录格式化为回路、地址和设备类型说明。 */
 static void AlarmFilter_FormatDevice(const FlashSaveFireAlarm_t *record, uint8_t *buffer)
 {
     uint8_t cluster = record->fs_base.fs_detect_id.cluster_id;
@@ -225,6 +235,7 @@ static void AlarmFilter_FormatDevice(const FlashSaveFireAlarm_t *record, uint8_t
     else sprintf((char *)buffer, "\xCE\xB4\xD6\xAA\xC9\xE8\xB1\xB8");
 }
 
+/* 将报警状态码转换为界面使用的中文状态文字。 */
 static void AlarmFilter_FormatState(uint8_t state, uint8_t *buffer)
 {
     switch(state)
@@ -252,6 +263,7 @@ static void AlarmFilter_FormatState(uint8_t state, uint8_t *buffer)
     }
 }
 
+/* 将一条报警历史记录显示到画面78指定行。 */
 static void AlarmFilter_ShowRecord(uint8_t row, uint16_t serial, const FlashSaveFireAlarm_t *record)
 {
     uint8_t buffer[64] = {0};
@@ -275,6 +287,7 @@ static void AlarmFilter_ShowRecord(uint8_t row, uint16_t serial, const FlashSave
     }
 }
 
+/* 扫描报警Flash记录，筛选并显示当前页，返回本页记录数。 */
 static uint8_t AlarmFilter_ScanAndDisplay(void)
 {
     int16_t total = getFlashSaveDataNummber(FIRE_FLASH_SAVE);
@@ -326,6 +339,7 @@ static uint8_t AlarmFilter_ScanAndDisplay(void)
     return 1U;
 }
 
+/* 处理画面78进入通知，初始化筛选条件和显示。 */
 static void AlarmFilter_NotifyScreen(uint16_t screen_id)
 {
     if(screen_id != ALARM_FILTER_SCREEN_ID) return;
@@ -339,6 +353,7 @@ static void AlarmFilter_NotifyScreen(uint16_t screen_id)
     AlarmFilter_ResetResult();
 }
 
+/* 接收画面78的回路和报警类型菜单选择。 */
 static void AlarmFilter_NotifyMenu(uint16_t screen_id, uint16_t control_id, uint8_t item, uint8_t state)
 {
     static const uint8_t *loop_text[] = {(const uint8_t *)TEXT_ALL_LOOPS, (const uint8_t *)TEXT_LOOP1,
@@ -362,6 +377,7 @@ static void AlarmFilter_NotifyMenu(uint16_t screen_id, uint16_t control_id, uint
     }
 }
 
+/* 接收画面78的起始日期或结束日期文本。 */
 static void AlarmFilter_NotifyText(uint16_t screen_id, uint16_t control_id, const uint8_t *text)
 {
     if(screen_id != ALARM_FILTER_SCREEN_ID || control_id != ALARM_FILTER_DATE_TEXT_ID || text == NULL) return;
@@ -371,6 +387,7 @@ static void AlarmFilter_NotifyText(uint16_t screen_id, uint16_t control_id, cons
     SetTextValue(ALARM_FILTER_SCREEN_ID, ALARM_FILTER_DATE_TEXT_ID, (uint8_t *)g_alarm_filter.date_text);
 }
 
+/* 处理画面78的查询、翻页和返回按钮。 */
 static void AlarmFilter_NotifyButton(uint16_t screen_id, uint16_t control_id, uint8_t state)
 {
     uint16_t total_pages;
@@ -480,6 +497,7 @@ static void FaultFilter_ClearRows(void)
     }
 }
 
+/* 清除故障筛选结果、页码和扫描状态。 */
 static void FaultFilter_ResetResult(void)
 {
     g_fault_filter.query_valid = 0U;
@@ -491,11 +509,13 @@ static void FaultFilter_ResetResult(void)
     clearTextValue(FAULT_FILTER_SCREEN_ID, FAULT_FILTER_MESSAGE_ID);
 }
 
+/* 判断指定年份是否为闰年。 */
 static uint8_t FaultFilter_IsLeapYear(uint16_t year)
 {
     return (uint8_t)(((year % 400U) == 0U) || (((year % 4U) == 0U) && ((year % 100U) != 0U)));
 }
 
+/* 将YYYYMMDD文本解析为日期键，并校验年月日。 */
 static uint8_t FaultFilter_ParseDatePart(const char *text, uint32_t *date_key)
 {
     static const uint8_t month_days[12] = {31U, 28U, 31U, 30U, 31U, 30U, 31U, 31U, 30U, 31U, 30U, 31U};
@@ -520,6 +540,7 @@ static uint8_t FaultFilter_ParseDatePart(const char *text, uint32_t *date_key)
     return 1U;
 }
 
+/* 校验起止日期输入，并生成故障筛选使用的日期范围。 */
 static uint8_t FaultFilter_ValidateDate(void)
 {
     size_t len = strlen(g_fault_filter.date_text);
@@ -545,6 +566,7 @@ static uint8_t FaultFilter_ValidateDate(void)
     return 1U;
 }
 
+/* 判断记录是否属于回路设备故障，而不是主机系统故障。 */
 static uint8_t FaultFilter_IsLoopDevice(const FlashSaveDetectFault_t *record)
 {
     uint8_t cluster = record->fs_detect_id.cluster_id;
@@ -552,6 +574,7 @@ static uint8_t FaultFilter_IsLoopDevice(const FlashSaveDetectFault_t *record)
                      cluster == RS485_DETECT_FLASH_ID || cluster == IG3302_FLASH_ID);
 }
 
+/* 判断记录是否属于主电、备电等电源故障。 */
 static uint8_t FaultFilter_IsPower(const FlashSaveDetectFault_t *record)
 {
     uint8_t id = record->fs_detect_id.cabin_or_pack_id;
@@ -559,6 +582,7 @@ static uint8_t FaultFilter_IsPower(const FlashSaveDetectFault_t *record)
                      (id == SYS_MAIN_POWER_KEY_ID || id == SYS_BACK_POWER_KEY_ID));
 }
 
+/* 判断状态码是否属于传感器或设备状态故障。 */
 static uint8_t FaultFilter_IsSensorState(uint8_t state)
 {
     switch(state)
@@ -587,6 +611,7 @@ static uint8_t FaultFilter_IsSensorState(uint8_t state)
     }
 }
 
+/* 根据记录内容归类出画面79使用的故障类型。 */
 static uint8_t FaultFilter_GetType(const FlashSaveDetectFault_t *record)
 {
     if(FaultFilter_IsPower(record)) return FAULT_FILTER_TYPE_POWER;
@@ -596,6 +621,7 @@ static uint8_t FaultFilter_GetType(const FlashSaveDetectFault_t *record)
     return FAULT_FILTER_TYPE_OTHER;
 }
 
+/* 判断故障记录是否满足当前回路筛选条件。 */
 static uint8_t FaultFilter_MatchLoop(const FlashSaveDetectFault_t *record)
 {
     uint8_t cluster = record->fs_detect_id.cluster_id;
@@ -607,6 +633,7 @@ static uint8_t FaultFilter_MatchLoop(const FlashSaveDetectFault_t *record)
     return 0U;
 }
 
+/* 判断故障记录日期是否位于当前起止日期范围内。 */
 static uint8_t FaultFilter_MatchDate(const FlashSaveDetectFault_t *record)
 {
     FlashSaveTime_t time_value = {0};
@@ -617,6 +644,7 @@ static uint8_t FaultFilter_MatchDate(const FlashSaveDetectFault_t *record)
     return (uint8_t)(key >= g_fault_filter.date_begin && key <= g_fault_filter.date_end);
 }
 
+/* 综合回路、故障类型和日期条件判断记录是否命中。 */
 static uint8_t FaultFilter_Match(const FlashSaveDetectFault_t *record)
 {
     uint8_t type = FaultFilter_GetType(record);
@@ -624,6 +652,7 @@ static uint8_t FaultFilter_Match(const FlashSaveDetectFault_t *record)
                      (g_fault_filter.type_filter == FAULT_FILTER_TYPE_ALL || g_fault_filter.type_filter == type));
 }
 
+/* 将故障记录格式化为回路、地址和设备类型说明。 */
 static void FaultFilter_FormatDevice(const FlashSaveDetectFault_t *record, uint8_t *buffer)
 {
     uint8_t cluster = record->fs_detect_id.cluster_id;
@@ -652,6 +681,7 @@ static void FaultFilter_FormatDevice(const FlashSaveDetectFault_t *record, uint8
     else sprintf((char *)buffer, "\xCE\xB4\xD6\xAA\xC9\xE8\xB1\xB8");
 }
 
+/* 将故障或恢复状态转换为界面使用的中文状态文字。 */
 static void FaultFilter_FormatState(const FlashSaveDetectFault_t *record, uint8_t *buffer)
 {
     uint8_t state = record->state;
@@ -716,6 +746,7 @@ static void FaultFilter_FormatState(const FlashSaveDetectFault_t *record, uint8_
     }
 }
 
+/* 将一条故障历史记录显示到画面79指定行。 */
 static void FaultFilter_ShowRecord(uint8_t row, uint16_t serial, const FlashSaveDetectFault_t *record)
 {
     uint8_t buffer[64] = {0};
@@ -732,6 +763,7 @@ static void FaultFilter_ShowRecord(uint8_t row, uint16_t serial, const FlashSave
     SetTextValue(FAULT_FILTER_SCREEN_ID, g_fault_state_ids[row], buffer);
 }
 
+/* 扫描故障Flash记录，筛选并显示当前页，返回本页记录数。 */
 static uint8_t FaultFilter_ScanAndDisplay(void)
 {
     int16_t total = getFlashSaveDataNummber(FAULT_FLASH_SAVE);
@@ -783,6 +815,7 @@ static uint8_t FaultFilter_ScanAndDisplay(void)
                  (uint8_t *)(matched == 0U ? FAULT_TEXT_NO_RECORD : FAULT_TEXT_QUERY_DONE));
     return 1U;
 }
+/* 处理画面79进入通知，初始化筛选条件和显示。 */
 static void FaultFilter_NotifyScreen(uint16_t screen_id)
 {
     if(screen_id != FAULT_FILTER_SCREEN_ID) return;
@@ -795,6 +828,7 @@ static void FaultFilter_NotifyScreen(uint16_t screen_id)
     FaultFilter_ResetResult();
 }
 
+/* 接收画面79的回路和故障类型菜单选择。 */
 static void FaultFilter_NotifyMenu(uint16_t screen_id, uint16_t control_id, uint8_t item, uint8_t state)
 {
     static const uint8_t *loop_text[] = {(const uint8_t *)FAULT_TEXT_ALL_LOOPS, (const uint8_t *)FAULT_TEXT_LOOP1,
@@ -818,6 +852,7 @@ static void FaultFilter_NotifyMenu(uint16_t screen_id, uint16_t control_id, uint
     }
 }
 
+/* 接收画面79的起始日期或结束日期文本。 */
 static void FaultFilter_NotifyText(uint16_t screen_id, uint16_t control_id, const uint8_t *text)
 {
     if(screen_id != FAULT_FILTER_SCREEN_ID || control_id != FAULT_FILTER_DATE_FAULT_TEXT_ID || text == NULL) return;
@@ -827,6 +862,7 @@ static void FaultFilter_NotifyText(uint16_t screen_id, uint16_t control_id, cons
     SetTextValue(FAULT_FILTER_SCREEN_ID, FAULT_FILTER_DATE_FAULT_TEXT_ID, (uint8_t *)g_fault_filter.date_text);
 }
 
+/* 处理画面79的查询、翻页和返回按钮。 */
 static void FaultFilter_NotifyButton(uint16_t screen_id, uint16_t control_id, uint8_t state)
 {
     uint16_t total_pages;
@@ -867,18 +903,21 @@ void HistoryFilter_NotifyScreen(uint16_t screen_id)
     FaultFilter_NotifyScreen(screen_id);
 }
 
+/* 统一按钮入口：按画面ID分发查询、翻页和返回操作。 */
 void HistoryFilter_NotifyButton(uint16_t screen_id, uint16_t control_id, uint8_t state)
 {
     AlarmFilter_NotifyButton(screen_id, control_id, state);
     FaultFilter_NotifyButton(screen_id, control_id, state);
 }
 
+/* 统一文本入口：按画面ID分发起止日期输入。 */
 void HistoryFilter_NotifyText(uint16_t screen_id, uint16_t control_id, const uint8_t *text)
 {
     AlarmFilter_NotifyText(screen_id, control_id, text);
     FaultFilter_NotifyText(screen_id, control_id, text);
 }
 
+/* 统一菜单入口：按画面ID分发回路和事件类型选择。 */
 void HistoryFilter_NotifyMenu(uint16_t screen_id, uint16_t control_id, uint8_t item, uint8_t state)
 {
     AlarmFilter_NotifyMenu(screen_id, control_id, item, state);

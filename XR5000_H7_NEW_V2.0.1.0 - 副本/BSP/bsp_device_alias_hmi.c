@@ -1,3 +1,12 @@
+/*
+ * 设备中文名称画面适配模块。
+ *
+ * 本文件负责画面82与主机设备运行表、名称存储模块之间的交互：按五位设备编号
+ * 查询设备、显示设备类型和在线状态、遍历同一回路内可用设备，以及异步保存或
+ * 清除中文名称。界面只允许对当前已识别且通信有效的设备命名，不修改设备自身
+ * 的型号、地址、上线状态和其他业务属性。
+ */
+
 #include "bsp_device_alias.h"
 
 #include <stdio.h>
@@ -34,6 +43,7 @@ static DeviceAliasHmiWaitState g_alias_hmi_wait_state;
 static uint8_t g_alias_hmi_clear_confirm;
 static uint32_t g_alias_hmi_clear_tick;
 
+/* 将屏幕返回的文本安全复制到固定长度缓存，并保证字符串以0结尾。 */
 static void DeviceAliasHmiCopyText(uint8_t *destination, uint8_t size,
                                    const uint8_t *source)
 {
@@ -50,6 +60,7 @@ static void DeviceAliasHmiCopyText(uint8_t *destination, uint8_t size,
     destination[index] = 0U;
 }
 
+/* 根据回路和物理地址读取当前设备产品码；读取失败或回路无效时返回0。 */
 uint16_t DeviceAliasDevice_GetProductCode(uint8_t loop_id, uint8_t address)
 {
     switch(loop_id)
@@ -61,6 +72,7 @@ uint16_t DeviceAliasDevice_GetProductCode(uint8_t loop_id, uint8_t address)
     }
 }
 
+/* 判断设备是否已设置上线、已识别且当前通信正常，可否用于查询和命名。 */
 uint8_t DeviceAliasDevice_IsAvailable(uint8_t loop_id, uint8_t address)
 {
     if(address == 0U || address > DEVICE_ALIAS_MAX_ADDRESS) return 0U;
@@ -87,6 +99,7 @@ uint8_t DeviceAliasDevice_IsAvailable(uint8_t loop_id, uint8_t address)
     }
 }
 
+/* 获取指定设备在画面82中使用的中文类型名称。 */
 const char *DeviceAliasDevice_GetTypeText(uint8_t loop_id, uint8_t address)
 {
     if(loop_id == 1U)
@@ -105,6 +118,7 @@ const char *DeviceAliasDevice_GetTypeText(uint8_t loop_id, uint8_t address)
             case MBUS_CONTROL_DEV_XR2200: return "手动报警器";
             case MBUS_CONTROL_DEV_FIRE_DISPLAY: return "火灾显示盘";
             case MBUS_CONTROL_DEV_FCM1011: return "输入输出模块";
+            case MBUS_CONTROL_DEV_FCM1012: return "两路输出模块";
             case MBUS_CONTROL_DEV_FAN_BUTTON: return "风机启停按钮";
             default: return "未知设备";
         }
@@ -113,6 +127,7 @@ const char *DeviceAliasDevice_GetTypeText(uint8_t loop_id, uint8_t address)
     return "未知设备";
 }
 
+/* 解析“回路两位 + 地址三位”的五位设备编号，并校验回路及地址范围。 */
 static uint8_t DeviceAliasHmiParseCode(const uint8_t *text, uint8_t *loop_id,
                                        uint8_t *address)
 {
@@ -130,12 +145,14 @@ static uint8_t DeviceAliasHmiParseCode(const uint8_t *text, uint8_t *loop_id,
     return 1U;
 }
 
+/* 取消清除名称的二次确认状态，并恢复清除按钮文字。 */
 static void DeviceAliasHmiResetClearConfirmation(void)
 {
     g_alias_hmi_clear_confirm = 0U;
     SetTextValue(DEVICE_ALIAS_SCREEN_ID, 24U, (uint8_t *)"[ 清除名称 ]");
 }
 
+/* 在画面82显示设备不可用提示，同时清除当前有效设备上下文。 */
 static void DeviceAliasHmiShowUnavailable(void)
 {
     g_alias_hmi_device_valid = 0U;
@@ -150,6 +167,7 @@ static void DeviceAliasHmiShowUnavailable(void)
                  (uint8_t *)"设备未识别，请恢复通信后设置");
 }
 
+/* 查询并显示指定设备的回路、地址、类型、在线状态和已保存名称。 */
 static void DeviceAliasHmiShowCurrent(uint8_t loop_id, uint8_t address)
 {
     uint8_t text[40];
@@ -182,6 +200,7 @@ static void DeviceAliasHmiShowCurrent(uint8_t loop_id, uint8_t address)
         SetTextValue(DEVICE_ALIAS_SCREEN_ID, 15U, (uint8_t *)"未命名");
 }
 
+/* 处理设备编号查询：校验五位编号并刷新对应设备信息。 */
 static void DeviceAliasHmiProcessQuery(void)
 {
     uint8_t loop_id;
@@ -198,6 +217,7 @@ static void DeviceAliasHmiProcessQuery(void)
                  (uint8_t *)"注：最多允许13个字符");
 }
 
+/* 在当前查询回路的可用设备列表中循环切换上一台或下一台。 */
 static void DeviceAliasHmiStep(int8_t direction)
 {
     uint8_t list[DEVICE_ALIAS_MAX_ADDRESS];
@@ -233,6 +253,7 @@ static void DeviceAliasHmiStep(int8_t direction)
     DeviceAliasHmiShowCurrent(loop_id, selected);
 }
 
+/* 将名称保存结果转换为画面82上的中文提示，并在成功后刷新设备信息。 */
 static void DeviceAliasHmiShowSaveResult(DeviceAliasResult result)
 {
     switch(result)
@@ -261,6 +282,10 @@ static void DeviceAliasHmiShowSaveResult(DeviceAliasResult result)
     }
 }
 
+/*
+ * 画面82周期处理入口：完成页面初始化、确认超时，以及查询、保存、清除等
+ * 从触摸回调延后执行的操作；离开页面时清理临时交互状态。
+ */
 void DeviceAliasHmiScreenUpdate(uint16_t screen_id)
 {
     if(screen_id != DEVICE_ALIAS_SCREEN_ID)
@@ -341,6 +366,7 @@ void DeviceAliasHmiScreenUpdate(uint16_t screen_id)
     }
 }
 
+/* 处理画面82按钮事件，并把需要读取文本或写Flash的操作转换为异步请求。 */
 void DeviceAliasHmiButton(uint16_t screen_id, uint16_t control_id, uint8_t state)
 {
     if(screen_id != DEVICE_ALIAS_SCREEN_ID || state != 1U) return;
@@ -389,6 +415,7 @@ void DeviceAliasHmiButton(uint16_t screen_id, uint16_t control_id, uint8_t state
     }
 }
 
+/* 接收画面82文本控件返回值，并根据等待状态触发查询或保存。 */
 void DeviceAliasHmiText(uint16_t screen_id, uint16_t control_id,
                         const uint8_t *text)
 {

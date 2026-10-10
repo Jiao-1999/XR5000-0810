@@ -553,22 +553,19 @@ void clearOutFireKeyValue(void)
 	outfire_key_val = NO_MATRIX_KEY_PRESS;
 }
 
-uint8_t part1_hand_or_auto_state = KEY_AUTO;  // 默认自动
 uint8_t getPart1HandAutoState(void)
 {
-	return part1_hand_or_auto_state;
+	return (SystemSaveInfo.part1_hand_or_auto_state == KEY_MANUAL) ? KEY_MANUAL : KEY_AUTO;
 }
 
-uint8_t sys_hand_or_auto_state = KEY_AUTO;  // 默认自动
 uint8_t getSysHandAutoState(void)
 {
-	return sys_hand_or_auto_state;
+	return (SystemSaveInfo.system_hand_or_auto_state == KEY_MANUAL) ? KEY_MANUAL : KEY_AUTO;
 }
 
-uint8_t part2_hand_or_auto_state = KEY_AUTO;
 uint8_t getPart2HandAutoState(void)
 {
-	return part2_hand_or_auto_state;
+	return (SystemSaveInfo.part2_hand_or_auto_state == KEY_MANUAL) ? KEY_MANUAL : KEY_AUTO;
 }
 
 void InternalScreenBoradRecvDealTask(void * parameter)
