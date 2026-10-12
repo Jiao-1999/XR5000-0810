@@ -2749,7 +2749,10 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 			StorageEvent_ResetFirstFire();  /* [GB4717 B.1.2.2] 复位重置首警标志, 下次火警重新记首警 */
 			StorageEvent_LogReset();  /* [GB4717 B.1.1.1d] 复位操作(EVT 122) */
 			kaijiyanshi = (ONLINE_TIMEOUT > 6) ? (ONLINE_TIMEOUT - 6) : 0;
-			ResetAllBusDevice();
+			if(ResetAllBusDevice() != 0U)
+				SetTextValue(1U, 4U, "系统复位完成");
+			else
+				SetTextValue(1U, 4U, "系统复位发送异常");
 			return 1U;
 
 		case SIREN_KEY:
@@ -7801,6 +7804,12 @@ static void InternalScreenShowAllFault(uint8_t fresh_page_flag)
 							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 主电故障", temp_sequence_count,
 									pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
 									pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
+							break;
+						}
+						case SYS_RESET_COMM_FAULT_ID: {
+							sprintf((char*)baojingneirong, "%03d %d/%02d/%02d %02d:%02d:%02d 复位发送异常", temp_sequence_count,
+								pcfs[data_index].atr.years, pcfs[data_index].atr.months, pcfs[data_index].atr.days,
+								pcfs[data_index].atr.hours, pcfs[data_index].atr.minute, pcfs[data_index].atr.second);
 							break;
 						}
 						case SYS_BACK_POWER_KEY_ID : {

@@ -10,6 +10,10 @@
 
 // XR805从而总线该到485
 #include "bsp_mbus.h"
+#include "bsp_mbus_control.h"
+#include "bsp_rs485_detect.h"
+#include "bsp_can_monitor.h"
+#include "bsp_save_ctrl.h"
 
 #include "bsp_ctrl_bus.h"
 
@@ -118,57 +122,39 @@ extern void CurrentStartStopKeyStateInit(void);
 extern void OutFireSprayStateInit(void);
 extern void FanSendCountInit(void);
 
-extern void UartBufferInit(void);
+extern uint8_t creatNewFaultRecordToCache(uint8_t cluster_id, uint8_t pack_id, uint8_t cabin_id);
 
 
-//将二总线上的所有设备进行复位操作
-void ResetAllBusDevice(void)
+//由回路1~3和CAN各自的通信任务串行发送复位，然后执行主机软复位
+uint8_t ResetAllBusDevice(void)
 {
-	uint8_t modbusbuf[8]; // 发送缓冲区
-	uint8_t clear_queue[8];
-	
-	uint16_t crc16 = 0x0000; // CRC校验码
-	
-	taskENTER_CRITICAL(); // 进入临界区
-	
-	DeletUpdataUITask(); // 删除屏幕更新任务
-	
-	modbusbuf[0] = 0xFF; // 从机地址取值
-	modbusbuf[1] = 0x05; // 05功能码
-	modbusbuf[2] = 0x00;
-	modbusbuf[3] = 20;
-	modbusbuf[4] = 0xFF;
-	modbusbuf[5] = 0x00; // 
-	crc16 = CalcCrc16(modbusbuf, 6); // 计算六字节数据的CRC校验码
-	modbusbuf[6] = crc16 >> 0;
-	modbusbuf[7] = crc16 >> 8;
-	
-	// 循环读取直到队列为空
-	while(xQueueReceive(xMyRs485QueueHandle, clear_queue, 0) == pdTRUE)
+	uint32_t wait_started = osKernelGetTickCount();
+	uint8_t reset_ok;
+
+	MBus1ResetAllDevices();
+	MBusCtrl_RequestBroadcastReset();
+	RS485Detect_RequestBroadcastReset();
+	CanMonitorRequestReset();
+	for(;;)
 	{
-			// 什么也不做，只是清空数据
+		uint8_t loop1 = MBus1GetResetStatus();
+		uint8_t loop2 = MBusCtrl_GetBroadcastResetStatus();
+		uint8_t loop3 = RS485Detect_GetBroadcastResetStatus();
+		uint8_t can = CanMonitorGetResetStatus();
+		if(loop1 >= 2U && loop2 >= 2U && loop3 >= 2U && can >= 2U) break;
+		if((uint32_t)(osKernelGetTickCount() - wait_started) >= 3000U) break;
+		osDelay(10U);
 	}
-	
-	while(ReceiveDataFromFanBusQueue(clear_queue) == 1)
-	{
-			// 什么也不做，只是清空数据
-	}
-	
-	// 发送三次初始化
-	for(crc16 = 0;crc16 < 2;crc16++)
-	{
-		xQueueSend(xMyRs485QueueHandle, modbusbuf, 0); // 发送到队列
-		
-	}
-	
-	Fan1CtrlClose();
-	Fan2CtrlClose();
-	
-	taskEXIT_CRITICAL();
-	
-	osDelay(1000); // 等待发送任务发送复位命令
-	
+	reset_ok = (uint8_t)(MBus1GetResetStatus() == 2U &&
+		MBusCtrl_GetBroadcastResetStatus() == 2U &&
+		RS485Detect_GetBroadcastResetStatus() == 2U &&
+		CanMonitorGetResetStatus() == 2U);
+	if(reset_ok == 0U)
+		BspCommonDataSaveApp(FAULT_FLASH_SAVE, DISCONNECT,
+			LINKAGE_CLUSTER_ID, SYS_RESET_COMM_FAULT_ID);
+
 	taskENTER_CRITICAL();
+	DeletUpdataUITask();
 	
 	BspCmdProcessInit();
 	ClusterPackDisconnectCountInit(); // 清除包掉线值
@@ -179,13 +165,15 @@ void ResetAllBusDevice(void)
 	OutFireSprayStateInit();
 	FanSendCountInit();
 	
-	UartBufferInit();
-	
 	CreatUpdataUITask(); // 重新创建屏幕更新任务
 	
 //	ReadPointTypeSetOnlieState();
 	
 	taskEXIT_CRITICAL();
+	if(reset_ok == 0U)
+		(void)creatNewFaultRecordToCache(LINKAGE_CLUSTER_ID,
+			SYS_RESET_COMM_FAULT_ID, DISCONNECT);
+	return reset_ok;
 }
 
 

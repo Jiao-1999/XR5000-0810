@@ -429,9 +429,13 @@ static uint32_t g_mbus1_last_isolator_poll_tick[MBUS1_DEVICE_MAX_ADDR + 1U] = {0
 static uint8_t g_mbus1_retry_addr = 0U;
 static volatile uint8_t g_mbus1_bus_locked = 0U;
 #define MBUS1_INTER_FRAME_GUARD_MS 50U
+#define MBUS1_RESET_GRACE_MS 3000U
 #define MBUS1_ISOLATOR_POLL_INTERVAL_MS 500U
 static uint32_t g_mbus1_last_rx_tick = 0U;
 static uint8_t g_mbus1_rx_guard_active = 0U;
+static volatile uint8_t g_mbus1_reset_requested = 0U;
+static volatile uint8_t g_mbus1_reset_status = 0U;
+static uint32_t g_mbus1_reset_grace_until = 0U;
 
 static uint8_t MBus1InterFrameGuardElapsed(void)
 {
@@ -929,46 +933,41 @@ void MBus1ReceiveSlaveDataDeal(void)
 
 void MBus1ResetAllDevices(void)
 {
-    uint8_t reset_command[8] = {0xFFU, 0x05U, 0x00U, 0x03U, 0xFFU, 0x00U, 0U, 0U};
-    uint16_t crc16 = CalcCrc16(reset_command, 6U);
-    uint32_t wait_tick = osKernelGetTickCount();
-    reset_command[6] = (uint8_t)(crc16 & 0xFFU);
-    reset_command[7] = (uint8_t)(crc16 >> 8);
-
-    /* XR5000_LOOP1_100_DEVICE_TRANSACTION_20260730: serialize reset with the UART7 poll transaction. */
     taskENTER_CRITICAL();
-    g_mbus1_bus_locked = 1U;
-    taskEXIT_CRITICAL();
-    while(g_mbus1_transaction_pending != 0U &&
-          (osKernelGetTickCount() - wait_tick) <= (MIXTURE_DEVICE_RESPONSE_TIMEOUT_MS + 40U))
-    {
-        osDelay(1U);
-    }
-
-    if(g_mbus1_transaction_threshold != 0U)
-        DeviceThreshold_HandleTimeoutForLoop(1U);
-    taskENTER_CRITICAL();
-    if(g_mbus1_registration_probe != 0U)
-    {
-        DeviceReg_CancelProbe(DEVICE_REG_LOOP1, g_mbus1_transaction_addr);
-        g_mbus1_registration_probe = 0U;
-    }
-    g_mbus1_transaction_pending = 0U; g_mbus1_transaction_addr = 0U;
-    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
-    g_mbus1_transaction_threshold = 0U;
-    g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
-    taskEXIT_CRITICAL();
-    uartbuff[MBUS1SITE].recepetion_flag = 0U; uartbuff[MBUS1SITE].recepetion_len = 0U;
-    HAL_UART_Transmit(&huart7, reset_command, sizeof(reset_command), 30U);
-    osDelay(MBUS1_INTER_FRAME_GUARD_MS);
-    HAL_UART_Transmit(&huart7, reset_command, sizeof(reset_command), 30U);
-    g_mbus1_last_rx_tick = osKernelGetTickCount();
-    g_mbus1_rx_guard_active = 1U;
-
-    taskENTER_CRITICAL();
-    g_mbus1_bus_locked = 0U;
+    g_mbus1_reset_status = 1U;
+    g_mbus1_reset_requested = 1U;
     taskEXIT_CRITICAL();
 }
+
+uint8_t MBus1GetResetStatus(void)
+{
+    return g_mbus1_reset_status;
+}
+
+static void MBus1ServiceReset(void)
+{
+    uint8_t reset_command[8] = {0xFFU, 0x05U, 0x00U, 0x2AU, 0xFFU, 0x00U, 0U, 0U};
+    uint16_t crc16;
+    HAL_StatusTypeDef first_status;
+    HAL_StatusTypeDef second_status;
+
+    if(g_mbus1_reset_requested == 0U || g_mbus1_transaction_pending != 0U) return;
+    crc16 = CalcCrc16(reset_command, 6U);
+    reset_command[6] = (uint8_t)(crc16 & 0xFFU);
+    reset_command[7] = (uint8_t)(crc16 >> 8);
+    g_mbus1_bus_locked = 1U;
+    uartbuff[MBUS1SITE].recepetion_flag = 0U; uartbuff[MBUS1SITE].recepetion_len = 0U;
+    first_status = HAL_UART_Transmit(&huart7, reset_command, sizeof(reset_command), 30U);
+    osDelay(MBUS1_INTER_FRAME_GUARD_MS);
+    second_status = HAL_UART_Transmit(&huart7, reset_command, sizeof(reset_command), 30U);
+    g_mbus1_last_rx_tick = osKernelGetTickCount();
+    g_mbus1_rx_guard_active = 1U;
+    g_mbus1_reset_grace_until = g_mbus1_last_rx_tick + MBUS1_RESET_GRACE_MS;
+    g_mbus1_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
+    g_mbus1_reset_requested = 0U;
+    g_mbus1_bus_locked = 0U;
+}
+
 void MBus1PollSlaveAndReceiveTask(void* parameter)
 {
     (void)parameter;
@@ -976,6 +975,12 @@ void MBus1PollSlaveAndReceiveTask(void* parameter)
     {
         MBus1ReceiveSlaveDataDeal();
         MBus1MarkTimeout();
+        MBus1ServiceReset();
+        if((int32_t)(osKernelGetTickCount() - g_mbus1_reset_grace_until) < 0)
+        {
+            osDelay(MIXTURE_DEVICE_TASK_INTERVAL_MS);
+            continue;
+        }
         if(g_mbus1_bus_locked == 0U && g_mbus1_transaction_pending == 0U &&
            MBus1InterFrameGuardElapsed() != 0U)
         {

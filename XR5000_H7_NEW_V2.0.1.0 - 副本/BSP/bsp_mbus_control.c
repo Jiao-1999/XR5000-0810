@@ -54,6 +54,9 @@ static uint8_t g_mbus2_rx_chunk[64U];
 static uint16_t g_mbus2_rx_frame_len = 0U;
 static uint8_t g_mbus2_tx_request[17U];
 static uint8_t g_mbus2_tx_request_len = 0U;
+static volatile uint8_t g_mbus2_reset_requested = 0U;
+static volatile uint8_t g_mbus2_reset_status = 0U;
+static uint32_t g_mbus2_reset_grace_until = 0U;
 #define MBUS_NORMAL_POLL_RECOVERY_THRESHOLD      2U
 static uint8_t g_mbus_poll_recovery_count[MBUS_CONTROL_MAX_DEVICES];
 #define MBUS_SGBJQ_SOUND_COIL_ADDR             0x0018U
@@ -210,6 +213,42 @@ static HAL_StatusTypeDef MBusCtrl_SendFrame(const uint8_t *frame, uint8_t length
     status = MBus2SendString((uint8_t *)frame, length);
     if(status != HAL_OK) g_mbus2_tx_request_len = 0U;
     return status;
+}
+
+void MBusCtrl_RequestBroadcastReset(void)
+{
+    taskENTER_CRITICAL();
+    g_mbus2_reset_status = 1U;
+    g_mbus2_reset_requested = 1U;
+    taskEXIT_CRITICAL();
+}
+
+uint8_t MBusCtrl_GetBroadcastResetStatus(void)
+{
+    return g_mbus2_reset_status;
+}
+
+static void MBusCtrl_ServiceBroadcastReset(void)
+{
+    uint8_t frame[8] = {0xFFU, 0x05U, 0x00U, 0x2AU, 0xFFU, 0x00U, 0U, 0U};
+    uint16_t crc;
+    HAL_StatusTypeDef first_status;
+    HAL_StatusTypeDef second_status;
+
+    if(g_mbus2_reset_requested == 0U || g_mbus_poll_wait_response != 0U ||
+       g_control_wait_response != 0U || g_fire_display_wait_response != 0U) return;
+    crc = CalcCrc16(frame, 6U);
+    frame[6] = (uint8_t)crc;
+    frame[7] = (uint8_t)(crc >> 8);
+    first_status = MBusCtrl_SendFrame(frame, sizeof(frame));
+    osDelay(50U);
+    second_status = MBusCtrl_SendFrame(frame, sizeof(frame));
+    g_mbus2_tx_request_len = 0U;
+    g_mbus2_last_rx_tick = osKernelGetTickCount();
+    g_mbus2_rx_guard_active = 1U;
+    g_mbus2_reset_grace_until = g_mbus2_last_rx_tick + 3000U;
+    g_mbus2_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
+    g_mbus2_reset_requested = 0U;
 }
 /* ============================================================
  * 火灾显示盘事件处理: 10功能码写多寄存器, 环形队列+重试机制
@@ -940,6 +979,9 @@ void MBusCtrl_Init(void)
     g_mbus_priority_yield_pending = 0U;
     g_mbus2_rx_frame_len = 0U;
     g_mbus2_tx_request_len = 0U;
+    g_mbus2_reset_requested = 0U;
+    g_mbus2_reset_status = 0U;
+    g_mbus2_reset_grace_until = 0U;
     g_fixed_detector_fire_active = 0U;
     g_fixed_manual_fire_active = 0U;
     MBus2UartClearRx();
@@ -2044,6 +2086,12 @@ void MBusControlPollSlaveAndReceiveTask(void* parameter)
         }
         if(g_mbus2_rx_guard_active != 0U &&
            (uint32_t)(osKernelGetTickCount() - g_mbus2_last_rx_tick) < MBUS2_INTER_FRAME_GUARD_MS)
+        {
+            osDelay(20);
+            continue;
+        }
+        MBusCtrl_ServiceBroadcastReset();
+        if((int32_t)(osKernelGetTickCount() - g_mbus2_reset_grace_until) < 0)
         {
             osDelay(20);
             continue;

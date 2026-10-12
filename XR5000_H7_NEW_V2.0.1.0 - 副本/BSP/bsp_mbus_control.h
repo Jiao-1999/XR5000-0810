@@ -168,6 +168,8 @@ MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request); /* 唯一正式控制
 MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr);                 /* 查询指定地址最近一次控制执行状态 */
 /* 回路1/3固定温烟火警汇总；火警期间声光强制启动，恢复后回到逻辑编程目标。 */
 void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active);
+void MBusCtrl_RequestBroadcastReset(void);
+uint8_t MBusCtrl_GetBroadcastResetStatus(void);
 
 /* ---- Flash持久化 ---- */
 void MBusCtrl_SaveOnlineState(void);                 /* 将在线状态表保存到Flash(0x110000) */

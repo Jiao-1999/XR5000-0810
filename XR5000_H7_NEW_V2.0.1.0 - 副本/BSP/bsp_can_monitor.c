@@ -43,6 +43,8 @@ typedef struct
 } CanMonitorContext_t;
 
 static CanMonitorContext_t g_can_monitor;
+static volatile uint8_t g_can_monitor_reset_requested;
+static volatile uint8_t g_can_monitor_reset_status;
 
 typedef struct
 {
@@ -78,6 +80,9 @@ static const uint8_t g_can_monitor_reset_item_text[CAN_MONITOR_NAME_ALL_ITEM + 1
 };
 static const uint8_t g_can_monitor_query[8] = {
     CAN_MONITOR_COMMAND, CAN_MONITOR_DEVICE_ID, 0U, 0U, 0U, 0U, 0U, 0U
+};
+static const uint8_t g_can_monitor_reset[8] = {
+    0x12U, 0x01U, 0x01U, 0U, 0U, 0U, 0U, 0U
 };
 
 typedef struct
@@ -256,12 +261,45 @@ static void CanMonitorHandleFrame(const FdcanFrame_t *frame)
     taskEXIT_CRITICAL();
 }
 
+void CanMonitorRequestReset(void)
+{
+    taskENTER_CRITICAL();
+    g_can_monitor_reset_status = 1U;
+    g_can_monitor_reset_requested = 1U;
+    taskEXIT_CRITICAL();
+}
+
+uint8_t CanMonitorGetResetStatus(void)
+{
+    return g_can_monitor_reset_status;
+}
+
+static void CanMonitorServiceReset(void)
+{
+    HAL_StatusTypeDef first_status;
+    HAL_StatusTypeDef second_status;
+    if(g_can_monitor_reset_requested == 0U) return;
+    g_can_monitor.awaiting_response = 0U;
+    first_status = FDCAN1_SendExtDataFrame(CAN_MONITOR_IDENTIFIER,
+                                           (uint8_t *)g_can_monitor_reset, 8U);
+    osDelay(50U);
+    second_status = FDCAN1_SendExtDataFrame(CAN_MONITOR_IDENTIFIER,
+                                            (uint8_t *)g_can_monitor_reset, 8U);
+    g_can_monitor.last_query_tick = osKernelGetTickCount();
+    g_can_monitor.query_started = 1U;
+    g_can_monitor_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
+    g_can_monitor_reset_requested = 0U;
+}
+
 void CanMonitorProcess(void)
 {
     FdcanFrame_t frame;
     uint32_t now = osKernelGetTickCount();
 
     if(Fdcan1Receive(&frame) != 0U) CanMonitorHandleFrame(&frame);
+    CanMonitorServiceReset();
+    if(g_can_monitor_reset_status == 1U) return;
+    now = osKernelGetTickCount();
 
     if(g_can_monitor.awaiting_response != 0U &&
        (uint32_t)(now - g_can_monitor.query_tick) >= CAN_MONITOR_TIMEOUT_MS)
@@ -289,6 +327,8 @@ void CanMonitorTask(void *parameter)
 {
     (void)parameter;
     memset(&g_can_monitor, 0, sizeof(g_can_monitor));
+    g_can_monitor_reset_requested = 0U;
+    g_can_monitor_reset_status = 0U;
     for(;;)
     {
         CanMonitorProcess();

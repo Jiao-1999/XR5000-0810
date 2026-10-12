@@ -671,6 +671,7 @@ static void FaultFilter_FormatDevice(const FlashSaveDetectFault_t *record, uint8
             case SYS_MAIN_POWER_KEY_ID: sprintf((char *)buffer, "\xD6\xF7\xB5\xE7\xD4\xB4"); break;
             case SYS_BACK_POWER_KEY_ID: sprintf((char *)buffer, "\xB1\xB8\xB5\xE7\xB3\xD8"); break;
             case SYS_FLASH_FAULT_ID: sprintf((char *)buffer, "Flash"); break;
+            case SYS_RESET_COMM_FAULT_ID: sprintf((char *)buffer, "系统复位通信"); break;
             case SoundLt_Package_ID: sprintf((char *)buffer, "\xC9\xF9\xB9\xE2\xB1\xA8\xBE\xAF\xC6\xF7"); break;
             case SirenBk_Package_ID: sprintf((char *)buffer, "\xBE\xAF\xB5\xD1/\xB1\xB8\xD3\xC3"); break;
             case OutFir1_Package_ID: sprintf((char *)buffer, "\xC3\xF0\xBB\xF0\xD7\xB0\xD6\xC3" "1"); break;
@@ -685,6 +686,12 @@ static void FaultFilter_FormatDevice(const FlashSaveDetectFault_t *record, uint8
 static void FaultFilter_FormatState(const FlashSaveDetectFault_t *record, uint8_t *buffer)
 {
     uint8_t state = record->state;
+    if(record->fs_detect_id.cluster_id == LINKAGE_CLUSTER_ID &&
+       record->fs_detect_id.cabin_or_pack_id == SYS_RESET_COMM_FAULT_ID)
+    {
+        sprintf((char *)buffer, "复位发送异常");
+        return;
+    }
     if(FaultFilter_IsPower(record))
     {
         if(record->fs_detect_id.cabin_or_pack_id == SYS_MAIN_POWER_KEY_ID)
