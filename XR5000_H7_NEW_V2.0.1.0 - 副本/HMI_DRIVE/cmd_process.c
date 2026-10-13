@@ -1787,6 +1787,7 @@ static const char* GetMBusDeviceChineseName(uint8_t addr)
 		case MBUS_CONTROL_DEV_FCM1011: return "\xCA\xE4\xC8\xEB\xCA\xE4\xB3\xF6\xC4\xA3\xBF\xE9";
 		case MBUS_CONTROL_DEV_FCM1012: return "两路输出模块";
 		case MBUS_CONTROL_DEV_FAN_BUTTON: return "\xB7\xE7\xBB\xFA\xC6\xF4\xCD\xA3\xB0\xB4\xC5\xA5";
+		case MBUS_CONTROL_DEV_SPRAY_BUTTON: return "\xC3\xF0\xBB\xF0\xD7\xB0\xD6\xC3\xC6\xF4\xCD\xA3\xB0\xB4\xC5\xA5";
 		default: return "未知设备";
 	}
 }
@@ -2161,7 +2162,8 @@ static void FormatScreen69DetectorText(uint8_t circuit, uint8_t addr, uint8_t *b
 			}
 			else
 			{
-				if(MBusCtrl_GetDeviceType(addr) == MBUS_CONTROL_DEV_FAN_BUTTON)
+				if(MBusCtrl_GetDeviceType(addr) == MBUS_CONTROL_DEV_FAN_BUTTON ||
+				   MBusCtrl_GetDeviceType(addr) == MBUS_CONTROL_DEV_SPRAY_BUTTON)
 					status_str = MBusCtrl_GetDeviceState(addr) != 0U ? "\xC6\xF4\xB6\xAF" : "\xBC\xE0\xCA\xD3";
 				else
 					status_str = MBusCtrl_IsAlarmState(addr) ? "报警" : "正常";
@@ -12457,6 +12459,11 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 								sprintf((char *)show_buff, "反馈1");
 							}
 						}
+						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id == MBUS_CONTROL_FLASH_ID)
+						{
+							sprintf((char *)show_buff, "第2回路 %d号",
+								read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cabin_or_pack_id);
+						}
 						else if(read_data[x_sector].fs_gas_outfires[data_index].fs_detect_id.cluster_id != 0)
 						{
 							sprintf((char *)show_buff, "第%d簇%dpack", 
@@ -12543,6 +12550,15 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 								break;
 							case OUTFIRE_FEEDBACK1:
 								sprintf((char *)show_buff, "反馈1触发");
+								break;
+							case SPRAY_EMERGENCY_START:
+								sprintf((char *)show_buff, "紧急喷洒启动");
+								break;
+							case SPRAY_EMERGENCY_STOP:
+								sprintf((char *)show_buff, "紧急喷洒停止");
+								break;
+							case SPRAY_OUTPUT_START:
+								sprintf((char *)show_buff, "喷洒启动");
 								break;
 							default:
 								sprintf((char *)show_buff,"未知状态");

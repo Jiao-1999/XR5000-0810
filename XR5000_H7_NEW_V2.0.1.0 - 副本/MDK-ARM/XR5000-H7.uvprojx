@@ -1050,6 +1050,11 @@
               <FilePath>..\BSP\bsp_mbus_control.c</FilePath>
             </File>
             <File>
+              <FileName>bsp_spray_output_policy.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_spray_output_policy.c</FilePath>
+            </File>
+            <File>
               <FileName>bsp_device_registry.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\bsp_device_registry.c</FilePath>

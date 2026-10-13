@@ -120,6 +120,7 @@ const char *DeviceAliasDevice_GetTypeText(uint8_t loop_id, uint8_t address)
             case MBUS_CONTROL_DEV_FCM1011: return "输入输出模块";
             case MBUS_CONTROL_DEV_FCM1012: return "两路输出模块";
             case MBUS_CONTROL_DEV_FAN_BUTTON: return "风机启停按钮";
+            case MBUS_CONTROL_DEV_SPRAY_BUTTON: return "灭火装置启停按钮";
             default: return "未知设备";
         }
     }

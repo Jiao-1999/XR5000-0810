@@ -49,6 +49,7 @@ typedef enum {
     MBUS_CONTROL_DEV_FCM1011 = 6,
     MBUS_CONTROL_DEV_FAN_BUTTON = 7, /* 风机启停按钮，内部产品码18 */
     MBUS_CONTROL_DEV_FCM1012 = 8,    /* FCM-1012两路有源输出模块 */
+    MBUS_CONTROL_DEV_SPRAY_BUTTON = 9, /* 灭火装置启停按钮，内部产品码19 */
 } MBusCtrlDevType;
 
 /* FCM-1011输入触点经上线学习和运行消抖后的查询状态。 */
