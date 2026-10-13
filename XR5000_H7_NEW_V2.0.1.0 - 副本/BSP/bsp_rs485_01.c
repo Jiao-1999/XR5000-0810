@@ -111,6 +111,7 @@ void PackBehaviorManageSendString(uint8_t* buf, uint8_t len)
 }
 
 extern void BspCmdProcessInit(void);
+extern void BspBeepStateClear(void);
 extern void LinkageDeviceStateInit(void);
 extern void BspRelayInit(void);
 extern void LedStateInit(void);
@@ -157,6 +158,7 @@ uint8_t ResetAllBusDevice(void)
 	DeletUpdataUITask();
 	
 	BspCmdProcessInit();
+	BspBeepStateClear(); /* Clear all buzzer sources during system reset. */
 	ClusterPackDisconnectCountInit(); // 清除包掉线值
 	LinkageDeviceStateInit();
 	BspRelayInit(); // 继电器初始化
