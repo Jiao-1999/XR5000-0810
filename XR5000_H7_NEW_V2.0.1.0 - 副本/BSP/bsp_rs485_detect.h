@@ -120,6 +120,8 @@ uint16_t RS485Detect_GetSensorEnable(uint8_t addr);               /* »ñÈ¡´«¸ĞÆ÷Æ
 uint8_t  RS485Detect_IsOnline(uint8_t addr);                      /* ÅĞ¶ÏÊÇ·ñÕæÕıÔÚÏß(ÉÏÏßÇÒÎ´µôÏß) */
 uint8_t  RS485Detect_HasSensorData(uint8_t addr);                 /* ÊÇ·ñÒÑÊÕµ½ÓĞĞ§´«¸ĞÆ÷Êı¾İ */
 uint8_t  RS485Detect_HasSensorEnableData(uint8_t addr);           /* ÊÇ·ñÒÑÈ·ÈÏ´«¸ĞÆ÷ÆôÓÃ×´Ì¬ */
+void RS485Detect_RequestBroadcastReset(void);
+uint8_t RS485Detect_GetBroadcastResetStatus(void);
 
 /* ---- Flash³Ö¾Ã»¯ ---- */
 void RS485Detect_SaveOnlineState(void);  /* ½«ÔÚÏß×´Ì¬±í±£´æµ½Flash(0x10F000) */

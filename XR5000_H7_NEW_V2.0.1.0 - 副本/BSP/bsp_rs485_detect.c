@@ -88,6 +88,9 @@ static uint8_t g_rx_frame[64];
 static uint8_t g_rx_chunk[64];
 static uint8_t g_transaction_request[8];
 static uint16_t g_rx_frame_len = 0U;
+static volatile uint8_t g_reset_requested = 0U;
+static volatile uint8_t g_reset_status = 0U;
+static uint32_t g_reset_grace_until = 0U;
 static uint8_t g_identify_fail_count[RS485_DETECT_MAX_DEVICES];
 static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
 #define RS485_IDENTIFY_FAIL_THRESHOLD 3U
@@ -1130,6 +1133,42 @@ uint8_t RS485Detect_HasSensorEnableData(uint8_t addr)
     return g_devices[addr].sensor_enable_confirmed;
 }
 
+void RS485Detect_RequestBroadcastReset(void)
+{
+    taskENTER_CRITICAL();
+    g_reset_status = 1U;
+    g_reset_requested = 1U;
+    taskEXIT_CRITICAL();
+}
+
+uint8_t RS485Detect_GetBroadcastResetStatus(void)
+{
+    return g_reset_status;
+}
+
+static void RS485Detect_ServiceBroadcastReset(void)
+{
+    uint8_t frame[8] = {0xFFU, 0x05U, 0x00U, 0x2AU, 0xFFU, 0x00U, 0U, 0U};
+    uint16_t crc;
+    HAL_StatusTypeDef first_status;
+    HAL_StatusTypeDef second_status;
+
+    if(g_reset_requested == 0U || g_transaction_pending != 0U) return;
+    crc = CalcCrc16(frame, 6U);
+    frame[6] = (uint8_t)crc;
+    frame[7] = (uint8_t)(crc >> 8);
+    RS485DetectUartClearRx();
+    g_rx_frame_len = 0U;
+    first_status = HAL_UART_Transmit(&huart5, frame, sizeof(frame), 30U);
+    osDelay(50U);
+    second_status = HAL_UART_Transmit(&huart5, frame, sizeof(frame), 30U);
+    (void)RS485DetectUartEnsureRx();
+    g_last_transaction_end_tick = osKernelGetTickCount();
+    g_reset_grace_until = g_last_transaction_end_tick + 3000U;
+    g_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
+    g_reset_requested = 0U;
+}
+
 /* ============================================================
  * RTOS轮询任务: 主循环→接收处理→超时检测→定时轮询, 间隔10ms
  * ============================================================ */
@@ -1147,8 +1186,14 @@ void RS485DetectPollAndReceiveTask(void *parameter)
         process_transaction_tx_state();
         receive_data_deal();
         mark_transaction_timeout();
+        RS485Detect_ServiceBroadcastReset();
 
         current_tick = osKernelGetTickCount();
+        if((int32_t)(current_tick - g_reset_grace_until) < 0)
+        {
+            osDelay(RS485_DETECT_TASK_INTERVAL_MS);
+            continue;
+        }
         if (g_transaction_pending == 0U &&
             (current_tick - g_last_poll_time) >= RS485_DETECT_POLL_INTERVAL_MS &&
             (current_tick - g_last_transaction_end_tick) >= RS485_DETECT_INTER_FRAME_GUARD_MS)

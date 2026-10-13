@@ -435,7 +435,7 @@ void HostUploadDataTask(void *parameter)
 				uint8_t data_count = 0;
 				modbusbuf[data_count++] = InternalBoardAddr;
 				modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
-				modbusbuf[data_count++] = 6;  // 返回的字节数
+				modbusbuf[data_count++] = 7;  // 返回的字节数
 				
 				for(uint8_t i = 0; i < 5; i++)
 				{
@@ -462,7 +462,7 @@ void HostUploadDataTask(void *parameter)
 				
 				modbusbuf[data_count++] = InternalBoardAddr;
 				modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
-				modbusbuf[data_count++] = 6;  // 返回的字节数
+				modbusbuf[data_count++] = 7;  // 返回的字节数
 				
 				getLedStateReg(led_reg_state, 5);
 				
@@ -493,7 +493,7 @@ void HostUploadDataTask(void *parameter)
 				uint8_t data_count = 0;
 				modbusbuf[data_count++] = InternalBoardAddr;
 				modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
-				modbusbuf[data_count++] = 6;  // 返回的字节数
+				modbusbuf[data_count++] = 7;  // 返回的字节数
 				
 				for(uint8_t i = 0; i < 5; i++)
 				{

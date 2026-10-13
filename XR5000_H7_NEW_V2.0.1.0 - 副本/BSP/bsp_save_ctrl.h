@@ -128,6 +128,7 @@ typedef enum
 	GENERAL_IOPUT_ISOLATE_OUTPUT_ID_3 = 23,	// 通用隔离输出3号
 	GENERAL_IOPUT_ISOLATE_OUTPUT_ID_4 = 24, /* general output 4 */
 	SYS_CHECK_Package_ID = 25, /* XR5000_CHECK_CHANGE_20260804: system check operation record ID. */
+	SYS_RESET_COMM_FAULT_ID = 26, /* 总复位指令在某条通信总线上两次发送均失败。 */
 
 }LinkagePackage_Id;
 

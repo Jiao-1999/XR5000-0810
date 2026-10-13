@@ -40,7 +40,7 @@ void QueuePollSlaveTesk(void* parameter);
 
 void QueuePollRecvDealTask(void *parameter);
 
-void ResetAllBusDevice(void);
+uint8_t ResetAllBusDevice(void);
 
 void PollPackManager(void);
 void PollXR805Manager(void);
