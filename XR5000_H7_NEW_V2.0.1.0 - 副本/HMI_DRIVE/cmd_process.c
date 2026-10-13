@@ -749,6 +749,18 @@ uint8_t cluster_solenoid_valve_start_state = 0;
 
 static uint8_t screen_fresh_num = 0;
 
+typedef enum
+{
+	RESET_HOME_TEXT_IDLE = 0,
+	RESET_HOME_TEXT_IN_PROGRESS,
+	RESET_HOME_TEXT_RESULT_HOLD
+} ResetHomeTextState_t;
+
+#define RESET_HOME_TEXT_RESULT_HOLD_TICKS 2000U
+
+static volatile ResetHomeTextState_t reset_home_text_state = RESET_HOME_TEXT_IDLE;
+static uint32_t reset_home_text_result_tick = 0U;
+
 extern uint8_t fire_alarm_state;
 extern uint8_t disconnect_state;
 extern uint8_t silencers_state;
@@ -2723,6 +2735,7 @@ static void HmiOpenProtectedPage(AccessLevel_t level, uint16_t target_screen)
 
 static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 {
+	uint8_t reset_result;
 	switch(action)
 	{
 		case SELFCHECK_KEY:
@@ -2738,10 +2751,11 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 			return 1U;
 
 		case RESET_KEY:
+			reset_home_text_state = RESET_HOME_TEXT_IN_PROGRESS;
 			SetScreen(1U);
 			osDelay(5);
 			GetScreen();
-			SetTextValue(1U, 4U, "控制器复位中...请稍候...");
+			SetTextValue(1U, 4U, "系统复位中，请稍候...");
 			BspCommonDataSaveApp(OTHER_FLASH_SAVE, OTHER_SYS_RESET, LINKAGE_CLUSTER_ID, SYS_RESET_Package_ID);
 			/* [试验 TST-B.2.3] 复位操作: 执行复位 -> 导出查记录
 			 *   判据: (1)产生 EVT 122 记录, 时间戳为操作时刻;
@@ -2749,10 +2763,13 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 			StorageEvent_ResetFirstFire();  /* [GB4717 B.1.2.2] 复位重置首警标志, 下次火警重新记首警 */
 			StorageEvent_LogReset();  /* [GB4717 B.1.1.1d] 复位操作(EVT 122) */
 			kaijiyanshi = (ONLINE_TIMEOUT > 6) ? (ONLINE_TIMEOUT - 6) : 0;
-			if(ResetAllBusDevice() != 0U)
+			reset_result = ResetAllBusDevice();
+			reset_home_text_result_tick = osKernelGetTickCount();
+			reset_home_text_state = RESET_HOME_TEXT_RESULT_HOLD;
+			if(reset_result != 0U)
 				SetTextValue(1U, 4U, "系统复位完成");
 			else
-				SetTextValue(1U, 4U, "系统复位发送异常");
+				SetTextValue(1U, 4U, "主机复位完成，通信异常");
 			return 1U;
 
 		case SIREN_KEY:
@@ -4138,6 +4155,14 @@ void UpdateUI(void)
 		}
 		else 
 		{
+			if(reset_home_text_state == RESET_HOME_TEXT_RESULT_HOLD &&
+			   (uint32_t)(osKernelGetTickCount() - reset_home_text_result_tick) >=
+			   RESET_HOME_TEXT_RESULT_HOLD_TICKS)
+			{
+				reset_home_text_state = RESET_HOME_TEXT_IDLE;
+			}
+			if(reset_home_text_state == RESET_HOME_TEXT_IDLE)
+			{
 			if(kaijiyanshi < ONLINE_TIMEOUT)
 			{
 				switch(screen_fresh_num)
@@ -4163,6 +4188,7 @@ void UpdateUI(void)
 				}
 			}
 			//  新增设备总数/在线/故障的显示
+			}
 			uint8_t rs485_online = RS485Detect_GetOnlineCount();
 			uint8_t rs485_disconnect = RS485Detect_GetDisconnectCount();
 			uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
