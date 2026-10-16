@@ -256,11 +256,11 @@
 //¥¥Ω®ª≠√Ê¡™∂Ø—°‘Òµƒ√¸¡ÓÀ˜“˝ID
 #define  _SCREEN_¡™∂Ø—°‘Ò                                                         85
 
-//¥¥Ω®ª≠√ÊScreen2µƒ√¸¡ÓÀ˜“˝ID
-#define  _SCREEN_SCREEN2                                                      86
+//¥¥Ω®ª≠√Ê±®æØºÏ≤‚ª≠√Êµƒ√¸¡ÓÀ˜“˝ID
+#define  _SCREEN_±®æØºÏ≤‚ª≠√Ê                                                       86
 
-//¥¥Ω®ª≠√ÊScreen3µƒ√¸¡ÓÀ˜“˝ID
-#define  _SCREEN_SCREEN3                                                      87
+//¥¥Ω®ª≠√Êπ ’œºÏ≤‚ª≠√Êµƒ√¸¡ÓÀ˜“˝ID
+#define  _SCREEN_π ’œºÏ≤‚ª≠√Ê                                                       87
 
 //¥¥Ω®ª≠√ÊScreen4µƒ√¸¡ÓÀ˜“˝ID
 #define  _SCREEN_SCREEN4                                                      88
@@ -332,9 +332,9 @@
 
 #define  _TXT_DIS__÷˜ΩÁ√Ê_TEXT_DISPLAY8                                          12
 
-#define  _TXT_DIS__÷˜ΩÁ√Ê_TEXT_DISPLAY47                                         28
+#define  _TXT_DIS__÷˜ΩÁ√Ê_TEXT_DISPLAY47                                         29
 
-#define  _TXT_DIS__÷˜ΩÁ√Ê_TEXT_DISPLAY48                                         29
+#define  _TXT_DIS__÷˜ΩÁ√Ê_TEXT_DISPLAY48                                         28
 
 #define  _BTN_÷˜ΩÁ√Ê_BUTTON2                                                     31
 
@@ -10568,6 +10568,322 @@
 #define  _TXT_DIS__¡™∂Ø—°‘Ò_TEXT_DISPLAY3                                         14
 
 #define  _BTN_¡™∂Ø—°‘Ò_BUTTON6                                                   266
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY1                                       29
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY2                                       28
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY3                                      300
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY4                                       49
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY5                                       50
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY6                                       51
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY7                                       52
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY8                                       53
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY9                                       54
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY10                                      55
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY11                                     301
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY12                                      35
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY13                                      36
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY14                                      37
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY15                                      38
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY16                                      39
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY17                                      40
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY18                                      41
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY19                                     302
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY20                                      42
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY21                                      43
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY22                                      44
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY23                                      45
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY24                                      46
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY25                                      47
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY26                                      48
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY27                                     303
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY28                                       1
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY29                                       2
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY30                                       3
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY31                                       4
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY32                                       5
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY33                                       6
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY34                                       7
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY35                                     304
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY36                                     305
+
+#define  _BTN_±®æØºÏ≤‚ª≠√Ê_BUTTON1                                                 100
+
+#define  _BTN_±®æØºÏ≤‚ª≠√Ê_BUTTON2                                                 101
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY37                                      25
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY38                                      26
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY39                                       8
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY40                                       9
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY41                                      10
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY42                                      11
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY43                                      12
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY44                                      13
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY45                                      14
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY46                                      15
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY47                                      16
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY48                                      17
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY49                                      18
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY50                                      19
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY51                                      20
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY52                                      21
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY53                                      22
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY54                                      23
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY55                                      24
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY56                                      27
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY57                                      30
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY58                                      31
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY59                                      32
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY60                                      33
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY61                                      34
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY62                                      56
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY63                                      57
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY71                                      65
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY72                                      66
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY73                                      67
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY74                                      68
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY75                                      69
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY76                                      70
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY77                                      71
+
+#define  _TXT_DIS__±®æØºÏ≤‚ª≠√Ê_TEXT_DISPLAY64                                      77
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY1                                       29
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY2                                       28
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY3                                      300
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY5                                       50
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY6                                       51
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY7                                       52
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY8                                       53
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY9                                       54
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY10                                      55
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY11                                     301
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY12                                      35
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY13                                      36
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY14                                      37
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY15                                      38
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY16                                      39
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY17                                      40
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY18                                      41
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY19                                     302
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY20                                      42
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY21                                      43
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY22                                      44
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY23                                      45
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY24                                      46
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY25                                      47
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY26                                      48
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY27                                     303
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY28                                       1
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY29                                       2
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY30                                       3
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY31                                       4
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY32                                       5
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY33                                       6
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY34                                       7
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY35                                     304
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY36                                     305
+
+#define  _BTN_π ’œºÏ≤‚ª≠√Ê_BUTTON1                                                 100
+
+#define  _BTN_π ’œºÏ≤‚ª≠√Ê_BUTTON2                                                 101
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY39                                       8
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY40                                       9
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY41                                      10
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY42                                      11
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY43                                      12
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY44                                      13
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY45                                      14
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY46                                      15
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY47                                      16
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY48                                      17
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY49                                      18
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY50                                      19
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY51                                      20
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY52                                      21
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY53                                      22
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY54                                      23
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY55                                      24
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY71                                      65
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY72                                      66
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY73                                      67
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY74                                      68
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY75                                      69
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY76                                      70
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY77                                      71
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY4                                       27
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY56                                      30
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY57                                      31
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY58                                      32
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY59                                      33
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY60                                      34
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY61                                      49
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY62                                      56
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY63                                      57
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY64                                      58
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY65                                      59
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY66                                      60
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY67                                      61
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY68                                      62
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY69                                      63
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY70                                      64
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY78                                      72
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY79                                      73
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY80                                      74
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY81                                      75
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY82                                      76
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY37                                      25
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY38                                      26
+
+#define  _TXT_DIS__π ’œºÏ≤‚ª≠√Ê_TEXT_DISPLAY83                                      77
 
 #define  _TXT_DIS__Õ¯¬ÁÕ®–≈≤Œ ˝ΩÁ√Ê_TEXT_DISPLAY1                                    300
 

@@ -36,6 +36,7 @@
 #include "bsp_device_alias.h"
 #include "bsp_device_threshold.h"
 #include "bsp_device_disable.h"
+#include "bsp_realtime_event.h"
 #include "bsp_aht20.h"
 #include "bsp_access_control.h"
 
@@ -1094,13 +1095,18 @@ void BspScreenArrowSite(BspKeyCheckNewCtrl_t *bkcnc_entry)
 	bkcnc_entry->curr_point_site[2] = 0;
 	bkcnc_entry->curr_point_site[3] = 0;
 }
+
+/* 复位时清除本次运行周期锁存的首火警/首气体报警。 */
+static void FirstAlarmInformationReset(void);
 // 
 void BspCmdProcessInit(void)
 {
 	AccessControl_Init();
+	BspRealtimeEvent_Init();
 	FaultDataInit(pcfs); // 清除故障记录
 	ForeAlarmDataInit(&pcfws); // 清除预警记录
 	FireAlarmDataInit(&pcfas); // 清除火警记录
+	FirstAlarmInformationReset(); // 首警只允许在系统复位/重新上电时清除
 	FireExtinguishDataInit(&fedas); // 清除气灭分区记录
 	PackAndCabinHistoryAlarmInit(pas);
 	ClearDetectorHistoryData(); // 清除探测器历史记录
@@ -1375,9 +1381,13 @@ typedef struct
 	uint8_t warn_fresh_flag;
 	
 	uint8_t fire_fresh_flag;
+
+	uint8_t warn_text[128]; // 本次复位周期的首可燃气体报警文字
+
+	uint8_t fire_text[128]; // 本次复位周期的首火警文字
 }AlarmPinToTopCtrl_t;
 
-AlarmPinToTopCtrl_t sicj = {0, 0};
+AlarmPinToTopCtrl_t sicj = {0xFFU, 0U, 0U, {0}, {0}};
 
 static void FirstAlarmInformationShowCtrl(
 	uint16_t temp_screen_id,
@@ -1874,6 +1884,8 @@ static uint8_t FormatMBus2FaultLine(uint8_t *buf, uint8_t sequence, PackCabinFau
 		address, FormatDeviceAliasType(2U, address, name, label, sizeof(label)));
 	return 1;
 }
+
+#include "realtime_event_bridge.inc"
 
 static uint8_t FormatRS485DetectFireExtinguisherLine(uint8_t *buf, uint8_t sequence, FireExtinguishDeviceActionSave *fedas_entry, uint8_t data_index, uint16_t temp_time)
 {
@@ -2617,6 +2629,7 @@ BspScreenSwitchCtl_t bsp_screen_switch_ctrl = {
 #define MONITOR_PAGE_LOCKED_DEFAULT_RETURN_ID  1U
 
 static uint16_t monitor_page_return_target = 0U;
+static uint16_t realtime_page_return_target = 1U;
 
 static uint16_t MonitorPageDefaultReturnTarget(void)
 {
@@ -3099,6 +3112,7 @@ void NotifyScreen(uint16 screen_id)
     }
     //TODO: 添加用户代码
     current_screen_id = screen_id;
+	BspRealtimeEvent_OnScreenChanged(prev_screen_id, screen_id, osKernelGetTickCount());
 	AccessControl_OnScreenChanged(prev_screen_id, screen_id);
 	/* XR5000_AUTH_RETURN_20260914: any unexpected exit from the password page cancels the pending request. */
 	if(prev_screen_id == 53U && screen_id != 53U)
@@ -4059,7 +4073,18 @@ void UpdateUI(void)
 		}
 		
 		// 有报警后切换主界面 点亮屏幕 
-		InternalScreenMainInterfaceCtrl(&switch_ui_ctrl);
+		RealtimeEventSyncAll();
+		{
+			uint16_t realtime_target = BspRealtimeEvent_GetNavigationTarget(current_screen_id, osKernelGetTickCount());
+			if(realtime_target != 0U)
+			{
+				if(current_screen_id != REALTIME_EVENT_SCREEN_ALARM &&
+				   current_screen_id != REALTIME_EVENT_SCREEN_FAULT)
+					realtime_page_return_target = current_screen_id;
+				beiguangkai();
+				HmiSwitchScreen(realtime_target);
+			}
+		}
 	}
 	//新增加报警总数的判断RS485Detect_GetAlarmCount();
 	uint8_t total_alarm = alarm_number;
@@ -4491,6 +4516,12 @@ void UpdateUI(void)
 		
 		RefreshGasConcentrationSummary(); /* XR5000_GAS_SUMMARY_CHANGE_20260731 */
 	}		
+	else if(current_screen_id == REALTIME_EVENT_SCREEN_ALARM ||
+			current_screen_id == REALTIME_EVENT_SCREEN_FAULT)
+	{
+		BspRealtimeEvent_Refresh(current_screen_id, osKernelGetTickCount());
+		RefreshGasConcentrationSummary();
+	}
 	else if(current_screen_id == 61 || current_screen_id == 62) // 刷新不一样
 	{
 		// 更新PACK显示
@@ -4867,7 +4898,9 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		{
 			if(license_allow_use_state == 1)
 			{
-				SwitchToMonitorPageFrom(current_screen_id); /* XR5000_MONITOR_RETURN_NAV_CHANGE_20260802 */
+				realtime_page_return_target = 1U;
+				HmiSwitchScreen((control_id == 37U) ? REALTIME_EVENT_SCREEN_FAULT :
+							REALTIME_EVENT_SCREEN_ALARM);
 			}
 		}
 		else if(control_id == 1 && state == 1) // 如果菜单按下
@@ -5725,6 +5758,16 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 		SwitchCurrentScreenId(target_screen);
 		bsp_screen_switch_ctrl.target_screen = target_screen;
 		bsp_screen_switch_ctrl.switch_flag = 1;
+	}
+	else if((screen_id == REALTIME_EVENT_SCREEN_ALARM ||
+			screen_id == REALTIME_EVENT_SCREEN_FAULT) && state == 1U)
+	{
+		if(control_id == 100U)
+			HmiSwitchScreen(1U);
+		else if(control_id == 101U)
+			HmiSwitchScreen((realtime_page_return_target == REALTIME_EVENT_SCREEN_ALARM ||
+				realtime_page_return_target == REALTIME_EVENT_SCREEN_FAULT) ?
+				1U : realtime_page_return_target);
 	}
 	else if(screen_id == 61)
 	{
@@ -10595,14 +10638,22 @@ static void UpdateGasSummaryCandidate(GasConcentrationCandidate *best, uint8_t l
     }
 }
 
-static void CollectLoop1GasConcentrationCandidates(GasConcentrationCandidate *best, uint8_t *enabled_sensor)
+static void CollectLoop1GasConcentrationCandidates(GasConcentrationCandidate *co_best,
+                                                   GasConcentrationCandidate *h2_best,
+                                                   uint8_t *co_enabled,
+                                                   uint8_t *h2_enabled)
 {
-    (void)best;
-    (void)enabled_sensor;
+    (void)co_best;
+    (void)h2_best;
+    (void)co_enabled;
+    (void)h2_enabled;
     /* XR5000_GAS_SUMMARY_CHANGE_20260731: loop 1 currently has smoke/temperature devices only. */
 }
 
-static void CollectLoop3GasConcentrationCandidates(GasConcentrationCandidate *best, uint8_t *enabled_sensor)
+static void CollectLoop3GasConcentrationCandidates(GasConcentrationCandidate *co_best,
+                                                   GasConcentrationCandidate *h2_best,
+                                                   uint8_t *co_enabled,
+                                                   uint8_t *h2_enabled)
 {
     uint8_t addr;
 
@@ -10619,30 +10670,64 @@ static void CollectLoop3GasConcentrationCandidates(GasConcentrationCandidate *be
         sensor_enable = RS485Detect_GetSensorEnable(addr);
         if ((sensor_enable & (1U << 4)) != 0U)
         {
-            *enabled_sensor = 1U;
+            *co_enabled = 1U;
             if (RS485Detect_IsOnline(addr) != 0U && RS485Detect_HasSensorData(addr) != 0U &&
                 GetGasSummaryAlarmLevel(RS485Detect_GetSensorState(addr, RS485_SENSOR_CO), &level) != 0U)
             {
-                UpdateGasSummaryCandidate(best, 3U, addr, GAS_SUMMARY_TYPE_CO, level, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO));
+                UpdateGasSummaryCandidate(co_best, 3U, addr, GAS_SUMMARY_TYPE_CO, level, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO));
             }
         }
 
         if ((sensor_enable & (1U << 2)) != 0U)
         {
-            *enabled_sensor = 1U;
+            *h2_enabled = 1U;
             if (RS485Detect_IsOnline(addr) != 0U && RS485Detect_HasSensorData(addr) != 0U &&
                 GetGasSummaryAlarmLevel(RS485Detect_GetSensorState(addr, RS485_SENSOR_H2), &level) != 0U)
             {
-                UpdateGasSummaryCandidate(best, 3U, addr, GAS_SUMMARY_TYPE_H2, level, RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2));
+                UpdateGasSummaryCandidate(h2_best, 3U, addr, GAS_SUMMARY_TYPE_H2, level, RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2));
             }
         }
     }
 }
 
+static void SetGasConcentrationSummaryText(uint16_t control_id, const uint8_t *text)
+{
+    /* 画面86/87：26显示一氧化碳，77显示氢气；不改动25和27。 */
+    SetTextValue(REALTIME_EVENT_SCREEN_ALARM, control_id, (uint8_t *)text);
+    SetTextValue(REALTIME_EVENT_SCREEN_FAULT, control_id, (uint8_t *)text);
+
+    /* 旧画面59只有原有的26号浓度框，仅兼容显示一氧化碳。 */
+    if (control_id == 26U)
+    {
+        SetTextValue(59U, 26U, (uint8_t *)text);
+    }
+}
+
+static void FormatGasConcentrationSummary(uint8_t *text,
+                                          const GasConcentrationCandidate *best,
+                                          uint8_t enabled_sensor,
+                                          const char *gas_name)
+{
+    if (best->valid != 0U)
+    {
+        sprintf((char *)text, "第%d回路%d号 %s：%dPPM", best->loop, best->addr, gas_name, best->value);
+    }
+    else if (enabled_sensor == 0U)
+    {
+        sprintf((char *)text, "%s：未启用", gas_name);
+    }
+    else
+    {
+        sprintf((char *)text, "%s：无有效在线数据", gas_name);
+    }
+}
+
 static void RefreshGasConcentrationSummary(void)
 {
-    GasConcentrationCandidate best = {0};
-    uint8_t enabled_sensor = 0U;
+    GasConcentrationCandidate co_best = {0};
+    GasConcentrationCandidate h2_best = {0};
+    uint8_t co_enabled = 0U;
+    uint8_t h2_enabled = 0U;
     uint8_t temp_buff[64];
 
     if (gas_concentration_summary_fresh_flag == 0U)
@@ -10651,31 +10736,14 @@ static void RefreshGasConcentrationSummary(void)
     }
     gas_concentration_summary_fresh_flag = 0U;
 
-    CollectLoop1GasConcentrationCandidates(&best, &enabled_sensor);
-    CollectLoop3GasConcentrationCandidates(&best, &enabled_sensor);
+    CollectLoop1GasConcentrationCandidates(&co_best, &h2_best, &co_enabled, &h2_enabled);
+    CollectLoop3GasConcentrationCandidates(&co_best, &h2_best, &co_enabled, &h2_enabled);
 
-    if (best.valid == 0U)
-    {
-        if (enabled_sensor == 0U)
-        {
-            SetTextValue(59, 26, "\xCE\xB4\xC6\xF4\xD3\xC3" "CO/H2" "\xCC\xBD\xB2\xE2\xC6\xF7");
-        }
-        else
-        {
-            SetTextValue(59, 26, "CO/H2" "\xCC\xBD\xB2\xE2\xC6\xF7\xCE\xDE\xD3\xD0\xD0\xA7\xD4\xDA\xCF\xDF\xCA\xFD\xBE\xDD");
-        }
-        return;
-    }
+    FormatGasConcentrationSummary(temp_buff, &co_best, co_enabled, "一氧化碳");
+    SetGasConcentrationSummaryText(26U, temp_buff);
 
-    if (best.gas_type == GAS_SUMMARY_TYPE_H2)
-    {
-        sprintf((char *)temp_buff, "\xB5\xDA%d\xBB\xD8\xC2\xB7 %03d\xBA\xC5 H2\xC5\xA8\xB6\xC8\xA3\xBA%dPPM", best.loop, best.addr, best.value);
-    }
-    else
-    {
-        sprintf((char *)temp_buff, "\xB5\xDA%d\xBB\xD8\xC2\xB7 %03d\xBA\xC5 CO\xC5\xA8\xB6\xC8\xA3\xBA%dPPM", best.loop, best.addr, best.value);
-    }
-    SetTextValue(59, 26, temp_buff);
+    FormatGasConcentrationSummary(temp_buff, &h2_best, h2_enabled, "氢气");
+    SetGasConcentrationSummaryText(77U, temp_buff);
 }
 
 #if 0 /* XR5000_GAS_SUMMARY_CHANGE_20260731: legacy renderer retained for later cleanup. */
@@ -15295,9 +15363,106 @@ static void SimulationSerialPortScreenShowApp(SimulationSerialPortAssistant_t *s
 	}
 }
 
-const uint8_t warn_alarm_fresh_id[4] = {28, 28, 28, 137};
-const uint8_t fire_alarm_fresh_id[4] = {29, 29, 29, 138};
-const uint8_t screen_top_fresh_id[4] = {1, 59, 60, 61};
+#define FIRST_ALARM_SCREEN_COUNT 6U
+const uint8_t warn_alarm_fresh_id[FIRST_ALARM_SCREEN_COUNT] = {28U, 28U, 28U, 137U, 28U, 28U};
+const uint8_t fire_alarm_fresh_id[FIRST_ALARM_SCREEN_COUNT] = {29U, 29U, 29U, 138U, 29U, 29U};
+const uint8_t screen_top_fresh_id[FIRST_ALARM_SCREEN_COUNT] = {1U, 59U, 60U, 61U, 86U, 87U};
+
+static void FirstAlarmInformationReset(void)
+{
+	memset(&sicj, 0, sizeof(sicj));
+	sicj.last_screen_id = 0xFFU;
+}
+
+static uint8_t FirstAlarmIsGas(uint8_t alarm_type)
+{
+	return (alarm_type == Carbon || alarm_type == Hydrogen ||
+		alarm_type == GasCarbonLowWarning || alarm_type == GasCarbonHighWarning ||
+		alarm_type == GasHydrogenLowWarning || alarm_type == GasHydrogenHighWarning) ? 1U : 0U;
+}
+
+static const char *FirstAlarmContentName(uint8_t alarm_type)
+{
+	switch(alarm_type)
+	{
+		case Temperature:              return "温度火警";
+		case Smoke:                    return "烟雾火警";
+		case HandAlarm:                return "手报按下报警";
+		case Carbon:                   return "一氧化碳报警";
+		case Hydrogen:                 return "氢气报警";
+		case GasCarbonLowWarning:      return "一氧化碳低报";
+		case GasCarbonHighWarning:     return "一氧化碳高报";
+		case GasHydrogenLowWarning:    return "氢气低报";
+		case GasHydrogenHighWarning:   return "氢气高报";
+		case Loop1TempWarning:         return "温度预警";
+		case Loop1SmokeWarning:        return "烟雾预警";
+		case AlarmCtrlKey:             return "报警器按下";
+		default:                       return "报警";
+	}
+}
+
+static void FormatFirstForeWarnText(uint8_t *text,
+	const PackCabinForeWarnStorage *entry, uint8_t index)
+{
+	const char *content = FirstAlarmContentName(entry->alarm_type[index]);
+	if(entry->detector_class[index] == PackClassID &&
+		entry->da[index].cluster_id == RS485_DETECT_FLASH_ID)
+	{
+		sprintf((char *)text, "%d/%02d/%02d %02d:%02d:%02d 第3回路%d号 %s",
+			entry->atr[index].years, entry->atr[index].months, entry->atr[index].days,
+			entry->atr[index].hours, entry->atr[index].minute, entry->atr[index].second,
+			entry->da[index].pack_id, content);
+	}
+	else if(entry->detector_class[index] == CabinClassID)
+	{
+		sprintf((char *)text, "%d/%02d/%02d %02d:%02d:%02d 第1回路%d号 %s",
+			entry->atr[index].years, entry->atr[index].months, entry->atr[index].days,
+			entry->atr[index].hours, entry->atr[index].minute, entry->atr[index].second,
+			entry->da[index].cabin_id, content);
+	}
+	else
+	{
+		sprintf((char *)text, "%d/%02d/%02d %02d:%02d:%02d 第%d簇%d号 %s",
+			entry->atr[index].years, entry->atr[index].months, entry->atr[index].days,
+			entry->atr[index].hours, entry->atr[index].minute, entry->atr[index].second,
+			entry->da[index].cluster_id, entry->da[index].pack_id, content);
+	}
+}
+
+static void FormatFirstFireText(uint8_t *text,
+	const PackCabinFireAlarmStorage *entry, uint8_t index)
+{
+	const char *content = FirstAlarmContentName(entry->alarm_type[index]);
+	if(entry->detector_class[index] == PackClassID &&
+		entry->da[index].cluster_id == RS485_DETECT_FLASH_ID)
+	{
+		sprintf((char *)text, "%d/%02d/%02d %02d:%02d:%02d 第3回路%d号 %s",
+			entry->atr[index].years, entry->atr[index].months, entry->atr[index].days,
+			entry->atr[index].hours, entry->atr[index].minute, entry->atr[index].second,
+			entry->da[index].pack_id, content);
+	}
+	else if(entry->detector_class[index] == CabinClassID)
+	{
+		sprintf((char *)text, "%d/%02d/%02d %02d:%02d:%02d 第1回路%d号 %s",
+			entry->atr[index].years, entry->atr[index].months, entry->atr[index].days,
+			entry->atr[index].hours, entry->atr[index].minute, entry->atr[index].second,
+			entry->da[index].cabin_id, content);
+	}
+	else if(entry->detector_class[index] == LinkageClassID)
+	{
+		sprintf((char *)text, "%d/%02d/%02d %02d:%02d:%02d 第2回路%d号 %s",
+			entry->atr[index].years, entry->atr[index].months, entry->atr[index].days,
+			entry->atr[index].hours, entry->atr[index].minute, entry->atr[index].second,
+			entry->da[index].pack_id, content);
+	}
+	else
+	{
+		sprintf((char *)text, "%d/%02d/%02d %02d:%02d:%02d 第%d簇%d号 %s",
+			entry->atr[index].years, entry->atr[index].months, entry->atr[index].days,
+			entry->atr[index].hours, entry->atr[index].minute, entry->atr[index].second,
+			entry->da[index].cluster_id, entry->da[index].pack_id, content);
+	}
+}
 
 static void FirstAlarmInformationShowCtrl(
 	uint16_t temp_screen_id,
@@ -15306,201 +15471,57 @@ static void FirstAlarmInformationShowCtrl(
 	PackCabinFireAlarmStorage *pcfas_entry
 )
 {
-	if(pcfws_entry->self_bottom_point != 0 && sicj_entry->warn_fresh_flag == 0)
+	if(pcfws_entry->self_bottom_point != 0U && sicj_entry->warn_fresh_flag == 0U)
 	{
-		uint8_t temp_buff[128];
-		
-		sicj_entry->warn_fresh_flag = 1; // 标志所有状态刷新完成
-		// 第一条报警信息置顶显示
-		if(pcfws_entry->detector_class[0] == PackClassID && pcfws_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
+		uint8_t gas_index;
+		for(gas_index = 0U; gas_index < pcfws_entry->self_bottom_point; gas_index++)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first warning display uses "第3回路 X号".
-			FormatRS485DetectForeWarnLine(temp_buff, 1, pcfws_entry, 0);
+			if(FirstAlarmIsGas(pcfws_entry->alarm_type[gas_index]) != 0U)
+				break;
 		}
-		else if(pcfws_entry->detector_class[0] == PackClassID)
+		if(gas_index < pcfws_entry->self_bottom_point)
 		{
-			if(pcfws_entry->alarm_type[0] == Temperature)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", 1,
-				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
-				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
-				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
-			}
-			else if(pcfws_entry->alarm_type[0] == Smoke)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", 1,
-				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
-				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
-				pcfws.da[0].cluster_id, pcfws.da[0].pack_id);
-			}
-			else if(pcfws_entry->alarm_type[0] == Carbon)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", 1,
-				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
-				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
-				pcfws_entry->da[0].cluster_id, pcfws_entry->da[0].pack_id);
-			}
+			uint8_t temp_buff[128];
+			FormatFirstForeWarnText(temp_buff, pcfws_entry, gas_index);
+			strncpy((char *)sicj_entry->warn_text, (const char *)temp_buff,
+				sizeof(sicj_entry->warn_text) - 1U);
+			sicj_entry->warn_text[sizeof(sicj_entry->warn_text) - 1U] = 0U;
+			sicj_entry->warn_fresh_flag = 1U;
+			for(uint8_t i = 0U; i < FIRST_ALARM_SCREEN_COUNT; i++)
+				SetTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i], sicj_entry->warn_text);
 		}
-		else if(pcfws_entry->detector_class[0] == LinkageClassID) // 如果是外联设备
-		{
-			if(pcfws_entry->alarm_type[0] == AlarmCtrlKey)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 报警器按下", 1,
-					pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
-					pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second);
-			}
-		}
-		else if(pcfws_entry->detector_class[0] == CabinClassID &&
-			(pcfws_entry->alarm_type[0] == Loop1TempWarning || pcfws_entry->alarm_type[0] == Loop1SmokeWarning))
-		{
-			FormatLoop1WarningLine(temp_buff, 1U, pcfws_entry, 0U);
-		}
-		else if(pcfws_entry->detector_class[0] == CabinClassID)
-		{
-			if(pcfws_entry->alarm_type[0] == Temperature)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
-				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
-				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
-				pcfws_entry->da[0].cabin_id);
-			}
-			else if(pcfws_entry->alarm_type[0] == Smoke)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
-				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws.atr[0].days,
-				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
-				pcfws.da[0].cabin_id);
-			}
-			else if(pcfws_entry->alarm_type[0] == Carbon)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
-				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
-				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
-				pcfws_entry->da[0].cabin_id);
-			}
-			else if(pcfws_entry->alarm_type[0] == Hydrogen)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
-				pcfws_entry->atr[0].years, pcfws_entry->atr[0].months, pcfws_entry->atr[0].days,
-				pcfws_entry->atr[0].hours, pcfws_entry->atr[0].minute, pcfws_entry->atr[0].second,
-				pcfws_entry->da[0].cabin_id);
-			}
-		}
-		
-		for(uint8_t i = 0; i < 4; i++)
-		{
-			SetTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i], temp_buff); // 刷新第一条报警内容
-		}
-	
-	}
-	else if(pcfws_entry->self_bottom_point == 0 && sicj_entry->warn_fresh_flag != 0)
-	{
-		for(uint8_t i = 0; i < 4; i++)
-		{
-			clearTextValue(screen_top_fresh_id[i], warn_alarm_fresh_id[i]); // 刷新第一条报警内容
-		}
-		sicj_entry->warn_fresh_flag = 0;
 	}
 	
-	if(pcfas_entry->self_bottom_point != 0 && sicj_entry->fire_fresh_flag == 0)
+	if(pcfas_entry->self_bottom_point != 0U && sicj_entry->fire_fresh_flag == 0U)
 	{
 		uint8_t temp_buff[128];
-		
-		sicj_entry->fire_fresh_flag = 1;
-		// 第一条报警信息置顶显示
-		if(pcfas_entry->detector_class[0] == PackClassID && pcfas_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
+		FormatFirstFireText(temp_buff, pcfas_entry, 0U);
+		strncpy((char *)sicj_entry->fire_text, (const char *)temp_buff,
+			sizeof(sicj_entry->fire_text) - 1U);
+		sicj_entry->fire_text[sizeof(sicj_entry->fire_text) - 1U] = 0U;
+		sicj_entry->fire_fresh_flag = 1U;
+		for(uint8_t i = 0U; i < FIRST_ALARM_SCREEN_COUNT; i++)
+			SetTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i], sicj_entry->fire_text);
+	}
+
+	/* 页面重新进入时再写一次锁存文字，避免画面切换清空控件。 */
+	if(sicj_entry->last_screen_id != (uint8_t)temp_screen_id)
+	{
+		for(uint8_t i = 0; i < FIRST_ALARM_SCREEN_COUNT; i++)
 		{
-			// XR5000_LOOP3_CHANGE_20260726: Loop 3 first fire display uses "第3回路 X号".
-			FormatRS485DetectFireAlarmLine(temp_buff, 1, pcfas_entry, 0);
-		}
-		else if(pcfas_entry->detector_class[0] == PackClassID)
-		{
-			if(pcfas_entry->alarm_type[0] == Temperature)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器温度报警", 1,
-				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
-				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
-				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
-			}
-			else if(pcfas_entry->alarm_type[0] == Smoke)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器烟雾报警", 1,
-				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
-				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
-				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
-			}
-			else if(pcfas_entry->alarm_type[0] == Carbon)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第%d簇%d号PACK探测器一氧化碳报警", 1,
-				pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
-				pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
-				pcfas_entry->da[0].cluster_id, pcfas_entry->da[0].pack_id);
-			}
-		}
-		else if(pcfas_entry->detector_class[0] == LinkageClassID)
-		{
-			if(pcfas_entry->alarm_type[0] == AlarmCtrlKey)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 报警器按下", 1,
-					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
-					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
-			}
+			if(screen_top_fresh_id[i] != temp_screen_id)
+				continue;
+			if(sicj_entry->warn_fresh_flag != 0U)
+				SetTextValue(temp_screen_id, warn_alarm_fresh_id[i], sicj_entry->warn_text);
 			else
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 手报按下报警", 1,
-					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
-					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second);
-			}
-			
+				clearTextValue(temp_screen_id, warn_alarm_fresh_id[i]);
+			if(sicj_entry->fire_fresh_flag != 0U)
+				SetTextValue(temp_screen_id, fire_alarm_fresh_id[i], sicj_entry->fire_text);
+			else
+				clearTextValue(temp_screen_id, fire_alarm_fresh_id[i]);
+			break;
 		}
-		else if(pcfas_entry->detector_class[0] == CabinClassID &&
-			(pcfas_entry->alarm_type[0] == Temperature || pcfas_entry->alarm_type[0] == Smoke))
-		{
-			FormatLoop1FireLine(temp_buff, 1U, pcfas_entry, 0U);
-		}
-		else if(pcfas_entry->detector_class[0] == CabinClassID)
-		{
-			if(pcfas_entry->alarm_type[0] == Temperature)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 温度报警", 1,
-					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
-					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
-					pcfas_entry->da[0].cabin_id);
-			}
-			else if(pcfas_entry->alarm_type[0] == Smoke)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 烟雾报警", 1,
-					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfws.atr[0].days,
-					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
-					pcfas_entry->da[0].cabin_id);
-			}
-			else if(pcfas_entry->alarm_type[0] == Carbon)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 一氧化碳报警", 1,
-					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
-					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
-					pcfas_entry->da[0].cabin_id);
-			}
-			else if(pcfas_entry->alarm_type[0] == Hydrogen)
-			{
-				sprintf((char*)temp_buff, "%03d %d/%02d/%02d %02d:%02d:%02d 第1回路 %d号 氢气报警", 1,
-					pcfas_entry->atr[0].years, pcfas_entry->atr[0].months, pcfas_entry->atr[0].days,
-					pcfas_entry->atr[0].hours, pcfas_entry->atr[0].minute, pcfas_entry->atr[0].second,
-					pcfas_entry->da[0].cabin_id);
-			}
-		}
-		for(uint8_t i = 0; i < 4; i++)
-		{
-			SetTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i], temp_buff); // 刷新第一条报警内容
-		}
-	}
-	else if(pcfas_entry->self_bottom_point == 0 && sicj_entry->fire_fresh_flag != 0)
-	{
-		for(uint8_t i = 0; i < 4; i++)
-		{
-			clearTextValue(screen_top_fresh_id[i], fire_alarm_fresh_id[i]); // 刷新第一条报警内容
-		}
-		sicj_entry->fire_fresh_flag = 0;
+		sicj_entry->last_screen_id = (uint8_t)temp_screen_id;
 	}
 }
 
