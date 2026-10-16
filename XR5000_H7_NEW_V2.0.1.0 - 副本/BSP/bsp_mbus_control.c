@@ -12,6 +12,7 @@
  * ============================================================================ */
 
 #include "bsp_mbus_control.h"
+#include "bsp_spray_output_policy.h"
 #include "bsp_device_registry.h"
 #include "bsp_device_registration.h"
 #include "bsp_internal_board.h"
@@ -158,6 +159,8 @@ static uint8_t g_control_last_result[MBUS_CONTROL_MAX_DEVICES];
 static uint8_t g_fixed_detector_fire_active;
 static uint8_t g_fixed_manual_fire_active;
 
+static void MBusCtrl_ResetActiveControl(void);
+
 /* 固定地址设备类型映射表(索引=地址, 值=MBusCtrlDevType) */
 /* 设备中文名称映射表(索引=MBusCtrlDevType) */
 #define MBUS2_IDENTIFY_FAIL_THRESHOLD 3U
@@ -179,13 +182,15 @@ static uint8_t MBusCtrl_MapProductType(uint16_t product_code)
     if(parser == DEVICE_PARSER_FCM1011) return MBUS_CONTROL_DEV_FCM1011;
     if(parser == DEVICE_PARSER_FCM1012) return MBUS_CONTROL_DEV_FCM1012;
     if(parser == DEVICE_PARSER_FAN_BUTTON) return MBUS_CONTROL_DEV_FAN_BUTTON;
+    if(parser == DEVICE_PARSER_SPRAY_BUTTON) return MBUS_CONTROL_DEV_SPRAY_BUTTON;
     return MBUS_CONTROL_DEV_UNKNOWN;
 }
 
 static uint8_t MBusCtrl_IsFastInputType(uint8_t dev_type)
 {
     return (dev_type == MBUS_CONTROL_DEV_XR2200 ||
-            dev_type == MBUS_CONTROL_DEV_FAN_BUTTON) ? 1U : 0U;
+            dev_type == MBUS_CONTROL_DEV_FAN_BUTTON ||
+            dev_type == MBUS_CONTROL_DEV_SPRAY_BUTTON) ? 1U : 0U;
 }
 
 
@@ -221,6 +226,7 @@ void MBusCtrl_RequestBroadcastReset(void)
     g_mbus2_reset_status = 1U;
     g_mbus2_reset_requested = 1U;
     taskEXIT_CRITICAL();
+    SprayOutputPolicy_Reset();
 }
 
 uint8_t MBusCtrl_GetBroadcastResetStatus(void)
@@ -235,8 +241,30 @@ static void MBusCtrl_ServiceBroadcastReset(void)
     HAL_StatusTypeDef first_status;
     HAL_StatusTypeDef second_status;
 
+    uint8_t addr;
+
     if(g_mbus2_reset_requested == 0U || g_mbus_poll_wait_response != 0U ||
        g_control_wait_response != 0U || g_fire_display_wait_response != 0U) return;
+
+    /* 总复位前丢弃旧控制目标，避免广播复位后排队指令重新打开输出。 */
+    taskENTER_CRITICAL();
+    g_control_queue_head = 0U;
+    g_control_queue_tail = 0U;
+    g_control_queue_count = 0U;
+    MBusCtrl_ResetActiveControl();
+    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
+    {
+        g_control_target_outputs[addr] = 0U;
+        g_control_requested_outputs[addr] = 0U;
+        g_control_confirmed_outputs[addr] = 0U;
+        g_control_confirmed_valid[addr] = 0U;
+        g_control_pending_count[addr] = 0U;
+        g_control_status[addr] = MBUS_CTRL_STATUS_IDLE;
+        g_control_last_result[addr] = MBUS_CTRL_STATUS_IDLE;
+        g_soundlight_policy_valid[addr] = 0U;
+    }
+    taskEXIT_CRITICAL();
+
     crc = CalcCrc16(frame, 6U);
     frame[6] = (uint8_t)crc;
     frame[7] = (uint8_t)(crc >> 8);
@@ -838,8 +866,13 @@ static void MBusCtrl_ApplyDeviceState(uint8_t addr, uint8_t state)
     if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES || state > 1U) return;
     previous_state = g_mbus_ctrl_devices[addr].sensor_state;
     g_mbus_ctrl_devices[addr].sensor_state = state;
-    if(previous_state == state ||
-       g_mbus_ctrl_devices[addr].dev_type != MBUS_CONTROL_DEV_XR2200) return;
+    if(previous_state == state) return;
+    if(g_mbus_ctrl_devices[addr].dev_type == MBUS_CONTROL_DEV_SPRAY_BUTTON)
+    {
+        SprayOutputPolicy_OnButtonState(addr, state);
+        return;
+    }
+    if(g_mbus_ctrl_devices[addr].dev_type != MBUS_CONTROL_DEV_XR2200) return;
 
     MBusCtrl_UpdateManualSoundLightTarget(state);
     (void)MBusCtrl_PostFireDisplayEvent(2U, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL,
@@ -1023,6 +1056,7 @@ void MBusCtrl_Init(void)
         g_fire_display_last_send_tick[i] = 0U;
     }
     MBusCtrl_LoadOnlineState();
+    SprayOutputPolicy_Init();
     SysFeedbackLedSourceCtrl(SYSTEM_FEEDBACK_SOURCE_FCM1011, LED_OFF);
 }
 
@@ -2078,6 +2112,7 @@ void MBusControlPollSlaveAndReceiveTask(void* parameter)
 
         (void)MBus2UartEnsureRx();
         MBus2ReceiveSlaveDataDeal();
+        SprayOutputPolicy_Process();
         /* 普通01/04问询保持单事务；收到回复立即释放，约120ms无回复自动超时。 */
         if(MBusCtrl_ServiceNormalPollWait() != 0U)
         {

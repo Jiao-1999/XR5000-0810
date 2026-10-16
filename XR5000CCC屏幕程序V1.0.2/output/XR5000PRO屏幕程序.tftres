@@ -86,8 +86,8 @@
         <page name="密码设置界面" id="83" />
         <page name="防火分区" id="84" />
         <page name="联动选择" id="85" />
-        <page name="Screen2" id="86" />
-        <page name="Screen3" id="87" />
+        <page name="报警检测画面" id="86" />
+        <page name="故障检测画面" id="87" />
         <page name="Screen4" id="88" />
         <page name="Screen5" id="89" />
         <page name="网络通信参数界面" id="90" />
