@@ -614,9 +614,9 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 						outfire_key_val = temp_key_val;
 						switch(temp_key_val)
 						{
-							/* [试验 TST-B.2.2] 信息确认键: 火警状态下按下信息确认键 -> 查记录
-							 *   判据: 产生 EVT 128 记录, 其时间戳落在火警记录之后、复位记录之前。 */
-							case KEY1_INFORM_CERTAIN  : StorageEvent_LogConfirmButton();  /* [GB4717 B.1.1.1b] 信息确认按钮动作(EVT 128) */ /* 黑匣子:信息确认按钮动作(EVT_CONFIRM_BUTTON=128), GB4717-2024 B.1.1.1b */ // 信息确认
+							/* 信息确认键只上报键值；画面86/87成功确认未确认事件后，
+							 * 由画面任务写入EVT 128，避免空行或重复确认产生无效记录。 */
+							case KEY1_INFORM_CERTAIN  :
 								break;
 							case KEY2_SELF_INSPECTION :  // 系统自检
 								HmiRequestInternalProtectedAction(SELFCHECK_KEY);

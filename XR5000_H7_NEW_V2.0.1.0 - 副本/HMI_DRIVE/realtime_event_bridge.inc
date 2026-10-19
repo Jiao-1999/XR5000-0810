@@ -35,6 +35,69 @@ static void RealtimeEventCurrentTime(RealtimeEventTime *target)
     target->second = secs;
 }
 
+/* 六路多线盘在画面86/87中的固定显示主体，避免占用回路地址格式。 */
+#if CAN_MONITOR_REALTIME_EVENT_ENABLE
+static const uint8_t g_can_monitor_subject[6U][10U] = {
+    {0xB6U,0xE0U,0xCFU,0xDFU,0xC5U,0xCCU,'1',0xC2U,0xB7U,0U},
+    {0xB6U,0xE0U,0xCFU,0xDFU,0xC5U,0xCCU,'2',0xC2U,0xB7U,0U},
+    {0xB6U,0xE0U,0xCFU,0xDFU,0xC5U,0xCCU,'3',0xC2U,0xB7U,0U},
+    {0xB6U,0xE0U,0xCFU,0xDFU,0xC5U,0xCCU,'4',0xC2U,0xB7U,0U},
+    {0xB6U,0xE0U,0xCFU,0xDFU,0xC5U,0xCCU,'5',0xC2U,0xB7U,0U},
+    {0xB6U,0xE0U,0xCFU,0xDFU,0xC5U,0xCCU,'6',0xC2U,0xB7U,0U}
+};
+static const uint8_t g_can_monitor_all_subject[] = {
+    0xC1U,0xF9U,0xC2U,0xB7U,0xB6U,0xE0U,0xCFU,0xDFU,0xC5U,0xCCU,0U
+};
+static const uint8_t g_can_monitor_start_text[] = {
+    0xCAU,0xD6U,0xB6U,0xAFU,0xC6U,0xF4U,0xB6U,0xAFU,0U
+};
+static const uint8_t g_can_monitor_stop_text[] = {
+    0xCAU,0xD6U,0xB6U,0xAFU,0xCDU,0xA3U,0xD6U,0xB9U,0U
+};
+static const uint8_t g_can_monitor_fault_text[] = {
+    0xB9U,0xCAU,0xD5U,0xCFU,0U
+};
+static const uint8_t g_can_monitor_comm_fault_text[] = {
+    0xCDU,0xA8U,0xD1U,0xB6U,0xB9U,0xCAU,0xD5U,0xCFU,0U
+};
+#endif
+
+/*
+ * 将内屏板物理键值转换为实时事件模块的通用导航命令。
+ * 按键只在画面86/87的主界面任务中消费，接收任务不直接操作屏幕。
+ */
+static void RealtimeEventHandleInternalKey(uint16_t current_screen,
+                                           uint32_t now_tick)
+{
+    uint8_t key = getDirectionKeyValue();
+#if REALTIME_EVENT_NAVIGATION_ENABLE
+    RealtimeEventNavCommand command = REALTIME_EVENT_NAV_NONE;
+#endif
+
+    if(key == NO_MATRIX_KEY_PRESS) return;
+    clearMatrixKeyValue();
+
+#if REALTIME_EVENT_NAVIGATION_ENABLE
+    switch(key)
+    {
+        case KEY6_DIRECTION_UP:     command = REALTIME_EVENT_NAV_UP; break;
+        case KEY7_DIRECTION_RIGHT:  command = REALTIME_EVENT_NAV_RIGHT; break;
+        case KEY8_DIRECTION_DOWN:   command = REALTIME_EVENT_NAV_DOWN; break;
+        case KEY9_DIRECTION_LEFT:   command = REALTIME_EVENT_NAV_LEFT; break;
+        case KEY10_DIRECTION_OK:    command = REALTIME_EVENT_NAV_OK; break;
+        case KEY1_INFORM_CERTAIN:   command = REALTIME_EVENT_NAV_CONFIRM; break;
+        default:                    break;
+    }
+
+    if(BspRealtimeEvent_HandleNavigation(current_screen, command, now_tick) != 0U)
+        StorageEvent_LogConfirmButton();
+#else
+    /* 功能关闭时仍消费当前按键，防止离开画面后被其他页面误处理。 */
+    (void)current_screen;
+    (void)now_tick;
+#endif
+}
+
 static uint8_t RealtimePrinterDeviceType(uint8_t loop, uint8_t address)
 {
     if(loop == 1U)
@@ -210,9 +273,9 @@ static const char *RealtimeAlarmName(uint8_t alarm_type)
             return "\xD2\xBB\xD1\xF5\xBB\xAF\xCC\xBC\xB8\xDF\xB1\xA8";
         case Hydrogen:
         case GasHydrogenLowWarning:
-            return "H2\xB5\xCD\xB1\xA8";
+            return "\xC7\xE2\xC6\xF8\xB5\xCD\xB1\xA8";
         case GasHydrogenHighWarning:
-            return "H2\xB8\xDF\xB1\xA8";
+            return "\xC7\xE2\xC6\xF8\xB8\xDF\xB1\xA8";
         default:
             return NULL;
     }
@@ -248,6 +311,37 @@ static uint8_t RealtimeAlarmLoopAddress(uint8_t detector_class,
     }
     return 0U;
 }
+
+/* 将CAN任务识别到的人工启停变化转换为画面86联动检测记录。 */
+#if CAN_MONITOR_REALTIME_EVENT_ENABLE
+static void RealtimeEventSyncCanActions(void)
+{
+    CanMonitorActionEvent_t action_event;
+    while(CanMonitorPopActionEvent(&action_event) != 0U)
+    {
+        const uint8_t *event_name;
+        RealtimeEventTime time;
+        uint32_t key;
+        if(action_event.channel == 0U || action_event.channel > 6U) continue;
+        if(action_event.action == CAN_MONITOR_ACTION_START)
+            event_name = g_can_monitor_start_text;
+        else if(action_event.action == CAN_MONITOR_ACTION_STOP)
+            event_name = g_can_monitor_stop_text;
+        else
+            continue;
+
+        RealtimeEventCurrentTime(&time);
+        key = 0x60000000UL |
+              ((uint32_t)action_event.channel << 24U) |
+              (action_event.sequence & 0x00FFFFFFUL);
+        (void)BspRealtimeEvent_ObserveNamed(REALTIME_EVENT_ALARM,
+                                            REALTIME_ALARM_LINKAGE,
+                                            key, &time,
+                                            g_can_monitor_subject[action_event.channel - 1U],
+                                            event_name, 0U);
+    }
+}
+#endif
 
 static void RealtimeEventSyncAlarms(void)
 {
@@ -319,7 +413,10 @@ static void RealtimeEventSyncAlarms(void)
                                      BSP_PRINTER_EVENT_MANUAL_ALARM);
     }
 
-    /* Linkage and extinguishing categories are intentionally reserved only. */
+#if CAN_MONITOR_REALTIME_EVENT_ENABLE
+    RealtimeEventSyncCanActions();
+#endif
+    /* 灭火装置动作分类仍按现阶段需求保留，不接入事件源。 */
     BspRealtimeEvent_EndScan(REALTIME_EVENT_ALARM);
 }
 
@@ -345,8 +442,8 @@ static const char *RealtimeLoop3FaultName(uint8_t fault_type)
         case RS485_LOOP3_FAULT_OFFLINE: return "\xB5\xF4\xCF\xDF";
         case RS485_LOOP3_FAULT_TEMPERATURE: return "\xCE\xC2\xB6\xC8\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF";
         case RS485_LOOP3_FAULT_SMOKE: return "\xD1\xCC\xCE\xED\xCE\xDB\xC8\xBE\xB9\xCA\xD5\xCF";
-        case RS485_LOOP3_FAULT_CO: return "CO\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF";
-        case RS485_LOOP3_FAULT_H2: return "H2\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF";
+        case RS485_LOOP3_FAULT_CO: return "\xD2\xBB\xD1\xF5\xBB\xAF\xCC\xBC\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF";
+        case RS485_LOOP3_FAULT_H2: return "\xC7\xE2\xC6\xF8\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF";
         case RS485_LOOP3_FAULT_VOC: return "VOC\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF";
         case RS485_LOOP3_FAULT_CH4: return "CH4\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF";
         case RS485_LOOP3_FAULT_SMOKE_SENSOR: return "\xD1\xCC\xCE\xED\xB4\xAB\xB8\xD0\xC6\xF7\xB9\xCA\xD5\xCF";
@@ -354,13 +451,17 @@ static const char *RealtimeLoop3FaultName(uint8_t fault_type)
     }
 }
 
-static const char *RealtimeControllerFaultName(uint8_t package_id)
+static const char *RealtimeControllerFaultName(uint8_t package_id,
+                                                uint8_t fault_state)
 {
     switch(package_id)
     {
         case SYS_FLASH_FAULT_ID: return "\xCF\xB5\xCD\xB3\xB4\xE6\xB4\xA2\xB9\xCA\xD5\xCF";
         case SYS_MAIN_POWER_KEY_ID: return "\xD6\xF7\xB5\xE7\xB9\xCA\xD5\xCF";
-        case SYS_BACK_POWER_KEY_ID: return "\xB1\xB8\xB5\xE7\xB9\xCA\xD5\xCF";
+        case SYS_BACK_POWER_KEY_ID:
+            return (fault_state == SHORTCIRCUIT) ?
+                "\xB1\xB8\xB5\xE7\xB6\xCC\xC2\xB7\xB9\xCA\xD5\xCF" :
+                "\xB1\xB8\xB5\xE7\xBF\xAA\xC2\xB7\xB9\xCA\xD5\xCF";
         case SYS_RESET_COMM_FAULT_ID: return "\xB8\xB4\xCE\xBB\xB7\xA2\xCB\xCD\xD2\xEC\xB3\xA3";
         default: return "\xBF\xD8\xD6\xC6\xC6\xF7\xB9\xCA\xD5\xCF";
     }
@@ -425,7 +526,8 @@ static uint8_t RealtimeClassifyFault(const PackCabinFaultStorage *fault,
         *name = "\xC1\xAA\xB6\xAF\xC4\xA3\xBF\xE9\xB9\xCA\xD5\xCF";
         return REALTIME_FAULT_LINKAGE;
     }
-    *name = RealtimeControllerFaultName(fault->da.pack_id);
+    *name = RealtimeControllerFaultName(fault->da.pack_id,
+                                        fault->da.cabin_id);
     return REALTIME_FAULT_CONTROLLER;
 }
 
@@ -482,6 +584,35 @@ static void RealtimeEventSyncFaults(void)
                                      (const uint8_t *)DeviceRegistry_GetIdentifyErrorText(error),
                                      BSP_PRINTER_EVENT_IDENTIFY_FAULT);
     }
+
+    /* 多线盘单路故障与整板通信故障统一进入画面87的联动模块故障。 */
+#if CAN_MONITOR_REALTIME_EVENT_ENABLE
+    if(CanMonitorHasEverOnline() != 0U)
+    {
+        if(CanMonitorIsOnline() != 0U)
+        {
+            for(index = 1U; index <= 6U; index++)
+            {
+                if(CanMonitorGetChannelState((uint8_t)index) !=
+                   CAN_MONITOR_STATE_FAULT) continue;
+                RealtimeEventCurrentTime(&time);
+                (void)BspRealtimeEvent_ObserveNamed(
+                    REALTIME_EVENT_FAULT, REALTIME_FAULT_LINKAGE,
+                    0x70000000UL | ((uint32_t)index << 24U), &time,
+                    g_can_monitor_subject[index - 1U],
+                    g_can_monitor_fault_text, 1U);
+            }
+        }
+        else
+        {
+            RealtimeEventCurrentTime(&time);
+            (void)BspRealtimeEvent_ObserveNamed(
+                REALTIME_EVENT_FAULT, REALTIME_FAULT_LINKAGE,
+                0x80000000UL, &time, g_can_monitor_all_subject,
+                g_can_monitor_comm_fault_text, 1U);
+        }
+    }
+#endif
     BspRealtimeEvent_EndScan(REALTIME_EVENT_FAULT);
 }
 

@@ -15,6 +15,7 @@
 #define CAN_MONITOR_QUERY_PERIOD_MS  200U
 #define CAN_MONITOR_TIMEOUT_MS       150U
 #define CAN_MONITOR_FAILURE_LIMIT    3U
+#define CAN_MONITOR_ACTION_QUEUE_SIZE 32U
 #define CAN_MONITOR_DISPLAY_ID       71U
 #define CAN_MONITOR_INDICATOR_RADIUS 15U
 #define CAN_MONITOR_DEFAULT_COLOR    0xC618U
@@ -38,6 +39,9 @@ typedef struct
     uint8_t awaiting_response;
     uint8_t failure_count;
     uint8_t query_started;
+    uint8_t baseline_valid;
+    uint8_t ever_online;
+    uint8_t channel_started[CAN_MONITOR_CHANNEL_COUNT];
     uint32_t query_tick;
     uint32_t last_query_tick;
 } CanMonitorContext_t;
@@ -45,6 +49,12 @@ typedef struct
 static CanMonitorContext_t g_can_monitor;
 static volatile uint8_t g_can_monitor_reset_requested;
 static volatile uint8_t g_can_monitor_reset_status;
+static volatile uint8_t g_can_monitor_resync_requested;
+static CanMonitorActionEvent_t g_can_monitor_action_queue[CAN_MONITOR_ACTION_QUEUE_SIZE];
+static uint8_t g_can_monitor_action_head;
+static uint8_t g_can_monitor_action_tail;
+static uint8_t g_can_monitor_action_count;
+static uint32_t g_can_monitor_action_sequence;
 
 typedef struct
 {
@@ -250,20 +260,89 @@ static uint8_t CanMonitorFrameIsValid(const FdcanFrame_t *frame)
     return 1U;
 }
 
+/* 调用方已进入临界区；队列满时保留既有事件，避免破坏消费位置。 */
+static void CanMonitorQueueActionLocked(uint8_t channel, uint8_t action)
+{
+    CanMonitorActionEvent_t *event;
+    if(g_can_monitor_action_count >= CAN_MONITOR_ACTION_QUEUE_SIZE) return;
+    g_can_monitor_action_sequence++;
+    if(g_can_monitor_action_sequence == 0U) g_can_monitor_action_sequence = 1U;
+    event = &g_can_monitor_action_queue[g_can_monitor_action_tail];
+    event->channel = channel;
+    event->action = action;
+    event->sequence = g_can_monitor_action_sequence;
+    g_can_monitor_action_tail =
+        (uint8_t)((g_can_monitor_action_tail + 1U) % CAN_MONITOR_ACTION_QUEUE_SIZE);
+    g_can_monitor_action_count++;
+}
+
+/* 首帧及总复位后的首个有效帧仅建立状态基准，不生成虚假的启停事件。 */
+static void CanMonitorResyncStateLocked(const FdcanFrame_t *frame)
+{
+    uint8_t i;
+    for(i = 0U; i < CAN_MONITOR_CHANNEL_COUNT; i++)
+    {
+        uint8_t state = frame->data[i + 2U];
+        g_can_monitor.channel_started[i] =
+            (state == CAN_MONITOR_STATE_STARTED ||
+             state == CAN_MONITOR_STATE_FEEDBACK) ? 1U : 0U;
+    }
+    g_can_monitor.baseline_valid = 1U;
+    g_can_monitor_resync_requested = 0U;
+}
+
+/* 根据相邻有效回复识别人工启动和人工停止，故障恢复不误判为停止。 */
+static void CanMonitorDetectActionsLocked(const FdcanFrame_t *frame)
+{
+    uint8_t i;
+    for(i = 0U; i < CAN_MONITOR_CHANNEL_COUNT; i++)
+    {
+        uint8_t previous = g_can_monitor.channel_state[i];
+        uint8_t current = frame->data[i + 2U];
+        if((current == CAN_MONITOR_STATE_STARTED ||
+            current == CAN_MONITOR_STATE_FEEDBACK) &&
+           g_can_monitor.channel_started[i] == 0U)
+        {
+            g_can_monitor.channel_started[i] = 1U;
+            CanMonitorQueueActionLocked((uint8_t)(i + 1U),
+                                        CAN_MONITOR_ACTION_START);
+        }
+        else if(current == CAN_MONITOR_STATE_NORMAL &&
+                g_can_monitor.channel_started[i] != 0U)
+        {
+            if(previous == CAN_MONITOR_STATE_STARTED ||
+               previous == CAN_MONITOR_STATE_FEEDBACK)
+                CanMonitorQueueActionLocked((uint8_t)(i + 1U),
+                                            CAN_MONITOR_ACTION_STOP);
+            g_can_monitor.channel_started[i] = 0U;
+        }
+    }
+}
+
 static void CanMonitorHandleFrame(const FdcanFrame_t *frame)
 {
     if(g_can_monitor.awaiting_response == 0U || CanMonitorFrameIsValid(frame) == 0U) return;
     taskENTER_CRITICAL();
+    if(g_can_monitor.baseline_valid == 0U || g_can_monitor_resync_requested != 0U)
+        CanMonitorResyncStateLocked(frame);
+    else
+        CanMonitorDetectActionsLocked(frame);
     memcpy(g_can_monitor.channel_state, &frame->data[2], CAN_MONITOR_CHANNEL_COUNT);
     g_can_monitor.awaiting_response = 0U;
     g_can_monitor.failure_count = 0U;
     g_can_monitor.online = 1U;
+    g_can_monitor.ever_online = 1U;
     taskEXIT_CRITICAL();
 }
 
 void CanMonitorRequestReset(void)
 {
     taskENTER_CRITICAL();
+    g_can_monitor_action_head = 0U;
+    g_can_monitor_action_tail = 0U;
+    g_can_monitor_action_count = 0U;
+    g_can_monitor_action_sequence = 0U;
+    g_can_monitor_resync_requested = 1U;
     g_can_monitor_reset_status = 1U;
     g_can_monitor_reset_requested = 1U;
     taskEXIT_CRITICAL();
@@ -285,6 +364,8 @@ static void CanMonitorServiceReset(void)
     osDelay(50U);
     second_status = FDCAN1_SendExtDataFrame(CAN_MONITOR_IDENTIFIER,
                                             (uint8_t *)g_can_monitor_reset, 8U);
+    /* 发送复位后再次置位，防止复位前残留回复提前完成状态重同步。 */
+    g_can_monitor_resync_requested = 1U;
     g_can_monitor.last_query_tick = osKernelGetTickCount();
     g_can_monitor.query_started = 1U;
     g_can_monitor_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
@@ -329,6 +410,11 @@ void CanMonitorTask(void *parameter)
     memset(&g_can_monitor, 0, sizeof(g_can_monitor));
     g_can_monitor_reset_requested = 0U;
     g_can_monitor_reset_status = 0U;
+    g_can_monitor_resync_requested = 0U;
+    g_can_monitor_action_head = 0U;
+    g_can_monitor_action_tail = 0U;
+    g_can_monitor_action_count = 0U;
+    g_can_monitor_action_sequence = 0U;
     for(;;)
     {
         CanMonitorProcess();
@@ -415,4 +501,26 @@ uint8_t CanMonitorGetChannelState(uint8_t channel)
 {
     if(channel == 0U || channel > CAN_MONITOR_CHANNEL_COUNT) return 0U;
     return g_can_monitor.channel_state[channel - 1U];
+}
+
+uint8_t CanMonitorHasEverOnline(void)
+{
+    return g_can_monitor.ever_online;
+}
+
+uint8_t CanMonitorPopActionEvent(CanMonitorActionEvent_t *event)
+{
+    if(event == NULL) return 0U;
+    taskENTER_CRITICAL();
+    if(g_can_monitor_action_count == 0U)
+    {
+        taskEXIT_CRITICAL();
+        return 0U;
+    }
+    *event = g_can_monitor_action_queue[g_can_monitor_action_head];
+    g_can_monitor_action_head =
+        (uint8_t)((g_can_monitor_action_head + 1U) % CAN_MONITOR_ACTION_QUEUE_SIZE);
+    g_can_monitor_action_count--;
+    taskEXIT_CRITICAL();
+    return 1U;
 }

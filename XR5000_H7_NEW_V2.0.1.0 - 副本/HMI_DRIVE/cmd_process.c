@@ -4565,7 +4565,9 @@ void UpdateUI(void)
 	else if(current_screen_id == REALTIME_EVENT_SCREEN_ALARM ||
 			current_screen_id == REALTIME_EVENT_SCREEN_FAULT)
 	{
-		BspRealtimeEvent_Refresh(current_screen_id, osKernelGetTickCount());
+		uint32_t realtime_now_tick = osKernelGetTickCount();
+		RealtimeEventHandleInternalKey(current_screen_id, realtime_now_tick);
+		BspRealtimeEvent_Refresh(current_screen_id, realtime_now_tick);
 		RefreshGasConcentrationSummary();
 	}
 	else if(current_screen_id == 61 || current_screen_id == 62) // 刷新不一样
@@ -15441,7 +15443,7 @@ static const char *FirstAlarmContentName(uint8_t alarm_type)
 	{
 		case Temperature:              return "温度火警";
 		case Smoke:                    return "烟雾火警";
-		case HandAlarm:                return "手报按下报警";
+		case HandAlarm:                return "\xCA\xD6\xB6\xAF\xB1\xA8\xBE\xAF";
 		case Carbon:                   return "一氧化碳报警";
 		case Hydrogen:                 return "氢气报警";
 		case GasCarbonLowWarning:      return "一氧化碳低报";
