@@ -37,6 +37,7 @@
 #include "bsp_device_threshold.h"
 #include "bsp_device_disable.h"
 #include "bsp_realtime_event.h"
+#include "bsp_printer.h"
 #include "bsp_aht20.h"
 #include "bsp_access_control.h"
 
@@ -1103,6 +1104,7 @@ void BspCmdProcessInit(void)
 {
 	AccessControl_Init();
 	BspRealtimeEvent_Init();
+	BspPrinter_Reset();
 	FaultDataInit(pcfs); // 清除故障记录
 	ForeAlarmDataInit(&pcfws); // 清除预警记录
 	FireAlarmDataInit(&pcfas); // 清除火警记录
@@ -3619,7 +3621,38 @@ typedef struct {
 	uint8_t addr;
 } Screen69CacheEntry;
 
-/* Keep the combustible-gas alarm lamp tied to live gas states, not UI refreshes. */
+/* 火灾报警灯只锁存置位，统一由现有系统复位流程清除。 */
+static void LatchFireAlarmLed(void)
+{
+	fire_alarm_state = 1U;
+}
+
+#define REALTIME_EVENT_BACKLIGHT_KEEPALIVE_MS 60000U
+
+/* 只在存在报警或故障时低频刷新背光，避免占用屏幕通信带宽。 */
+static void RealtimeEventKeepBacklightOn(void)
+{
+	static uint32_t last_keepalive_tick = 0U;
+	static uint8_t keepalive_active = 0U;
+	uint32_t now_tick = osKernelGetTickCount();
+
+	if(BspRealtimeEvent_HasAny() == 0U)
+	{
+		keepalive_active = 0U;
+		last_keepalive_tick = now_tick;
+		return;
+	}
+
+	if(keepalive_active == 0U ||
+	   (uint32_t)(now_tick - last_keepalive_tick) >= REALTIME_EVENT_BACKLIGHT_KEEPALIVE_MS)
+	{
+		beiguangkai();
+		keepalive_active = 1U;
+		last_keepalive_tick = now_tick;
+	}
+}
+
+/* 可燃气体报警灯由实时状态触发，触发后锁存到系统复位。 */
 static uint8_t RefreshCombustibleGasAlarmLed(void)
 {
     uint8_t alarm_on = 0U;
@@ -3659,7 +3692,10 @@ static uint8_t RefreshCombustibleGasAlarmLed(void)
         }
     }
 
-    SpareGasAlarmLedCtrl(alarm_on != 0U ? LED_ON : LED_OFF);
+	if(alarm_on != 0U)
+	{
+		SpareGasAlarmLedCtrl(LED_ON);
+	}
     return alarm_on;
 }
 
@@ -3952,6 +3988,11 @@ void UpdateUI(void)
 		rs485_detect_disconnect_sum = RS485DetectDataDeal(pcfs, &pcfs_buttom_point);
 		mbus2_disconnect_sum = MBus2DataDeal(pcfs, &pcfs_buttom_point);
 		ig3302_fault_sum = IG3302DataDeal(pcfs, &pcfs_buttom_point);
+		/* 所有进入火警列表的温度/烟雾报警统一锁存主机火灾报警灯。 */
+		if(pcfas.self_bottom_point > 0U)
+		{
+			LatchFireAlarmLed();
+		}
 		MBusCtrl_SetDetectorFireAlarmActive(HasUnshieldedDetectorFireAlarm());
 		(void)RefreshCombustibleGasAlarmLed();
 		/* 功能调整：废弃IG3306及4路独立24V输出监测；时间：2026-08-06 */
@@ -4066,6 +4107,7 @@ void UpdateUI(void)
 		{
 			// 确保只执行一次
 			setDealHandPaperState();
+			LatchFireAlarmLed();
 			// 存入FLASH
 			BspAlarmDataSaveApp(FIRE_FLASH_SAVE, LINKAGE_PRESS, LINKAGE_CLUSTER_ID, HANDPOT_Package_ID, 0xFFFF);
 			StorageEvent_LogFire(HANDPOT_Package_ID, DEV_TYPE_HAND_REPORT, 1, 0);  /* [GB4717 B.1.1.1a] 手动火灾报警按钮 */
@@ -4074,6 +4116,7 @@ void UpdateUI(void)
 		
 		// 有报警后切换主界面 点亮屏幕 
 		RealtimeEventSyncAll();
+		RealtimeEventKeepBacklightOn();
 		{
 			uint16_t realtime_target = BspRealtimeEvent_GetNavigationTarget(current_screen_id, osKernelGetTickCount());
 			if(realtime_target != 0U)
@@ -4088,11 +4131,14 @@ void UpdateUI(void)
 	}
 	//新增加报警总数的判断RS485Detect_GetAlarmCount();
 	uint8_t total_alarm = alarm_number;
-	if(last_alarm_num != total_alarm)
+	uint8_t previous_alarm_num = last_alarm_num;
+	if(previous_alarm_num != total_alarm)
 	{
 		last_alarm_num = total_alarm;
 		SetTextInt32(1, 8, total_alarm,0,1);  //报警总数显示
-		if(total_alarm != 0)
+		/* 只有新增报警才重新鸣响；报警恢复导致数量减少时保持消音状态。 */
+		if(total_alarm != 0U &&
+		   (previous_alarm_num == 255U || total_alarm > previous_alarm_num))
 		{
 			beep_fire_ctrl |= 0xF0;  // 真 火警 长鸣
 			silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
@@ -7537,7 +7583,7 @@ static uint8_t CabinDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 		{
 			
 			// new
-			fire_alarm_state = 1;  // 标记火警(此处为舱内火警)
+			LatchFireAlarmLed();  // 标记火警(此处为舱内火警)
 			// end
 			
 			// 记录所有的火警信息并储存
@@ -8310,8 +8356,6 @@ static void InternalScreenShowAllFireAlarm(PackCabinFireAlarmStorage *pcfas_entr
 		
 		uint8_t baojingneirong[128]; // Device aliases can add up to 13 GBK characters.
 
-		fire_alarm_state = 1; // 点亮火警指示灯
-		
 		// 第一条报警信息置顶显示
 		if(pcfas_entry->detector_class[0] == PackClassID && pcfas_entry->da[0].cluster_id == RS485_DETECT_FLASH_ID)
 		{
@@ -8510,8 +8554,6 @@ static void InternalScreenShowAllFireAlarm_Plus(PackCabinFireAlarmStorage *pcfas
 		
 		uint8_t baojingneirong[128]; // Device aliases can add up to 13 GBK characters.
 
-		fire_alarm_state = 1; // 点亮火警指示灯
-		
 		uint8_t temp_sequence_count = 0;
 		
 		// 剩下五个区域滚动显示
@@ -11077,7 +11119,8 @@ static void PointTypeDetectorOnlineStateShowInit(void)
 	}
 }
 
-void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cluster_id, uint8_t pack_id, uint8_t alarm_type)
+static void StoragePackCabinForeWarnCore(PackCabinForeWarnStorage *pcfws_entry,
+	uint8_t cluster_id, uint8_t pack_id, uint8_t alarm_type, uint8_t trigger_buzzer)
 {
 	uint8_t flag = 0;
 	for(uint8_t l = 0;l < pcfws_entry->self_bottom_point; l++)
@@ -11149,9 +11192,17 @@ void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clu
 		
 		pcfws_entry->self_bottom_point++;
 		
-		beep_fire_ctrl |= 0x0F;  // 任意报警 长鸣
-		silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
+		if(trigger_buzzer != 0U)
+		{
+			beep_fire_ctrl |= 0x0F;  // 任意报警 长鸣
+			silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
+		}
 	}
+}
+
+void StoragePackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t cluster_id, uint8_t pack_id, uint8_t alarm_type)
+{
+	StoragePackCabinForeWarnCore(pcfws_entry, cluster_id, pack_id, alarm_type, 1U);
 }
 
 // 预警可以清除
@@ -11181,11 +11232,7 @@ void DeletPackCabinForeWarn(PackCabinForeWarnStorage *pcfws_entry, uint8_t clust
 		}
 		pcfws_entry->self_bottom_point--;
 		
-		if(pcfws_entry->self_bottom_point > 0) // 恢复后还有其他报警的话
-		{
-			beep_fire_ctrl |= 0x0F; // 打开预警蜂鸣器
-			silencers_state = 0; // 有新的报警 蜂鸣器开 清除消音标志位
-		}
+		/* 报警恢复只删除当前状态，不得重新启动蜂鸣或清除消音。 */
 	}
 }
 
@@ -13252,7 +13299,9 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
                 if(co_state == 2U)
 				{
 					getBM8563TimeToSystemTime();
-                    StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, GasCarbonLowWarning); force_alarm_check_new_flag = 1;
+					/* 高报降为低报是恢复过程，更新记录但不重新鸣响。 */
+					StoragePackCabinForeWarnCore(&pcfws, RS485_DETECT_FLASH_ID, addr,
+						GasCarbonLowWarning, old_co == 3U ? 0U : 1U); force_alarm_check_new_flag = 1;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, GAS_CO_LOW_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_CO));
 				}
                 else if(co_state == 3U)
@@ -13275,7 +13324,9 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
                 if(h2_state == 2U)
 				{
 					getBM8563TimeToSystemTime();
-                    StoragePackCabinForeWarn(&pcfws, RS485_DETECT_FLASH_ID, addr, GasHydrogenLowWarning); force_alarm_check_new_flag = 1;
+					/* 高报降为低报是恢复过程，更新记录但不重新鸣响。 */
+					StoragePackCabinForeWarnCore(&pcfws, RS485_DETECT_FLASH_ID, addr,
+						GasHydrogenLowWarning, old_h2 == 3U ? 0U : 1U); force_alarm_check_new_flag = 1;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, GAS_H2_LOW_ALARM, RS485_DETECT_FLASH_ID, addr, RS485Detect_GetSensorValue(addr, RS485_SENSOR_H2));
 				}
                 else if(h2_state == 3U)
@@ -13613,6 +13664,9 @@ static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 				if (mbus2_hand_alarm_memory[addr] == 0)
 				{
 					mbus2_hand_alarm_memory[addr] = 1;
+					LatchFireAlarmLed();
+					beep_fire_ctrl |= 0xF0U;
+					silencers_state = 0U;
 					StorageEvent_LogFire(addr, DEV_TYPE_HAND_REPORT, 2U, 0U);  /* [GB4717 B.1.1.1a] 回路2 XR2200手动报警 -> 黑匣子: 首警0x02 + 火警0x03, unit_no=2, 类型=手动报警按钮(61) */
 					/* XR5000_FIRE_DISPLAY_GENERIC_NAMES_20260729: store XR2200 record in fire history only; do not add pcfas. */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, MBUS2_HAND_ALARM, MBUS_CONTROL_FLASH_ID, addr, 1);
@@ -13865,7 +13919,7 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     getBM8563TimeToSystemTime();
                     StoragePackFireAlarm(&pcfas, 0U, addr, Temperature);
                     fire_alarm_check_new_flag = 1U;
-                    fire_alarm_state = 1U;
+					LatchFireAlarmLed();
                     beep_fire_ctrl = 1U;
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, 0U, addr, value);
@@ -13897,7 +13951,7 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     getBM8563TimeToSystemTime();
                     StoragePackFireAlarm(&pcfas, 0U, addr, Smoke);
                     fire_alarm_check_new_flag = 1U;
-                    fire_alarm_state = 1U;
+					LatchFireAlarmLed();
                     beep_fire_ctrl = 1U;
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, 0U, addr, value);

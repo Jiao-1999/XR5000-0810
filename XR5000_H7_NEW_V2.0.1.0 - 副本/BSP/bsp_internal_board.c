@@ -13,6 +13,7 @@
 #include "bsp_adc.h"
 
 #include "bsp_save_ctrl.h"
+#include "bsp_printer.h"
 
 #include "bsp_storage_event.h"  /* 黑匣子存储事件接入层 */
 #include "bsp_fecbus_report.h" /* FECbus RS485 上报接入层 (GB4717 附录C) */
@@ -410,11 +411,14 @@ void getLedStateReg(uint8_t *led_state_buff, uint8_t len)
 void HostUploadDataTask(void *parameter)
 {
 	uint8_t modbusbuf[24];  // 发送缓冲区
+	static uint8_t printer_frame[BSP_PRINTER_FRAME_MAX_LEN];
 	uint16_t crc16 = 0x0000;  // CRC校验码
+	uint8_t printer_turn = 0U;
 	for(;;)
 	{
 		if(system_reset_flag == 1)
 		{
+			printer_turn = 0U;
 			modbusbuf[0] = 0xFF;  // 从机地址取值
 			modbusbuf[1] = 0x05;  // 05功能码
 			modbusbuf[2] = 0x00;
@@ -433,6 +437,7 @@ void HostUploadDataTask(void *parameter)
 			if(self_check_show_content == 1)  // LED指示灯自检
 			{
 				uint8_t data_count = 0;
+				printer_turn = 0U;
 				modbusbuf[data_count++] = InternalBoardAddr;
 				modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
 				modbusbuf[data_count++] = 7;  // 返回的字节数
@@ -459,6 +464,7 @@ void HostUploadDataTask(void *parameter)
 			{
 				uint8_t data_count = 0;
 				uint8_t led_reg_state[5] = { 0 };  // 默认关闭
+				printer_turn = 0U;
 				
 				modbusbuf[data_count++] = InternalBoardAddr;
 				modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
@@ -486,29 +492,41 @@ void HostUploadDataTask(void *parameter)
 			}
 			else
 			{
-				uint8_t led_reg_state[5] = { 0 };  // 默认关闭
-				
-				getLedStateReg(led_reg_state, 5);
-
-				uint8_t data_count = 0;
-				modbusbuf[data_count++] = InternalBoardAddr;
-				modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
-				modbusbuf[data_count++] = 7;  // 返回的字节数
-				
-				for(uint8_t i = 0; i < 5; i++)
+				uint8_t printer_frame_length = 0U;
+				if(printer_turn != 0U &&
+				   BspPrinter_BuildNextFrame(printer_frame,
+				                                 sizeof(printer_frame),
+				                                 &printer_frame_length) != 0U)
 				{
-					modbusbuf[data_count++] = led_reg_state[i];
+					InternalBoardSendString(printer_frame, printer_frame_length);
+					printer_turn = 0U;
 				}
-				modbusbuf[data_count++] = 0;
-				modbusbuf[data_count++] = getBuzzerWorkState();
+				else
+				{
+					uint8_t led_reg_state[5] = { 0 };  // 默认关闭
+					uint8_t data_count = 0;
 
-				crc16 = CalcCrc16(modbusbuf, data_count);  // 计算六字节数据的CRC校验码
-				modbusbuf[data_count++] = (uint8_t)(crc16);
-				modbusbuf[data_count++] = (crc16 >> 8);
-				
-				InternalBoardSendString(modbusbuf, data_count);
+					getLedStateReg(led_reg_state, 5);
+					modbusbuf[data_count++] = InternalBoardAddr;
+					modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
+					modbusbuf[data_count++] = 7;  // 返回的字节数
+
+					for(uint8_t i = 0; i < 5; i++)
+					{
+						modbusbuf[data_count++] = led_reg_state[i];
+					}
+					modbusbuf[data_count++] = 0;
+					modbusbuf[data_count++] = getBuzzerWorkState();
+
+					crc16 = CalcCrc16(modbusbuf, data_count);  // 计算六字节数据的CRC校验码
+					modbusbuf[data_count++] = (uint8_t)(crc16);
+					modbusbuf[data_count++] = (crc16 >> 8);
+
+					InternalBoardSendString(modbusbuf, data_count);
 //				DebugSendString(modbusbuf, data_count);
-				crc16 = 0;
+					crc16 = 0;
+					printer_turn = BspPrinter_HasPending();
+				}
 			}
 
 		}
