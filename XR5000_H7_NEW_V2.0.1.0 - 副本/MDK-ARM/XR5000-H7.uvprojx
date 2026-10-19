@@ -1065,6 +1065,11 @@
               <FilePath>..\BSP\bsp_realtime_event.c</FilePath>
             </File>
             <File>
+              <FileName>bsp_printer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BSP\bsp_printer.c</FilePath>
+            </File>
+            <File>
               <FileName>bsp_device_registration.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BSP\bsp_device_registration.c</FilePath>

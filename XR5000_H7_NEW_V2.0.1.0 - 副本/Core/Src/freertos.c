@@ -56,6 +56,7 @@
 #include "semphr.h"
 
 #include "bsp_internal_board.h"
+#include "bsp_printer.h"
 #include "bsp_save_ctrl.h"
 #include "bsp_station.h"
 #include "bsp_ctrl_bus.h"
@@ -431,6 +432,8 @@ void MX_FREERTOS_Init(void) {
 	xMyMBusQueueHandle = xQueueCreate( 5, sizeof(char[8])); // 创建一个最多存储5条消息的队列，每条消息是8字节的char数组
 
 	xMBus2QueueHandle = xQueueCreate( 5, sizeof(char[8])); // 创建一个最多存储5条消息的队列，每条消息是8字节的char数组（回路2 二总线控制）
+
+	BspPrinter_Init(); /* 打印事件使用静态消息队列，不占用新的UART发送任务。 */
 
   /* USER CODE END RTOS_QUEUES */
 
