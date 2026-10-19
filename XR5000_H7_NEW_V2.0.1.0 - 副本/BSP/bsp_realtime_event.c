@@ -16,6 +16,8 @@
 /* 自动滚动周期为5秒；离开实时页面3分钟后，如仍有未确认事件则自动返回。 */
 #define REALTIME_EVENT_SCROLL_TICKS       5000U
 #define REALTIME_EVENT_RETURN_TICKS       180000U
+#define REALTIME_RUNNING_STEP_TICKS       1000U
+#define REALTIME_RUNNING_MAX_DOTS         6U
 
 /* 屏幕状态栏使用的RGB565颜色值。 */
 #define COLOR_BLACK                       0x0000U
@@ -30,10 +32,12 @@ typedef struct
     RealtimeEventTime time;               /* 事件首次产生时间 */
     uint8_t category;                     /* 所属报警/故障分类 */
     uint8_t confirmed;                    /* 0：未确认，1：已人工确认 */
+    uint8_t keepalive;                    /* 1：参与报警/故障期间的屏幕保活 */
     uint8_t active;                       /* 0：来源已恢复，1：来源当前仍存在 */
     uint8_t seen;                         /* 本轮扫描中是否再次观察到 */
     uint8_t loop;                         /* 回路号；0表示主机本身 */
     uint8_t address;                      /* 设备地址或主机故障编号 */
+    const uint8_t *subject_name;          /* 非回路设备的自定义显示主体；NULL使用回路格式 */
     const uint8_t *event_name;            /* 事件名称指针，本模块不复制字符串 */
 }RealtimeEventEntry;
 
@@ -46,14 +50,34 @@ typedef struct
     uint8_t overflow;                     /* 容量已满标志，按未确认事件处理 */
 }RealtimeEventStore;
 
+/* 每个实时画面独立保存箭头位置；事件框模式下只暂停当前分类的滚动。 */
+typedef struct
+{
+    uint8_t visible;                      /* 0：箭头隐藏，1：箭头已显示 */
+    uint8_t event_mode;                   /* 0：分类标题，1：事件显示框 */
+    uint8_t vertical;                     /* 0：上半区，1：下半区 */
+    uint8_t side;                         /* 0：左侧分类，1：右侧分类 */
+    uint8_t row;                          /* 事件框内当前可见行，范围0～6 */
+}RealtimeEventCursor;
+
 /* 模块运行状态：存储区、各分类滚动位置、跳转标志及屏幕渲染版本。 */
 static RealtimeEventStore g_store[REALTIME_EVENT_KIND_COUNT];
 static uint16_t g_scroll[REALTIME_EVENT_KIND_COUNT][4U];
-static uint32_t g_last_scroll_tick;
+static uint32_t g_last_scroll_tick[REALTIME_EVENT_KIND_COUNT][4U];
 static uint32_t g_leave_tick;
 static uint8_t g_new_alarm;
 static uint8_t g_new_fault;
 static uint16_t g_render_revision[REALTIME_EVENT_KIND_COUNT];
+static RealtimeEventCursor g_cursor[REALTIME_EVENT_KIND_COUNT];
+static uint32_t g_running_tick[REALTIME_EVENT_KIND_COUNT];
+static uint8_t g_running_dots[REALTIME_EVENT_KIND_COUNT];
+
+/* 箭头控件只使用画面工程预留的8～23号文本控件。 */
+#define REALTIME_CURSOR_TOP_TITLE_ID      8U
+#define REALTIME_CURSOR_TOP_ROW_ID        9U
+#define REALTIME_CURSOR_BOTTOM_TITLE_ID   16U
+#define REALTIME_CURSOR_BOTTOM_ROW_ID     17U
+#define REALTIME_CURSOR_LAST_ID           23U
 
 /* 画面86中四类报警对应的事件正文控件ID。 */
 static const uint16_t g_alarm_text_ctrl[4U][REALTIME_EVENT_ROWS_PER_CATEGORY] = {
@@ -99,6 +123,47 @@ static const uint8_t g_fault_pending_text[] = {
 };
 static const uint8_t g_fault_confirmed_text[] = {
     0xB9U,0xCAU,0xD5U,0xCFU,0xD2U,0xD1U,0xC8U,0xB7U,0xC8U,0xCFU,0U
+};
+
+/* 无事件时各分类首行显示的运行状态，均采用GB2312编码。 */
+static const uint8_t g_running_alarm_fire[] = {
+    0xBBU,0xF0U,0xBEU,0xAFU,0xBCU,0xECU,0xB2U,0xE2U,
+    0xD4U,0xCBU,0xD0U,0xD0U,0xD6U,0xD0U,0U
+};
+static const uint8_t g_running_alarm_gas[] = {
+    0xC6U,0xF8U,0xCCU,0xE5U,0xB1U,0xA8U,0xBEU,0xAFU,
+    0xBCU,0xECU,0xB2U,0xE2U,0xD4U,0xCBU,0xD0U,0xD0U,0xD6U,0xD0U,0U
+};
+static const uint8_t g_running_alarm_linkage[] = {
+    0xC1U,0xAAU,0xB6U,0xAFU,0xBCU,0xECU,0xB2U,0xE2U,
+    0xD4U,0xCBU,0xD0U,0xD0U,0xD6U,0xD0U,0U
+};
+static const uint8_t g_running_alarm_extinguish[] = {
+    0xC3U,0xF0U,0xBBU,0xF0U,0xD7U,0xB0U,0xD6U,0xC3U,
+    0xBCU,0xECU,0xB2U,0xE2U,0xD4U,0xCBU,0xD0U,0xD0U,0xD6U,0xD0U,0U
+};
+static const uint8_t g_running_fault_controller[] = {
+    0xBFU,0xD8U,0xD6U,0xC6U,0xC6U,0xF7U,0xB9U,0xCAU,0xD5U,0xCFU,
+    0xBCU,0xECU,0xB2U,0xE2U,0xD4U,0xCBU,0xD0U,0xD0U,0xD6U,0xD0U,0U
+};
+static const uint8_t g_running_fault_detector[] = {
+    0xCCU,0xBDU,0xB2U,0xE2U,0xC6U,0xF7U,0xB9U,0xCAU,0xD5U,0xCFU,
+    0xBCU,0xECU,0xB2U,0xE2U,0xD4U,0xCBU,0xD0U,0xD0U,0xD6U,0xD0U,0U
+};
+static const uint8_t g_running_fault_linkage[] = {
+    0xC1U,0xAAU,0xB6U,0xAFU,0xC4U,0xA3U,0xBFU,0xE9U,0xB9U,0xCAU,
+    0xD5U,0xCFU,0xBCU,0xECU,0xB2U,0xE2U,0xD4U,0xCBU,0xD0U,0xD0U,0xD6U,0xD0U,0U
+};
+static const uint8_t g_running_fault_extinguish[] = {
+    0xC3U,0xF0U,0xBBU,0xF0U,0xD7U,0xB0U,0xD6U,0xC3U,0xB9U,0xCAU,
+    0xD5U,0xCFU,0xBCU,0xECU,0xB2U,0xE2U,0xD4U,0xCBU,0xD0U,0xD0U,0xD6U,0xD0U,0U
+};
+
+static const uint8_t * const g_running_text[REALTIME_EVENT_KIND_COUNT][4U] = {
+    {g_running_alarm_fire, g_running_alarm_gas,
+     g_running_alarm_linkage, g_running_alarm_extinguish},
+    {g_running_fault_controller, g_running_fault_detector,
+     g_running_fault_linkage, g_running_fault_extinguish}
 };
 
 /**
@@ -149,15 +214,98 @@ static uint16_t RealtimeCountCategory(const RealtimeEventStore *store,
 }
 
 /**
- * @brief 将指定分类的显示窗口移动到最新一页。
+ * @brief 统计指定分类中某一确认状态的记录数。
+ * @param store 事件存储区。
+ * @param category 事件分类。
+ * @param confirmed 0表示未确认，1表示已确认。
+ * @return 符合分类和确认状态的记录数。
+ */
+static uint16_t RealtimeCountCategoryState(const RealtimeEventStore *store,
+                                           uint8_t category,
+                                           uint8_t confirmed)
+{
+    uint16_t index;
+    uint16_t count = 0U;
+    for(index = 0U; index < store->count; index++)
+    {
+        if(store->entry[index].category == category &&
+           store->entry[index].confirmed == confirmed) count++;
+    }
+    return count;
+}
+
+/**
+ * @brief 将指定分类的显示窗口移动到最新一条未确认事件。
  * @param kind 事件大类。
  * @param category 事件分类。
  */
 static void RealtimeMoveToNewest(RealtimeEventKind kind, uint8_t category)
 {
-    uint16_t count = RealtimeCountCategory(&g_store[kind], category);
-    g_scroll[kind][category] = (count > REALTIME_EVENT_ROWS_PER_CATEGORY) ?
-        (uint16_t)(count - REALTIME_EVENT_ROWS_PER_CATEGORY) : 0U;
+    uint16_t unconfirmed = RealtimeCountCategoryState(&g_store[kind], category, 0U);
+    uint16_t newest_index = (unconfirmed != 0U) ? (uint16_t)(unconfirmed - 1U) : 0U;
+    g_scroll[kind][category] =
+        (newest_index >= REALTIME_EVENT_ROWS_PER_CATEGORY) ?
+        (uint16_t)(newest_index - REALTIME_EVENT_ROWS_PER_CATEGORY + 1U) : 0U;
+}
+
+/**
+ * @brief 获取光标当前指向的分类编号。
+ */
+static uint8_t RealtimeCursorCategory(const RealtimeEventCursor *cursor)
+{
+    return (uint8_t)(cursor->vertical * 2U + cursor->side);
+}
+
+/**
+ * @brief 判断指定分类是否正处于人工浏览暂停状态。
+ */
+static uint8_t RealtimeCategoryPaused(RealtimeEventKind kind, uint8_t category)
+{
+    const RealtimeEventCursor *cursor = &g_cursor[kind];
+    return (cursor->visible != 0U && cursor->event_mode != 0U &&
+            RealtimeCursorCategory(cursor) == category) ? 1U : 0U;
+}
+
+/**
+ * @brief 获取当前箭头应使用的屏幕控件ID。
+ */
+static uint16_t RealtimeCursorControlId(const RealtimeEventCursor *cursor)
+{
+    if(cursor->event_mode == 0U)
+        return (cursor->vertical == 0U) ?
+               REALTIME_CURSOR_TOP_TITLE_ID : REALTIME_CURSOR_BOTTOM_TITLE_ID;
+    return (uint16_t)(((cursor->vertical == 0U) ?
+                      REALTIME_CURSOR_TOP_ROW_ID : REALTIME_CURSOR_BOTTOM_ROW_ID) +
+                      cursor->row);
+}
+
+/**
+ * @brief 清空画面工程中全部预留箭头控件。
+ */
+static void RealtimeCursorClearAll(uint16_t screen)
+{
+    uint16_t control_id;
+    for(control_id = REALTIME_CURSOR_TOP_TITLE_ID;
+        control_id <= REALTIME_CURSOR_LAST_ID; control_id++)
+        clearTextValue(screen, control_id);
+}
+
+/**
+ * @brief 按当前左右方向绘制箭头，并清除移动前的旧位置。
+ */
+static void RealtimeCursorDraw(uint16_t screen, uint16_t previous_control)
+{
+    RealtimeEventKind kind = (screen == REALTIME_EVENT_SCREEN_ALARM) ?
+                             REALTIME_EVENT_ALARM : REALTIME_EVENT_FAULT;
+    RealtimeEventCursor *cursor = &g_cursor[kind];
+    uint16_t current_control = RealtimeCursorControlId(cursor);
+    static uint8_t left_arrow[] = "<-";
+    static uint8_t right_arrow[] = "->";
+
+    if(previous_control != 0U && previous_control != current_control)
+        clearTextValue(screen, previous_control);
+    SetTextValue(screen, current_control,
+                 (cursor->side == 0U) ? left_arrow : right_arrow);
 }
 
 /**
@@ -167,8 +315,11 @@ void BspRealtimeEvent_Init(void)
 {
     memset(g_store, 0, sizeof(g_store));
     memset(g_scroll, 0, sizeof(g_scroll));
+    memset(g_last_scroll_tick, 0, sizeof(g_last_scroll_tick));
+    memset(g_cursor, 0, sizeof(g_cursor));
+    memset(g_running_tick, 0, sizeof(g_running_tick));
+    memset(g_running_dots, 0, sizeof(g_running_dots));
     memset(g_render_revision, 0xFF, sizeof(g_render_revision));
-    g_last_scroll_tick = 0U;
     g_leave_tick = 0U;
     g_new_alarm = 0U;
     g_new_fault = 0U;
@@ -208,10 +359,12 @@ void BspRealtimeEvent_BeginScan(RealtimeEventKind kind)
  * @param event_name 长期有效的事件名称字符串，本模块仅保存其指针。
  * @return 真正新增记录时返回1；重复、重新激活、参数无效或容量已满时返回0。
  */
-uint8_t BspRealtimeEvent_Observe(RealtimeEventKind kind, uint8_t category,
-                                 uint32_t key, const RealtimeEventTime *time,
-                                 uint8_t loop, uint8_t address,
-                                 const uint8_t *event_name)
+static uint8_t RealtimeObserveInternal(RealtimeEventKind kind, uint8_t category,
+                                       uint32_t key, const RealtimeEventTime *time,
+                                       uint8_t loop, uint8_t address,
+                                       const uint8_t *subject_name,
+                                       const uint8_t *event_name,
+                                       uint8_t require_confirmation)
 {
     RealtimeEventStore *store;
     RealtimeEventEntry *latest;
@@ -250,12 +403,37 @@ uint8_t BspRealtimeEvent_Observe(RealtimeEventKind kind, uint8_t category,
     entry->seen = 1U;
     entry->loop = loop;
     entry->address = address;
+    entry->subject_name = subject_name;
     entry->event_name = event_name;
+    entry->confirmed = (require_confirmation != 0U) ? 0U : 1U;
+    entry->keepalive = (require_confirmation != 0U) ? 1U : 0U;
     store->revision++;
-    RealtimeMoveToNewest(kind, category);
+    if(RealtimeCategoryPaused(kind, category) == 0U)
+        RealtimeMoveToNewest(kind, category);
     if(kind == REALTIME_EVENT_ALARM) g_new_alarm = 1U;
     else g_new_fault = 1U;
     return 1U;
+}
+
+uint8_t BspRealtimeEvent_Observe(RealtimeEventKind kind, uint8_t category,
+                                 uint32_t key, const RealtimeEventTime *time,
+                                 uint8_t loop, uint8_t address,
+                                 const uint8_t *event_name)
+{
+    return RealtimeObserveInternal(kind, category, key, time, loop, address,
+                                   NULL, event_name, 1U);
+}
+
+uint8_t BspRealtimeEvent_ObserveNamed(RealtimeEventKind kind, uint8_t category,
+                                      uint32_t key, const RealtimeEventTime *time,
+                                      const uint8_t *subject_name,
+                                      const uint8_t *event_name,
+                                      uint8_t require_confirmation)
+{
+    if(subject_name == NULL) return 0U;
+    return RealtimeObserveInternal(kind, category, key, time, 0U, 0U,
+                                   subject_name, event_name,
+                                   require_confirmation);
 }
 
 /**
@@ -319,8 +497,12 @@ uint8_t BspRealtimeEvent_HasAny(void)
     uint8_t kind;
     for(kind = 0U; kind < REALTIME_EVENT_KIND_COUNT; kind++)
     {
-        if(g_store[kind].count != 0U || g_store[kind].overflow != 0U)
-            return 1U;
+        uint16_t index;
+        if(g_store[kind].overflow != 0U) return 1U;
+        for(index = 0U; index < g_store[kind].count; index++)
+        {
+            if(g_store[kind].entry[index].keepalive != 0U) return 1U;
+        }
     }
     return 0U;
 }
@@ -340,16 +522,38 @@ void BspRealtimeEvent_OnScreenChanged(uint16_t previous_screen,
         g_new_alarm = 0U;
         g_leave_tick = 0U;
         g_render_revision[REALTIME_EVENT_ALARM] = 0xFFFFU;
+        if(previous_screen != current_screen)
+        {
+            uint8_t category;
+            memset(&g_cursor[REALTIME_EVENT_ALARM], 0,
+                   sizeof(g_cursor[REALTIME_EVENT_ALARM]));
+            RealtimeCursorClearAll(current_screen);
+            for(category = 0U; category < REALTIME_ALARM_CATEGORY_COUNT; category++)
+                g_last_scroll_tick[REALTIME_EVENT_ALARM][category] = now_tick;
+        }
     }
     else if(current_screen == REALTIME_EVENT_SCREEN_FAULT)
     {
         g_new_fault = 0U;
         g_leave_tick = 0U;
         g_render_revision[REALTIME_EVENT_FAULT] = 0xFFFFU;
+        if(previous_screen != current_screen)
+        {
+            uint8_t category;
+            memset(&g_cursor[REALTIME_EVENT_FAULT], 0,
+                   sizeof(g_cursor[REALTIME_EVENT_FAULT]));
+            RealtimeCursorClearAll(current_screen);
+            for(category = 0U; category < REALTIME_FAULT_CATEGORY_COUNT; category++)
+                g_last_scroll_tick[REALTIME_EVENT_FAULT][category] = now_tick;
+        }
     }
     else if(previous_screen == REALTIME_EVENT_SCREEN_ALARM ||
             previous_screen == REALTIME_EVENT_SCREEN_FAULT)
     {
+        RealtimeEventKind previous_kind =
+            (previous_screen == REALTIME_EVENT_SCREEN_ALARM) ?
+            REALTIME_EVENT_ALARM : REALTIME_EVENT_FAULT;
+        memset(&g_cursor[previous_kind], 0, sizeof(g_cursor[previous_kind]));
         g_leave_tick = now_tick;
     }
 }
@@ -404,11 +608,18 @@ static const RealtimeEventEntry *RealtimeEntryAt(const RealtimeEventStore *store
 {
     uint16_t index;
     uint16_t count = 0U;
-    for(index = 0U; index < store->count; index++)
+    uint8_t confirmed;
+
+    /* 未确认记录优先；两组内部均沿用原始发生顺序。 */
+    for(confirmed = 0U; confirmed <= 1U; confirmed++)
     {
-        if(store->entry[index].category != category) continue;
-        if(count == category_index) return &store->entry[index];
-        count++;
+        for(index = 0U; index < store->count; index++)
+        {
+            if(store->entry[index].category != category ||
+               store->entry[index].confirmed != confirmed) continue;
+            if(count == category_index) return &store->entry[index];
+            count++;
+        }
     }
     return NULL;
 }
@@ -464,15 +675,28 @@ static void RealtimeRenderCategory(RealtimeEventKind kind, uint16_t screen,
             static const uint8_t controller_format[] = {
                 '%','0','3','u',' ','%','0','4','u','/','%','0','2','u','/','%','0','2','u',' ',
                 '%','0','2','u',':','%','0','2','u',':','%','0','2','u',' ',
-                0xB1U,0xBEU,0xBBU,0xFAU,'%','u',0xBAU,0xC5U,' ','%','s',0U
+                0xBFU,0xD8U,0xD6U,0xC6U,0xC6U,0xF7U,' ','%','s',0U
             };
-            if(entry->loop == 0U)
+            static const uint8_t named_format[] = {
+                '%','0','3','u',' ','%','0','4','u','/','%','0','2','u','/','%','0','2','u',' ',
+                '%','0','2','u',':','%','0','2','u',':','%','0','2','u',' ',
+                '%','s',' ','%','s',0U
+            };
+            if(entry->subject_name != NULL)
+            {
+                snprintf((char *)line, sizeof(line), (const char *)named_format,
+                         (unsigned int)(category_index + 1U),
+                         entry->time.year, entry->time.month, entry->time.day,
+                         entry->time.hour, entry->time.minute, entry->time.second,
+                         entry->subject_name, entry->event_name);
+            }
+            else if(entry->loop == 0U)
             {
                 snprintf((char *)line, sizeof(line), (const char *)controller_format,
                          (unsigned int)(category_index + 1U),
                          entry->time.year, entry->time.month, entry->time.day,
                          entry->time.hour, entry->time.minute, entry->time.second,
-                         entry->address, entry->event_name);
+                         entry->event_name);
             }
             else
             {
@@ -511,6 +735,78 @@ static void RealtimeRenderCategory(RealtimeEventKind kind, uint16_t screen,
 }
 
 /**
+ * @brief 判断当前事件大类中是否存在尚无事件记录的分类。
+ */
+static uint8_t RealtimeHasEmptyCategory(RealtimeEventKind kind)
+{
+    uint8_t category;
+    for(category = 0U; category < RealtimeCategoryCount(kind); category++)
+    {
+        if(RealtimeCountCategory(&g_store[kind], category) == 0U) return 1U;
+    }
+    return 0U;
+}
+
+/**
+ * @brief 每秒推进一次运行提示的圆点数量。
+ * @return 显示内容发生变化时返回1，否则返回0。
+ */
+static uint8_t RealtimeUpdateRunningDots(RealtimeEventKind kind,
+                                         uint32_t now_tick)
+{
+    if(g_running_dots[kind] == 0U)
+    {
+        g_running_dots[kind] = 1U;
+        g_running_tick[kind] = now_tick;
+        return 1U;
+    }
+    if((uint32_t)(now_tick - g_running_tick[kind]) <
+       REALTIME_RUNNING_STEP_TICKS) return 0U;
+
+    g_running_tick[kind] = now_tick;
+    g_running_dots[kind]++;
+    if(g_running_dots[kind] > REALTIME_RUNNING_MAX_DOTS)
+        g_running_dots[kind] = 1U;
+    return 1U;
+}
+
+/**
+ * @brief 在无事件分类的首行显示“检测运行中”动态提示。
+ * @note 仅更新首行正文和对应状态框，避免每秒重绘整个页面。
+ */
+static void RealtimeRenderRunningIndicators(RealtimeEventKind kind,
+                                            uint16_t screen)
+{
+    uint8_t category;
+    const uint16_t (*text_ctrl)[REALTIME_EVENT_ROWS_PER_CATEGORY];
+    const uint16_t (*state_ctrl)[REALTIME_EVENT_ROWS_PER_CATEGORY];
+    text_ctrl = (kind == REALTIME_EVENT_ALARM) ? g_alarm_text_ctrl : g_fault_text_ctrl;
+    state_ctrl = (kind == REALTIME_EVENT_ALARM) ? g_alarm_state_ctrl : g_fault_state_ctrl;
+
+    for(category = 0U; category < RealtimeCategoryCount(kind); category++)
+    {
+        uint8_t line[40U];
+        uint16_t state_id;
+        size_t length;
+        uint8_t dot;
+        if(RealtimeCountCategory(&g_store[kind], category) != 0U) continue;
+
+        length = strlen((const char *)g_running_text[kind][category]);
+        memcpy(line, g_running_text[kind][category], length);
+        for(dot = 0U; dot < g_running_dots[kind]; dot++) line[length++] = '.';
+        line[length] = 0U;
+        SetTextValue(screen, text_ctrl[category][0U], line);
+
+        state_id = state_ctrl[category][0U];
+        if(state_id != 0U)
+        {
+            clearTextValue(screen, state_id);
+            SetControlVisiable(screen, state_id, 0U);
+        }
+    }
+}
+
+/**
  * @brief 按固定周期推进各分类的自动滚动位置。
  * @param kind 当前显示的事件大类。
  * @param now_tick 当前系统节拍。
@@ -518,11 +814,13 @@ static void RealtimeRenderCategory(RealtimeEventKind kind, uint16_t screen,
 static void RealtimeUpdateScroll(RealtimeEventKind kind, uint32_t now_tick)
 {
     uint8_t category;
-    if((uint32_t)(now_tick - g_last_scroll_tick) < REALTIME_EVENT_SCROLL_TICKS) return;
-    g_last_scroll_tick = now_tick;
     for(category = 0U; category < RealtimeCategoryCount(kind); category++)
     {
         uint16_t count = RealtimeCountCategory(&g_store[kind], category);
+        if(RealtimeCategoryPaused(kind, category) != 0U) continue;
+        if((uint32_t)(now_tick - g_last_scroll_tick[kind][category]) <
+           REALTIME_EVENT_SCROLL_TICKS) continue;
+        g_last_scroll_tick[kind][category] = now_tick;
         if(count > REALTIME_EVENT_ROWS_PER_CATEGORY)
         {
             g_scroll[kind][category]++;
@@ -531,6 +829,133 @@ static void RealtimeUpdateScroll(RealtimeEventKind kind, uint32_t now_tick)
             g_render_revision[kind] = 0xFFFFU;
         }
     }
+}
+
+/**
+ * @brief 处理画面86/87的两级箭头导航和逐条事件确认。
+ */
+uint8_t BspRealtimeEvent_HandleNavigation(uint16_t current_screen,
+                                          RealtimeEventNavCommand command,
+                                          uint32_t now_tick)
+{
+    RealtimeEventKind kind;
+    RealtimeEventCursor *cursor;
+    uint16_t previous_control = 0U;
+    uint8_t category;
+    uint16_t total;
+    uint16_t visible_count;
+
+    if(current_screen == REALTIME_EVENT_SCREEN_ALARM)
+        kind = REALTIME_EVENT_ALARM;
+    else if(current_screen == REALTIME_EVENT_SCREEN_FAULT)
+        kind = REALTIME_EVENT_FAULT;
+    else
+        return 0U;
+
+    if(command == REALTIME_EVENT_NAV_NONE) return 0U;
+    cursor = &g_cursor[kind];
+
+    /* 初次进入不显示箭头；只有左、右键能够选择上半区的初始分类。 */
+    if(cursor->visible == 0U)
+    {
+        if(command != REALTIME_EVENT_NAV_LEFT &&
+           command != REALTIME_EVENT_NAV_RIGHT) return 0U;
+        cursor->visible = 1U;
+        cursor->event_mode = 0U;
+        cursor->vertical = 0U;
+        cursor->side = (command == REALTIME_EVENT_NAV_RIGHT) ? 1U : 0U;
+        cursor->row = 0U;
+        RealtimeCursorDraw(current_screen, 0U);
+        return 0U;
+    }
+
+    previous_control = RealtimeCursorControlId(cursor);
+    category = RealtimeCursorCategory(cursor);
+
+    if(cursor->event_mode == 0U)
+    {
+        switch(command)
+        {
+            case REALTIME_EVENT_NAV_LEFT:
+                cursor->side = 0U;
+                break;
+            case REALTIME_EVENT_NAV_RIGHT:
+                cursor->side = 1U;
+                break;
+            case REALTIME_EVENT_NAV_UP:
+                cursor->vertical = 0U;
+                break;
+            case REALTIME_EVENT_NAV_DOWN:
+                cursor->vertical = 1U;
+                break;
+            case REALTIME_EVENT_NAV_OK:
+                category = RealtimeCursorCategory(cursor);
+                if(RealtimeCountCategory(&g_store[kind], category) == 0U)
+                    return 0U;
+                cursor->event_mode = 1U;
+                cursor->row = 0U;
+                g_last_scroll_tick[kind][category] = now_tick;
+                break;
+            default:
+                return 0U;
+        }
+        RealtimeCursorDraw(current_screen, previous_control);
+        return 0U;
+    }
+
+    total = RealtimeCountCategory(&g_store[kind], category);
+    visible_count = (total > g_scroll[kind][category]) ?
+                    (uint16_t)(total - g_scroll[kind][category]) : 0U;
+    if(visible_count > REALTIME_EVENT_ROWS_PER_CATEGORY)
+        visible_count = REALTIME_EVENT_ROWS_PER_CATEGORY;
+
+    switch(command)
+    {
+        case REALTIME_EVENT_NAV_UP:
+            if(cursor->row > 0U)
+            {
+                cursor->row--;
+            }
+            else if(g_scroll[kind][category] > 0U)
+            {
+                g_scroll[kind][category]--;
+                g_render_revision[kind] = 0xFFFFU;
+            }
+            break;
+
+        case REALTIME_EVENT_NAV_DOWN:
+            if((uint16_t)(cursor->row + 1U) < visible_count)
+            {
+                cursor->row++;
+            }
+            else if(g_scroll[kind][category] + REALTIME_EVENT_ROWS_PER_CATEGORY < total)
+            {
+                g_scroll[kind][category]++;
+                g_render_revision[kind] = 0xFFFFU;
+            }
+            break;
+
+        case REALTIME_EVENT_NAV_LEFT:
+            cursor->event_mode = 0U;
+            cursor->row = 0U;
+            g_last_scroll_tick[kind][category] = now_tick;
+            break;
+
+        case REALTIME_EVENT_NAV_CONFIRM:
+        {
+            uint8_t confirmed = BspRealtimeEvent_ConfirmVisible(kind, category,
+                                                                cursor->row);
+            if(confirmed != 0U)
+                RealtimeCursorDraw(current_screen, previous_control);
+            return confirmed;
+        }
+
+        default:
+            return 0U;
+    }
+
+    RealtimeCursorDraw(current_screen, previous_control);
+    return 0U;
 }
 
 /**
@@ -543,34 +968,50 @@ void BspRealtimeEvent_Refresh(uint16_t current_screen, uint32_t now_tick)
 {
     RealtimeEventKind kind;
     uint8_t category;
+    uint8_t full_refresh;
+    uint8_t running_refresh;
     if(current_screen == REALTIME_EVENT_SCREEN_ALARM) kind = REALTIME_EVENT_ALARM;
     else if(current_screen == REALTIME_EVENT_SCREEN_FAULT) kind = REALTIME_EVENT_FAULT;
     else return;
 
     RealtimeUpdateScroll(kind, now_tick);
-    if(g_render_revision[kind] == g_store[kind].revision) return;
-    SetScreenUpdateEnable(0U);
-    for(category = 0U; category < RealtimeCategoryCount(kind); category++)
-        RealtimeRenderCategory(kind, current_screen, category);
-    if(kind == REALTIME_EVENT_ALARM)
+    running_refresh = RealtimeUpdateRunningDots(kind, now_tick);
+    full_refresh = (g_render_revision[kind] != g_store[kind].revision) ? 1U : 0U;
+    if(running_refresh != 0U && RealtimeHasEmptyCategory(kind) == 0U)
+        running_refresh = 0U;
+    if(full_refresh == 0U && running_refresh == 0U) return;
+
+    if(full_refresh != 0U)
     {
-        uint8_t title[32];
-        static const uint8_t fire_total_fmt[] = {
-            0xBBU,0xF0U,0xBEU,0xAFU,0xD7U,0xDCU,0xCAU,0xFDU,':','%','u',0U
-        };
-        static const uint8_t gas_total_fmt[] = {
-            0xC6U,0xF8U,0xCCU,0xE5U,0xB1U,0xA8U,0xBEU,0xAFU,
-            0xD7U,0xDCU,0xCAU,0xFDU,':','%','u',0U
-        };
-        snprintf((char *)title, sizeof(title), (const char *)fire_total_fmt,
-                 (unsigned int)RealtimeCountCategory(&g_store[kind], REALTIME_ALARM_FIRE));
-        SetTextValue(current_screen, 24U, title);
-        snprintf((char *)title, sizeof(title), (const char *)gas_total_fmt,
-                 (unsigned int)RealtimeCountCategory(&g_store[kind], REALTIME_ALARM_GAS));
-        SetTextValue(current_screen, 27U, title);
+        SetScreenUpdateEnable(0U);
+        for(category = 0U; category < RealtimeCategoryCount(kind); category++)
+            RealtimeRenderCategory(kind, current_screen, category);
+        if(kind == REALTIME_EVENT_ALARM)
+        {
+            uint8_t title[32];
+            static const uint8_t fire_total_fmt[] = {
+                0xBBU,0xF0U,0xBEU,0xAFU,0xD7U,0xDCU,0xCAU,0xFDU,':','%','u',0U
+            };
+            static const uint8_t gas_total_fmt[] = {
+                0xC6U,0xF8U,0xCCU,0xE5U,0xB1U,0xA8U,0xBEU,0xAFU,
+                0xD7U,0xDCU,0xCAU,0xFDU,':','%','u',0U
+            };
+            snprintf((char *)title, sizeof(title), (const char *)fire_total_fmt,
+                     (unsigned int)RealtimeCountCategory(&g_store[kind], REALTIME_ALARM_FIRE));
+            SetTextValue(current_screen, 24U, title);
+            snprintf((char *)title, sizeof(title), (const char *)gas_total_fmt,
+                     (unsigned int)RealtimeCountCategory(&g_store[kind], REALTIME_ALARM_GAS));
+            SetTextValue(current_screen, 27U, title);
+        }
+        RealtimeRenderRunningIndicators(kind, current_screen);
+        SetScreenUpdateEnable(1U);
+        g_render_revision[kind] = g_store[kind].revision;
     }
-    SetScreenUpdateEnable(1U);
-    g_render_revision[kind] = g_store[kind].revision;
+    else
+    {
+        /* 动画周期只更新空分类首行，不发送整页刷新控制命令。 */
+        RealtimeRenderRunningIndicators(kind, current_screen);
+    }
 }
 
 /**
@@ -592,6 +1033,7 @@ uint8_t BspRealtimeEvent_ConfirmVisible(RealtimeEventKind kind,
                                                   category_index);
     if(entry == NULL || entry->confirmed != 0U) return 0U;
     entry->confirmed = 1U;
+    /* 只重排列表，箭头保持当前屏幕行，便于连续确认下一条未确认事件。 */
     g_store[kind].revision++;
     return 1U;
 }

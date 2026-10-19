@@ -19,6 +19,15 @@
 #define REALTIME_EVENT_CAPACITY           512U
 #define REALTIME_EVENT_ROWS_PER_CATEGORY  7U
 
+/*
+ * 画面86/87方向导航和信息确认功能的编译开关：
+ * 1U：启用上下左右、OK进入事件框以及信息确认；
+ * 0U：禁用上述按键操作，但保留事件显示、自动滚动和页面自动跳转。
+ */
+#ifndef REALTIME_EVENT_NAVIGATION_ENABLE
+#define REALTIME_EVENT_NAVIGATION_ENABLE  0U
+#endif
+
 /* 实时事件大类：报警与故障分别使用独立的存储区和显示页。 */
 typedef enum
 {
@@ -46,6 +55,18 @@ typedef enum
     REALTIME_FAULT_EXTINGUISH,            /* 灭火装置故障 */
     REALTIME_FAULT_CATEGORY_COUNT         /* 故障分类数量 */
 }RealtimeFaultCategory;
+
+/* 画面86/87的通用导航命令，与具体内屏板键值解耦。 */
+typedef enum
+{
+    REALTIME_EVENT_NAV_NONE = 0,
+    REALTIME_EVENT_NAV_UP,
+    REALTIME_EVENT_NAV_RIGHT,
+    REALTIME_EVENT_NAV_DOWN,
+    REALTIME_EVENT_NAV_LEFT,
+    REALTIME_EVENT_NAV_OK,
+    REALTIME_EVENT_NAV_CONFIRM
+}RealtimeEventNavCommand;
 
 /* 事件首次产生时的时间快照。 */
 typedef struct
@@ -96,6 +117,25 @@ uint8_t BspRealtimeEvent_Observe(RealtimeEventKind kind, uint8_t category,
                                  const uint8_t *event_name);
 
 /**
+ * @brief 上报使用自定义显示主体的事件，供多线盘等非回路设备使用。
+ * @param kind 事件大类。
+ * @param category 对应大类中的事件分类。
+ * @param key 事件唯一键。
+ * @param time 事件首次产生时间。
+ * @param subject_name 显示主体，例如“多线盘1路”。
+ * @param event_name 事件名称，例如“手动启动”。
+ * @param require_confirmation 1表示需要人工确认并参与屏幕保活；
+ *                             0表示无需确认的普通动作信息。
+ * @return 1表示新增了一条事件；0表示重复、重新激活、参数无效或容量已满。
+ * @note 保留原有BspRealtimeEvent_Observe接口及行为不变。
+ */
+uint8_t BspRealtimeEvent_ObserveNamed(RealtimeEventKind kind, uint8_t category,
+                                      uint32_t key, const RealtimeEventTime *time,
+                                      const uint8_t *subject_name,
+                                      const uint8_t *event_name,
+                                      uint8_t require_confirmation);
+
+/**
  * @brief 结束一次指定大类的事件同步扫描。
  * @param kind 事件大类。
  * @note 本轮未再次观察到的活动事件会被标记为已消失，但记录仍保留到系统复位。
@@ -129,6 +169,17 @@ uint16_t BspRealtimeEvent_GetNavigationTarget(uint16_t current_screen,
 void BspRealtimeEvent_Refresh(uint16_t current_screen, uint32_t now_tick);
 
 /**
+ * @brief 处理画面86/87的方向选择和信息确认命令。
+ * @param current_screen 当前画面ID。
+ * @param command 已转换的通用导航命令。
+ * @param now_tick 当前系统节拍，用于退出人工浏览后重新开始滚动计时。
+ * @return 成功把一条未确认事件改为已确认时返回1，否则返回0。
+ */
+uint8_t BspRealtimeEvent_HandleNavigation(uint16_t current_screen,
+                                          RealtimeEventNavCommand command,
+                                          uint32_t now_tick);
+
+/**
  * @brief 获取指定分类从产生后保留至今的事件总数。
  * @param kind 事件大类。
  * @param category 事件分类。
@@ -157,7 +208,7 @@ uint8_t BspRealtimeEvent_HasAny(void);
  * @param category 事件分类。
  * @param row 当前分类可见区域内的行号，范围0～6。
  * @return 确认成功返回1；参数无效、该行无记录或已确认时返回0。
- * @note 该接口为后续方向键逐条确认功能预留。
+ * @note 由画面86/87的方向键导航与信息确认流程调用。
  */
 uint8_t BspRealtimeEvent_ConfirmVisible(RealtimeEventKind kind,
                                        uint8_t category, uint8_t row);
