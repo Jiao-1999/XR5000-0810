@@ -25,6 +25,10 @@
 #include "stm32h7xx_hal.h"      /* HAL_GetTick() */
 #include "bsp_debug.h"          /* DebugPrintf: test trace on UART4 */
 #include <string.h>             /* memset/memcpy */
+#include "bsp_mbus.h"           /* MIXTURE_DEVICE_MAX_ADDR: 回路1设备地址上限(100) */
+#include "bsp_mbus_control.h"   /* MBUS_CONTROL_MAX_DEVICES: 回路2设备数上限(64, 可用地址1~63) */
+#include "bsp_rs485_detect.h"   /* RS485_DETECT_MAX_DEVICES: 回路3设备数上限(65, 可用地址1~64) */
+#include "bsp_ig3302.h"         /* IG3302_MAX_ADDRESS: 回路4设备地址上限(10) */
 
 /*--------------------------------------------------------------
  * 全局变量定义
@@ -117,9 +121,13 @@ static uint8_t FindEmptySlot(void)
  * 输入参数：rule - 待校验的规则结构体
  * 返回值   ：1=有效, 0=无效
  *
- * 设备号范围说明（分回路差异化校验）：
- *   回路2(MBus控制回路)设备地址为1-63，允许60-62等扩展地址
- *   其他回路设备号仅允许0-29
+ * 设备号范围说明（分回路差异化校验，上限取自各回路BSP头文件宏）：
+ *   回路1 <= MIXTURE_DEVICE_MAX_ADDR(100)        bsp_mbus.h
+ *   回路2 <= MBUS_CONTROL_MAX_DEVICES - 1(63)    bsp_mbus_control.h
+ *   回路3 <= RS485_DETECT_MAX_DEVICES - 1(64)    bsp_rs485_detect.h
+ *   回路4 <= IG3302_MAX_ADDRESS(10)              bsp_ig3302.h
+ *   回路号 = LOGIC_WILDCARD(0xFF) 时按最宽松上限100校验；
+ *   设备号 = LOGIC_WILDCARD(0xFF) 时不做上限校验（匹配任意设备）
  *--------------------------------------------------------------*/
 static uint8_t IsRuleValid(const LogicRule_t *rule)
 {
@@ -183,8 +191,10 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
 
     /* 检查条件中的回路号和设备号范围（分回路差异化校验）
      * loop_no 只能为 1-4 或 0xFF（通配符）
-     * dev_no: 回路2允许0-63（支持地址60-62扩展设备）
-     *         其他回路仅允许0-29或0xFF */
+     * dev_no: 按回路上限校验 回路1<=100、回路2<=63、回路3<=64、回路4<=10
+     *        （上限分别取自 bsp_mbus.h / bsp_mbus_control.h / bsp_rs485_detect.h / bsp_ig3302.h）
+     *         回路号 = LOGIC_WILDCARD(0xFF) 时按最宽松上限100校验
+     *         设备号 = LOGIC_WILDCARD(0xFF) 时不做上限校验，匹配任意设备 */
     for (i = 0; i < rule->cond_count; i++)
     {
         lno = rule->conditions[i].loop_no;
@@ -195,21 +205,51 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
         }
         if (dno != LOGIC_WILDCARD)
         {
-            if (lno == 2)
+            /* 按回路号分派设备号上限，上限取自各回路BSP头文件宏定义 */
+            switch (lno)
             {
-                /* 回路2设备地址范围1-63，允许60-62扩展地址 */
-                if (dno > 63)
-                {
-                    return 0;  /* 回路2设备号非法 */
-                }
-            }
-            else
-            {
-                /* 其他回路设备号仅允许0-29 */
-                if (dno >= 30)
-                {
-                    return 0;  /* 设备号非法 */
-                }
+                case 1:
+                    /* 回路1(MBus混合回路): 上限 = MIXTURE_DEVICE_MAX_ADDR(100), 见 bsp_mbus.h */
+                    if (dno > (uint16_t)MIXTURE_DEVICE_MAX_ADDR)
+                    {
+                        return 0;  /* 回路1设备号非法 */
+                    }
+                    break;
+
+                case 2:
+                    /* 回路2(MBus控制回路): 地址1~63, 上限 = MBUS_CONTROL_MAX_DEVICES-1(63), 见 bsp_mbus_control.h */
+                    if (dno > (uint16_t)(MBUS_CONTROL_MAX_DEVICES - 1U))
+                    {
+                        return 0;  /* 回路2设备号非法 */
+                    }
+                    break;
+
+                case 3:
+                    /* 回路3(RS485探测回路): 地址1~64, 上限 = RS485_DETECT_MAX_DEVICES-1(64), 见 bsp_rs485_detect.h */
+                    if (dno > (uint16_t)(RS485_DETECT_MAX_DEVICES - 1U))
+                    {
+                        return 0;  /* 回路3设备号非法 */
+                    }
+                    break;
+
+                case 4:
+                    /* 回路4(IG3302): 上限 = IG3302_MAX_ADDRESS(10), 见 bsp_ig3302.h */
+                    if (dno > (uint16_t)IG3302_MAX_ADDRESS)
+                    {
+                        return 0;  /* 回路4设备号非法 */
+                    }
+                    break;
+
+                case LOGIC_WILDCARD:
+                    /* 任意回路(0xFF): 无法判定具体回路, 按最宽松上限 MIXTURE_DEVICE_MAX_ADDR(100) 校验 */
+                    if (dno > (uint16_t)MIXTURE_DEVICE_MAX_ADDR)
+                    {
+                        return 0;  /* 通配回路设备号非法 */
+                    }
+                    break;
+
+                default:
+                    return 0;  /* 回路号非法(兜底, lno==0/lno>4 已由上方拦截) */
             }
         }
     }

@@ -417,6 +417,21 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
                     return 1;  /* 回路1报警即视为满足 */
                 }
             }
+            /* 回路3温度/烟雾: 状态同样只有 0/1 两态（RS485 侧 RS485Detect_IsAlarmState
+             * 判定温度/烟雾 state==1 即为报警），不存在高/低报警级别之分，
+             * 因此统一按 LV_ANY（非0即报警）匹配，
+             * 避免 LV_HIGH 要求 state==2 导致永不触发。
+             * 注意: 回路3 的 SENSOR_ANY 不放宽（回路3 还含 CO/H2，
+             * state==1 不代表报警，仍需走 MatchAlarmLevel 严格匹配） */
+            else if (cond->loop_no == 3 &&
+                     (cond->sensor_type == SENSOR_TEMPERATURE ||
+                      cond->sensor_type == SENSOR_SMOKE))
+            {
+                if (state != 0)
+                {
+                    return 1;  /* 回路3温度/烟雾报警即视为满足 */
+                }
+            }
             else if (MatchAlarmLevel(state, cond->alarm_level))
             {
                 return 1;  /* 找到匹配的报警探测器 */
@@ -449,6 +464,19 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
         (cond->sensor_type == SENSOR_TEMPERATURE ||
          cond->sensor_type == SENSOR_SMOKE ||
          cond->sensor_type == SENSOR_ANY))
+    {
+        effective_level = LV_ANY;
+    }
+
+    /* 回路3温度/烟雾: RS485 侧温度/烟雾同样只有 0/1 两态
+     * （RS485Detect_IsAlarmState 判定 state==1 即为报警），
+     * 不存在高/低报警级别之分，alarm_level 也统一用 LV_ANY 匹配，
+     * 避免 LV_HIGH 要求 state==2 导致永不触发。
+     * 注意: 回路3 的 SENSOR_ANY 不放宽（回路3 还含 CO/H2，
+     * state==1 不代表报警，仍需按原 alarm_level 严格匹配） */
+    if (cond->loop_no == 3 &&
+        (cond->sensor_type == SENSOR_TEMPERATURE ||
+         cond->sensor_type == SENSOR_SMOKE))
     {
         effective_level = LV_ANY;
     }
