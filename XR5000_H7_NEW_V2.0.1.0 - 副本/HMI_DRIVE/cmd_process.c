@@ -10,6 +10,8 @@
 #include "bsp_logic_set.h"
 #include "bsp_logic_screen.h" /* 联动逻辑界面显示/编辑功能 */
 #include "bsp_fire_zone_screen.h" /* 防火分区画面显示/翻页 */
+#include "bsp_fire_zone.h"        /* 防火分区模型层(分区归属/分区显示盘/系统级设备) */
+#include "bsp_logic_engine.h"      /* 分区联动输出手动启停(LogicEngine_ManualStartZone等) */
 
 #include "bsp_debug.h"
 
@@ -1100,6 +1102,12 @@ void BspScreenArrowSite(BspKeyCheckNewCtrl_t *bkcnc_entry)
 /* 复位时清除本次运行周期锁存的首火警/首气体报警。 */
 static void FirstAlarmInformationReset(void);
 // 
+/* 系统停止锁存: 1=已按系统停止键, 系统级声光强制静音, 仅系统复位可解除 */
+static uint8_t s_sys_stop_latch = 0U;
+
+/* 系统级声光人工状态: 1=被面板"报警器"键人工点亮(优先级低于系统停止锁存) */
+static uint8_t s_sys_siren_manual = 0U;
+
 void BspCmdProcessInit(void)
 {
 	AccessControl_Init();
@@ -1121,6 +1129,9 @@ void BspCmdProcessInit(void)
 	clearHandPaperState();
 	cleareedBack1State();
 	cleareedBack2State();
+
+	s_sys_stop_latch = 0U;      /* 系统复位解除系统停止锁存, 系统级声光恢复自动 */
+	s_sys_siren_manual = 0U;    /* 系统复位清除系统级声光人工状态 */
 }
 
 uint8_t getCurrentSystemRunState(void)
@@ -2795,6 +2806,7 @@ static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
 
 		case LINKAGE_START_KEY:
 			StartupLinkageDevice();
+			FireZoneSysStart();   /* 系统级启动: 两分区所有条件成立的联动输出立即启动 */
 			StorageEvent_LogLinkageStartButton(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);  /* [GB4717 B.1.1.1b] 联动启动按钮动作(EVT 130) */
 			StorageEvent_LogStart(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);  /* [GB4717 B.1.1.1c] 联动设备启动(EVT 19) */
 			FecbusReport_Start(LINKAGE_CLUSTER_ID, DEV_TYPE_CONTROL_DEV);
@@ -3835,8 +3847,489 @@ static uint8_t HasUnshieldedDetectorFireAlarm(void)
 	return 0U;
 }
 
+/* ============================================================
+ * 防火分区联动: 火灾显示盘按分区推送 + 分区声光驱动
+ * 由UpdateUI()每100ms周期调用, 只做查询与异步控制请求(不阻塞)
+ * ============================================================ */
+
+/* 计算某报警源设备对应的显示盘目标掩码: 本分区显示盘 + 系统级显示盘 */
+static uint64_t FireZone_DisplayTargets(uint8_t loop, uint8_t addr)
+{
+    uint64_t targets = 0U;
+    uint8_t  zone;
+    uint8_t  disp;
+
+    zone = FireZone_GetDeviceZone(loop, addr);
+    if(zone == FIRE_ZONE_NONE)
+    {
+        return 0U;  /* 未做分区: 该设备不参与任何显示盘推送 */
+    }
+    if((zone >= 1U) && (zone <= (uint8_t)FIRE_ZONE_MAX))
+    {
+        disp = FireZone_GetZoneDisplayAddr(zone);
+        if((disp >= 1U) && (disp < MBUS_CONTROL_MAX_DEVICES))
+            targets |= (1ULL << disp);
+    }
+
+    disp = FireZone_GetSysDeviceAddr(FZ_SYS_DISPLAY);
+    if((disp >= 1U) && (disp < MBUS_CONTROL_MAX_DEVICES))
+        targets |= (1ULL << disp);
+
+    return targets;
+}
+
+/* 判断某分区当前是否存在火警(回路1温烟记忆/回路2手报/回路3各类传感器) */
+static uint8_t FireZone_HasFire(uint8_t zone)
+{
+    uint16_t d;
+    uint8_t  s;
+    uint8_t  type;
+
+    if((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return 0U;
+
+    /* 回路1(地址1-100): 温度/烟雾火警记忆 */
+    for(d = 1U; d <= (uint16_t)MIXTURE_DEVICE_MAX_ADDR; d++)
+    {
+        if(FireZone_GetDeviceZone(1U, d) != zone) continue;
+        if((getPointTypeMixtureDetectTempertureMemory((uint8_t)d) != 0U) ||
+           (getPointTypeMixtureDetectSmokeMemory((uint8_t)d) != 0U))
+            return 1U;
+    }
+
+    /* 回路2(地址1-63): 手动报警按钮按下 */
+    for(d = 1U; d < (uint16_t)MBUS_CONTROL_MAX_DEVICES; d++)
+    {
+        if(FireZone_GetDeviceZone(2U, d) != zone) continue;
+        if(MBusCtrl_GetDeviceType((uint8_t)d) != MBUS_CONTROL_DEV_XR2200) continue;
+        if(MBusCtrl_IsAlarmState((uint8_t)d) != 0U) return 1U;
+    }
+
+    /* 回路3(地址1-64): 各类传感器报警状态 */
+    for(d = 1U; d < (uint16_t)RS485_DETECT_MAX_DEVICES; d++)
+    {
+        if(FireZone_GetDeviceZone(3U, d) != zone) continue;
+        type = RS485Detect_GetType((uint8_t)d);
+        for(s = 0U; s < (uint8_t)RS485_SENSOR_COUNT; s++)
+        {
+            if(RS485Detect_IsAlarmState(type, s, RS485Detect_GetSensorState((uint8_t)d, s)) != 0U)
+                return 1U;
+        }
+    }
+
+    return 0U;
+}
+
+/* 对指定分区内全部在线总线声光设备下发启动/停止(异步请求, 不阻塞) */
+static void FireZone_DriveSiren(uint8_t zone, uint8_t on)
+{
+    uint16_t d;
+    MBusCtrlRequest req;
+
+    for(d = 1U; d < (uint16_t)MBUS_CONTROL_MAX_DEVICES; d++)
+    {
+        if(FireZone_GetDeviceZone(2U, d) != zone) continue;
+        if(MBusCtrl_GetDeviceType((uint8_t)d) != MBUS_CONTROL_DEV_SGBJQ) continue;
+        if(MBusCtrl_GetOnline((uint8_t)d) == 0U) continue;
+
+        req.addr            = (uint8_t)d;
+        req.operation       = MBUS_OPERATION_SET_OUTPUT;
+        req.target_mask     = MBUS_OUTPUT_SOUND_LIGHT;
+        req.target_value    = (on != 0U) ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
+        req.parameter_id    = 0U;
+        req.parameter_value = 0U;
+        (void)MBusCtrl_Request(&req);
+    }
+}
+
+/* 两区手动声光状态: 1=当前被人工开启(前移定义: FireZone_SirenDrive 需读取,
+ * 用于火警期间保留人工开启, 不被自动驱动的强制静音覆盖) */
+static uint8_t s_siren_manual[FIRE_ZONE_MAX];
+
+/* 分区火警锁存: 本区任一设备报过火警即置1, 只有分区复位才清0。
+ * 声光按此锁存驱动, 保证"火警未复位声光不停", 与屏上火警记录(复位才清)口径一致。 */
+static uint8_t s_zone_fire_latch[FIRE_ZONE_MAX];
+
+/* 分区声光驱动(边沿触发, 由UpdateUI每100ms调用): 本区报警 -> 本区声光 + 系统级声光 */
+static void FireZone_SirenDrive(void)
+{
+    static uint8_t s_last[FIRE_ZONE_MAX];
+    static uint8_t s_last_sys = 0U;
+    uint8_t z;
+    uint8_t any = 0U;
+    uint8_t sys_addr;
+    MBusCtrlRequest req;
+    uint8_t alarm_now[FIRE_ZONE_MAX];   /* 本次扫描的分区报警状态 */
+    uint16_t d;
+    uint8_t dz;
+    uint64_t allow = 0U;
+
+    /* 先按本次扫描的分区报警状态确定"火警时允许被强制启动"的声光掩码, 再下发分区声光请求:
+     * 这样本区报警解除时下发的 OFF 不会被火警强制全开改写, 非报警分区的声光也不会被点亮,
+     * 分区声光隔离才真正生效。 */
+    for(z = 1U; z <= (uint8_t)FIRE_ZONE_MAX; z++)
+    {
+        alarm_now[z - 1U] = FireZone_HasFire(z);
+        if(alarm_now[z - 1U] != 0U)
+        {
+            s_zone_fire_latch[z - 1U] = 1U;   /* 火警锁存, 分区复位才清 */
+        }
+        if(s_zone_fire_latch[z - 1U] != 0U) any = 1U;  /* 锁存状态参与系统级声光 */
+    }
+    /* 系统级声光期望值:
+     *   系统停止锁存优先(强制静音, 直到系统复位);
+     *   否则面板"报警器"键可人工点亮系统级声光。 */
+    if(s_sys_stop_latch != 0U)        any = 0U;
+    else if(s_sys_siren_manual != 0U) any = 1U;
+
+    /* 允许被强制启动的声光: 本区火警锁存 并集 人工开启分区的设备
+     * (火警期间不打断人工开启, 否则非报警分区手动开的声光会被强制静音) */
+    for(d = 1U; d < MBUS_CONTROL_MAX_DEVICES; d++)
+    {
+        dz = FireZone_GetDeviceZone(2U, d);
+        if((dz >= 1U) && (dz <= (uint8_t)FIRE_ZONE_MAX) &&
+           ((s_zone_fire_latch[dz - 1U] != 0U) || (s_siren_manual[dz - 1U] != 0U)))
+            allow |= (1ULL << d);
+    }
+    sys_addr = FireZone_GetSysDeviceAddr(FZ_SYS_SIREN);
+    /* 任一分区报警 或 任一分区被人工开启 时, 系统级声光都允许被强制点亮 */
+    if(((any != 0U) || (s_siren_manual[0] != 0U) || (s_siren_manual[1] != 0U)) &&
+       (sys_addr >= 1U) && (sys_addr < MBUS_CONTROL_MAX_DEVICES))
+        allow |= (1ULL << sys_addr);
+    MBusCtrl_SetFixedSoundLightMask(allow);
+
+    for(z = 1U; z <= (uint8_t)FIRE_ZONE_MAX; z++)
+    {
+        /* 期望状态 = 本区火警锁存 或 本区被人工开启:
+         * 报警消失后锁存仍为1, 声光保持到分区复位, 与屏上火警记录(复位才清)口径一致;
+         * 人工开启的声光也不会因本区报警消失而被自动关掉。 */
+        uint8_t want = ((s_zone_fire_latch[z - 1U] != 0U) ||
+                        (s_siren_manual[z - 1U] != 0U)) ? 1U : 0U;
+        /* 系统停止锁存: 所有分区声光一并静音(系统级可控制任何分区), 系统复位才恢复 */
+        if(s_sys_stop_latch != 0U) want = 0U;
+        if(want != s_last[z - 1U])
+        {
+            s_last[z - 1U] = want;
+            FireZone_DriveSiren(z, want);
+            DebugPrintf("[FZ] zone%u siren %s\r\n", (unsigned)z, (want != 0U) ? "ON" : "OFF");
+        }
+    }
+
+    /* 系统级声光: 任一分区报警即启动 */
+    if(any != s_last_sys)
+    {
+        s_last_sys = any;
+        sys_addr = FireZone_GetSysDeviceAddr(FZ_SYS_SIREN);
+        if((sys_addr >= 1U) && (sys_addr < MBUS_CONTROL_MAX_DEVICES) && (MBusCtrl_GetOnline(sys_addr) != 0U))
+        {
+            req.addr            = sys_addr;
+            req.operation       = MBUS_OPERATION_SET_OUTPUT;
+            req.target_mask     = MBUS_OUTPUT_SOUND_LIGHT;
+            req.target_value    = (any != 0U) ? MBUS_OUTPUT_SOUND_LIGHT : 0U;
+            req.parameter_id    = 0U;
+            req.parameter_value = 0U;
+            (void)MBusCtrl_Request(&req);
+        }
+        DebugPrintf("[FZ] system siren %s\r\n", (any != 0U) ? "ON" : "OFF");
+    }
+}
+
+/* ============================================================
+ * 分区操作对外接口(供按键板分区键调用)
+ *   分区声光开关、分区输出启停、分区复位、分区手自动设置
+ *   注意: FireZone_SirenDrive() 仍按报警边沿每100ms自动驱动,
+ *         本组函数只是人工干预入口, 不改自动驱动逻辑。
+ * ============================================================ */
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneSirenCtrl
+ * 功能说明：分区声光开关。分区只管理4条总线(回路1~4)上的设备,
+ *           本函数只驱动本分区挂在总线上的声光警报器(SGBJQ),
+ *           不操作板载声光继电器/面板指示灯/外部警铃回路。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ *           on   - 1=启动, 0=停止
+ *--------------------------------------------------------------*/
+void FireZoneSirenCtrl(uint8_t zone, uint8_t on)
+{
+    if((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+
+    on = (on != 0U) ? 1U : 0U;
+
+    /* 1. 本区总线声光设备(与自动驱动共用同一异步请求入口):
+     *    分区只管理4条总线上的设备, 板载继电器/面板指示灯不参与分区。 */
+    FireZone_DriveSiren(zone, on);
+
+    /* 2. 记录本区手动声光状态 */
+    s_siren_manual[zone - 1U] = on;
+
+    /* 3. 声光按键事件不在此处记录:
+     *    cmd_process.c 的旧按键轮询(KEX11/13 分支)已记录一次, 此处重复写会同步操作 W25Q
+     *    (整扇区回读+擦除+写回, 阻塞 100~300ms), 导致按键接收任务丢帧。
+     *    2026-11-03 临时注释, 待按键响应验证通过后再决定是否恢复。 */
+    /* BspCommonDataSaveApp(GASER_FLASH_SAVE, OUTFIRE_SL_PRESS, OUTFIRE_CLUSTER_ID, SoundLt_Package_ID); */
+
+    DebugPrintf("[FZ] siren zone%d %s\r\n", (int)zone, (on != 0U) ? "ON" : "OFF");
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneSysStart
+ * 功能说明：系统级启动。立即启动两个分区内所有"条件成立"的联动输出
+ *           (不经过延时), 即系统级启动键可控制任何分区的输出设备。
+ *           系统级声光不在此处理: 它由分区报警锁存自动驱动。
+ * 输入参数：无
+ *--------------------------------------------------------------*/
+void FireZoneSysStart(void)
+{
+    LogicEngine_ManualStartZone(1U);
+    LogicEngine_ManualStartZone(2U);
+    DebugPrintf("[FZ] system start: zone1+zone2 manual start\r\n");
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneSysSirenToggle
+ * 功能说明：系统级声光人工开关, 由按键板"报警器"键(寄存器1 高字节 Bit0)触发。
+ *           翻转系统级声光的人工状态, 下一拍由 FireZone_SirenDrive() 下发。
+ *           火警期间系统级声光由火警锁存驱动, 人工关不掉(符合火警必须发声光)。
+ * 输入参数：无
+ *--------------------------------------------------------------*/
+void FireZoneSysSirenToggle(void)
+{
+    s_sys_siren_manual = (s_sys_siren_manual != 0U) ? 0U : 1U;
+    DebugPrintf("[FZ] sys siren manual -> %s\r\n",
+                (s_sys_siren_manual != 0U) ? "ON" : "OFF");
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneSysStop
+ * 功能说明：系统级停止。
+ *           1) 关闭两个分区的总线声光与联动输出(同时置分区停止闭锁)
+ *           2) 关闭系统级声光(控件28配置的总线声光设备)
+ *           3) 置系统停止锁存, 系统级声光保持静音直到系统复位
+ * 输入参数：无
+ *--------------------------------------------------------------*/
+void FireZoneSysStop(void)
+{
+    uint8_t sys_addr;
+
+    s_sys_stop_latch = 1U;   /* 系统级声光锁存静音, 系统复位才解除 */
+
+    /* 1. 两分区声光关闭 */
+    FireZoneSirenCtrl(1U, 0U);
+    FireZoneSirenCtrl(2U, 0U);
+
+    /* 2. 系统级声光直接下发关闭 */
+    sys_addr = FireZone_GetSysDeviceAddr(FZ_SYS_SIREN);
+    if((sys_addr >= 1U) && (sys_addr < MBUS_CONTROL_MAX_DEVICES))
+    {
+        MBusCtrlRequest req;
+        req.addr            = sys_addr;
+        req.operation       = MBUS_OPERATION_SET_OUTPUT;
+        req.target_mask     = MBUS_OUTPUT_SOUND_LIGHT;
+        req.target_value    = 0U;
+        req.parameter_id    = 0U;
+        req.parameter_value = 0U;
+        (void)MBusCtrl_Request(&req);
+    }
+
+    /* 3. 两分区联动输出停止(内部会置分区停止闭锁) */
+    FireZoneOutputCtrl(1U, 0U);
+    FireZoneOutputCtrl(2U, 0U);
+
+    DebugPrintf("[FZ] system stop: both zones stopped, sys siren off & latched\r\n");
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneGetSirenManual
+ * 功能说明：查询分区声光当前的手动状态。自动驱动只下发报文、不改该状态,
+ *           因此它只表示"人工开启", 供按键板做翻转判定。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ * 返回值   ：1=当前为人工开启, 0=未人工开启(含分区号非法)
+ *--------------------------------------------------------------*/
+uint8_t FireZoneGetSirenManual(uint8_t zone)
+{
+    if((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return 0U;
+    return s_siren_manual[zone - 1U];
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneOutputCtrl
+ * 功能说明：分区联动输出启停。
+ *           on=1 立即启动本区所有条件成立的联动输出(不延时);
+ *           on=0 停止本区所有已启动的联动输出。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ *           on   - 1=启动, 0=停止
+ *--------------------------------------------------------------*/
+void FireZoneOutputCtrl(uint8_t zone, uint8_t on)
+{
+    if((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+
+    if(on != 0U)
+        LogicEngine_ManualStartZone(zone);
+    else
+        LogicEngine_ManualStopZone(zone);
+
+    DebugPrintf("[FZ] output zone%d %s\r\n", (int)zone, (on != 0U) ? "START" : "STOP");
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneReset
+ * 功能说明：分区复位。只复位本分区, 不做整机复位:
+ *           1) 取消本区联动延时计时(同时解除分区停止闭锁)
+ *           2) 停止本区已启动的联动输出
+ *           3) 关闭本区声光
+ *           4) 清除本区报警边沿记忆
+ *           注: 本函数只复位控制器侧状态, 不下发从机复位。
+ *               回路1/回路2/回路3 均无"按分区远程复位"能力,
+ *               故不对任何在线设备下发复位, 也不做整机广播复位。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ *--------------------------------------------------------------*/
+void FireZoneReset(uint8_t zone)
+{
+    uint16_t d;
+    uint8_t  s;
+
+    if((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+
+    /* 1. 取消本区联动延时计时 */
+    LogicEngine_CancelZoneDelay(zone);
+
+    /* 2. 停止本区所有已启动的联动输出 */
+    LogicEngine_ManualStopZone(zone);
+    /* 2b. 解除分区停止闭锁: ManualStopZone() 会重新置闭锁,
+     *     复位语义是"恢复自动", 故必须在其之后清除, 否则复位后条件成立也不会自动联动。 */
+    LogicEngine_ClearZoneStopLatch(zone);
+
+    /* 3. 清除本区火警锁存(声光随之停止), 再关本区声光 */
+    s_zone_fire_latch[zone - 1U] = 0U;
+    FireZoneSirenCtrl(zone, 0U);
+
+    /* 3b. 下发本区设备复位: 逐台发送单设备复位帧(寄存器0x002A),
+     *     只复位本分区设备, 不波及另一分区。
+     *     每条回路的通信任务串行发送, 此处逐台等待完成(单台约110ms)。 */
+    {
+        uint16_t dev;
+        uint32_t wait_tick;
+
+        /* 回路1: MBus 探测器 */
+        for(dev = 1U; dev <= (uint16_t)MIXTURE_DEVICE_MAX_ADDR; dev++)
+        {
+            if(FireZone_GetDeviceZone(1U, dev) != zone) continue;
+            MBus1ResetDevice((uint8_t)dev);
+            wait_tick = osKernelGetTickCount();
+            while((MBus1GetResetStatus() == 1U) &&
+                  ((uint32_t)(osKernelGetTickCount() - wait_tick) < 300U))
+            {
+                osDelay(5U);
+            }
+        }
+
+        /* 回路2: MBus 控制设备(手报/声光/模块) */
+        for(dev = 1U; dev < (uint16_t)MBUS_CONTROL_MAX_DEVICES; dev++)
+        {
+            if(FireZone_GetDeviceZone(2U, dev) != zone) continue;
+            MBusCtrl_RequestDeviceReset((uint8_t)dev);
+            wait_tick = osKernelGetTickCount();
+            while((MBusCtrl_GetBroadcastResetStatus() == 1U) &&
+                  ((uint32_t)(osKernelGetTickCount() - wait_tick) < 300U))
+            {
+                osDelay(5U);
+            }
+        }
+
+        /* 回路3: RS485 探测器 */
+        for(dev = 1U; dev < (uint16_t)RS485_DETECT_MAX_DEVICES; dev++)
+        {
+            if(FireZone_GetDeviceZone(3U, dev) != zone) continue;
+            RS485Detect_RequestDeviceReset((uint8_t)dev);
+            wait_tick = osKernelGetTickCount();
+            while((RS485Detect_GetBroadcastResetStatus() == 1U) &&
+                  ((uint32_t)(osKernelGetTickCount() - wait_tick) < 300U))
+            {
+                osDelay(5U);
+            }
+        }
+    }
+
+    /* 4. 清本区报警边沿记忆(只清本区设备的下标):
+     *    回路1 温感/烟感火警记忆、回路2 手报报警记忆、回路3 各传感器报警记忆。
+     *    掉线/故障记忆与回路1 raw 边沿记忆不清, 避免复位后重复产生故障记录。 */
+    for(d = 1U; d <= (uint16_t)MIXTURE_DEVICE_MAX_ADDR; d++)
+    {
+        if(FireZone_GetDeviceZone(1U, d) != zone) continue;
+        setPointTypeMixtureDetectTempertureMemory((uint8_t)d, 0U);
+        setPointTypeMixtureDetectSmokeMemory((uint8_t)d, 0U);
+    }
+    for(d = 1U; d < (uint16_t)MBUS_CONTROL_MAX_DEVICES; d++)
+    {
+        if(FireZone_GetDeviceZone(2U, d) != zone) continue;
+        mbus2_hand_alarm_memory[d] = 0U;
+    }
+    for(d = 1U; d < (uint16_t)RS485_DETECT_MAX_DEVICES; d++)
+    {
+        if(FireZone_GetDeviceZone(3U, d) != zone) continue;
+        for(s = 0U; s < (uint8_t)RS485_SENSOR_COUNT; s++)
+        {
+            rs485_detect_alarm_memory[d][s] = 0U;
+        }
+    }
+
+    /* 5. 黑匣子: 记录复位事件 */
+    StorageEvent_LogReset();
+
+    DebugPrintf("[FZ] zone%d reset\r\n", (int)zone);
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneSetHandAuto
+ * 功能说明：设置分区手/自动状态。副作用与按键板分区手自动
+ *           拨码处理保持一致: 存RAM(SystemSaveInfo) + 存Flash +
+ *           黑匣子手自动切换记录 + FECbus 上报。
+ *           状态未变化时直接返回, 不重复写Flash与重复记录。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ *           mode - KEY_MANUAL(手动) / KEY_AUTO(自动)
+ *--------------------------------------------------------------*/
+void FireZoneSetHandAuto(uint8_t zone, uint8_t mode)
+{
+    uint8_t pkg_id;
+    uint8_t is_manual;
+    uint8_t old_state;
+
+    if((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+    if((mode != (uint8_t)KEY_AUTO) && (mode != (uint8_t)KEY_MANUAL)) return;
+
+    old_state = (zone == 1U) ? SystemSaveInfo.part1_hand_or_auto_state
+                            : SystemSaveInfo.part2_hand_or_auto_state;
+    if(old_state == mode) return;  /* 状态未变化, 不重复落盘与记录 */
+
+    is_manual = (mode == (uint8_t)KEY_MANUAL) ? 1U : 0U;
+
+    if(zone == 1U)
+    {
+        SystemSaveInfo.part1_hand_or_auto_state = mode;
+        SystemInfoSave();
+        pkg_id = (uint8_t)PART1_HAND_AUTO_Package_ID;
+        BspCommonDataSaveApp(GASER_FLASH_SAVE,
+                             (is_manual != 0U) ? OTHER_PART1_TURN_HAND : OTHER_PART1_TURN_AUTO,
+                             LINKAGE_CLUSTER_ID, pkg_id);
+    }
+    else
+    {
+        SystemSaveInfo.part2_hand_or_auto_state = mode;
+        SystemInfoSave();
+        pkg_id = (uint8_t)PART2_HAND_AUTO_Package_ID;
+        BspCommonDataSaveApp(GASER_FLASH_SAVE,
+                             (is_manual != 0U) ? OTHER_PART2_TURN_HAND : OTHER_PART2_TURN_AUTO,
+                             LINKAGE_CLUSTER_ID, pkg_id);
+    }
+
+    StorageEvent_LogManualAuto(pkg_id, is_manual);  /* 黑匣子: 分区手自动切换 */
+    FecbusReport_ManualAuto(pkg_id, is_manual);     /* FECbus: 分区手自动切换 */
+
+    DebugPrintf("[FZ] zone%d %s\r\n", (int)zone, (is_manual != 0U) ? "MANUAL" : "AUTO");
+}
+
 void UpdateUI(void)
 {
+
 	uint8_t pack_disconnect_sum = 0;
 	uint8_t cabin_disconnect_sum = 0;
 	uint8_t point_type_disconnect_sum = 0;
@@ -4843,6 +5336,7 @@ void UpdateUI(void)
 	FireAlarmTriggerLogicUpdataUI(current_screen_id, fire_alarm_logic_ctrl, fire_alarm_judge);
 	LogicScreen_UpdateUI(current_screen_id); /* 刷新逻辑屏幕当前画面 */
  FireZoneScreen_UpdateUI(current_screen_id); /* 防火分区画面显示刷新 */
+	FireZone_SirenDrive();                 /* 分区声光驱动: 本区报警 -> 本区声光 + 系统级声光 */
 	
 	FireAlarmThresholdUpdataUI(current_screen_id, fire_alarm_threshold);
 	/* 新加功能：FCP-1011六路控制板；时间：2026-08-06 */
@@ -5917,6 +6411,7 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
    DeviceAliasHmiText(screen_id, control_id, str);
    if(HmiDeviceQueryNotifyText(screen_id, control_id, str) != 0U) return;
    if(FireZoneScreen_NotifyText(screen_id, control_id, str) != 0U) return; /* 防火分区画面文本输入处理 */
+   LogicScreen_OnText(screen_id, control_id, str);              /* 联动编程画面文本输入(预留) */
    { 
 			if(screen_id == 1U && control_id == 25U) // 修改CAN2ID地址
       {
@@ -13171,11 +13666,14 @@ static void RS485Loop3PostDisplayTransition(uint8_t addr, uint8_t detector_type,
 	uint8_t old_alarm = (old_state == 1U || old_state == 2U || old_state == 3U) ? 1U : 0U;
 	uint8_t new_alarm = (new_state == 1U || new_state == 2U || new_state == 3U) ? 1U : 0U;
 	if((old_alarm != 0U && new_alarm == 0U) || old_state == 8U)
-		MBusCtrl_PostFireDisplayEvent(3U, addr, detector_type, 0U);
+		MBusCtrl_PostFireDisplayEventTo(3U, addr, detector_type, 0U,
+		        FireZone_DisplayTargets(3U, addr));
 	if(new_alarm != 0U && old_alarm == 0U)
-		MBusCtrl_PostFireDisplayEvent(3U, addr, detector_type, MBUS_FIRE_DISPLAY_ALARM_FIRE);
+		MBusCtrl_PostFireDisplayEventTo(3U, addr, detector_type, MBUS_FIRE_DISPLAY_ALARM_FIRE,
+		        FireZone_DisplayTargets(3U, addr));
 	else if(new_state == 8U && old_state != 8U)
-		MBusCtrl_PostFireDisplayEvent(3U, addr, detector_type, MBUS_FIRE_DISPLAY_ALARM_FAULT);
+		MBusCtrl_PostFireDisplayEventTo(3U, addr, detector_type, MBUS_FIRE_DISPLAY_ALARM_FAULT,
+		        FireZone_DisplayTargets(3U, addr));
 }
 static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_point)
 {
@@ -13672,14 +14170,16 @@ static uint8_t MBus2DataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *pcfs_po
 					StorageEvent_LogFire(addr, DEV_TYPE_HAND_REPORT, 2U, 0U);  /* [GB4717 B.1.1.1a] 回路2 XR2200手动报警 -> 黑匣子: 首警0x02 + 火警0x03, unit_no=2, 类型=手动报警按钮(61) */
 					/* XR5000_FIRE_DISPLAY_GENERIC_NAMES_20260729: store XR2200 record in fire history only; do not add pcfas. */
 					BspAlarmDataSaveApp(FIRE_FLASH_SAVE, MBUS2_HAND_ALARM, MBUS_CONTROL_FLASH_ID, addr, 1);
-					MBusCtrl_PostFireDisplayEvent(2, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL, MBUS_FIRE_DISPLAY_ALARM_FIRE);
+					MBusCtrl_PostFireDisplayEventTo(2, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL, MBUS_FIRE_DISPLAY_ALARM_FIRE,
+					        FireZone_DisplayTargets(2U, addr));
 				}
 			}
 			else
 			{
 				if(mbus2_hand_alarm_memory[addr] != 0U)
 				{
-					MBusCtrl_PostFireDisplayEvent(2U, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL, 0U);
+					MBusCtrl_PostFireDisplayEventTo(2U, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL, 0U,
+					        FireZone_DisplayTargets(2U, addr));
 					mbus2_hand_alarm_memory[addr] = 0U;
 				}
 			}
@@ -13906,7 +14406,8 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
         if(old_state != raw_state)
         {
             if(old_state == 1U || old_state == 8U)
-                MBusCtrl_PostFireDisplayEvent(1U, addr, display_type, 0U);
+                MBusCtrl_PostFireDisplayEventTo(1U, addr, display_type, 0U,
+                        FireZone_DisplayTargets(1U, addr));
             if(type == 6U)
             {
                 if(old_state == 8U) Loop1RemoveFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_RECOVERY);
@@ -13925,7 +14426,8 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     beep_fire_ctrl = 1U;
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, TEMPRT_ALARM, 0U, addr, value);
-                    MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FIRE);
+                    MBusCtrl_PostFireDisplayEventTo(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FIRE,
+                            FireZone_DisplayTargets(1U, addr));
                     /* 记录:温度传感器Loop1火警(温度值上报) */
                     StorageEvent_LogFire(addr, DEV_TYPE_TEMPERATURE, 1, 0);  /* [GB4717 B.1.1.1a] 回路1感温火灾报警 */
                     FecbusReport_Fire(addr, DEV_TYPE_TEMPERATURE, 1, 0); /* FECbus:上报温度火警 */
@@ -13933,7 +14435,8 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                 else if(raw_state == 8U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_TEMPERATURE, LOOP1_TEMP_SENSOR_FAULT);
-                    MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FAULT);
+                    MBusCtrl_PostFireDisplayEventTo(1U, addr, MBUS_FIRE_DISPLAY_DETECT_TEMP, MBUS_FIRE_DISPLAY_ALARM_FAULT,
+                            FireZone_DisplayTargets(1U, addr));
                     /* 记录温度传感器故障 */
                     StorageEvent_LogFault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 0);
                     FecbusReport_Fault(addr, DEV_TYPE_TEMPERATURE, 1, 0, 0); /* FECbus:温度传感器故障 */
@@ -13957,7 +14460,8 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                     beep_fire_ctrl = 1U;
                     silencers_state = 0U;
                     BspAlarmDataSaveApp(FIRE_FLASH_SAVE, SMOKE_ALARM, 0U, addr, value);
-                    MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FIRE);
+                    MBusCtrl_PostFireDisplayEventTo(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FIRE,
+                            FireZone_DisplayTargets(1U, addr));
                     /* 记录:烟雾传感器Loop1火警(烟雾火警上报) */
                     StorageEvent_LogFire(addr, DEV_TYPE_SMOKE, 1, 0);  /* [GB4717 B.1.1.1a] 回路1感烟火灾报警 */
                     FecbusReport_Fire(addr, DEV_TYPE_SMOKE, 1, 0); /* FECbus:上报烟雾火警 */
@@ -13965,7 +14469,8 @@ static uint8_t PointTypeDetectorDataDeal(PackCabinFaultStorage *pcfs_entry, uint
                 else if(raw_state == 8U)
                 {
                     Loop1AddFault(addr, LOOP1_FAULT_SMOKE_POLLUTION, LOOP1_SMOKE_POLLUTION_FAULT);
-                    MBusCtrl_PostFireDisplayEvent(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FAULT);
+                    MBusCtrl_PostFireDisplayEventTo(1U, addr, MBUS_FIRE_DISPLAY_DETECT_SMOKE, MBUS_FIRE_DISPLAY_ALARM_FAULT,
+                            FireZone_DisplayTargets(1U, addr));
                     /* 记录烟雾污染故障 */
                     StorageEvent_LogFault(addr, DEV_TYPE_SMOKE, 1, 0, 0);
                     FecbusReport_Fault(addr, DEV_TYPE_SMOKE, 1, 0, 0); /* FECbus:烟雾污染故障 */

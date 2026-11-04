@@ -8,6 +8,7 @@
  *   - 零依赖 MODEL 层，只依赖标准类型
  *   - 数据结构（Cond_t, Token_t, Rule）
  *   - CRUD + Flash持久化
+ *   - 规则携带所属防火分区(zone)，条件与动作必须同区，跨区规则不允许保存
  *   - 表达式求值使用递归下降解析器
  *   本模块完全自包含，不直接调用任何外部函数，所有
  *   外部交互通过回调函数完成。
@@ -31,7 +32,7 @@
 /* Flash 存储区 W25Q256 SPI Flash 芯片 0x080000 */
 #define LOGIC_FLASH_RULES_ADDR   0x080000U  /* 规则存储区起始地址(连续3个4KB扇区) */
 #define LOGIC_FLASH_META_ADDR   0x088000U  /* 元数据存储区地址 */
-#define LOGIC_MAGIC              0x4C4F4732U /* Flash存储魔数 LOG2 (结构变更:动作增加channel字段) */
+#define LOGIC_MAGIC              0x4C4F4733U /* Flash存储魔数 LOG3 (结构变更:新增zone字段) */
 
 /*--------------------------------------------------------------
  * 2. 枚举类型定义区
@@ -128,13 +129,14 @@ typedef struct
     uint8_t  action;    /* 0=停止, 1=启动 */
 } __attribute__((packed)) Action_t;
 
-/* 规则结构体 - 每条规则占150字节（packed紧凑, Action_t删除延时字段后）
+/* 规则结构体 - 每条规则占151字节（packed紧凑, 新增zone字段后；64条共9664字节）
  * 结构 = 元信息 + 条件 + 表达式 + 动作
  * 表达式由TOK_COND Token引用条件数组，不重复存储条件数据 */
 typedef struct
 {
     uint8_t  enable;                         /* 1=启用, 0=禁用 */
     uint8_t  rule_id;                        /* 规则ID（1-255），0表示空槽位 */
+    uint8_t  zone;                           /* 所属防火分区(1-2)，条件与动作必须同区 */
 
     uint8_t  cond_count;                     /* 条件数量（1..12） */
     Cond_t   conditions[LOGIC_COND_MAX];     /* 条件数组 */
@@ -176,6 +178,14 @@ uint8_t LogicRule_Get(uint8_t id, LogicRule_t *rule);            /* 查询指定ID规
 uint8_t LogicRule_GetCount(void);                                /* 获取有效规则数量 */
 uint8_t LogicRule_SetEnable(uint8_t id, uint8_t enable);         /* 启用/禁用规则 */
 void    LogicRule_ClearAll(void);                                /* 清空所有规则 */
+
+/*--------------------------------------------------------------
+ * 分区归属变更后处理 (Phase G)
+ * 分区数据落盘后由屏幕回调 FireZoneScreen_OnZoneChanged() 调用:
+ * 扫描规则表, 停用所有"条件或动作已跨区"的存量规则并落盘。
+ * 返回值：被停用的规则数(0=没有跨区规则)
+ *--------------------------------------------------------------*/
+uint8_t LogicRule_DisableCrossZoneRules(void);
 
 /*--------------------------------------------------------------
  * 6. API声明 - Flash持久化操作

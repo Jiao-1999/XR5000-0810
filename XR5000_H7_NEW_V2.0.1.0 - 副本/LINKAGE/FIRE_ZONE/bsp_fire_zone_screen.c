@@ -41,22 +41,29 @@
 /* 设备范围输入框ID表[类型][槽位](与屏工程防火分区.tft逐一核对) */
 static const uint8_t s_fz_dev[FZ_DEV_TYPE_COUNT][FIRE_ZONE_PAGE_ZONES] =
 {
-    {  5U,   6U,   7U,   8U },   /* 温度        回路1 */
-    {  9U,  10U,  11U,  12U },   /* 烟雾        回路1 */
-    { 14U,  15U,  16U,  17U },   /* 可燃气体    回路3 */
-    { 18U,  19U,  20U,  21U },   /* 复合探测器  回路3 */
-    { 22U,  23U,  24U,  25U },   /* 手报        回路2 (XR2200) */
-    { 26U,  27U,  28U,  29U }    /* 声光        回路2 (SGBJQ) */
+    {  5U,   6U },   /* 温度        回路1 */
+    {  9U,  10U },   /* 烟雾        回路1 */
+    { 14U,  15U },   /* 可燃气体    回路3 */
+    { 18U,  19U },   /* 复合探测器  回路3 */
+    { 22U,  23U },   /* 手报        回路2 (XR2200) */
+    { 26U,  27U },   /* 声光        回路2 (SGBJQ) */
+    {  4U,   8U }    /* 火灾显示盘  回路2 (单地址) */
 };
 
 /* 各设备类型对应的回路号(与s_fz_dev行序一致) */
 static const uint8_t s_fz_loop[FZ_DEV_TYPE_COUNT] =
 {
-    1U, 1U, 3U, 3U, 2U, 2U
+    1U, 1U, 3U, 3U, 2U, 2U, 2U
 };
 
-/* 分区名输入框ID(槽0~3) */
-static const uint8_t s_fz_name[FIRE_ZONE_PAGE_ZONES] = { 1U, 2U, 3U, 4U };
+/* 分区名输入框ID(槽0~1) */
+static const uint8_t s_fz_name[FIRE_ZONE_PAGE_ZONES] = { 1U, 2U };
+
+/* 系统级设备输入框ID(与FZ_SYS_*顺序一致: 手报/声光/火灾显示盘) */
+static const uint8_t s_fz_sys[FZ_SYS_COUNT] =
+{
+    FIRE_ZONE_IN_SYS_MANUAL, FIRE_ZONE_IN_SYS_SIREN, FIRE_ZONE_IN_SYS_DISPLAY
+};
 
 /* 提示条自动清空时间(ms) */
 #define FZ_TIP_TIMEOUT  3000U
@@ -77,6 +84,7 @@ static char s_last_dev[FIRE_ZONE_MAX][FZ_DEV_TYPE_COUNT][FIRE_ZONE_NAME_LEN];
 static char s_last_name[FIRE_ZONE_PAGE_ZONES][FIRE_ZONE_NAME_LEN];
 static char s_last_zone[FIRE_ZONE_PAGE_ZONES][4];  /* 分区号文本("1"~"8") */
 static char s_last_en[FIRE_ZONE_PAGE_ZONES][8];    /* 启用状态("启用"/"停用") */
+static char s_last_sys[FZ_SYS_COUNT][FIRE_ZONE_NAME_LEN]; /* 系统级设备栏文本 */
 
 /* 输入会话标志: 1=本次进入画面以来有修改且batch挂起未落盘。
  * 交互约定: 输入/清空/启用切换只改RAM(batch挂起压住落盘),
@@ -212,8 +220,9 @@ static void SendDiff(uint16_t ctrl, const char *buf, char *last, uint8_t force)
  *--------------------------------------------------------------*/
 static void RestoreDispCache(void)
 {
-    uint8_t z;   /* 分区下标(0-7对应分区1-8) */
+    uint8_t z;   /* 分区下标(0-1对应分区1-2) */
     uint8_t t;   /* 设备类型 */
+    uint8_t k;   /* 系统级设备类型(FZ_SYS_*) */
 
     for (z = 0U; z < FIRE_ZONE_MAX; z++)
     {
@@ -228,18 +237,31 @@ static void RestoreDispCache(void)
             }
         }
     }
+
+    /* 系统级设备三栏(手报16/声光28/火灾显示盘12) */
+    for (k = 0U; k < FZ_SYS_COUNT; k++)
+    {
+        FireZone_GetSysDisp(k, s_last_sys[k]);
+        if (s_last_sys[k][0] != '\0')
+        {
+            DebugPrintf("[FZS] restore sys%u: %s\r\n",
+                        (unsigned)k, s_last_sys[k]);
+        }
+    }
 }
 
 /*--------------------------------------------------------------
  * 函数名称：RefreshPage
- * 功能说明：刷新当前页4个分区槽(分区号/名称/启用状态/6类设备栏)。
+ * 功能说明：刷新当前页2个分区槽(分区号/名称/启用状态/7类设备栏)
+ *           及画面底部系统级设备区3栏(手报/声光/火灾显示盘)。
  * 参数说明：force - 1=强制全量刷新(进入画面/翻页), 0=差分刷新。
  *--------------------------------------------------------------*/
 static void RefreshPage(uint8_t force)
 {
-    uint8_t slot;         /* 槽位0~3 */
+    uint8_t slot;         /* 槽位0~1 */
     uint8_t type;         /* 设备类型 */
     uint8_t zone;         /* 槽位对应分区号 */
+    uint8_t k;            /* 系统级设备类型(FZ_SYS_*) */
     char buf[FIRE_ZONE_NAME_LEN + 32];  /* 临时构建缓冲(48字节) */
 
     for (slot = 0; slot < FIRE_ZONE_PAGE_ZONES; slot++)
@@ -266,6 +288,12 @@ static void RefreshPage(uint8_t force)
             SendDiff(s_fz_dev[type][slot], s_last_dev[zone - 1U][type],
                      s_last_dev[zone - 1U][type], force);
         }
+    }
+
+    /* 系统级设备区(画面底部): 手报16 / 声光28 / 火灾显示盘12 */
+    for (k = 0U; k < FZ_SYS_COUNT; k++)
+    {
+        SendDiff(s_fz_sys[k], s_last_sys[k], s_last_sys[k], force);
     }
 }
 
@@ -577,6 +605,106 @@ static void HandleRangeInput(uint8_t type, uint8_t slot, const char *text)
 }
 
 /*--------------------------------------------------------------
+ * 函数名称：HandleSysInput
+ * 功能说明：系统级设备栏输入处理(画面底部 手报16/声光28/显示盘12)。
+ *           - 11位合法 LLAAA.LLAAA 时更新设备地址(回路2, 1-63)
+ *           - 全0输入视为清空(地址置0)
+ *           - 显示文本原样保存, 返回键时统一落盘
+ * 参数说明：kind - 系统级设备类型(FZ_SYS_*), text - 输入文本。
+ *--------------------------------------------------------------*/
+static void HandleSysInput(uint8_t kind, const char *text)
+{
+    size_t len;
+    uint8_t ls = 0, le = 0;               /* 起/止回路号 */
+    uint16_t as = 0, ae = 0;              /* 起/止地址 */
+    uint8_t ok = 0U;                      /* 1=11位合法格式 */
+    uint8_t i;
+
+    if ((kind >= FZ_SYS_COUNT) || (text == NULL))
+    {
+        return;
+    }
+    len = strlen(text);
+
+    /* 清空键: 全0输入(分隔位允许 . 或 0) -> 系统级设备地址清0 */
+    if (len == 11U)
+    {
+        uint8_t allz = 1U;
+        for (i = 0U; i < 11U; i++)
+        {
+            if (i == 5U)
+            {
+                if ((text[i] != '.') && (text[i] != '0')) { allz = 0U; break; }
+            }
+            else if (text[i] != '0')
+            {
+                allz = 0U; break;
+            }
+        }
+        if (allz != 0U)
+        {
+            BeginEditSession();
+            (void)FireZone_SetSysDeviceAddr(kind, 0U);
+            (void)FireZone_SetSysDisp(kind, text);
+            strncpy(s_last_sys[kind], text, FIRE_ZONE_NAME_LEN - 1U);
+            s_last_sys[kind][FIRE_ZONE_NAME_LEN - 1U] = '\0';
+            RefreshPage(0);
+            SetTip("已清空");
+            return;
+        }
+    }
+
+    /* 静默解析: 仅当输入恰为11位合法 LLAAA.LLAAA 时更新设备地址 */
+    if (len == 11U)
+    {
+        ok = 1U;
+        for (i = 0U; i < 11U; i++)
+        {
+            char c = text[i];
+            if (i == 5U)
+            {
+                if (c != '.') { ok = 0U; break; }
+            }
+            else if ((c < '0') || (c > '9'))
+            {
+                ok = 0U; break;
+            }
+        }
+        if (ok != 0U)
+        {
+            ls = (uint8_t)(((text[0] - '0') * 10U) + (uint8_t)(text[1] - '0'));
+            le = (uint8_t)(((text[6] - '0') * 10U) + (uint8_t)(text[7] - '0'));
+            as = (uint16_t)(((uint16_t)(text[2] - '0') * 100U) +
+                            ((uint16_t)(text[3] - '0') * 10U) +
+                            (uint16_t)(text[4] - '0'));
+            ae = (uint16_t)(((uint16_t)(text[8] - '0') * 100U) +
+                            ((uint16_t)(text[9] - '0') * 10U) +
+                            (uint16_t)(text[10] - '0'));
+            if ((ls != le) || (ls < 1U) || (ls > 3U) || (as > ae) ||
+                (as < 1U) || (ae > 63U))
+            {
+                ok = 0U;  /* 静默放弃地址更新, 不拒绝不提示 */
+            }
+        }
+    }
+
+    /* 原样保存用户输入; 地址仅合法解析时更新(落盘延迟到返回键) */
+    BeginEditSession();
+    if (ok != 0U)
+    {
+        (void)FireZone_SetSysDeviceAddr(kind, (uint8_t)as);
+        DebugPrintf("[FZS] sys k%u addr L%u %u\r\n",
+                    (unsigned)kind, (unsigned)ls, (unsigned)as);
+    }
+    (void)FireZone_SetSysDisp(kind, text);
+    strncpy(s_last_sys[kind], text, FIRE_ZONE_NAME_LEN - 1U);
+    s_last_sys[kind][FIRE_ZONE_NAME_LEN - 1U] = '\0';
+
+    RefreshPage(0);
+    SetTip("已输入,返回保存");
+}
+
+/*--------------------------------------------------------------
  * 8. 对外接口
  *--------------------------------------------------------------*/
 
@@ -615,7 +743,7 @@ void FireZoneScreen_UpdateUI(uint16_t screen_id)
 /*--------------------------------------------------------------
  * 函数名称：FireZoneScreen_OnButton
  * 功能说明：防火分区画面按钮处理(cmd_process.c的NotifyButton调用)。
- *           105~108: 启用/停用切换(分区1禁止停用);
+ *           105/106: 启用/停用切换(分区1禁止停用);
  *           264/265: 两页回绕翻页(全量刷新);
  *           266: 返回键屏端自跳新菜单界面, MCU仅复位标志防误处理。
  * 参数说明：screen_id - 画面ID, control_id - 按钮ID, state - 1=按下。
@@ -640,8 +768,8 @@ void FireZoneScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t st
         RestoreDispCache();
     }
 
-    /* 启用/停用切换按钮(105~108) */
-    if ((control_id >= FIRE_ZONE_BTN_ENABLE_0) && (control_id <= FIRE_ZONE_BTN_ENABLE_3))
+    /* 启用/停用切换按钮(105/106) */
+    if ((control_id >= FIRE_ZONE_BTN_ENABLE_0) && (control_id <= FIRE_ZONE_BTN_ENABLE_1))
     {
         slot = (uint8_t)(control_id - FIRE_ZONE_BTN_ENABLE_0);
         zone = (uint8_t)(s_page * FIRE_ZONE_PAGE_ZONES + slot + 1U);
@@ -663,8 +791,8 @@ void FireZoneScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t st
     {
     case FIRE_ZONE_BTN_PREV:
     case FIRE_ZONE_BTN_NEXT:
-        s_page ^= 1U;      /* 仅2页: 回绕切换(0<->1), 翻页纯UI不保存 */
-        RefreshPage(1);    /* 控件复用, 翻页全量刷新(立即出画面) */
+        /* 2分区单页(分区1~2): 屏端翻页键仍在, MCU直接忽略,
+         * 不改页码/不刷屏/不产生保存动作 */
         return;
 
     case FIRE_ZONE_BTN_RETURN:
@@ -727,11 +855,13 @@ uint8_t FireZoneScreen_NotifyText(uint16_t screen_id, uint16_t control_id, const
     if (s_in_page == 0U)
     {
         /* 自愈: 屏端已在本画面(否则不会上送文本), 补做进入初始化,
-         * 防止UI任务轮询滞后导致进入画面后的首笔输入被丢弃(操作无反应) */
+         * 防止UI任务轮询滞后导致进入画面后的首笔输入被丢弃(操作无反应)。
+         * 注意: 此处不能再调 RefreshPage(1) - 屏端输入框此刻已显示用户刚输入的
+         * 内容, 全量刷新会用Flash旧值把它覆盖掉, 表现为"输入了但没保存",
+         * 且只出现在进入画面后的第一笔输入(控件24系统级手报最易触发)。 */
         s_in_page = 1U;
         s_page = 0U;
         RestoreDispCache();
-        RefreshPage(1);
     }
 
     /* 诊断打印: 确认文本通知到达本模块(控件/原文长度/文本) */
@@ -739,8 +869,8 @@ uint8_t FireZoneScreen_NotifyText(uint16_t screen_id, uint16_t control_id, const
                 (unsigned)control_id, (unsigned)strlen((const char *)text),
                 (const char *)text);
 
-    /* 分区名输入框(1~4) */
-    if ((control_id >= FIRE_ZONE_IN_NAME_0) && (control_id <= FIRE_ZONE_IN_NAME_3))
+    /* 分区名输入框(1/2) */
+    if ((control_id >= FIRE_ZONE_IN_NAME_0) && (control_id <= FIRE_ZONE_IN_NAME_1))
     {
         HandleNameInput((uint8_t)(control_id - FIRE_ZONE_IN_NAME_0), (const char *)text);
         return 1;
@@ -757,6 +887,28 @@ uint8_t FireZoneScreen_NotifyText(uint16_t screen_id, uint16_t control_id, const
                 return 1;
             }
         }
+    }
+
+    /* 系统级设备输入框(16/28/12) */
+    for (type = 0U; type < FZ_SYS_COUNT; type++)
+    {
+        if (s_fz_sys[type] == (uint8_t)control_id)
+        {
+            HandleSysInput(type, (const char *)text);
+            return 1;
+        }
+    }
+
+    /* 兜底: 本画面其余控件若上送 11 位 LLAAA.LLAAA 文本,
+     * 视为系统级手报输入。用于屏工程 24 号控件的事件通知可能绑定了
+     * 其它 control_id 的场合(属性面板看不出差异, 只能运行期兜住)。
+     * 设备栏(5/6/9/10/14/15/18/19/22/23/26/27/4/8)与分区名(1/2)
+     * 已在上面匹配, 不会走到这里; 只读控件(101/102/111/112)不上送文本。
+     * 屏端修正 ID 后, 此分支自然不再触发。 */
+    if (strlen((const char *)text) == 11U)
+    {
+        HandleSysInput((uint8_t)FZ_SYS_MANUAL, (const char *)text);
+        return 1;
     }
 
     return 0;             /* 分区号/状态回显等只读控件: 不处理 */

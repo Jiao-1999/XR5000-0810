@@ -89,24 +89,24 @@ static uint8_t MatchAlarmLevel(uint8_t state, uint8_t level)
     switch (level)
     {
     case LV_ANY:
-        /* 任意级别: 只要状态非0即可（仅需要非零判断即可） */
-        return (state != 0) ? 1 : 0;
+        /* 任意报警: 状态1/2/3 均为报警; 故障(8)不算报警, 需用 LV_FAULT 条件 */
+        return (state == 1 || state == 2 || state == 3) ? 1 : 0;
 
     case LV_HIGH:
-        /* 二级报警: 状态2 = 火警 */
-        return (state == 2) ? 1 : 0;
+        /* 现口径: 只要报警就触发。温度/烟雾报警(1)、CO/H2 低报(2)、高报(3) 一视同仁 */
+        return (state == 1 || state == 2 || state == 3) ? 1 : 0;
 
     case LV_LOW:
-        /* 一级报警: 状态1 = 预报警 */
-        return (state == 1) ? 1 : 0;
+        /* 同上, 与 LV_HIGH 保持一致 */
+        return (state == 1 || state == 2 || state == 3) ? 1 : 0;
 
     case LV_FAULT:
         /* 故障: 状态8 = 设备故障 */
         return (state == 8) ? 1 : 0;
 
     default:
-        /* 未识别级别: 按非零即报警处理 */
-        return (state != 0) ? 1 : 0;
+        /* 未识别级别: 按报警(不含故障)处理 */
+        return (state == 1 || state == 2 || state == 3) ? 1 : 0;
     }
 }
 
@@ -185,7 +185,8 @@ static uint8_t GetLoopScanMax(uint8_t loop_no)
 static uint8_t ReadSensorState(uint8_t loop_no, uint8_t dev_no, uint8_t sensor_type)
 {
     uint8_t i;           /* 循环计数变量 */
-    uint8_t max_state;   /* 通配查询的最大状态值 */
+    uint8_t max_state;   /* 通配查询的最大状态值(仅报警1/2/3) */
+    uint8_t fault;       /* 故障标记(状态8) */
     uint8_t sensor_idx;  /* RS485传感器索引 */
     uint8_t s;           /* 单传感器状态（临时变量） */
 
@@ -247,17 +248,23 @@ static uint8_t ReadSensorState(uint8_t loop_no, uint8_t dev_no, uint8_t sensor_t
 
         if (sensor_type == SENSOR_ANY)
         {
-            /* 通配查询: 取所有传感器的最大状态值 */
+            /* 通配查询: 报警(1/2/3)优先, 无报警时才返回故障(8)。
+             * 不能直接取原始最大值, 否则故障值 8 会压过报警值导致联动不触发。 */
             max_state = 0;
+            fault = 0;
             for (i = 0; i < (uint8_t)RS485_SENSOR_COUNT; i++)
             {
                 s = RS485Detect_GetSensorState(dev_no, i);
-                if (s > max_state)
+                if (s == 8U)
+                {
+                    fault = 8U;
+                }
+                else if (s > max_state)
                 {
                     max_state = s;
                 }
             }
-            return max_state;
+            return (max_state != 0U) ? max_state : fault;
         }
 
         /* SensorType -> RS485SensorIndex 映射 */
@@ -317,7 +324,6 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
     uint8_t i;              /* 通配扫描循环变量 */
     uint8_t state;          /* 设备当前状态值 */
     uint8_t scan_max;       /* 通配扫描最大设备数 */
-    uint8_t effective_level;/* 实际匹配用的报警级别 */
 
     /* 校验输入指针 */
     if (cond == NULL)
@@ -336,12 +342,34 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
 #endif
     /*--- 按传感器类型的处理 ---*/
 
-    /* 手动报警按钮: 调用getHandPaperState() */
+    /* 手动报警按钮:
+     *   回路2 挂的是总线手报 XR2200, 按 (loop,dev) 查该设备状态;
+     *   其它情况(板载直线手报)仍读 getHandPaperState()。 */
     if (cond->sensor_type == SENSOR_HAND_REPORT)
     {
-        /* getHandPaperState()返回0=未按下, 0xF0=已按下 */
+        if (cond->loop_no == 2U)
+        {
+            if (cond->dev_no == LOGIC_WILDCARD)
+            {
+                scan_max = GetLoopScanMax(2U);
+                for (i = 1; i < scan_max; i++)
+                {
+                    if (IsDeviceOnline(2U, i) != 0U && MBusCtrl_GetDeviceState(i) != 0U)
+                    {
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+            if (IsDeviceOnline(2U, cond->dev_no) == 0U)
+            {
+                return 0;   /* 总线手报离线, 不参与判定 */
+            }
+            return (MBusCtrl_GetDeviceState(cond->dev_no) != 0U) ? 1 : 0;
+        }
+
+        /* 板载直线手报: 返回0=未按下, 0xF0=已按下 */
         state = getHandPaperState();
-        /* 若状态非0直接返回报警 */
         return (state != 0) ? 1 : 0;
     }
 
@@ -406,33 +434,8 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
             /* 获取探测器当前状态 */
             state = ReadSensorState(cond->loop_no, i, cond->sensor_type);
 
-            /* 回路1温度/烟雾/ANY: 只要非0即报警，统一LV_ANY匹配 */
-            if (cond->loop_no == 1 &&
-                (cond->sensor_type == SENSOR_TEMPERATURE ||
-                 cond->sensor_type == SENSOR_SMOKE ||
-                 cond->sensor_type == SENSOR_ANY))
-            {
-                if (state != 0)
-                {
-                    return 1;  /* 回路1报警即视为满足 */
-                }
-            }
-            /* 回路3温度/烟雾: 状态同样只有 0/1 两态（RS485 侧 RS485Detect_IsAlarmState
-             * 判定温度/烟雾 state==1 即为报警），不存在高/低报警级别之分，
-             * 因此统一按 LV_ANY（非0即报警）匹配，
-             * 避免 LV_HIGH 要求 state==2 导致永不触发。
-             * 注意: 回路3 的 SENSOR_ANY 不放宽（回路3 还含 CO/H2，
-             * state==1 不代表报警，仍需走 MatchAlarmLevel 严格匹配） */
-            else if (cond->loop_no == 3 &&
-                     (cond->sensor_type == SENSOR_TEMPERATURE ||
-                      cond->sensor_type == SENSOR_SMOKE))
-            {
-                if (state != 0)
-                {
-                    return 1;  /* 回路3温度/烟雾报警即视为满足 */
-                }
-            }
-            else if (MatchAlarmLevel(state, cond->alarm_level))
+            /* 统一按报警级别匹配: 1/2/3 为报警, 8 为故障 */
+            if (MatchAlarmLevel(state, cond->alarm_level))
             {
                 return 1;  /* 找到匹配的报警探测器 */
             }
@@ -457,32 +460,8 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
     /* 获取探测器当前状态 */
     state = ReadSensorState(cond->loop_no, cond->dev_no, cond->sensor_type);
 
-    /* 回路1温度/烟雾/ANY的getter返回0/1值（非报警值），需特殊处理
-     * alarm_level 统一用 LV_ANY 匹配 */
-    effective_level = cond->alarm_level;
-    if (cond->loop_no == 1 &&
-        (cond->sensor_type == SENSOR_TEMPERATURE ||
-         cond->sensor_type == SENSOR_SMOKE ||
-         cond->sensor_type == SENSOR_ANY))
-    {
-        effective_level = LV_ANY;
-    }
-
-    /* 回路3温度/烟雾: RS485 侧温度/烟雾同样只有 0/1 两态
-     * （RS485Detect_IsAlarmState 判定 state==1 即为报警），
-     * 不存在高/低报警级别之分，alarm_level 也统一用 LV_ANY 匹配，
-     * 避免 LV_HIGH 要求 state==2 导致永不触发。
-     * 注意: 回路3 的 SENSOR_ANY 不放宽（回路3 还含 CO/H2，
-     * state==1 不代表报警，仍需按原 alarm_level 严格匹配） */
-    if (cond->loop_no == 3 &&
-        (cond->sensor_type == SENSOR_TEMPERATURE ||
-         cond->sensor_type == SENSOR_SMOKE))
-    {
-        effective_level = LV_ANY;
-    }
-
-    /* 最后根据报警状态匹配级别 */
-    return MatchAlarmLevel(state, effective_level);
+    /* 统一按报警级别匹配: 1/2/3 为报警, 8 为故障 */
+    return MatchAlarmLevel(state, cond->alarm_level);
 }
 
 /*--------------------------------------------------------------
@@ -565,40 +544,43 @@ uint8_t LogicDev_Control(uint8_t loop_no, uint8_t dev_no, uint8_t channel, uint8
 
 /*--------------------------------------------------------------
  * 函数名称：LogicDev_CheckAutoMode
- * 功能说明：根据执行模式和系统/分区的手/自动状态判断是否允许执行。
+ * 功能说明：根据系统总闸 + 规则所属分区的手/自动状态判断是否允许执行。
  *
- * 参数说明：exec_mode - 执行模式（ExecMode枚举）。
+ * 参数说明：rule - 规则结构体指针（zone: 1=分区1, 2=分区2）。
  * 返回值：   1=允许执行动作, 0=禁止（当前为手动模式或禁止状态）
  *--------------------------------------------------------------*/
-uint8_t LogicDev_CheckAutoMode(uint8_t exec_mode)
+uint8_t LogicDev_CheckAutoMode(const LogicRule_t *rule)
 {
-    uint8_t sys_auto;    /* 系统级自动模式状态 */
-    uint8_t part1_auto;  /* 分区1自动模式状态 */
-    uint8_t part2_auto;  /* 分区2自动模式状态 */
+    uint8_t sys_auto;   /* 系统级手/自动(全局总闸) */
+    uint8_t zone_auto;  /* 规则所属分区手/自动 */
 
-    /* 获取系统级及各分区的 手/自动 状态 */
-    /* KEY_AUTO = 0x02, KEY_MANUAL = 0x01 */
-    sys_auto   = (getSysHandAutoState()   == KEY_AUTO) ? 1 : 0;
-    part1_auto = (getPart1HandAutoState() == KEY_AUTO) ? 1 : 0;
-    part2_auto = (getPart2HandAutoState() == KEY_AUTO) ? 1 : 0;
-
-    /* 根据执行模式判断是否可以 */
-    switch (exec_mode)
+    if (rule == NULL)
     {
-    case EXEC_START_ALL:
-    case EXEC_STOP_ALL:
-        /* 要求三个分区都处于自动模式才能执行 */
-        return (sys_auto && part1_auto && part2_auto) ? 1 : 0;
-
-    case EXEC_START_PART:
-    case EXEC_STOP_PART:
-        /* 任意一个分区处于自动模式即可执行 */
-        return (sys_auto || part1_auto || part2_auto) ? 1 : 0;
-
-    default:
-        /* 未识别的模式类型，禁止执行 */
-        return 0;  /* 未知模式，默认全部禁止执行 */
+        return 0;
     }
+
+    /* 系统级=手动时全系统禁止自动执行 */
+    sys_auto = (getSysHandAutoState() == KEY_AUTO) ? 1U : 0U;
+    if (sys_auto == 0U)
+    {
+        return 0;
+    }
+
+    /* 分区1/分区2 各自的手自动状态 */
+    if (rule->zone == 1U)
+    {
+        zone_auto = (getPart1HandAutoState() == KEY_AUTO) ? 1U : 0U;
+    }
+    else if (rule->zone == 2U)
+    {
+        zone_auto = (getPart2HandAutoState() == KEY_AUTO) ? 1U : 0U;
+    }
+    else
+    {
+        return 0;  /* 非法分区, 禁止执行 */
+    }
+
+    return zone_auto;
 }
 
 /*--------------------------------------------------------------

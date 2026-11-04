@@ -29,6 +29,7 @@
 #define LOGIC_SCREEN_EDIT       43  /* 火警逻辑设定页：编辑+预览(主界面) */
 #define LOGIC_SCREEN_LIST       45  /* 逻辑查看界面：只读显示已设置规则 */
 #define LOGIC_SCREEN_ACTION     43  /* 复用编辑页(无独立动作编辑页) */
+#define LOGIC_SCREEN_ZONESEL    85  /* 联动编程分区选择页：进入43前先选分区 */
 
 /*--------------------------------------------------------------
  * 编辑页(screen 43)控件ID

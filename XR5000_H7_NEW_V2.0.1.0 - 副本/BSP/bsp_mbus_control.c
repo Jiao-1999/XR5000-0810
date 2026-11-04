@@ -56,6 +56,7 @@ static uint16_t g_mbus2_rx_frame_len = 0U;
 static uint8_t g_mbus2_tx_request[17U];
 static uint8_t g_mbus2_tx_request_len = 0U;
 static volatile uint8_t g_mbus2_reset_requested = 0U;
+static volatile uint8_t g_mbus2_reset_addr = 0xFFU;  /* 0xFF=整回路广播, 其它=单台 */
 static volatile uint8_t g_mbus2_reset_status = 0U;
 static uint32_t g_mbus2_reset_grace_until = 0U;
 #define MBUS_NORMAL_POLL_RECOVERY_THRESHOLD      2U
@@ -158,6 +159,8 @@ static uint8_t g_control_status[MBUS_CONTROL_MAX_DEVICES];
 static uint8_t g_control_last_result[MBUS_CONTROL_MAX_DEVICES];
 static uint8_t g_fixed_detector_fire_active;
 static uint8_t g_fixed_manual_fire_active;
+/* 火警时允许强制启动的声光位掩码: 默认全允许(兼容原行为), 应用层按分区覆盖 */
+static uint64_t g_fixed_soundlight_mask = 0xFFFFFFFFFFFFFFFFULL;
 
 static void MBusCtrl_ResetActiveControl(void);
 
@@ -223,6 +226,23 @@ static HAL_StatusTypeDef MBusCtrl_SendFrame(const uint8_t *frame, uint8_t length
 void MBusCtrl_RequestBroadcastReset(void)
 {
     taskENTER_CRITICAL();
+    g_mbus2_reset_addr = 0xFFU;  /* 整回路广播 */
+    g_mbus2_reset_status = 1U;
+    g_mbus2_reset_requested = 1U;
+    taskEXIT_CRITICAL();
+    SprayOutputPolicy_Reset();
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：MBusCtrl_RequestDeviceReset
+ * 功能说明：只复位回路2 上指定地址的单台设备(帧地址改为该设备)。
+ * 输入参数：addr - 设备地址(1~MBUS_CONTROL_MAX_DEVICES-1)
+ *--------------------------------------------------------------*/
+void MBusCtrl_RequestDeviceReset(uint8_t addr)
+{
+    if((addr < 1U) || (addr >= (uint8_t)MBUS_CONTROL_MAX_DEVICES)) return;
+    taskENTER_CRITICAL();
+    g_mbus2_reset_addr = addr;
     g_mbus2_reset_status = 1U;
     g_mbus2_reset_requested = 1U;
     taskEXIT_CRITICAL();
@@ -246,14 +266,30 @@ static void MBusCtrl_ServiceBroadcastReset(void)
     if(g_mbus2_reset_requested == 0U || g_mbus_poll_wait_response != 0U ||
        g_control_wait_response != 0U || g_fire_display_wait_response != 0U) return;
 
-    /* 总复位前丢弃旧控制目标，避免广播复位后排队指令重新打开输出。 */
+    /* 复位前丢弃旧控制目标, 避免复位后排队指令重新打开输出。
+     * 广播复位清全部设备; 单台复位只清目标设备, 不影响另一分区。 */
     taskENTER_CRITICAL();
-    g_control_queue_head = 0U;
-    g_control_queue_tail = 0U;
-    g_control_queue_count = 0U;
     MBusCtrl_ResetActiveControl();
-    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
+    if(g_mbus2_reset_addr == 0xFFU)
     {
+        g_control_queue_head = 0U;
+        g_control_queue_tail = 0U;
+        g_control_queue_count = 0U;
+        for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
+        {
+            g_control_target_outputs[addr] = 0U;
+            g_control_requested_outputs[addr] = 0U;
+            g_control_confirmed_outputs[addr] = 0U;
+            g_control_confirmed_valid[addr] = 0U;
+            g_control_pending_count[addr] = 0U;
+            g_control_status[addr] = MBUS_CTRL_STATUS_IDLE;
+            g_control_last_result[addr] = MBUS_CTRL_STATUS_IDLE;
+            g_soundlight_policy_valid[addr] = 0U;
+        }
+    }
+    else
+    {
+        addr = g_mbus2_reset_addr;
         g_control_target_outputs[addr] = 0U;
         g_control_requested_outputs[addr] = 0U;
         g_control_confirmed_outputs[addr] = 0U;
@@ -265,6 +301,7 @@ static void MBusCtrl_ServiceBroadcastReset(void)
     }
     taskEXIT_CRITICAL();
 
+    frame[0] = g_mbus2_reset_addr;  /* 广播(0xFF)或单台设备 */
     crc = CalcCrc16(frame, 6U);
     frame[6] = (uint8_t)crc;
     frame[7] = (uint8_t)(crc >> 8);
@@ -725,8 +762,13 @@ static MBusCtrlResult MBusCtrl_QueueRequest(const MBusCtrlRequest *request,
     if(driver_id == DEVICE_CONTROL_DRIVER_SGBJQ &&
        (g_fixed_detector_fire_active != 0U || g_fixed_manual_fire_active != 0U))
     {
+        /* 只允许被应用层按分区置位的声光被火警强制点亮;
+         * 未置位的声光不属于当前报警分区, 火警期间强制静音, 保证分区声光隔离。 */
         effective_request.target_mask = MBUS_OUTPUT_SOUND_LIGHT;
-        effective_request.target_value = MBUS_OUTPUT_SOUND_LIGHT;
+        if((g_fixed_soundlight_mask & (1ULL << addr)) != 0U)
+            effective_request.target_value = MBUS_OUTPUT_SOUND_LIGHT;
+        else
+            effective_request.target_value = 0U;
     }
     final_outputs = (g_control_target_outputs[addr] & ~effective_request.target_mask) |
                     (effective_request.target_value & effective_request.target_mask);
@@ -832,6 +874,21 @@ void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active)
     if(changed != 0U) MBusCtrl_RefreshFixedSoundLightTargets();
 }
 
+/* 设置"火警时允许被强制启动"的声光位掩码: 掩码变化时立即重算固定声光目标,
+ * 使新被排除的声光在火警期间强制静音, 新纳入的声光立即启动。 */
+void MBusCtrl_SetFixedSoundLightMask(uint64_t mask)
+{
+    uint8_t changed = 0U;
+    taskENTER_CRITICAL();
+    if(g_fixed_soundlight_mask != mask)
+    {
+        g_fixed_soundlight_mask = mask;
+        changed = 1U;
+    }
+    taskEXIT_CRITICAL();
+    if(changed != 0U) MBusCtrl_RefreshFixedSoundLightTargets();
+}
+
 static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
 {
     uint8_t addr;
@@ -875,8 +932,9 @@ static void MBusCtrl_ApplyDeviceState(uint8_t addr, uint8_t state)
     if(g_mbus_ctrl_devices[addr].dev_type != MBUS_CONTROL_DEV_XR2200) return;
 
     MBusCtrl_UpdateManualSoundLightTarget(state);
-    (void)MBusCtrl_PostFireDisplayEvent(2U, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL,
-        state != 0U ? MBUS_FIRE_DISPLAY_ALARM_FIRE : 0U);
+    /* 火灾显示盘推送由应用层(cmd_process.c 的 MBusCtrlDataDeal)按分区下发,
+     * 此处不再发布, 避免全广播抢先去重导致分区掩码失效。
+     * 应用层边沿判据: mbus2_hand_alarm_memory[addr] */
 }
 
 /* ============================================================
@@ -2217,8 +2275,9 @@ int8_t ReceiveDataFromMBus2Queue(uint8_t *buf)
  * 火灾显示盘事件发布: 入队事件到环形队列
  * ============================================================ */
 
-/* 向火灾显示盘事件队列推送一条事件(回路/地址/探测器类型/报警类型) */
-uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type)
+/* 向指定显示盘集合推送一条事件(回路/地址/探测器类型/报警类型/显示盘地址位掩码) */
+uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t loop, uint8_t addr, uint8_t detector_type,
+                                        uint8_t alarm_type, uint64_t display_mask)
 {
     uint8_t display_addr;
     uint8_t queue_tail;
@@ -2235,8 +2294,10 @@ uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detect
         return 1U;
     }
     taskEXIT_CRITICAL();
+    /* 只在入参掩码范围内保留合法显示盘: 在线 + 已识别 + 未掉线 + 类型为火灾显示盘 */
     for(display_addr = 1U; display_addr < MBUS_CONTROL_MAX_DEVICES; display_addr++)
     {
+        if((display_mask & (1ULL << display_addr)) == 0U) continue;
         if(g_mbus_ctrl_devices[display_addr].online != 0U &&
            g_mbus_ctrl_devices[display_addr].type_confirmed != 0U &&
            g_mbus_ctrl_devices[display_addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD &&
@@ -2273,6 +2334,19 @@ uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detect
         g_fire_display_wait_for_first_control = 1U;
     taskEXIT_CRITICAL();
     return 1U;
+}
+
+/* 向全部火灾显示盘推送一条事件(兼容旧接口: 目标集合为回路2全部火灾显示盘, 合法性由To版本过滤) */
+uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type)
+{
+    uint64_t targets = 0U;
+    uint8_t display_addr;
+    for(display_addr = 1U; display_addr < MBUS_CONTROL_MAX_DEVICES; display_addr++)
+    {
+        if(g_mbus_ctrl_devices[display_addr].dev_type == MBUS_CONTROL_DEV_FIRE_DISPLAY)
+            targets |= (1ULL << display_addr);
+    }
+    return MBusCtrl_PostFireDisplayEventTo(loop, addr, detector_type, alarm_type, targets);
 }
 
 void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state)

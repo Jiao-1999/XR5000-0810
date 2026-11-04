@@ -70,6 +70,17 @@ typedef enum
 
 extern void StartupLinkageDevice(void);
 
+/* 分区操作接口(cmd_process.c 实现, 供按键板分区键调用) */
+extern void FireZoneSirenCtrl(uint8_t zone, uint8_t on);
+/* 查询分区声光当前手动状态: 1=人工开启, 0=未人工开启 */
+extern uint8_t FireZoneGetSirenManual(uint8_t zone);
+extern void FireZoneSysStop(void);
+extern void FireZoneSysStart(void);
+extern void FireZoneSysSirenToggle(void);   /* 系统级声光人工开关(面板报警器键) */
+extern void FireZoneOutputCtrl(uint8_t zone, uint8_t on);
+extern void FireZoneReset(uint8_t zone);
+extern void FireZoneSetHandAuto(uint8_t zone, uint8_t mode);
+
 void SysStartStateLedCtrl(LED_STATE state);
 void SysFeedbackLedSourceCtrl(uint32_t source_mask, LED_STATE state);
 

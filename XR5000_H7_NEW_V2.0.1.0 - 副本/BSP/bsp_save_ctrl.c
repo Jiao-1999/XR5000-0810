@@ -590,11 +590,3 @@ void getFlashTime_Plus(const FlashSaveTimeBuff time, FlashSaveTime_t *time_entry
 	time_entry->second = time[4] & 0x3F;
 }
 
-
-
-
-
-
-
-
-

@@ -35,6 +35,8 @@
 #include "bsp_logic_screen.h"    /* 本模块头文件 */
 #include "bsp_logic_expr.h"      /* 规则CRUD与表达式求值 */
 #include "hmi_driver.h"          /* SetTextValue, clearTextValue */
+#include "bsp_screen.h"          /* SwitchCurrentScreenId: 画面85选完分区跳43 */
+#include "bsp_fire_zone.h"       /* FIRE_ZONE_MAX: 规则分区号范围 */
 #include "bsp_debug.h"           /* DebugPrintf: test trace on UART4 */
 #include "bsp_device_registry.h" /* 国标设备类型码→中文显示名 */
 #include "bsp_mbus.h"            /* 回路1设备国标码读取 */
@@ -73,6 +75,7 @@ typedef struct
     LogicRule_t   rule;          /* 当前正在构造的规则 */
     uint8_t       edit_rule_id;  /* 正在编辑的规则ID，0=新建规则 */
     uint8_t       has_action;    /* 1=已设置执行动作, 0=未设置 */
+    uint8_t       zone;          /* 本次编辑锁定的分区(1-2), 由画面85设定 */
 } EditState;
 
 /* 全局编辑状态（静态变量） */
@@ -80,6 +83,7 @@ static EditState s_edit;
 
 /* 显示缓冲区（静态变量，512字节足够12个条件+括号+多动作） */
 static char s_disp_buf[512];
+static uint32_t s_save_msg_until = 0;  /* 保存结果提示显示截止tick, 期间实时预览不覆盖 */
 
 /* 列表页分页状态（静态变量）
  *   s_list_page: 当前页码(0基), 最新规则在第0页最上方
@@ -533,6 +537,15 @@ static void SaveRule(void)
         return;
     }
 
+    /* 规则所属分区: 由画面85选定, 未选区拒绝保存 */
+    if ((s_edit.zone < 1U) || (s_edit.zone > (uint8_t)FIRE_ZONE_MAX))
+    {
+        DebugPrintf("[LOGIC] SaveRule FAIL: zone not selected\r\n");
+        sprintf(s_disp_buf, "请先在分区选择页选择分区");
+        SetTextValue(LOGIC_SCREEN_EDIT, LOGIC_TXT_PREVIEW, (uint8_t *)s_disp_buf);
+        return;
+    }
+    s_edit.rule.zone = s_edit.zone;
     /* A8-3: 执行模式保留用户在动作段用'#'键选择的值(默认START_ALL=0) */
     s_edit.rule.enable = 1;
     s_edit.rule.rule_id = AllocRuleId();
@@ -549,6 +562,7 @@ static void SaveRule(void)
 
         /* 保存成功: 在编辑页预览窗口显示提示, 不跳转列表页(停留编辑页继续编辑) */
         sprintf(s_disp_buf, "保存成功: 规则ID%d已存入", s_edit.rule.rule_id);
+        s_save_msg_until = HAL_GetTick() + 3000U;  /* 提示停留3秒, 防止实时预览立即覆盖 */
         SetTextValue(LOGIC_SCREEN_EDIT, LOGIC_TXT_PREVIEW, (uint8_t *)s_disp_buf);
 
         /* 清空编辑状态, 准备下一次编辑 */
@@ -579,12 +593,13 @@ static void SaveRule(void)
                 sprintf(s_disp_buf, "保存失败: 规则表已满(最多%d条)", LOGIC_RULE_MAX);
                 break;
             case 3:
-                sprintf(s_disp_buf, "保存失败: 规则无效,请检查条件设备号");
+                sprintf(s_disp_buf, "保存失败: 设备未划入本分区或编码非法");
                 break;
             default:
                 sprintf(s_disp_buf, "保存失败: 未知错误%d", create_ret);
                 break;
         }
+        s_save_msg_until = HAL_GetTick() + 3000U;  /* 提示停留3秒 */
         SetTextValue(LOGIC_SCREEN_EDIT, LOGIC_TXT_PREVIEW, (uint8_t *)s_disp_buf);
     }
 }
@@ -608,6 +623,12 @@ static void BuildExprDisplay(void)
     char    temp[48]; /* 临时格式化缓冲区 */
 
     s_disp_buf[0] = '\0';
+    /* 编辑页显示当前分区, 便于确认规则归属 */
+    if ((s_edit.zone >= 1U) && (s_edit.zone <= (uint8_t)FIRE_ZONE_MAX))
+    {
+        sprintf(temp, "[分区%u] ", (unsigned)s_edit.zone);
+        strcat(s_disp_buf, temp);
+    }
 
     /* 遍历所有Token */
     for (i = 0; i < s_edit.rule.token_count; i++)
@@ -733,6 +754,12 @@ static void BuildRuleDisplay(const LogicRule_t *rule, char *buf, uint8_t size)
     {
         return;
     }
+    /* 列表页标注规则所属分区 */
+    if ((rule->zone >= 1U) && (rule->zone <= (uint8_t)FIRE_ZONE_MAX))
+    {
+        sprintf(temp, "[分区%u] ", (unsigned)rule->zone);
+        strcat(buf, temp);
+    }
 
     /* 遍历所有Token，构造触发条件表达式 */
     for (i = 0; i < rule->token_count && strlen(buf) < (size_t)(size - 20); i++)
@@ -823,8 +850,9 @@ static void HandleSensorButton(uint8_t sensor_type)
  *--------------------------------------------------------------*/
 void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state)
 {
-    /* 只处理编辑页和列表页 */
-    if (screen_id != LOGIC_SCREEN_EDIT && screen_id != LOGIC_SCREEN_LIST)
+    /* 只处理编辑页(43)/列表页(45)/分区选择页(85) */
+    if (screen_id != LOGIC_SCREEN_EDIT && screen_id != LOGIC_SCREEN_LIST &&
+        screen_id != LOGIC_SCREEN_ZONESEL)
     {
         return;
     }
@@ -837,6 +865,24 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
 
    DebugPrintf("[LOGIC-KEY] scr=%d ctrl=%d\r\n", screen_id, control_id);
 
+    /* 画面85: 先选分区, 再进画面43编程(避免与43的数字键1/2冲突) */
+    if (screen_id == LOGIC_SCREEN_ZONESEL)
+    {
+        if (control_id == 1U || control_id == 2U)
+        {
+            s_edit.zone = (uint8_t)control_id;
+            /* 切区视为新的编辑会话: 清空残留, 防止跨区串数据 */
+            memset(&s_edit.rule, 0, sizeof(LogicRule_t));
+            s_edit.step = EDIT_STEP_NONE;
+            s_edit.phase = EDIT_COND;
+            ClearDigitBuf();
+            s_edit.has_action = 0;
+            s_edit.active = 1;
+            DebugPrintf("[LOGIC] zone select -> %d\r\n", (int)s_edit.zone);
+            SwitchCurrentScreenId(LOGIC_SCREEN_EDIT);
+        }
+        return;  /* 85 其余控件(含返回键266)不处理, 由屏端自行跳转 */
+    }
     switch (control_id)
     {
     /* === 数字按钮(0-9): 累计到5位编码缓冲区 === */
@@ -982,7 +1028,8 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
         }
         break;
 
-    /* === 新建规则: 清空编辑状态 === */
+    /* === 新建规则: 清空编辑状态 ===
+     *    只清s_edit.rule, 分区s_edit.zone保持不变: 分区由画面85决定 === */
     case LOGIC_BTN_NEW_RULE:
         memset(&s_edit.rule, 0, sizeof(LogicRule_t));
         s_edit.step = EDIT_STEP_NONE;
@@ -992,7 +1039,7 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
         s_edit.active = 1;
         break;
 
-    /* === 取消: 清空编辑状态 === */
+    /* === 取消: 清空编辑状态(分区s_edit.zone不清, 仍由画面85决定) === */
     case LOGIC_BTN_CANCEL:
         memset(&s_edit.rule, 0, sizeof(LogicRule_t));
         s_edit.step = EDIT_STEP_NONE;
@@ -1137,6 +1184,11 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
     {
     /* === 编辑页: 刷新预览窗口 === */
     case LOGIC_SCREEN_EDIT:
+        /* 保存结果提示停留期间不覆盖预览(实时预览每帧刷新会瞬间冲掉提示) */
+        if (HAL_GetTick() < s_save_msg_until)
+        {
+            break;
+        }
         BuildExprDisplay();
         SetTextValue(screen_id, LOGIC_TXT_PREVIEW, (uint8_t *)s_disp_buf);
         break;
@@ -1231,5 +1283,6 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
 void LogicScreen_Init(void)
 {
     memset(&s_edit, 0, sizeof(EditState));
+    s_edit.zone = 0;    /* 未选分区: 直接进43保存会被拒绝并提示 */
     s_disp_buf[0] = '\0';
 }

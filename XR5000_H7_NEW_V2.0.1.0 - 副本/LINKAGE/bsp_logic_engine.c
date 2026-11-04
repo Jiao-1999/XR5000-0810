@@ -6,7 +6,8 @@
  *
  * 状态机
  *   IDLE -> EXECUTED -> DONE -> IDLE
- *   （判定成立立即执行全部动作，延时机制已删除）
+ *   （判定成立后延时 LOGIC_ACTION_DELAY_MS 再执行全部动作;
+ *     输出一旦启动即锁存, 报警消失也不自动停止, 只能人工停止/分区复位）
  *
  *   关键改动: EXECUTED态条件消失时，先停止所有已执行的
  *   启动类动作（action=1的动作下发停止命令），再进入DONE。
@@ -24,6 +25,7 @@
 
 #include "bsp_logic_engine.h"   /* 本模块头文件 */
 #include "bsp_logic_expr.h"     /* 规则表管理和表达式求值 */
+#include "bsp_fire_zone.h"       /* FIRE_ZONE_MAX: 分区手动操作参数校验 */
 #include "cmsis_os.h"           /* osDelay() */
 #include "stm32h7xx_hal.h"      /* HAL_GetTick() */
 #include "bsp_debug.h"          /* DebugPrintf: test trace on UART4 */
@@ -45,6 +47,16 @@ static ManualStartFunc_t    s_manualstart_func = NULL;  /* 手动启动键查询回调(手
 static uint8_t s_prev_cond[LOGIC_RULE_MAX];
 /* Test trace: auto-mode-denied message printed once per cond window */
 static uint8_t s_denied_printed[LOGIC_RULE_MAX];
+
+/* 延时启动: 每条规则的条件首次满足时刻与延时中标志 */
+static uint32_t s_delay_start_tick[LOGIC_RULE_MAX];
+static uint8_t  s_delaying[LOGIC_RULE_MAX];
+
+/* 联动延时启动时间(毫秒), 运行期可改, 缺省 10 秒 */
+static uint32_t s_action_delay_ms = LOGIC_ACTION_DELAY_MS;
+
+/* 分区手动停止闭锁: 1=本分区已被停止键闭锁, 条件消失或分区复位才解除 */
+static uint8_t s_zone_stop_latch[FIRE_ZONE_MAX];
 
 /*--------------------------------------------------------------
  * 回调注册函数实现
@@ -132,16 +144,16 @@ static uint8_t ExecuteAction(uint8_t loop_no, uint8_t dev_no, uint8_t channel, u
 
 /*--------------------------------------------------------------
  * 函数名称：CheckAutoAllowed
- * 功能说明：检查当前是否允许自动执行动作。
- * 输入参数：exec_mode - 执行模式，ExecMode枚举值
+ * 功能说明：检查当前规则是否允许自动执行动作(系统总闸 + 所属分区)。
+ * 输入参数：rule - 规则结构体指针
  * 返回值   ：1=允许, 0=不允许（手动模式或被禁止）
  *--------------------------------------------------------------*/
-static uint8_t CheckAutoAllowed(uint8_t exec_mode)
+static uint8_t CheckAutoAllowed(const LogicRule_t *rule)
 {
     /* 检查回调函数是否已注册 */
     if (s_automode_func != NULL)
     {
-        return s_automode_func(exec_mode);  /* 调用注册的回调函数 */
+        return s_automode_func(rule);  /* 调用注册的回调函数 */
     }
     return 0;  /* 未注册回调函数，默认不允许自动执行 */
 }
@@ -163,6 +175,7 @@ static void LogicEngine_Run(void)
     uint8_t  j;          /* 动作循环计数器（0..3） */
     uint8_t  cond_met;   /* 条件是否满足标志 */
     uint8_t  exec_now;    /* 本周期允许执行标志(自动模式允许 或 手动启动键按下) */
+    uint8_t  manual_pass; /* 手动启动键放行标志(1=跳过延时立即执行) */
     LogicRule_t *rules;  /* 规则表首地址 */
     RtRuntime   *rt;     /* 运行时状态数组首地址 */
 
@@ -205,39 +218,70 @@ static void LogicEngine_Run(void)
         {
         /*--- IDLE状态：等待条件满足 ---*/
         case RT_IDLE:
+            /* 分区被停止键闭锁: 未经分区复位, 即使报警条件再次成立也不再自动执行。
+             * 闭锁只有两条解除途径:
+             *   - 分区复位键 -> FireZoneReset() -> CancelZoneDelay()/ClearZoneStopLatch()
+             *   - 系统复位(整机) -> BspCmdProcessInit() 重建状态
+             * zone 必须先做 1..FIRE_ZONE_MAX 校验再作数组下标, 非法时按未闭锁处理。 */
+            if ((rules[i].zone >= 1U) && (rules[i].zone <= (uint8_t)FIRE_ZONE_MAX) &&
+                (s_zone_stop_latch[rules[i].zone - 1U] != 0U))
+            {
+                s_delaying[i] = 0U;      /* 闭锁期间不累计延时 */
+                s_denied_printed[i] = 0U;
+                continue;                /* 无条件跳过本规则, 状态机保持不动 */
+            }
             if (cond_met)
             {
-                /* 条件满足，检查是否允许自动执行 */
-                exec_now = CheckAutoAllowed(rules[i].exec_mode);
+                manual_pass = 0U;  /* 默认走自动延时路径 */
+
+                /* 条件满足，检查本规则所属分区是否允许自动执行 */
+                exec_now = CheckAutoAllowed(&rules[i]);
                 if (exec_now == 0U)
                 {
                     /* A9: 手动模式联动入口 - 自动不允许时查询外联设备启动键
                      * 手动启动键按下且条件满足才执行, 条件不满足时按键无效 */
                     if ((s_manualstart_func != NULL) && (s_manualstart_func() != 0U))
                     {
-                        exec_now = 1U;  /* 手动启动键按下, 放行执行(与自动路径一致) */
+                        exec_now      = 1U;  /* 手动启动键按下, 放行执行 */
+                        manual_pass   = 1U;  /* 手动放行不延时 */
+                        s_delaying[i] = 0U;
                         DebugPrintf("[LOGIC] R%d manual START key -> exec\r\n",
                                     rules[i].rule_id);
                     }
                 }
+
                 if (exec_now)
                 {
-                    /* 判定成立, 立即执行全部动作(延时机制已删除) */
-                    DebugPrintf("[LOGIC] R%d state IDLE->EXECUTED, %d action(s)\r\n",
-                                rules[i].rule_id, rules[i].action_count);
-
-                    for (j = 0; j < rules[i].action_count; j++)
+                    /* 首次满足: 记录延时起点 */
+                    if ((s_delaying[i] == 0U) && (manual_pass == 0U))
                     {
-                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                      rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
-                        rt[i].action_done[j] = 1;  /* 标记动作已执行 */
+                        s_delaying[i] = 1U;
+                        s_delay_start_tick[i] = HAL_GetTick();
+                        DebugPrintf("[LOGIC] R%d delay start %ums\r\n",
+                                    rules[i].rule_id, (unsigned)s_action_delay_ms);
                     }
+                    /* 延时已到 或 手动启动键放行: 执行全部动作 */
+                    else if ((manual_pass != 0U) ||
+                             ((uint32_t)(HAL_GetTick() - s_delay_start_tick[i]) >= s_action_delay_ms))
+                    {
+                        s_delaying[i] = 0U;
+                        DebugPrintf("[LOGIC] R%d delay done, %d action(s)\r\n",
+                                    rules[i].rule_id, rules[i].action_count);
 
-                    rt[i].state = RT_EXECUTED;  /* 全部动作已执行 */
+                        for (j = 0; j < rules[i].action_count; j++)
+                        {
+                            ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
+                                          rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
+                            rt[i].action_done[j] = 1;  /* 标记动作已执行 */
+                        }
+
+                        rt[i].state = RT_EXECUTED;  /* 全部动作已执行 */
+                    }
                 }
-                /* 不允许自动执行时，保持在IDLE状态等待手动干预 */
+                /* 不允许执行: 取消本次延时, 等待手动介入 */
                 else
                 {
+                    s_delaying[i] = 0U;
                     /* Test trace: print once per cond window */
                     if (!s_denied_printed[i])
                     {
@@ -247,43 +291,186 @@ static void LogicEngine_Run(void)
                     }
                 }
             }
-            break;
-
-        /*--- EXECUTED状态：所有动作已执行，等待条件消失 ---*/
-        case RT_EXECUTED:
-            if (!cond_met)
+            else
             {
-                /* 条件消失: 停止所有已执行的启动类动作 */
-                for (j = 0; j < rules[i].action_count; j++)
-                {
-                    if (rt[i].action_done[j] == 1 && EffectiveAction(&rules[i], j) == 1)
-                    {
-                        /* 停止已启动的设备，传入action=0 */
-                        ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                      rules[i].actions[j].channel, 0);
-                    }
-                }
-                /* 所有动作已停止，进入DONE状态 */
-                rt[i].state = RT_DONE;
-                DebugPrintf("[LOGIC] R%d state EXECUTED->DONE (cond lost, started actions stopped)\r\n",
-                            rules[i].rule_id);
+                /* 条件未满足: 清延时状态 */
+                s_delaying[i] = 0U;
             }
             break;
 
-        /*--- DONE状态：动作完成，自动复位到IDLE ---*/
+        /*--- EXECUTED状态：输出已锁存，只能人工停止 ---*/
+        case RT_EXECUTED:
+            s_delaying[i] = 0U;  /* 防御: 已执行态清除延时中标志 */
+            /* 需求: 联动输出一旦启动就保持, 报警条件消失也不自动停止。
+             * 只有以下人工操作会下发 STOP:
+             *   - 分区停止键   -> LogicEngine_ManualStopZone()
+             *   - 分区复位键   -> FireZoneReset() -> ManualStopZone()
+             * 因此本状态不再对动作下发 STOP, 保持 EXECUTED 直到人工停止。 */
+            break;
+
+        /*--- DONE状态：人工停止后复位到IDLE ---*/
         case RT_DONE:
             /* 复位运行时状态，回到IDLE等待下一次触发 */
             memset(&rt[i], 0, sizeof(RtRuntime));
             rt[i].state = RT_IDLE;
+            s_delaying[i] = 0U;             /* 清除延时中标志 */
+            s_delay_start_tick[i] = 0U;     /* 清除延时起点时刻 */
             break;
 
         /*--- 未知状态，安全复位到IDLE ---*/
         default:
             memset(&rt[i], 0, sizeof(RtRuntime));
             rt[i].state = RT_IDLE;
+            s_delaying[i] = 0U;             /* 清除延时中标志 */
+            s_delay_start_tick[i] = 0U;     /* 清除延时起点时刻 */
             break;
         }
     }
+}
+
+/*--------------------------------------------------------------
+ * 联动延时时间 与 分区手动操作
+ *--------------------------------------------------------------*/
+
+/*--------------------------------------------------------------
+ * 函数名称：LogicEngine_SetActionDelay
+ * 功能说明：设置联动延时启动时间(毫秒)。0 按立即执行处理,
+ *           大于 60000 截断为 60000。
+ * 输入参数：ms - 延时毫秒数
+ *--------------------------------------------------------------*/
+void LogicEngine_SetActionDelay(uint32_t ms)
+{
+    if (ms > 60000U)
+    {
+        ms = 60000U;  /* 上限截断 */
+    }
+    s_action_delay_ms = ms;  /* uint32_t 单字写, 无需临界区 */
+    DebugPrintf("[LOGIC] action delay set %ums\r\n", (unsigned)s_action_delay_ms);
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：LogicEngine_GetActionDelay
+ * 功能说明：读取联动延时启动时间(毫秒)。
+ * 返回值  ：当前延时毫秒数
+ *--------------------------------------------------------------*/
+uint32_t LogicEngine_GetActionDelay(void)
+{
+    return s_action_delay_ms;
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：LogicEngine_ManualStartZone
+ * 功能说明：分区手动启动。立即执行本分区内所有"条件成立"的
+ *           规则的全部动作(不经过延时), 供分区启动按键调用。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ *--------------------------------------------------------------*/
+void LogicEngine_ManualStartZone(uint8_t zone)
+{
+    LogicRule_t *rules;
+    RtRuntime   *rt;
+    uint8_t i, j;
+
+    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+
+    rules = LogicExpr_GetTable();
+    rt    = LogicExpr_GetRuntime();
+
+    for (i = 0; i < LOGIC_RULE_MAX; i++)
+    {
+        if (rules[i].rule_id == 0U) continue;
+        if (rules[i].enable == 0U) continue;
+        if (rules[i].zone != zone) continue;               /* 只处理本分区规则 */
+        if (LogicExpr_Evaluate(&rules[i]) == 0U) continue;  /* 条件不成立不启动 */
+
+        for (j = 0; j < rules[i].action_count; j++)
+        {
+            ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
+                          rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
+            rt[i].action_done[j] = 1U;
+        }
+        rt[i].state = RT_EXECUTED;
+        s_delaying[i] = 0U;
+        DebugPrintf("[LOGIC] R%d manual START zone%d (%d action)\r\n",
+                    rules[i].rule_id, (int)zone, rules[i].action_count);
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：LogicEngine_ManualStopZone
+ * 功能说明：分区手动停止。停止本分区内所有已执行的启动类动作,
+ *           清除本区延时计时。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ *--------------------------------------------------------------*/
+void LogicEngine_ManualStopZone(uint8_t zone)
+{
+    LogicRule_t *rules;
+    RtRuntime   *rt;
+    uint8_t i, j;
+
+    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+
+    s_zone_stop_latch[zone - 1U] = 1U;  /* 闭锁: 条件仍成立也不再自动重启 */
+
+    rules = LogicExpr_GetTable();
+    rt    = LogicExpr_GetRuntime();
+
+    for (i = 0; i < LOGIC_RULE_MAX; i++)
+    {
+        if (rules[i].rule_id == 0U) continue;
+        if (rules[i].zone != zone) continue;  /* 只处理本分区规则 */
+
+        for (j = 0; j < rules[i].action_count; j++)
+        {
+            if ((rt[i].action_done[j] != 0U) && (EffectiveAction(&rules[i], j) == 1U))
+            {
+                ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
+                              rules[i].actions[j].channel, 0U);
+                rt[i].action_done[j] = 0U;
+            }
+        }
+        s_delaying[i] = 0U;
+        rt[i].state = RT_DONE;
+        DebugPrintf("[LOGIC] R%d manual STOP zone%d\r\n", rules[i].rule_id, (int)zone);
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：LogicEngine_CancelZoneDelay
+ * 功能说明：取消本分区所有规则的延时计时, 用于分区复位。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ *--------------------------------------------------------------*/
+void LogicEngine_CancelZoneDelay(uint8_t zone)
+{
+    LogicRule_t *rules;
+    uint8_t i;
+
+    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+
+    rules = LogicExpr_GetTable();
+
+    for (i = 0; i < LOGIC_RULE_MAX; i++)
+    {
+        if (rules[i].rule_id == 0U) continue;
+        if (rules[i].zone != zone) continue;  /* 只处理本分区规则 */
+
+        s_delaying[i] = 0U;            /* 清除延时中标志 */
+        s_delay_start_tick[i] = 0U;    /* 清除延时起点时刻 */
+    }
+    LogicEngine_ClearZoneStopLatch(zone);  /* 分区复位一并解除停止闭锁 */
+    DebugPrintf("[LOGIC] zone%d delay cancelled\r\n", (int)zone);
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：LogicEngine_ClearZoneStopLatch
+ * 功能说明：清除分区停止闭锁。分区复位时调用, 解除"停止键"语义,
+ *           之后条件成立仍可正常自动联动。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ *--------------------------------------------------------------*/
+void LogicEngine_ClearZoneStopLatch(uint8_t zone)
+{
+    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+
+    s_zone_stop_latch[zone - 1U] = 0U;
 }
 
 /*--------------------------------------------------------------
@@ -308,6 +495,8 @@ void LogicEngine_Init(void)
     {
         memset(&rt[i], 0, sizeof(RtRuntime));  /* 清零 */
         rt[i].state = RT_IDLE;                  /* 设置为空闲状态 */
+        s_delaying[i] = 0U;                     /* 清除延时中标志 */
+        s_delay_start_tick[i] = 0U;             /* 清除延时起点时刻 */
     }
 }
 

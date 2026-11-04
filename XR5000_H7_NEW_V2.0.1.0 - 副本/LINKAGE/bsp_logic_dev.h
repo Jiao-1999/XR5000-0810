@@ -50,19 +50,19 @@ uint8_t LogicDev_Control(uint8_t loop_no, uint8_t dev_no, uint8_t channel, uint8
 
 /*--------------------------------------------------------------
  * API：自动模式检查
- *    根据当前手/自动开关位置，检查系统是否允许自动执行。
+ *    根据系统总闸 + 规则所属分区的手/自动开关位置，
+ *    判断该规则当前是否允许自动执行。
  *
- * 参数说明：exec_mode - 执行模式（ExecMode枚举）
+ * 参数说明：rule - 规则结构体指针（使用其中 zone 字段: 1=分区1, 2=分区2）
  * 返回值   ：1=允许自动模式, 0=手动模式（动作被阻断）
  *
  * 逻辑说明：
- *   EXEC_START_ALL / EXEC_STOP_ALL:
- *     要求系统 + 分区1 + 分区2 ALL在自动模式
- *   EXEC_START_PART / EXEC_STOP_PART:
- *     要求系统/分区1/分区2中 ANY ONE 在自动模式
+ *   系统总闸为手动 -> 全系统禁止自动执行
+ *   系统总闸为自动 -> 仅由规则所属分区(zone)的手/自动状态决定
+ *   非法分区(zone非1/2) -> 禁止执行
  *--------------------------------------------------------------*/
 
-uint8_t LogicDev_CheckAutoMode(uint8_t exec_mode);
+uint8_t LogicDev_CheckAutoMode(const LogicRule_t *rule);
 
 /*--------------------------------------------------------------
  * API：注册

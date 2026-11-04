@@ -113,6 +113,7 @@ void clearPointTypeMixtureDetectAllStateMemory(void);
 
 void MBus1SendString(uint8_t* buf, uint8_t len);
 void MBus1ResetAllDevices(void);
+void MBus1ResetDevice(uint8_t addr);   /* 单台设备复位(分区复位用) */
 uint8_t MBus1GetResetStatus(void);
 HAL_StatusTypeDef MBus2SendString(uint8_t* buf, uint8_t len);
 uint16_t getPointTypeMixtureReceiveData16(ePointTypeDataOrder detect_data_type, uint8_t detect_id);

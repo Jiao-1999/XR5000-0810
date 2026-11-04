@@ -7,6 +7,7 @@
  *              - Flash持久化（基于W25Qxx SPI Flash）
  *              - 递归下降表达式求值（支持括号优先级）
  *              - 默认规则加载
+ *              - 分区归属变更后停用跨区规则（Phase G）
  *
  * 架构定位   : MODEL层，Flash持久化与表达式求值核心
  *              设备无关设计，仅通过回调查询条件
@@ -25,6 +26,7 @@
 #include "stm32h7xx_hal.h"      /* HAL_GetTick() */
 #include "bsp_debug.h"          /* DebugPrintf: test trace on UART4 */
 #include <string.h>             /* memset/memcpy */
+#include "bsp_fire_zone.h"      /* FireZone_GetDeviceZone: 规则同分区校验 */
 #include "bsp_mbus.h"           /* MIXTURE_DEVICE_MAX_ADDR: 回路1设备地址上限(100) */
 #include "bsp_mbus_control.h"   /* MBUS_CONTROL_MAX_DEVICES: 回路2设备数上限(64, 可用地址1~63) */
 #include "bsp_rs485_detect.h"   /* RS485_DETECT_MAX_DEVICES: 回路3设备数上限(65, 可用地址1~64) */
@@ -127,7 +129,13 @@ static uint8_t FindEmptySlot(void)
  *   回路3 <= RS485_DETECT_MAX_DEVICES - 1(64)    bsp_rs485_detect.h
  *   回路4 <= IG3302_MAX_ADDRESS(10)              bsp_ig3302.h
  *   回路号 = LOGIC_WILDCARD(0xFF) 时按最宽松上限100校验；
- *   设备号 = LOGIC_WILDCARD(0xFF) 时不做上限校验（匹配任意设备）
+ *   回路号/设备号 = LOGIC_WILDCARD(0xFF) 在分区制下禁用（通配无法确定分区）
+ *
+ * 分区约束说明（LogicRule_t 新增 zone 字段）：
+ *   zone 必须为 1..FIRE_ZONE_MAX(2)；
+ *   条件中的回路/设备必须属于规则所在分区，否则拒绝保存；
+ *   动作设备(固定回路2)必须属于规则所在分区，否则拒绝保存；
+ *   条件与动作均不允许使用通配符 LOGIC_WILDCARD。
  *--------------------------------------------------------------*/
 static uint8_t IsRuleValid(const LogicRule_t *rule)
 {
@@ -171,6 +179,12 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
         return 0;  /* 无效执行模式 */
     }
 
+    /* 分区号必须在 1..FIRE_ZONE_MAX 之间 */
+    if ((rule->zone < 1U) || (rule->zone > (uint8_t)FIRE_ZONE_MAX))
+    {
+        return 0;  /* 规则未指定合法分区 */
+    }
+
     /* 校验每个动作的回路与通道是否在有效范围内 */
     for (i = 0; i < rule->action_count; i++)
     {
@@ -187,23 +201,34 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
                 return 0;  /* 通道号非法 */
             }
         }
+        /* 动作设备不受分区限制: 分区只约束"="之前的触发条件。
+         * 一条分区规则可以驱动任意回路2设备(跨区输出), 由用户自行配置。 */
     }
 
     /* 检查条件中的回路号和设备号范围（分回路差异化校验）
-     * loop_no 只能为 1-4 或 0xFF（通配符）
+     * loop_no 只能为 1-4（分区制下禁止 0xFF 通配）
      * dev_no: 按回路上限校验 回路1<=100、回路2<=63、回路3<=64、回路4<=10
      *        （上限分别取自 bsp_mbus.h / bsp_mbus_control.h / bsp_rs485_detect.h / bsp_ig3302.h）
-     *         回路号 = LOGIC_WILDCARD(0xFF) 时按最宽松上限100校验
-     *         设备号 = LOGIC_WILDCARD(0xFF) 时不做上限校验，匹配任意设备 */
+     *         分区制下禁止 LOGIC_WILDCARD(0xFF) 通配（通配无法确定所属分区）
+     *         条件回路/设备必须与规则 zone 同区 */
     for (i = 0; i < rule->cond_count; i++)
     {
         lno = rule->conditions[i].loop_no;
         dno = rule->conditions[i].dev_no;
         if (lno != LOGIC_WILDCARD && (lno == 0 || lno > 4))
         {
-            return 0;  /* 回路号非法：仅允许 1-4 或 0xFF */
+            return 0;  /* 回路号非法：仅允许 1-4 */
         }
-        if (dno != LOGIC_WILDCARD)
+        /* 分区制: 条件的回路/设备不允许通配, 且必须属于规则所在分区 */
+        if ((lno == LOGIC_WILDCARD) || (dno == LOGIC_WILDCARD))
+        {
+            return 0;  /* 通配条件无法确定分区, 分区制下禁用 */
+        }
+        if (FireZone_GetDeviceZone(lno, dno) != rule->zone)
+        {
+            return 0;  /* 条件设备不在规则所属分区 */
+        }
+        if (dno != LOGIC_WILDCARD)  /* 通配已在上方拦截: 此处恒为真, 保留原上限校验结构 */
         {
             /* 按回路号分派设备号上限，上限取自各回路BSP头文件宏定义 */
             switch (lno)
@@ -316,9 +341,102 @@ static void ResetRuntime(uint8_t slot)
 static uint16_t CalcRuleCRC(const LogicRule_t *rule)
 {
     /* 计算规则结构体CRC时排除crc字段自身，
-     * sizeof(LogicRule_t) = 138字节，crc字段占最后2字节
-     * 实际计算136字节得到CRC */
+     * sizeof(LogicRule_t) = 151字节，crc字段占最后2字节
+     * 实际计算149字节得到CRC */
     return CalcCrc16((uint8_t *)rule, sizeof(LogicRule_t) - 2);
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：IsRuleInsideZone
+ * 功能描述：判断规则的现有条件与动作是否仍全部属于 rule->zone
+ *           (不校验 zone 自身合法性, 由调用方保证)
+ *           条件含通配符或已不属于该分区即判定为跨区(动作不限分区)。
+ * 输入参数：rule - 待判定的规则
+ * 返回值   ：1=条件与动作全部同区, 0=存在跨区(或参数非法)
+ *--------------------------------------------------------------*/
+static uint8_t IsRuleInsideZone(const LogicRule_t *rule)
+{
+    uint8_t i;    /* 循环计数器 */
+    uint8_t lno;  /* 条件回路号临时变量 */
+    uint16_t dno; /* 条件设备号临时变量 */
+
+    if (rule == NULL)
+    {
+        return 0;  /* 空指针按跨区处理, 保守停用 */
+    }
+
+    /* 条件: 逐条查设备实际分区, 通配条件无法确定分区, 视为跨区 */
+    for (i = 0; i < rule->cond_count; i++)
+    {
+        lno = rule->conditions[i].loop_no;
+        dno = rule->conditions[i].dev_no;
+        if ((lno == LOGIC_WILDCARD) || (dno == LOGIC_WILDCARD))
+        {
+            return 0;  /* 通配条件无法判定分区 */
+        }
+        if (FireZone_GetDeviceZone(lno, dno) != rule->zone)
+        {
+            return 0;  /* 条件设备已被划出规则所属分区 */
+        }
+    }
+
+    /* 动作: 只要求控制回路为2(唯一可下发输出的回路), 不再校验设备分区。
+     * 分区只约束"="之前的触发条件, 动作设备允许跨区。 */
+    for (i = 0; i < rule->action_count; i++)
+    {
+        if (rule->actions[i].loop_no != 2U)
+        {
+            return 0;  /* 动作回路非法(仅允许回路2) */
+        }
+    }
+
+    return 1;  /* 条件与动作全部仍在规则所属分区内 */
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：LogicRule_DisableCrossZoneRules
+ * 功能描述：分区归属变更后, 停用所有"条件或动作已跨区"的存量规则
+ *           规则保存时已校验同区; 但之后设备被划入其它分区时, 已存规则
+ *           会变成跨区规则却仍保持 enable=1, 运行期静默不触发。本函数
+ *           逐条判定并把跨区规则置 enable=0 且重算CRC, 有变更时整体落盘,
+ *           保证重启后仍为停用状态。
+ * 调用时机：分区数据落盘后由变更回调 FireZoneScreen_OnZoneChanged()
+ *           触发(批量写只在最外层 FireZone_EndBatch 后调用一次)。
+ * 返回值   ：被停用的规则数(0=没有跨区规则)
+ *--------------------------------------------------------------*/
+uint8_t LogicRule_DisableCrossZoneRules(void)
+{
+    uint8_t i;
+    uint8_t disabled = 0U;  /* 本次扫描中被停用的规则数 */
+
+    for (i = 0; i < LOGIC_RULE_MAX; i++)
+    {
+        if (s_rule_table[i].rule_id == 0U)
+        {
+            continue;  /* 空槽位 */
+        }
+        if (s_rule_table[i].enable == 0U)
+        {
+            continue;  /* 已停用, 无需重复判定 */
+        }
+
+        if (IsRuleInsideZone(&s_rule_table[i]) == 0U)
+        {
+            s_rule_table[i].enable = 0U;  /* 跨区即停用 */
+            s_rule_table[i].crc = CalcRuleCRC(&s_rule_table[i]);  /* CRC覆盖enable字段, 必须重算 */
+            disabled++;
+            DebugPrintf("[LOGIC] rule %d disabled: cross-zone after zone change\r\n",
+                        (int)s_rule_table[i].rule_id);
+        }
+    }
+
+    if (disabled > 0U)
+    {
+        (void)LogicRule_SaveAll();  /* 变更落盘, 重启后仍为停用 */
+        DebugPrintf("[LOGIC] %d rule(s) disabled by cross-zone check\r\n", disabled);
+    }
+
+    return disabled;
 }
 
 /*--------------------------------------------------------------
@@ -376,8 +494,8 @@ uint8_t LogicRule_Create(uint8_t id, const LogicRule_t *rule)
     /* 重置该槽位运行时状态 */
     ResetRuntime(slot);
 
-    DebugPrintf("[LOGIC] Rule %d created: conds=%d tokens=%d actions=%d\r\n",
-                id, rule->cond_count, rule->token_count, rule->action_count);
+    DebugPrintf("[LOGIC] Rule %d created: zone=%d conds=%d tokens=%d actions=%d\r\n",
+                id, rule->zone, rule->cond_count, rule->token_count, rule->action_count);
     return 0;  /* 成功 */
 }
 
@@ -570,7 +688,7 @@ uint8_t LogicRule_SaveAll(void)
     LogicMeta_t meta;        /* 待写入的元数据 */
 
     /* 写入前先擦除Flash，因为Flash物理特性决定必须先擦后写 */
-    /* 规则区占3个扇区：138字节*64=8832 > 8192(2扇区)，需3个4KB扇区 */
+    /* 规则区占3个扇区：151字节*64=9664 > 8192(2扇区)，需3个4KB扇区 */
     /* 注意: 驱动W25QXX_Erase_Sector入参为扇区号(内部x4096), 须传字节地址/4096 */
     W25QXX_Erase_Sector(LOGIC_FLASH_RULES_ADDR / 4096U);             /* 擦除规则存储扇区1 */
     W25QXX_Erase_Sector((LOGIC_FLASH_RULES_ADDR + 0x1000U) / 4096U); /* 擦除规则存储扇区2 */
@@ -588,7 +706,7 @@ uint8_t LogicRule_SaveAll(void)
             W25QXX_Write(
                 (uint8_t *)&s_rule_table[i],           /* 源：RAM中的规则结构体 */
                 LOGIC_FLASH_RULES_ADDR + write_offset, /* 目标：Flash存储地址 */
-                sizeof(LogicRule_t)                     /* 大小：138字节 */
+                sizeof(LogicRule_t)                     /* 大小：151字节 */
             );
             /* 累加写入偏移量 */
             write_offset += sizeof(LogicRule_t);
@@ -663,7 +781,7 @@ uint8_t LogicRule_LoadAll(void)
         W25QXX_Read(
             (uint8_t *)&temp_rule,                  /* 临时规则结构体地址 */
             LOGIC_FLASH_RULES_ADDR + read_offset,   /* 规则在Flash中的地址 */
-            sizeof(LogicRule_t)                      /* 大小：138字节 */
+            sizeof(LogicRule_t)                      /* 大小：151字节 */
         );
 
         /* 校验规则CRC是否与Flash一致 */

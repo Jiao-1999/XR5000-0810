@@ -163,6 +163,13 @@ uint16_t MBusCtrl_GetNationalCode(uint8_t addr);     /* »ñÈ¡Éè±¸¹ú±êÉè±¸ÀàĞÍÂë(¹
 
 /* ---- »ğÔÖÏÔÊ¾ÅÌÊÂ¼şÉÏ±¨(10¹¦ÄÜÂëĞ´¶à¼Ä´æÆ÷) ---- */
 uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type);
+/* ÏòÖ¸¶¨ÏÔÊ¾ÅÌ¼¯ºÏÍÆËÍÊÂ¼ş: display_mask ÎªÏÔÊ¾ÅÌµØÖ·Î»ÑÚÂë(bit1..bit63, 0=ÎŞÄ¿±ê) */
+uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t loop, uint8_t addr, uint8_t detector_type,
+                                        uint8_t alarm_type, uint64_t display_mask);
+/* ÉèÖÃ"»ğ¾¯Ê±ÔÊĞí±»Ç¿ÖÆÆô¶¯"µÄÉù¹âµØÖ·Î»ÑÚÂë(bit1..bit63)¡£
+ * Ä¬ÈÏÈ« 1(±£³ÖÔ­ÓĞ"»ğ¾¯È«Éù¹âÆô¶¯"ĞĞÎª); Ó¦ÓÃ²ã°´·ÖÇø±¨¾¯Çé¿öµ÷ÓÃ,
+ * Î´ÖÃÎ»µÄÉù¹â²»ÔÙ±»Ç¿ÖÆÈ«¿ª, Ê¹·ÖÇøÉù¹â¸ôÀëÉúĞ§¡£ */
+void MBusCtrl_SetFixedSoundLightMask(uint64_t mask);
 
 /* ---- Í¨ÓÃÒì²½¿ØÖÆ ---- */
 MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request); /* Î¨Ò»ÕıÊ½¿ØÖÆÈë¿Ú£ºÖ»Èë¶Ó£¬²»×èÈûµÈ´ıÉè±¸ */
@@ -170,6 +177,7 @@ MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr);                 /* ²éÑ¯Ö¸¶¨µØÖ·
 /* »ØÂ·1/3¹Ì¶¨ÎÂÑÌ»ğ¾¯»ã×Ü£»»ğ¾¯ÆÚ¼äÉù¹âÇ¿ÖÆÆô¶¯£¬»Ö¸´ºó»Øµ½Âß¼­±à³ÌÄ¿±ê¡£ */
 void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active);
 void MBusCtrl_RequestBroadcastReset(void);
+void MBusCtrl_RequestDeviceReset(uint8_t addr);   /* µ¥Ì¨Éè±¸¸´Î»(·ÖÇø¸´Î»ÓÃ) */
 uint8_t MBusCtrl_GetBroadcastResetStatus(void);
 
 /* ---- Flash³Ö¾Ã»¯ ---- */

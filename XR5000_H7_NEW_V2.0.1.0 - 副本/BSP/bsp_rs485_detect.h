@@ -121,6 +121,7 @@ uint8_t  RS485Detect_IsOnline(uint8_t addr);                      /* ÅĞ¶ÏÊÇ·ñÕæÕ
 uint8_t  RS485Detect_HasSensorData(uint8_t addr);                 /* ÊÇ·ñÒÑÊÕµ½ÓĞĞ§´«¸ĞÆ÷Êı¾İ */
 uint8_t  RS485Detect_HasSensorEnableData(uint8_t addr);           /* ÊÇ·ñÒÑÈ·ÈÏ´«¸ĞÆ÷ÆôÓÃ×´Ì¬ */
 void RS485Detect_RequestBroadcastReset(void);
+void RS485Detect_RequestDeviceReset(uint8_t addr);   /* µ¥Ì¨Éè±¸¸´Î»(·ÖÇø¸´Î»ÓÃ) */
 uint8_t RS485Detect_GetBroadcastResetStatus(void);
 
 /* ---- Flash³Ö¾Ã»¯ ---- */

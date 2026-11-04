@@ -435,6 +435,7 @@ static uint32_t g_mbus1_last_rx_tick = 0U;
 static uint8_t g_mbus1_rx_guard_active = 0U;
 static volatile uint8_t g_mbus1_reset_requested = 0U;
 static volatile uint8_t g_mbus1_reset_status = 0U;
+static volatile uint8_t g_mbus1_reset_addr = 0xFFU;  /* 复位目标: 0xFF=整回路广播, 其它=单台设备地址 */
 static uint32_t g_mbus1_reset_grace_until = 0U;
 
 static uint8_t MBus1InterFrameGuardElapsed(void)
@@ -934,6 +935,23 @@ void MBus1ReceiveSlaveDataDeal(void)
 void MBus1ResetAllDevices(void)
 {
     taskENTER_CRITICAL();
+    g_mbus1_reset_addr = 0xFFU;  /* 整回路广播 */
+    g_mbus1_reset_status = 1U;
+    g_mbus1_reset_requested = 1U;
+    taskEXIT_CRITICAL();
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：MBus1ResetDevice
+ * 功能说明：复位回路1 上指定地址的单台设备(帧地址改为该设备地址)。
+ *           用于分区复位: 只让本分区设备复位, 不波及另一分区。
+ * 输入参数：addr - 设备地址(1~MIXTURE_DEVICE_MAX_ADDR)
+ *--------------------------------------------------------------*/
+void MBus1ResetDevice(uint8_t addr)
+{
+    if((addr < 1U) || (addr > (uint8_t)MIXTURE_DEVICE_MAX_ADDR)) return;
+    taskENTER_CRITICAL();
+    g_mbus1_reset_addr = addr;   /* 单台设备 */
     g_mbus1_reset_status = 1U;
     g_mbus1_reset_requested = 1U;
     taskEXIT_CRITICAL();
@@ -952,6 +970,7 @@ static void MBus1ServiceReset(void)
     HAL_StatusTypeDef second_status;
 
     if(g_mbus1_reset_requested == 0U || g_mbus1_transaction_pending != 0U) return;
+    reset_command[0] = g_mbus1_reset_addr;  /* 广播(0xFF)或单台设备 */
     crc16 = CalcCrc16(reset_command, 6U);
     reset_command[6] = (uint8_t)(crc16 & 0xFFU);
     reset_command[7] = (uint8_t)(crc16 >> 8);

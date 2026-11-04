@@ -90,6 +90,7 @@ static uint8_t g_transaction_request[8];
 static uint16_t g_rx_frame_len = 0U;
 static volatile uint8_t g_reset_requested = 0U;
 static volatile uint8_t g_reset_status = 0U;
+static volatile uint8_t g_reset_addr = 0xFFU;  /* 0xFF=整回路广播, 其它=单台 */
 static uint32_t g_reset_grace_until = 0U;
 static uint8_t g_identify_fail_count[RS485_DETECT_MAX_DEVICES];
 static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
@@ -1136,6 +1137,22 @@ uint8_t RS485Detect_HasSensorEnableData(uint8_t addr)
 void RS485Detect_RequestBroadcastReset(void)
 {
     taskENTER_CRITICAL();
+    g_reset_addr = 0xFFU;  /* 整回路广播 */
+    g_reset_status = 1U;
+    g_reset_requested = 1U;
+    taskEXIT_CRITICAL();
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：RS485Detect_RequestDeviceReset
+ * 功能说明：只复位回路3 上指定地址的单台设备。
+ * 输入参数：addr - 设备地址(1~RS485_DETECT_MAX_DEVICES-1)
+ *--------------------------------------------------------------*/
+void RS485Detect_RequestDeviceReset(uint8_t addr)
+{
+    if((addr < 1U) || (addr >= (uint8_t)RS485_DETECT_MAX_DEVICES)) return;
+    taskENTER_CRITICAL();
+    g_reset_addr = addr;
     g_reset_status = 1U;
     g_reset_requested = 1U;
     taskEXIT_CRITICAL();
@@ -1154,6 +1171,7 @@ static void RS485Detect_ServiceBroadcastReset(void)
     HAL_StatusTypeDef second_status;
 
     if(g_reset_requested == 0U || g_transaction_pending != 0U) return;
+    frame[0] = g_reset_addr;  /* 广播(0xFF)或单台设备 */
     crc = CalcCrc16(frame, 6U);
     frame[6] = (uint8_t)crc;
     frame[7] = (uint8_t)(crc >> 8);

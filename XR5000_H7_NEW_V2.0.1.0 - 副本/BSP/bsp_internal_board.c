@@ -128,15 +128,6 @@ typedef enum {
 // 独立按键键值定义
 typedef enum
 {
-	KEY_SYSTEM_ANNOUNCIAT = 0x01,  // 系统报警器启动
-	KEY_SYSTEM_LINKAGE_S  = 0x02,  // 联动启动按下
-	
-	SEPERATE_KEY_NO_PRESS = 0X00,  // 独立按键没有按下
-}BspSeperateKeyPressValue;
-
-// 独立按键键值定义
-typedef enum
-{
 	KEY_SYSTEM_MANUAL = 0x01,
 	KEY_SYSTEM_AUTO   = 0x02,
 	
@@ -589,6 +580,7 @@ uint8_t getPart2HandAutoState(void)
 void InternalScreenBoradRecvDealTask(void * parameter)
 {
 	uint8_t temp_key_val;
+	uint8_t key_bits;      /* 寄存器1 高字节: 报警器/联动启动/分区复位/检修 */
 	uint16_t crc16 = 0x0000;  // CRC校验码
 	
 	for(;;)
@@ -596,9 +588,16 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 		if(uartbuff[INSCREENSITE].recepetion_flag == 1)
 		{
 			uartbuff[INSCREENSITE].recepetion_flag = 0;
-			if(uartbuff[INSCREENSITE].recepetion_len < 2)
+			/* IG3303 固定回复 9 字节:
+			 * [addr][04][04][reg0_hi][reg0_lo][reg1_hi][reg1_lo][crc_lo][crc_hi]
+			 * 帧长不符直接丢弃本帧(不能用 return, 那会退出本任务) */
+			if(uartbuff[INSCREENSITE].recepetion_len != 9U)
 			{
-				return;
+				continue;
+			}
+			if(uartbuff[INSCREENSITE].recepetion_buff[2] != 0x04U)
+			{
+				continue;
 			}
 			crc16 = ( uartbuff[INSCREENSITE].recepetion_buff[uartbuff[INSCREENSITE].recepetion_len-1] << 8)| 
 								uartbuff[INSCREENSITE].recepetion_buff[uartbuff[INSCREENSITE].recepetion_len-2];
@@ -674,38 +673,31 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								
 								break;
 							case KEY11_PART1_SOUNDLT  :  // 分区1声光
+								FireZoneSirenCtrl(1U, (FireZoneGetSirenManual(1U) != 0U) ? 0U : 1U);
 								break;
 							case KEY12_PART1_STOP     :  // 分区1停止
+								FireZoneSirenCtrl(1U, 0U);
+								FireZoneOutputCtrl(1U, 0U);
 								break;
 							case KEY13_PART2_SOUNDLT  :  // 分区2声光
+								FireZoneSirenCtrl(2U, (FireZoneGetSirenManual(2U) != 0U) ? 0U : 1U);
 								break;
 							case KEY14_PART2_STOP     :  // 分区2停止
+								FireZoneSirenCtrl(2U, 0U);
+								FireZoneOutputCtrl(2U, 0U);
 								break;
-							case KEY15_PART1_SPRAY_ST : {  // 分区1喷洒启动
-								HmiRequestInternalProtectedAction(PART1_SPRY_START);
+							case KEY15_PART1_SPRAY_ST : {  // 分区1启动: 只启动本区输出设备
+								FireZoneOutputCtrl(1U, 1U);   /* 启动本区所有条件成立的联动输出 */
 								break;
 							}
-							case KEY16_PART2_SPRAY_ST : {  // 分区2喷洒启动
-								HmiRequestInternalProtectedAction(PART2_SPRY_START);
+							case KEY16_PART2_SPRAY_ST : {  // 分区2启动: 只启动本区输出设备
+								FireZoneOutputCtrl(2U, 1U);   /* 启动本区所有条件成立的联动输出 */
 								break;
 							}
 							default:
 								break;
 						}
 
-						switch(uartbuff[INSCREENSITE].recepetion_buff[5])
-						{
-							case KEY_SYSTEM_ANNOUNCIAT :  // 系统报警器启动
-								HmiRequestInternalProtectedAction(SIREN_KEY);
-								break;
-							/* [核查 CHK-07] 联动启动控制按键: 本处触发受保护动作(LINKAGE_START_KEY),
-							 *   实际由 cmd_process.c 的 LINKAGE_START_KEY 分支记录 EVT 130 与 EVT 19 */
-							case KEY_SYSTEM_LINKAGE_S  :  // 联动启动按下
-								HmiRequestInternalProtectedAction(LINKAGE_START_KEY);
-								break;
-							default:
-								break;
-						}
 						// 判断系统手自动
 						switch(uartbuff[INSCREENSITE].recepetion_buff[6] & 0x03)
 						{
@@ -734,6 +726,31 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								}
 								break;
 						}
+						/* 寄存器1 高字节: IG3303 bsp_key.c getSeparateButtonValue() 组装的按位键
+						 *   Bit0 报警器键   (KEY4=PB0)  -> 系统级声光开/关
+						 *   Bit1 联动启动键 (KEY5=PB10) -> 系统级联动启动(两分区条件成立的输出)
+						 *   Bit2 分区1复位  (KEY6=PA11) -> 复位分区1
+						 *   Bit3 分区2复位  (KEY7=PA12) -> 复位分区2
+						 *   Bit4 检修开关   (KEY8=PB3)  -> 程序无对应功能, 不处理
+						 * 注意: 按键板只在上报帧里带这些位, 不再有 17/18/19 号键。 */
+						key_bits = uartbuff[INSCREENSITE].recepetion_buff[5];
+						if((key_bits & 0x01U) != 0U)
+						{
+							FireZoneSysSirenToggle();   /* 报警器键: 系统级声光人工开关 */
+						}
+						if((key_bits & 0x02U) != 0U)
+						{
+							HmiRequestInternalProtectedAction(LINKAGE_START_KEY);  /* 系统级联动启动 */
+						}
+						if((key_bits & 0x04U) != 0U)
+						{
+							FireZoneReset(1U);          /* 分区1复位 */
+						}
+						if((key_bits & 0x08U) != 0U)
+						{
+							FireZoneReset(2U);          /* 分区2复位 */
+						}
+
 						// 判断分区1手自动
 						switch((uartbuff[INSCREENSITE].recepetion_buff[6] >> 2) & 0x03)
 						{

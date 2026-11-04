@@ -26,6 +26,28 @@
 #define LOGIC_ENGINE_CYCLE_MS      100   /* 引擎扫描周期（毫秒） */
 #define LOGIC_ENGINE_STARTUP_DELAY 2000  /* 启动延时（毫秒，等待传感器稳定） */
 
+/* 联动延时启动时间(毫秒): 条件满足后延时该时长再启动动作设备 */
+#ifndef LOGIC_ACTION_DELAY_MS
+#define LOGIC_ACTION_DELAY_MS   10000U
+#endif
+
+/*--------------------------------------------------------------
+ * API：联动延时设置 与 分区手动操作
+ *--------------------------------------------------------------*/
+
+/* 联动延时启动时间设置/读取(毫秒), 缺省为 LOGIC_ACTION_DELAY_MS */
+void     LogicEngine_SetActionDelay(uint32_t ms);
+uint32_t LogicEngine_GetActionDelay(void);
+
+/* 分区手动操作: 立即启动本区所有"条件成立"的规则(不延时) */
+void LogicEngine_ManualStartZone(uint8_t zone);
+/* 分区手动停止: 停止本区所有已执行的启动类动作 */
+void LogicEngine_ManualStopZone(uint8_t zone);
+/* 取消本区所有规则的延时计时(复位时调用) */
+void LogicEngine_CancelZoneDelay(uint8_t zone);
+/* 清除分区停止闭锁(分区复位时调用) */
+void LogicEngine_ClearZoneStopLatch(uint8_t zone);
+
 /*--------------------------------------------------------------
  * 函数指针类型 - 硬件注入
  *    引擎层调用这些函数与硬件交互。
@@ -36,8 +58,8 @@
  * channel: 1-4=具体输出通道, 99=全部通道 */
 typedef uint8_t (*ControlDevFunc_t)(uint8_t loop_no, uint8_t dev_no, uint8_t channel, uint8_t action);
 
-/* 检查给定exec_mode下是否允许自动模式 */
-typedef uint8_t (*CheckAutoModeFunc_t)(uint8_t exec_mode);
+/* 检查给定规则是否允许自动模式(系统总闸 + 规则所属分区) */
+typedef uint8_t (*CheckAutoModeFunc_t)(const LogicRule_t *rule);
 /* 联动动作事件通知回调 - 动作执行成功(控制受理)后由引擎调用, 用于黑匣子打点等观测
  * 参数: loop_no=控制回路, dev_no=被控设备地址, channel=动作通道,
  *       action=1启动/0停止. 注册方: bsp_logic_dev.c LogicDev_Register() */
