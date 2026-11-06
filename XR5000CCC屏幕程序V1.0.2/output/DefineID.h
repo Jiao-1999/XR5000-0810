@@ -280,6 +280,9 @@
 //创建画面设备自动登记的命令索引ID
 #define  _SCREEN_设备自动登记                                                       93
 
+//创建画面主界面设备检查的命令索引ID
+#define  _SCREEN_主界面设备检查                                                      94
+
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
 #define  _BTN_开机视频_BUTTON1                                                     2
@@ -10479,10 +10482,6 @@
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY33                                       111
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY24                                         3
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY32                                         4
-
 #define  _BTN_防火分区_BUTTON2                                                   106
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY1                                        101
@@ -10490,10 +10489,6 @@
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY11                                         5
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY8                                         26
-
-#define  _BTN_防火分区_BUTTON4                                                   264
-
-#define  _BTN_防火分区_BUTTON5                                                   265
 
 #define  _BTN_防火分区_BUTTON6                                                   266
 
@@ -10525,49 +10520,23 @@
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY16                                         2
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY17                                       103
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY18                                         7
-
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY19                                        28
 
-#define  _BTN_防火分区_BUTTON3                                                   107
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY18                                         4
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY20                                        11
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY17                                         8
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY21                                        16
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY20                                        12
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY22                                        24
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY21                                        24
 
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY23                                        20
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY25                                       104
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY26                                         8
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY27                                        29
-
-#define  _BTN_防火分区_BUTTON7                                                   108
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY28                                        12
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY29                                        17
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY30                                        25
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY31                                        21
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY35                                       113
-
-#define  _TXT_DIS__防火分区_TEXT_DISPLAY36                                       114
-
-#define  _BTN_联动选择_BUTTON1                                                     0
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY22                                        16
 
 #define  _BTN_联动选择_BUTTON2                                                     1
 
-#define  _TXT_DIS__联动选择_TEXT_DISPLAY3                                         14
-
 #define  _BTN_联动选择_BUTTON6                                                   266
+
+#define  _BTN_联动选择_BUTTON1                                                     2
 
 #define  _TXT_DIS__报警检测画面_TEXT_DISPLAY1                                       29
 
@@ -11109,4 +11078,65 @@
 #define  _TXT_DIS__设备自动登记_TEXT_DISPLAY26                                      30
 
 #define  _MENU_设备自动登记_MENU1                                                   77
+
+//画面主界面设备检查的背景图片
+#define  _IMG_主界面设备检查                                                          8
+
+#define  _BTN_主界面设备检查_BUTTON11                                                42
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY1                                      57
+
+#define  _BTN_主界面设备检查_BUTTON38                                                60
+
+#define  _BTN_主界面设备检查_BUTTON1                                                  5
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY3                                       6
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY4                                       7
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY5                                       8
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY6                                       9
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY7                                      10
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY8                                      11
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY9                                      12
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY10                                     13
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY11                                     14
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY12                                     15
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY13                                     16
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY14                                     17
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY15                                     18
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY16                                     19
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY17                                     20
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY18                                     21
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY19                                     22
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY20                                     24
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY21                                     25
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY22                                     26
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY23                                     27
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY24                                     28
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY25                                     29
+
+#define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY26                                     30
+
+#define  _MENU_主界面设备检查_MENU1                                                  77
 

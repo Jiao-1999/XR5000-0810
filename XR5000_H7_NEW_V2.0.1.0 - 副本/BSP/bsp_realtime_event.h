@@ -25,7 +25,7 @@
  * 0U：禁用上述按键操作，但保留事件显示、自动滚动和页面自动跳转。
  */
 #ifndef REALTIME_EVENT_NAVIGATION_ENABLE
-#define REALTIME_EVENT_NAVIGATION_ENABLE  0U
+#define REALTIME_EVENT_NAVIGATION_ENABLE  1U
 #endif
 
 /* 实时事件大类：报警与故障分别使用独立的存储区和显示页。 */

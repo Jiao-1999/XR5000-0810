@@ -25,6 +25,12 @@
 #define MBUS_CONTROL_LOOP_ID             2     /* »ØÂ·±àºÅ, ÓÃÓÚ¹ÊÕÏ¼ÇÂ¼ÏÔÊ¾ */
 #define MBUS_CONTROL_FLASH_ID            0x52U /* ¹ÊÕÏ´ØID(82´Ø) */
 
+/* »ØÂ·2ÊÖ±¨¹Ì¶¨Áª¶¯¿ª¹Ø£º¹Ø±ÕºóÈÔ±£ÁôÊÖ±¨¼ì²â¡¢Ö÷»ú±¨¾¯¡¢¼ÇÂ¼ºÍ¶ÔÍâ²éÑ¯½Ó¿Ú¡£ */
+#define MBUS_HAND_AUTO_SOUND_LIGHT_ENABLE  0U  /* 1=ÊÖ±¨×Ô¶¯Æô¶¯È«²¿ÔÚÏßÉù¹â£¬0=²»×Ô¶¯Æô¶¯ */
+#define MBUS_HAND_AUTO_DISPLAY_ENABLE      0U  /* 1=ÊÖ±¨×Ô¶¯Í¨ÖªÈ«²¿ÔÚÏßÏÔÊ¾ÅÌ£¬0=²»×Ô¶¯Í¨Öª */
+#define MBUS_DETECTOR_AUTO_SOUND_LIGHT_ENABLE  0U  /* 1=ÑÌÎÂ»ğ¾¯×Ô¶¯Æô¶¯È«²¿ÔÚÏßÉù¹â£¬0=ÓÉÍâ²¿²ßÂÔ¶¨Ïò¿ØÖÆ */
+#define MBUS_DETECTOR_AUTO_DISPLAY_ENABLE      0U  /* 1=Ì½²âÆ÷ÊÂ¼ş×Ô¶¯Í¨ÖªÈ«²¿ÔÚÏßÏÔÊ¾ÅÌ£¬0=ÓÉÍâ²¿²ßÂÔ¶¨Ïò·¢ËÍ */
+
 /* »ØÂ·2¹Ì¶¨Éè±¸µØÖ· */
 
 /* »ğÔÖÏÔÊ¾ÅÌÌ½²âÆ÷ÀàĞÍÂë(ÓÃÓÚ10¹¦ÄÜÂëÊÂ¼şÉÏ±¨) */
@@ -163,6 +169,9 @@ uint16_t MBusCtrl_GetNationalCode(uint8_t addr);     /* »ñÈ¡Éè±¸¹ú±êÉè±¸ÀàĞÍÂë(¹
 
 /* ---- »ğÔÖÏÔÊ¾ÅÌÊÂ¼şÉÏ±¨(10¹¦ÄÜÂëĞ´¶à¼Ä´æÆ÷) ---- */
 uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type);
+uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t display_addr, uint8_t source_loop,
+                                       uint8_t source_addr, uint8_t detector_type,
+                                       uint8_t alarm_type); /* ÏòÖ¸¶¨ÔÚÏßÏÔÊ¾ÅÌ·¢ËÍÊÂ¼ş */
 
 /* ---- Í¨ÓÃÒì²½¿ØÖÆ ---- */
 MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request); /* Î¨Ò»ÕıÊ½¿ØÖÆÈë¿Ú£ºÖ»Èë¶Ó£¬²»×èÈûµÈ´ıÉè±¸ */
