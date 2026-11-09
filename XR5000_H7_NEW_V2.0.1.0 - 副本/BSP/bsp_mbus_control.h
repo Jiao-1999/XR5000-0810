@@ -25,6 +25,12 @@
 #define MBUS_CONTROL_LOOP_ID             2     /* 回路编号, 用于故障记录显示 */
 #define MBUS_CONTROL_FLASH_ID            0x52U /* 故障簇ID(82簇) */
 
+/* 回路2手报固定联动开关：关闭后仍保留手报检测、主机报警、记录和对外查询接口。 */
+#define MBUS_HAND_AUTO_SOUND_LIGHT_ENABLE  0U  /* 1=手报自动启动全部在线声光，0=不自动启动 */
+#define MBUS_HAND_AUTO_DISPLAY_ENABLE      0U  /* 1=手报自动通知全部在线显示盘，0=不自动通知 */
+#define MBUS_DETECTOR_AUTO_SOUND_LIGHT_ENABLE  0U  /* 1=烟温火警自动启动全部在线声光，0=由外部策略定向控制 */
+#define MBUS_DETECTOR_AUTO_DISPLAY_ENABLE      0U  /* 1=探测器事件自动通知全部在线显示盘，0=由外部策略定向发送 */
+
 /* 回路2固定设备地址 */
 
 /* 火灾显示盘探测器类型码(用于10功能码事件上报) */

@@ -104,6 +104,7 @@ typedef struct
     uint8_t addr;          /* 探测器地址 */
     uint8_t detector_type; /* 探测器类型(MBUS_FIRE_DISPLAY_DETECT_*) */
     uint8_t alarm_type;    /* 报警类型(MBUS_FIRE_DISPLAY_ALARM_*) */
+    uint64_t target_displays;  /* 本事件已登记的全部目标，防止同一目标重复入队 */
     uint64_t pending_displays; /* 尚未接收本事件的显示盘地址位图 */
 } MBusFireDisplayEvent;
 
@@ -848,6 +849,7 @@ static void MBusCtrl_QueueFixedSoundLightTarget(uint8_t addr)
     (void)MBusCtrl_QueueRequest(&request, 1U, 0U);
 }
 
+#if MBUS_DETECTOR_AUTO_SOUND_LIGHT_ENABLE || MBUS_HAND_AUTO_SOUND_LIGHT_ENABLE
 static void MBusCtrl_RefreshFixedSoundLightTargets(void)
 {
     uint8_t addr;
@@ -859,9 +861,11 @@ static void MBusCtrl_RefreshFixedSoundLightTargets(void)
         MBusCtrl_QueueFixedSoundLightTarget(addr);
     }
 }
+#endif
 
 void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active)
 {
+#if MBUS_DETECTOR_AUTO_SOUND_LIGHT_ENABLE
     uint8_t changed = 0U;
     active = active != 0U ? 1U : 0U;
     taskENTER_CRITICAL();
@@ -872,6 +876,10 @@ void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active)
     }
     taskEXIT_CRITICAL();
     if(changed != 0U) MBusCtrl_RefreshFixedSoundLightTargets();
+#else
+    /* 保留报警状态查询，由外部策略按地址调用MBusCtrl_Request()控制声光。 */
+    (void)active;
+#endif
 }
 
 /* 设置"火警时允许被强制启动"的声光位掩码: 掩码变化时立即重算固定声光目标,
@@ -891,6 +899,7 @@ void MBusCtrl_SetFixedSoundLightMask(uint64_t mask)
 
 static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
 {
+#if MBUS_HAND_AUTO_SOUND_LIGHT_ENABLE
     uint8_t addr;
     uint8_t any_manual_alarm = 0U;
     uint8_t changed = 0U;
@@ -914,6 +923,10 @@ static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
     }
     taskEXIT_CRITICAL();
     if(changed != 0U) MBusCtrl_RefreshFixedSoundLightTargets();
+#else
+    /* 分区逻辑后续可读取手报状态并通过MBusCtrl_Request()定向控制声光。 */
+    (void)manual_state;
+#endif
 }
 
 /* Publish business actions only on a real state edge; polling remains transport-only. */
@@ -2285,6 +2298,18 @@ uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t loop, uint8_t addr, uint8_t dete
     if(loop == 0U || loop > 3U || addr == 0U ||
        addr >= MBUS_FIRE_DISPLAY_EVENT_SOURCE_MAX_ADDR || detector_type == 0U ||
        alarm_type > MBUS_FIRE_DISPLAY_ALARM_FAULT) return 0U;
+#if !MBUS_HAND_AUTO_DISPLAY_ENABLE
+    /* 只屏蔽回路2手报的全体显示盘广播，其他回路和事件类型保持原行为。 */
+    if(loop == 2U && detector_type == MBUS_FIRE_DISPLAY_DETECT_MANUAL)
+        return 1U;
+#endif
+#if !MBUS_DETECTOR_AUTO_DISPLAY_ENABLE
+    /* 回路1/3探测器事件由外部策略通过定向接口发送，禁止继续全体广播。 */
+    if((loop == 1U || loop == 3U) &&
+       detector_type >= MBUS_FIRE_DISPLAY_DETECT_TEMP &&
+       detector_type <= MBUS_FIRE_DISPLAY_DETECT_H2)
+        return 1U;
+#endif
     taskENTER_CRITICAL();
     if(g_fire_display_last_event_valid[loop][addr] != 0U &&
        g_fire_display_last_detector_type[loop][addr] == detector_type &&
@@ -2324,6 +2349,7 @@ uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t loop, uint8_t addr, uint8_t dete
     g_fire_display_event_queue[queue_tail].addr = addr;
     g_fire_display_event_queue[queue_tail].detector_type = detector_type;
     g_fire_display_event_queue[queue_tail].alarm_type = alarm_type;
+    g_fire_display_event_queue[queue_tail].target_displays = targets;
     g_fire_display_event_queue[queue_tail].pending_displays = targets;
     g_fire_display_event_count++;
     g_fire_display_last_event_valid[loop][addr] = 1U;
