@@ -15,7 +15,7 @@
  * ============================================================================ */
 
 /* -------------------- 可配置常量 -------------------- */
-#define RS485_DETECT_MAX_DEVICES    65    /* 最大设备数(地址1~64, 下标0不用) */
+#define RS485_DETECT_MAX_DEVICES   101U    /* 最大设备数(地址1~100, 下标0不用) */
 #define RS485_DETECT_DISCONNECT_THRESHOLD  3  /* 连续无响应次数阈值, 超过判定掉线 */
 #define RS485_DETECT_POLL_INTERVAL_MS       50 /* 轮询间隔(ms), 每轮一个设备 */
 #define RS485_DETECT_RESPONSE_TIMEOUT_MS   120 /* 单次请求超时(ms), 超时计掉线 */

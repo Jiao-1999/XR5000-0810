@@ -69,7 +69,7 @@ static const RS485SensorRegDef XR8303_SENSOR_LAYOUT[] = {
 static RS485DetectDevice g_devices[RS485_DETECT_MAX_DEVICES]; /* 设备实例数组(索引=地址) */
 
 static uint8_t g_online_count = 0;       /* 当前上线设备数量 */
-static uint8_t g_poll_current_addr = 1;  /* 当前轮询地址(1~64循环) */
+static uint8_t g_poll_current_addr = 1;  /* 当前轮询地址(1~100循环) */
 static uint32_t g_last_poll_time = 0;    /* 上次轮询的系统tick */
 
 /* UART5事务锁: 同一时刻仅允许一个请求占用UART5 */
@@ -215,14 +215,9 @@ void RS485Detect_LoadOnlineState(void)
     g_online_count = 0;
     for (uint8_t i = 0; i < RS485_DETECT_MAX_DEVICES; i++)
     {
-        if (online_states[i] == 0xFF)
-        {
-            g_devices[i].online = 0;
-        }
-        else
-        {
-            g_devices[i].online = online_states[i];
-        }
+        /* 仅明确保存为1的状态才视为设置上线。
+         * 扩容后未使用或异常的Flash字节统一按下线处理。 */
+        g_devices[i].online = ((i != 0U) && (online_states[i] == 1U)) ? 1U : 0U;
         if (g_devices[i].online)
         {
             g_online_count++;
