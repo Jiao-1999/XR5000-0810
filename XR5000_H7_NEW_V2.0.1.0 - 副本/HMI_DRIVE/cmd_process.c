@@ -1410,6 +1410,7 @@ static uint8_t g_screen69_page = 0;
 static uint8_t g_screen69_force_redraw = 0;
 static uint8_t g_screen69_transition_pending = 0;
 static uint8_t screen69_circuit = 1; /* XR5000_SCREEN69_NAVIGATION_FIX_20260729: fixed circuit snapshot for one detail session. */
+static uint8_t g_screen69_return_screen = 6U; /* 记录画面69进入来源，保证返回原入口。 */
 static uint8_t g_registration_selected_mask = DEVICE_REG_ALL_MASK;
 static uint8_t g_registration_detail_mask = DEVICE_REG_ALL_MASK;
 static uint8_t g_registration_detail_mode = 0U;
@@ -3112,6 +3113,13 @@ void NotifyScreen(uint16 screen_id)
         HmiSwitchScreen(93U);
         return;
     }
+    if(prev_screen_id == 69U && screen_id == 6U &&
+       g_screen69_return_screen == 68U)
+    {
+        /* 画面68的可燃气体入口进入画面69后，返回时仍回到画面68。 */
+        HmiSwitchScreen(68U);
+        return;
+    }
     //TODO: 添加用户代码
     current_screen_id = screen_id;
 	BspRealtimeEvent_OnScreenChanged(prev_screen_id, screen_id, osKernelGetTickCount());
@@ -3152,9 +3160,14 @@ void NotifyScreen(uint16 screen_id)
         if(prev_screen_id == 93U)
         {
             g_registration_detail_mode = 1U;
+            g_screen69_return_screen = 93U;
             g_screen69_page = 0U;
         }
-        else g_registration_detail_mode = 0U;
+        else
+        {
+            g_registration_detail_mode = 0U;
+            g_screen69_return_screen = (prev_screen_id == 68U) ? 68U : 6U;
+        }
     }
     HmiDeviceQueryNotifyScreen(screen_id, prev_screen_id);
     HistoryFilter_NotifyScreen(screen_id);
@@ -6601,6 +6614,14 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 				bsp_screen_switch_ctrl.switch_flag = 1U;
 				SwitchCurrentScreenId(79U);
 			}
+		}
+		else if(control_id == 22 && state == 1 && item == 0U)
+		{
+			/* 可燃气体设备查看固定进入回路3，复用画面69现有显示与翻页逻辑。 */
+			screen69_circuit = 3U;
+			g_screen69_page = 0U;
+			g_screen69_transition_pending = 1U;
+			HmiSwitchScreen(69U);
 		}
 		else if(control_id == 23 && state == 1)
 		{
