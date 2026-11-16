@@ -262,8 +262,8 @@
 //创建画面故障检测画面的命令索引ID
 #define  _SCREEN_故障检测画面                                                       87
 
-//创建画面Screen4的命令索引ID
-#define  _SCREEN_SCREEN4                                                      88
+//创建画面回路卡设置界面的命令索引ID
+#define  _SCREEN_回路卡设置界面                                                      88
 
 //创建画面Screen5的命令索引ID
 #define  _SCREEN_SCREEN5                                                      89
@@ -9486,6 +9486,8 @@
 
 #define  _MENU_新菜单界面_MENU7                                                    22
 
+#define  _MENU_新菜单界面_MENU9                                                    24
+
 #define  _TXT_DIS__设备显示详情_TEXT_DISPLAY1                                      200
 
 #define  _TXT_DIS__设备显示详情_TEXT_DISPLAY2                                        1
@@ -10873,6 +10875,52 @@
 #define  _TXT_DIS__故障检测画面_TEXT_DISPLAY38                                      26
 
 #define  _TXT_DIS__故障检测画面_TEXT_DISPLAY83                                      77
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY1                                     300
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY4                                       3
+
+#define  _BTN_回路卡设置界面_BUTTON1                                                  4
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY2                                       1
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY3                                       2
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY5                                       5
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY6                                       6
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY7                                       8
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY8                                       9
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY9                                      13
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY10                                     14
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY11                                     17
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY12                                     18
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY13                                     21
+
+#define  _TXT_DIS__回路卡设置界面_TEXT_DISPLAY14                                     22
+
+#define  _BTN_回路卡设置界面_BUTTON2                                                 23
+
+#define  _BTN_回路卡设置界面_BUTTON3                                                 24
+
+#define  _BTN_回路卡设置界面_BUTTON4                                                 25
+
+#define  _BTN_回路卡设置界面_BUTTON5                                                 26
+
+#define  _BTN_回路卡设置界面_BUTTON6                                                 27
+
+#define  _BTN_回路卡设置界面_BUTTON7                                                 28
+
+#define  _BTN_回路卡设置界面_BUTTON8                                                 29
+
+#define  _BTN_回路卡设置界面_BUTTON9                                                 30
 
 #define  _TXT_DIS__网络通信参数界面_TEXT_DISPLAY1                                    300
 
