@@ -49,7 +49,8 @@ typedef struct
     uint8_t  zone_map[4][101];                              /* 设备分区映射, [回路号-1][设备地址0-100], 值0-1对应分区1-2 */
     char     zone_name[FIRE_ZONE_MAX][FIRE_ZONE_NAME_LEN];  /* 分区名称(GBK), 下标0-1对应分区1-2 */
     uint8_t  zone_enabled[FIRE_ZONE_MAX];                   /* 分区启用状态, 1=启用 0=停用, 下标0-1对应分区1-2 */
-    char     zone_disp[FIRE_ZONE_MAX][FZ_SLOT_COUNT][FIRE_ZONE_NAME_LEN]; /* 槽位显示文本, [分区][7类设备栏][GBK串] */
+    uint8_t  zone_delay_s[FIRE_ZONE_MAX];                   /* V6新增: 分区联动延时(秒, 0-30) */
+    char     zone_disp[FIRE_ZONE_SLOT_MAX][FZ_SLOT_COUNT][FIRE_ZONE_DISP_LEN]; /* 槽位显示文本, [分区][8类设备栏][GBK串, V6扩到64字节] */
     uint8_t  zone_display_addr[FIRE_ZONE_MAX];              /* V4新增: 各分区关联的火灾显示盘地址(回路2, 0=未配置) */
     char     sys_disp[FZ_SYS_COUNT][FIRE_ZONE_NAME_LEN];    /* V4新增: 系统级设备显示文本 */
     uint8_t  sys_addr[FZ_SYS_COUNT];                        /* V4新增: 系统级设备地址(回路2, 0=未配置) */
@@ -58,7 +59,7 @@ typedef struct
 
 /* 编译期长度校验: 记录布局一旦与Flash存储格式不一致(增删成员/改分区数/改槽位数),
  * 此处立即编译失败, 避免运行期CRC覆盖长度与记录偏移错位(C90兼容写法) */
-typedef char FireZoneRecordSizeCheck_t[(sizeof(FireZoneRecord_t) == 725U) ? 1 : -1];
+typedef char FireZoneRecordSizeCheck_t[(sizeof(FireZoneRecord_t) == 2039U) ? 1 : -1];
 
 /* 设备分区映射表: s_zone_map[回路号-1][设备地址]
  * 第二维为设备地址0~100, 按最大回路地址(回路1上限100)取101;
@@ -72,7 +73,8 @@ static char s_zone_name[FIRE_ZONE_MAX][FIRE_ZONE_NAME_LEN];
 static uint8_t s_zone_enabled[FIRE_ZONE_MAX];
 
 /* 槽位显示文本表: [分区0-1][FZ_SLOT_COUNT类设备栏], 屏端输入的规范化显示文本 */
-static char s_zone_disp[FIRE_ZONE_MAX][FZ_SLOT_COUNT][FIRE_ZONE_NAME_LEN];
+static char s_zone_disp[FIRE_ZONE_SLOT_MAX][FZ_SLOT_COUNT][FIRE_ZONE_DISP_LEN];
+static uint8_t s_zone_delay_s[FIRE_ZONE_MAX];   /* 分区联动延时(秒), V6新增 */
 
 /* 分区关联火灾显示盘地址(V4新增): 下标0-1对应分区1-2, 0=未配置 */
 static uint8_t s_zone_display_addr[FIRE_ZONE_MAX];
@@ -153,7 +155,7 @@ static uint8_t IsValidDevice(uint8_t loop_no, uint16_t dev_no)
  *--------------------------------------------------------------*/
 static uint16_t CalcRecordCRC(const FireZoneRecord_t *rec)
 {
-    /* sizeof(FireZoneRecord_t)=725字节(V5), crc字段占最后2字节, 实际计算723字节 */
+    /* sizeof(FireZoneRecord_t)=2039字节(V7), crc字段占最后2字节, 实际计算2037字节 */
     return CalcCrc16((uint8_t *)rec, sizeof(FireZoneRecord_t) - 2U);
 }
 
@@ -224,6 +226,7 @@ static void SetDefaultAll(void)
 
     /* 槽位显示文本/分区显示盘地址/系统级设备默认全部为空(V3/V4新增字段) */
     memset(s_zone_disp, 0, sizeof(s_zone_disp));
+    memset(s_zone_delay_s, 0, sizeof(s_zone_delay_s));   /* V6: 延时默认0=立即执行 */
     memset(s_zone_display_addr, 0, sizeof(s_zone_display_addr));
     memset(s_sys_disp, 0, sizeof(s_sys_disp));
     memset(s_sys_addr, 0, sizeof(s_sys_addr));
@@ -251,6 +254,14 @@ static void ApplyRecord(const FireZoneRecord_t *rec)
     /* 槽位显示文本(7类设备栏)、分区显示盘地址、系统级设备显示文本与地址:
      * V4记录与结构体一一对应, 逐项拷贝 */
     memcpy(s_zone_disp, rec->zone_disp, sizeof(s_zone_disp));
+    memcpy(s_zone_delay_s, rec->zone_delay_s, sizeof(s_zone_delay_s));
+    for (i = 0; i < FIRE_ZONE_MAX; i++)
+    {
+        if (s_zone_delay_s[i] > (uint8_t)FIRE_ZONE_DELAY_MAX)
+        {
+            s_zone_delay_s[i] = (uint8_t)FIRE_ZONE_DELAY_MAX;  /* 防御Flash异常数据 */
+        }
+    }
     memcpy(s_zone_display_addr, rec->zone_display_addr, sizeof(s_zone_display_addr));
     memcpy(s_sys_disp, rec->sys_disp, sizeof(s_sys_disp));
     memcpy(s_sys_addr, rec->sys_addr, sizeof(s_sys_addr));
@@ -274,7 +285,7 @@ static void ApplyRecord(const FireZoneRecord_t *rec)
  *--------------------------------------------------------------*/
 static uint8_t LoadRecord(uint32_t addr, FireZoneRecord_t *rec)
 {
-    /* 读取整条记录(sizeof(FireZoneRecord_t)=725字节) */
+    /* 读取整条记录(sizeof(FireZoneRecord_t)=2039字节) */
     W25QXX_Read((uint8_t *)rec, addr, sizeof(FireZoneRecord_t));
 
     /* 魔数校验 */
@@ -321,21 +332,20 @@ static void SaveRecordToFlash(void)
     memcpy(rec.zone_name, s_zone_name, sizeof(s_zone_name));
     memcpy(rec.zone_enabled, s_zone_enabled, sizeof(s_zone_enabled));  /* V2新增: 分区启用状态 */
     memcpy(rec.zone_disp, s_zone_disp, sizeof(s_zone_disp));                     /* 槽位显示文本(7类设备栏) */
+    memcpy(rec.zone_delay_s, s_zone_delay_s, sizeof(s_zone_delay_s));             /* V6新增: 分区联动延时 */
     memcpy(rec.zone_display_addr, s_zone_display_addr, sizeof(s_zone_display_addr)); /* V4新增: 分区显示盘地址 */
     memcpy(rec.sys_disp, s_sys_disp, sizeof(s_sys_disp));                       /* V4新增: 系统级设备显示文本 */
     memcpy(rec.sys_addr, s_sys_addr, sizeof(s_sys_addr));                       /* V4新增: 系统级设备地址 */
     rec.crc = CalcRecordCRC(&rec);
 
-    /* 擦除整个4KB扇区(副本A/B同扇区, 只需擦一次)
+    /* V7: 单副本存储. 擦除整个4KB扇区
      * 注意: 驱动W25QXX_Erase_Sector入参为扇区号(内部x4096), 须传字节地址/4096 */
     W25QXX_Erase_Sector(FIRE_ZONE_FLASH_ADDR / 4096U);
 
-    /* 写入副本A(扇区前半)与副本B(扇区后半): 扇区已整擦为0xFF,
-     * 用BspFlashWrite免检直写(带事务锁, 与bsp_save_ctrl用法一致) */
+    /* 写入记录: 扇区已整擦为0xFF, 用BspFlashWrite免检直写(带事务锁) */
     BspFlashWrite((uint8_t *)&rec, FIRE_ZONE_FLASH_COPY_A, sizeof(FireZoneRecord_t));
-    BspFlashWrite((uint8_t *)&rec, FIRE_ZONE_FLASH_COPY_B, sizeof(FireZoneRecord_t));
 
-    /* 回读校验副本A(魔数+CRC), 结果打UART4便于实机确认保存是否成功 */
+    /* 回读校验(魔数+CRC), 结果打UART4便于实机确认保存是否成功 */
     W25QXX_Read((uint8_t *)&verify_buf, FIRE_ZONE_FLASH_COPY_A, sizeof(verify_buf));
     if ((verify_buf.magic == FIRE_ZONE_MAGIC) &&
         (verify_buf.crc == CalcRecordCRC(&verify_buf)))
@@ -361,9 +371,9 @@ static void SaveRecordToFlash(void)
  *--------------------------------------------------------------*/
 void FireZone_Init(void)
 {
-    FireZoneRecord_t rec;  /* Flash读取缓冲 */
+    /* V7: 记录已扩到2039字节, 而主栈只有0x800(2048)字节, 必须放静态区避免栈溢出 */
+    static FireZoneRecord_t rec;  /* Flash读取缓冲(静态) */
     uint8_t loaded = 0;    /* 是否成功从Flash加载 */
-    uint8_t need_save = 0; /* 是否需要在初始化末尾回写Flash */
 
     /* 防止重复初始化 */
     if (s_initialized)
@@ -374,29 +384,12 @@ void FireZone_Init(void)
     /* 先恢复出厂默认(映射全0=全在分区1 + 默认分区名) */
     SetDefaultAll();
 
-    /* 优先尝试副本A */
+    /* V7: 单副本存储. 记录无效(旧版本/CRC错误/从未写过)时保持出厂默认,
+     * 不立即写Flash, 待首次用户修改时自然落盘 */
     if (LoadRecord(FIRE_ZONE_FLASH_COPY_A, &rec))
     {
         ApplyRecord(&rec);
-        loaded = 1;  /* 副本A有效 */
-    }
-    else if (LoadRecord(FIRE_ZONE_FLASH_COPY_B, &rec))
-    {
-        /* 副本A损坏但副本B有效: 应用B并回写修复副本A */
-        ApplyRecord(&rec);
-        need_save = 1;  /* 延迟到末尾统一落盘(修复副本A) */
         loaded = 1;
-        DebugPrintf("[FIREZONE] copy A bad, restored from copy B\r\n");
-    }
-    /* 两个副本均无效: 保持出厂默认, 不立即写Flash */
-
-    /* 旧版本记录不再兼容: 分区数与记录布局均变更, LoadRecord已拒绝,
-     * 此处保持出厂默认, 待首次用户修改时自然落盘 */
-
-    /* 统一回写: 副本A损坏时用副本B数据修复 */
-    if (need_save)
-    {
-        SaveRecordToFlash();
     }
 
     s_initialized = 1;
@@ -421,18 +414,18 @@ uint8_t FireZone_SetSlotDisp(uint8_t zone_no, uint8_t slot, const char *text)
 {
     char *dst;  /* 目标槽位 */
 
-    if ((zone_no < 1U) || (zone_no > FIRE_ZONE_MAX) ||
+    if ((zone_no < 1U) || (zone_no > FIRE_ZONE_SLOT_MAX) ||
         (slot >= (uint8_t)FZ_SLOT_COUNT) || (text == NULL))
     {
         return 1;  /* 参数非法 */
     }
     dst = s_zone_disp[zone_no - 1U][slot];
-    if (strncmp(dst, text, FIRE_ZONE_NAME_LEN) == 0)
+    if (strncmp(dst, text, FIRE_ZONE_DISP_LEN) == 0)
     {
         return 0;  /* 内容未变化, 不落盘 */
     }
-    strncpy(dst, text, FIRE_ZONE_NAME_LEN - 1U);
-    dst[FIRE_ZONE_NAME_LEN - 1U] = '\0';
+    strncpy(dst, text, FIRE_ZONE_DISP_LEN - 1U);
+    dst[FIRE_ZONE_DISP_LEN - 1U] = '\0';
     PersistChanges();  /* 落盘+通知 */
     return 0;
 }
@@ -450,12 +443,12 @@ void FireZone_GetSlotDisp(uint8_t zone_no, uint8_t slot, char *out)
         return;
     }
     out[0] = '\0';
-    if ((zone_no < 1U) || (zone_no > FIRE_ZONE_MAX) || (slot >= (uint8_t)FZ_SLOT_COUNT))
+    if ((zone_no < 1U) || (zone_no > FIRE_ZONE_SLOT_MAX) || (slot >= (uint8_t)FZ_SLOT_COUNT))
     {
         return;
     }
-    memcpy(out, s_zone_disp[zone_no - 1U][slot], FIRE_ZONE_NAME_LEN);
-    out[FIRE_ZONE_NAME_LEN - 1U] = '\0';
+    memcpy(out, s_zone_disp[zone_no - 1U][slot], FIRE_ZONE_DISP_LEN);
+    out[FIRE_ZONE_DISP_LEN - 1U] = '\0';
 }
 
 /*--------------------------------------------------------------
@@ -589,7 +582,7 @@ void FireZone_GetSysDisp(uint8_t kind, char *out)
     }
 
     memcpy(out, s_sys_disp[kind], FIRE_ZONE_NAME_LEN);
-    out[FIRE_ZONE_NAME_LEN - 1U] = '\0';
+    out[FIRE_ZONE_DISP_LEN - 1U] = '\0';
 }
 
 /*--------------------------------------------------------------
@@ -658,7 +651,7 @@ uint8_t FireZone_SetDeviceZone(uint8_t loop_no, uint16_t dev_no, uint8_t zone_no
     }
 
     /* 分区号校验 */
-    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX)
+    if (zone_no < 1U || zone_no > FIRE_ZONE_SLOT_MAX)
     {
         return 2;  /* 分区号非法 */
     }
@@ -725,7 +718,7 @@ uint8_t FireZone_GetZoneDeviceCount(uint8_t zone_no)
     uint8_t count = 0;     /* 计数器 */
 
     /* 分区号校验 */
-    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX)
+    if (zone_no < 1U || zone_no > FIRE_ZONE_SLOT_MAX)
     {
         return 0;
     }
@@ -765,7 +758,7 @@ uint8_t FireZone_GetZoneDeviceAt(uint8_t zone_no, uint8_t index, uint8_t *loop_n
     {
         return 0;
     }
-    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX)
+    if (zone_no < 1U || zone_no > FIRE_ZONE_SLOT_MAX)
     {
         return 0;
     }
@@ -998,7 +991,7 @@ uint8_t FireZone_SetZoneRange(uint8_t zone_no, uint8_t loop_no, uint8_t start, u
     uint8_t changed = 0;  /* 是否有实际变化 */
 
     /* 分区号校验 */
-    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX)
+    if (zone_no < 1U || zone_no > FIRE_ZONE_SLOT_MAX)
     {
         return 2;
     }
@@ -1052,7 +1045,7 @@ uint8_t FireZone_ClearZoneRange(uint8_t zone_no, uint8_t loop_no)
     uint8_t changed = 0;  /* 是否有实际变化 */
 
     /* 参数校验 */
-    if (zone_no < 1U || zone_no > FIRE_ZONE_MAX || loop_no < 1U || loop_no > 4U)
+    if (zone_no < 1U || zone_no > FIRE_ZONE_SLOT_MAX || loop_no < 1U || loop_no > 4U)
     {
         return 2;
     }
@@ -1079,3 +1072,76 @@ uint8_t FireZone_ClearZoneRange(uint8_t zone_no, uint8_t loop_no)
 
     return 0;  /* 清空成功 */
 }
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_GetZoneDelay
+ * 功能描述：查询分区联动延时(V6新增)
+ * 输入参数：zone_no - 分区号(1-2)
+ * 返回值   ：延时秒数(0-30); 参数非法返回0
+ *--------------------------------------------------------------*/
+uint8_t FireZone_GetZoneDelay(uint8_t zone_no)
+{
+    if ((zone_no < 1U) || (zone_no > FIRE_ZONE_MAX))
+    {
+        return 0;
+    }
+    return s_zone_delay_s[zone_no - 1U];
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_SetZoneDelay
+ * 功能描述：设置分区联动延时(V6新增)
+ *           0=立即执行; 超上限按 FIRE_ZONE_DELAY_MAX 截断;
+ *           内容无变化不擦写Flash
+ * 输入参数：zone_no - 分区号(1-2), sec - 延时秒数
+ * 返回值   ：0=成功, 2=参数错误
+ *--------------------------------------------------------------*/
+uint8_t FireZone_SetZoneDelay(uint8_t zone_no, uint8_t sec)
+{
+    if ((zone_no < 1U) || (zone_no > FIRE_ZONE_MAX))
+    {
+        return 2;
+    }
+    if (sec > (uint8_t)FIRE_ZONE_DELAY_MAX)
+    {
+        sec = (uint8_t)FIRE_ZONE_DELAY_MAX;
+    }
+    if (s_zone_delay_s[zone_no - 1U] == sec)
+    {
+        return 0;
+    }
+    s_zone_delay_s[zone_no - 1U] = sec;
+    PersistChanges();
+    DebugPrintf("[FIREZONE] zone %u delay %us\r\n",
+                (unsigned int)zone_no, (unsigned int)sec);
+    return 0;
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZone_ClearDevice
+ * 功能描述：清除单个设备的分区归属(V6新增)
+ *           仅当该地址当前属于 zone_no 时才置为未分区;
+ *           不属于本分区时不做任何修改(返回成功)。
+ *           供画面96覆盖式录入先清后写使用: 不依赖设备产品码,
+ *           未接线设备同样可以清除。
+ * 输入参数：zone_no - 分区号(1-2), loop_no - 回路号(1-4),
+ *           dev_no - 设备地址
+ * 返回值   ：0=成功, 2=参数错误
+ *--------------------------------------------------------------*/
+uint8_t FireZone_ClearDevice(uint8_t zone_no, uint8_t loop_no, uint16_t dev_no)
+{
+    if ((zone_no < 1U) || (zone_no > FIRE_ZONE_SLOT_MAX) ||
+        (loop_no < 1U) || (loop_no > 4U) ||
+        (IsValidDevice(loop_no, dev_no) == 0U))
+    {
+        return 2;
+    }
+    if (s_zone_map[loop_no - 1U][dev_no] != zone_no)
+    {
+        return 0;
+    }
+    s_zone_map[loop_no - 1U][dev_no] = FIRE_ZONE_NONE;
+    PersistChanges();
+    return 0;
+}
+

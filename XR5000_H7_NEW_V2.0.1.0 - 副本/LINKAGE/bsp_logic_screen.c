@@ -537,8 +537,8 @@ static void SaveRule(void)
         return;
     }
 
-    /* 规则所属分区: 由画面85选定, 未选区拒绝保存 */
-    if ((s_edit.zone < 1U) || (s_edit.zone > (uint8_t)FIRE_ZONE_MAX))
+    /* 规则所属分区: 0=全局规则(标准编程入口), 1-2=分区限定; 超出范围拒绝保存 */
+    if (s_edit.zone > (uint8_t)FIRE_ZONE_MAX)
     {
         DebugPrintf("[LOGIC] SaveRule FAIL: zone not selected\r\n");
         sprintf(s_disp_buf, "请先在分区选择页选择分区");
@@ -626,8 +626,12 @@ static void BuildExprDisplay(void)
     /* 编辑页显示当前分区, 便于确认规则归属 */
     if ((s_edit.zone >= 1U) && (s_edit.zone <= (uint8_t)FIRE_ZONE_MAX))
     {
-        sprintf(temp, "[分区%u] ", (unsigned)s_edit.zone);
+        sprintf(temp, "[气灭分区%u] ", (unsigned)s_edit.zone);
         strcat(s_disp_buf, temp);
+    }
+    else
+    {
+        strcat(s_disp_buf, "[任意] ");  /* V7: 标准编程入口, 规则不限分区 */
     }
 
     /* 遍历所有Token */
@@ -757,8 +761,12 @@ static void BuildRuleDisplay(const LogicRule_t *rule, char *buf, uint8_t size)
     /* 列表页标注规则所属分区 */
     if ((rule->zone >= 1U) && (rule->zone <= (uint8_t)FIRE_ZONE_MAX))
     {
-        sprintf(temp, "[分区%u] ", (unsigned)rule->zone);
+        sprintf(temp, "[气灭分区%u] ", (unsigned)rule->zone);
         strcat(buf, temp);
+    }
+    else
+    {
+        strcat(buf, "[任意] ");  /* V7: 不限分区的规则 */
     }
 
     /* 遍历所有Token，构造触发条件表达式 */
@@ -848,6 +856,30 @@ static void HandleSensorButton(uint8_t sensor_type)
  *           5位编码输入: 数字按钮累计5位,
  *           条件区: #/传感器按钮确认条件, 动作区: &分隔多动作, 确认键保存。
  *--------------------------------------------------------------*/
+/*--------------------------------------------------------------
+ * 函数名称：LogicScreen_SetEntryZone
+ * 功能说明：注入本次编辑的入口分区(0=全局规则/1=分区1/2=分区2)。
+ *           必须在跳转到编辑页之前调用, 因为密码页验证通过后
+ *           只按 target_screen 回跳, 不携带任何上下文。
+ * 输入参数：zone - 0/1/2, 超出范围按0(全局)处理
+ *--------------------------------------------------------------*/
+void LogicScreen_SetEntryZone(uint8_t zone)
+{
+    if (zone > (uint8_t)FIRE_ZONE_MAX)
+    {
+        zone = 0U;
+    }
+    s_edit.zone = zone;
+    /* 换入口视为新编辑会话: 清空残留, 防止跨入口串数据 */
+    memset(&s_edit.rule, 0, sizeof(LogicRule_t));
+    s_edit.step = EDIT_STEP_NONE;
+    s_edit.phase = EDIT_COND;
+    ClearDigitBuf();
+    s_edit.has_action = 0;
+    s_edit.active = 1;
+    DebugPrintf("[LOGIC] entry zone=%d\r\n", (int)zone);
+}
+
 void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state)
 {
     /* 只处理编辑页(43)/列表页(45)/分区选择页(85) */

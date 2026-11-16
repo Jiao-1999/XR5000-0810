@@ -300,6 +300,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 				__HAL_UNLOCK(&huart1);
 		}
   }
+  else if (huart->Instance == UART4) {
+		/* FECbus RX (第三条总线): 字节入环 + 重启下一字节接收
+		 * XR5000_UART4_TO_FECBUS_20261110: 原调试口改为 FECbus 总线 */
+		FecbusRx_OnByte(g_fecbus_rx_byte_u4);
+		while(HAL_UART_Receive_IT(&huart4,(uint8_t *)&g_fecbus_rx_byte_u4,1)!= HAL_OK)
+		{
+				__HAL_UNLOCK(&huart4);
+		}
+  }
 }
 
 //void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)

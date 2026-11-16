@@ -48,6 +48,7 @@
 #include "bsp_relay.h"              /* 声光/继电器控制等 */
 #include "bsp_ctrl_bus.h"           /* 风机控制等 */
 #include "bsp_internal_board.h"     /* 手/自动模式查询 */
+#include "bsp_fire_zone.h"         /* V7: 条件锁存按探测器所属分区清除 */
 #include "bsp_key.h"                /* getHandPaperState() */
 #include "bsp_debug.h"              /* DebugPrintf: test trace on UART4 */
 #include "bsp_storage_event.h"  /* A8-1: 黑匣子联动事件存储接口(异步队列, 不阻塞调用) */
@@ -131,6 +132,10 @@ static uint8_t IsDeviceOnline(uint8_t loop_no, uint8_t dev_no)
 
     case 3:
         /* 回路3: RS485探测器在线判断（无设备在线时返回0） */
+        /* XR5000_LOOP3_ONLINE_RELAX_20261112: 与主机火警处理同口径。
+         * 收到过有效传感器数据帧即视为在线, 不要求屏幕在线登记。 */
+        if (RS485Detect_HasSensorData(dev_no) != 0U)
+            return 1;
         return (RS485Detect_IsOnline(dev_no) != 0) ? 1 : 0;
 
     default:
@@ -185,10 +190,8 @@ static uint8_t GetLoopScanMax(uint8_t loop_no)
 static uint8_t ReadSensorState(uint8_t loop_no, uint8_t dev_no, uint8_t sensor_type)
 {
     uint8_t i;           /* 循环计数变量 */
-    uint8_t max_state;   /* 通配查询的最大状态值(仅报警1/2/3) */
-    uint8_t fault;       /* 故障标记(状态8) */
+    uint8_t type;        /* V7: 回路3设备类型, 逐通道报警判定用 */
     uint8_t sensor_idx;  /* RS485传感器索引 */
-    uint8_t s;           /* 单传感器状态（临时变量） */
 
     /* 按回路分发处理 */
     switch (loop_no)
@@ -248,23 +251,26 @@ static uint8_t ReadSensorState(uint8_t loop_no, uint8_t dev_no, uint8_t sensor_t
 
         if (sensor_type == SENSOR_ANY)
         {
-            /* 通配查询: 报警(1/2/3)优先, 无报警时才返回故障(8)。
-             * 不能直接取原始最大值, 否则故障值 8 会压过报警值导致联动不触发。 */
-            max_state = 0;
-            fault = 0;
+            /* V7: 与显示盘/分区报警同口径 —— 逐通道用 RS485Detect_IsAlarmState 判定。
+             * 原来取"所有通道最大原始状态值", 会被 VOC/CH4 等辅助通道的 4/5/6 编码污染,
+             * 导致温度/烟雾通道明明报警, 联动条件却判不成立。 */
+            type = RS485Detect_GetType(dev_no);
             for (i = 0; i < (uint8_t)RS485_SENSOR_COUNT; i++)
             {
-                s = RS485Detect_GetSensorState(dev_no, i);
-                if (s == 8U)
+                if (RS485Detect_IsAlarmState(type, i, RS485Detect_GetSensorState(dev_no, i)) != 0U)
                 {
-                    fault = 8U;
-                }
-                else if (s > max_state)
-                {
-                    max_state = s;
+                    return 1U;  /* 任一通道报警即成立 */
                 }
             }
-            return (max_state != 0U) ? max_state : fault;
+            /* 无报警时保留故障上报(8), 供 LV_FAULT 条件使用 */
+            for (i = 0; i < (uint8_t)RS485_SENSOR_COUNT; i++)
+            {
+                if (RS485Detect_GetSensorState(dev_no, i) == 8U)
+                {
+                    return 8U;
+                }
+            }
+            return 0U;
         }
 
         /* SensorType -> RS485SensorIndex 映射 */
@@ -319,6 +325,108 @@ static uint8_t ReadSensorState(uint8_t loop_no, uint8_t dev_no, uint8_t sensor_t
  * 参数说明：cond - 条件指针（loop_no, dev_no, sensor_type, alarm_level）。
  * 返回值：   1=条件满足, 0=条件不满足
  *--------------------------------------------------------------*/
+
+/*--------------------------------------------------------------
+ * XR5000_COND_LEAF_LATCH_20261112
+ * 条件级锁存: 每个"回路+设备+传感器类型"独立记忆。
+ * 只要某条件成立过一次(哪怕只持续 1 秒), 之后即使设备恢复也继续视为成立,
+ * 直到分区停止/分区复位/系统复位。
+ * 作用: A & B 两个条件不要求同一时刻同时报警, 先后各报一次即可成立。
+ *--------------------------------------------------------------*/
+#define LOGIC_LEAF_LATCH_MAX  16U
+
+typedef struct
+{
+    uint8_t  used;
+    uint8_t  loop_no;
+    uint16_t dev_no;
+    uint8_t  sensor_type;
+} LogicLeafLatch_t;
+
+static LogicLeafLatch_t s_leaf_latch[LOGIC_LEAF_LATCH_MAX];
+
+static void leaf_latch_set(const Cond_t *c)
+{
+    uint8_t i;
+
+    for (i = 0U; i < LOGIC_LEAF_LATCH_MAX; i++)
+    {
+        if ((s_leaf_latch[i].used != 0U) &&
+            (s_leaf_latch[i].loop_no == c->loop_no) &&
+            (s_leaf_latch[i].dev_no == c->dev_no) &&
+            (s_leaf_latch[i].sensor_type == c->sensor_type))
+        {
+            return;
+        }
+    }
+
+    for (i = 0U; i < LOGIC_LEAF_LATCH_MAX; i++)
+    {
+        if (s_leaf_latch[i].used == 0U)
+        {
+            s_leaf_latch[i].used        = 1U;
+            s_leaf_latch[i].loop_no     = c->loop_no;
+            s_leaf_latch[i].dev_no      = c->dev_no;
+            s_leaf_latch[i].sensor_type = c->sensor_type;
+            return;
+        }
+    }
+}
+
+static uint8_t leaf_latch_get(const Cond_t *c)
+{
+    uint8_t i;
+
+    for (i = 0U; i < LOGIC_LEAF_LATCH_MAX; i++)
+    {
+        if ((s_leaf_latch[i].used != 0U) &&
+            (s_leaf_latch[i].loop_no == c->loop_no) &&
+            (s_leaf_latch[i].dev_no == c->dev_no) &&
+            (s_leaf_latch[i].sensor_type == c->sensor_type))
+        {
+            return 1U;
+        }
+    }
+    return 0U;
+}
+
+void LogicDev_ClearLeafLatch(void)
+{
+    uint8_t i;
+    for (i = 0U; i < LOGIC_LEAF_LATCH_MAX; i++)
+    {
+        s_leaf_latch[i].used = 0U;
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：LogicDev_ClearLeafLatchByZone
+ * 功能说明：V7 只清"探测器归属该分区"的条件锁存。
+ *           分区复位时各管各的, 不影响另一分区已成立的条件。
+ * 参数说明：zone - 分区号1..FIRE_ZONE_MAX
+ *--------------------------------------------------------------*/
+void LogicDev_ClearLeafLatchByZone(uint8_t zone)
+{
+    uint8_t i;
+
+    if (zone < 1U)
+    {
+        return;
+    }
+    for (i = 0U; i < LOGIC_LEAF_LATCH_MAX; i++)
+    {
+        if (s_leaf_latch[i].used == 0U)
+        {
+            continue;
+        }
+        if (FireZone_GetDeviceZone(s_leaf_latch[i].loop_no, s_leaf_latch[i].dev_no) != zone)
+        {
+            continue;   /* 不属于本分区, 保留锁存 */
+        }
+        s_leaf_latch[i].used = 0U;
+    }
+}
+
 uint8_t LogicDev_QueryCond(const Cond_t *cond)
 {
     uint8_t i;              /* 通配扫描循环变量 */
@@ -361,10 +469,13 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
                 }
                 return 0;
             }
-            if (IsDeviceOnline(2U, cond->dev_no) == 0U)
+            /* V7: 与屏幕同源 —— 屏幕预警表里有该手报记录即成立 */
+            if (StorageForeWarnExists(2U, cond->dev_no, (uint8_t)SENSOR_HAND_REPORT) != 0U)
             {
-                return 0;   /* 总线手报离线, 不参与判定 */
+                leaf_latch_set(cond);
+                return 1;
             }
+            /* 查表未命中: 回退到实时状态 */
             return (MBusCtrl_GetDeviceState(cond->dev_no) != 0U) ? 1 : 0;
         }
 
@@ -425,12 +536,7 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
         /* 报警扫描: 遍历扫描所有在线探测器 */
         for (i = 0; i < scan_max; i++)
         {
-            /* 跳过离线探测器: 只查询在线设备的状态 */
-            if (IsDeviceOnline(cond->loop_no, i) == 0)
-            {
-                continue;  /* 设备离线，跳过 */
-            }
-
+            /* V7: 离线不影响判定 */
             /* 获取探测器当前状态 */
             state = ReadSensorState(cond->loop_no, i, cond->sensor_type);
 
@@ -451,17 +557,42 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
         return (IsDeviceOnline(cond->loop_no, cond->dev_no) == 0) ? 1 : 0;
     }
 
-    /* 若回路指定探测器是否在线 */
-    if (IsDeviceOnline(cond->loop_no, cond->dev_no) == 0)
+    /* V7: 与屏幕报警列表同源 —— 屏幕有这条报警即成立(故障/离线类不查报警表) */
+    if ((cond->alarm_level != LV_FAULT) && (cond->alarm_level != LV_OFFLINE))
     {
-        return 0;  /* 设备离线，不能参与判断 */
+        if (StorageFireAlarmExists(cond->loop_no, cond->dev_no, cond->sensor_type) != 0U)
+        {
+            leaf_latch_set(cond);
+            return 1U;
+        }
+        if (StorageForeWarnExists(cond->loop_no, cond->dev_no, cond->sensor_type) != 0U)
+        {
+            leaf_latch_set(cond);
+            return 1U;
+        }
     }
 
-    /* 获取探测器当前状态 */
+    /* 查表未命中: 回退到实时状态判断 */
     state = ReadSensorState(cond->loop_no, cond->dev_no, cond->sensor_type);
 
     /* 统一按报警级别匹配: 1/2/3 为报警, 8 为故障 */
-    return MatchAlarmLevel(state, cond->alarm_level);
+    /* XR5000_COND_LEAF_LATCH_20261112: 条件成立即锁存, 之后条件消失也算成立;
+     * 故障/离线类保持实时语义, 不锁存。 */
+    {
+        uint8_t matched = MatchAlarmLevel(state, cond->alarm_level);
+
+        if (matched != 0U)
+        {
+            leaf_latch_set(cond);
+            return 1U;
+        }
+        if ((cond->alarm_level != LV_FAULT) && (cond->alarm_level != LV_OFFLINE) &&
+            (leaf_latch_get(cond) != 0U))
+        {
+            return 1U;
+        }
+        return 0U;
+    }
 }
 
 /*--------------------------------------------------------------
@@ -559,12 +690,8 @@ uint8_t LogicDev_CheckAutoMode(const LogicRule_t *rule)
         return 0;
     }
 
-    /* 系统级=手动时全系统禁止自动执行 */
+    /* 系统级手/自动(全局总闸) */
     sys_auto = (getSysHandAutoState() == KEY_AUTO) ? 1U : 0U;
-    if (sys_auto == 0U)
-    {
-        return 0;
-    }
 
     /* 分区1/分区2 各自的手自动状态 */
     if (rule->zone == 1U)
@@ -577,10 +704,14 @@ uint8_t LogicDev_CheckAutoMode(const LogicRule_t *rule)
     }
     else
     {
-        return 0;  /* 非法分区, 禁止执行 */
+        /* V6: zone=0 为全局规则(标准编程), 只受系统总闸约束 */
+        return sys_auto;
     }
 
-    return zone_auto;
+    /* 系统自动 或 本分区自动 均允许自动执行:
+     * 与基线语义一致(原 EXEC_START_PART 采用"任一自动即可"的宽松判定),
+     * 系统级拨手动只是关闭全局自动, 分区仍处自动时本区联动照常执行。 */
+    return ((sys_auto != 0U) || (zone_auto != 0U)) ? 1U : 0U;
 }
 
 /*--------------------------------------------------------------

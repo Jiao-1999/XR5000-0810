@@ -20,16 +20,16 @@
 
 /* -------------------- ¿ÉÅäÖÃ³£Á¿ -------------------- */
 #define MBUS_CONTROL_MAX_DEVICES         64    /* ×î´óÉè±¸Êı(µØÖ·1~63, Ô¤ÁôÀ©Õ¹) */
+
+/* ´ÓÔ¶¶Ë(origin/master 91925b1)ºÏÈëµÄ×Ô¶¯Í¨Öª¿ª¹Ø, Ä¬ÈÏ 0=ÓÉÍâ²¿²ßÂÔ¶¨Ïò¿ØÖÆ */
+#define MBUS_HAND_AUTO_SOUND_LIGHT_ENABLE      0U  /* 1=ÊÖ±¨×Ô¶¯Æô¶¯È«²¿ÔÚÏßÉù¹â */
+#define MBUS_HAND_AUTO_DISPLAY_ENABLE          0U  /* 1=ÊÖ±¨×Ô¶¯Í¨ÖªÈ«²¿ÔÚÏßÏÔÊ¾ÅÌ */
+#define MBUS_DETECTOR_AUTO_SOUND_LIGHT_ENABLE  0U  /* 1=ÑÌÎÂ»ğ¾¯×Ô¶¯Æô¶¯È«²¿ÔÚÏßÉù¹â */
+#define MBUS_DETECTOR_AUTO_DISPLAY_ENABLE      0U  /* 1=Ì½²âÆ÷ÊÂ¼ş×Ô¶¯Í¨ÖªÈ«²¿ÔÚÏßÏÔÊ¾ÅÌ */
 #define MBUS_CONTROL_DISCONNECT_THRESHOLD 3    /* Á¬ĞøÎŞÏìÓ¦´ÎÊıãĞÖµ, ³¬¹ıÅĞ¶¨µôÏß */
 #define MBUS_CONTROL_FLASH_ADDR          0x110000UL /* FlashÔÚÏß×´Ì¬´æ´¢µØÖ· */
 #define MBUS_CONTROL_LOOP_ID             2     /* »ØÂ·±àºÅ, ÓÃÓÚ¹ÊÕÏ¼ÇÂ¼ÏÔÊ¾ */
 #define MBUS_CONTROL_FLASH_ID            0x52U /* ¹ÊÕÏ´ØID(82´Ø) */
-
-/* »ØÂ·2ÊÖ±¨¹Ì¶¨Áª¶¯¿ª¹Ø£º¹Ø±ÕºóÈÔ±£ÁôÊÖ±¨¼ì²â¡¢Ö÷»ú±¨¾¯¡¢¼ÇÂ¼ºÍ¶ÔÍâ²éÑ¯½Ó¿Ú¡£ */
-#define MBUS_HAND_AUTO_SOUND_LIGHT_ENABLE  0U  /* 1=ÊÖ±¨×Ô¶¯Æô¶¯È«²¿ÔÚÏßÉù¹â£¬0=²»×Ô¶¯Æô¶¯ */
-#define MBUS_HAND_AUTO_DISPLAY_ENABLE      0U  /* 1=ÊÖ±¨×Ô¶¯Í¨ÖªÈ«²¿ÔÚÏßÏÔÊ¾ÅÌ£¬0=²»×Ô¶¯Í¨Öª */
-#define MBUS_DETECTOR_AUTO_SOUND_LIGHT_ENABLE  0U  /* 1=ÑÌÎÂ»ğ¾¯×Ô¶¯Æô¶¯È«²¿ÔÚÏßÉù¹â£¬0=ÓÉÍâ²¿²ßÂÔ¶¨Ïò¿ØÖÆ */
-#define MBUS_DETECTOR_AUTO_DISPLAY_ENABLE      0U  /* 1=Ì½²âÆ÷ÊÂ¼ş×Ô¶¯Í¨ÖªÈ«²¿ÔÚÏßÏÔÊ¾ÅÌ£¬0=ÓÉÍâ²¿²ßÂÔ¶¨Ïò·¢ËÍ */
 
 /* »ØÂ·2¹Ì¶¨Éè±¸µØÖ· */
 
@@ -169,13 +169,9 @@ uint16_t MBusCtrl_GetNationalCode(uint8_t addr);     /* »ñÈ¡Éè±¸¹ú±êÉè±¸ÀàĞÍÂë(¹
 
 /* ---- »ğÔÖÏÔÊ¾ÅÌÊÂ¼şÉÏ±¨(10¹¦ÄÜÂëĞ´¶à¼Ä´æÆ÷) ---- */
 uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type);
-/* ÏòÖ¸¶¨ÏÔÊ¾ÅÌ¼¯ºÏÍÆËÍÊÂ¼ş: display_mask ÎªÏÔÊ¾ÅÌµØÖ·Î»ÑÚÂë(bit1..bit63, 0=ÎŞÄ¿±ê) */
-uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t loop, uint8_t addr, uint8_t detector_type,
-                                        uint8_t alarm_type, uint64_t display_mask);
-/* ÉèÖÃ"»ğ¾¯Ê±ÔÊĞí±»Ç¿ÖÆÆô¶¯"µÄÉù¹âµØÖ·Î»ÑÚÂë(bit1..bit63)¡£
- * Ä¬ÈÏÈ« 1(±£³ÖÔ­ÓĞ"»ğ¾¯È«Éù¹âÆô¶¯"ĞĞÎª); Ó¦ÓÃ²ã°´·ÖÇø±¨¾¯Çé¿öµ÷ÓÃ,
- * Î´ÖÃÎ»µÄÉù¹â²»ÔÙ±»Ç¿ÖÆÈ«¿ª, Ê¹·ÖÇøÉù¹â¸ôÀëÉúĞ§¡£ */
-void MBusCtrl_SetFixedSoundLightMask(uint64_t mask);
+uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t display_addr, uint8_t source_loop,
+                                       uint8_t source_addr, uint8_t detector_type,
+                                       uint8_t alarm_type);   /* Ö»·¢¸øÖ¸¶¨ÏÔÊ¾ÅÌ(Ô¶¶ËºÏÈë) */
 
 /* ---- Í¨ÓÃÒì²½¿ØÖÆ ---- */
 MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request); /* Î¨Ò»ÕıÊ½¿ØÖÆÈë¿Ú£ºÖ»Èë¶Ó£¬²»×èÈûµÈ´ıÉè±¸ */
@@ -183,6 +179,9 @@ MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr);                 /* ²éÑ¯Ö¸¶¨µØÖ·
 /* »ØÂ·1/3¹Ì¶¨ÎÂÑÌ»ğ¾¯»ã×Ü£»»ğ¾¯ÆÚ¼äÉù¹âÇ¿ÖÆÆô¶¯£¬»Ö¸´ºó»Øµ½Âß¼­±à³ÌÄ¿±ê¡£ */
 void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active);
 void MBusCtrl_RequestBroadcastReset(void);
+void MBusCtrl_SetFixedSoundLightMask(uint64_t mask);
+void MBusCtrl_ClearFireDisplayDedup(void);  /* XR5000_FIRE_LATCH_20261112: ·ÖÇø¸´Î»ÇåÏÔÊ¾ÅÌÈ¥ÖØ */
+void MBusCtrl_ResetFireAlarmLatch(void);    /* XR5000_FIRE_LATCH_20261112: ÏµÍ³¸´Î»½â³ı»ğ¾¯Ëø´æ */ /* »ğ¾¯Ç¿ÖÆµãÁÁÉù¹âµÄÎ»ÑÚÂë(°´·ÖÇø) */
 void MBusCtrl_RequestDeviceReset(uint8_t addr);   /* µ¥Ì¨Éè±¸¸´Î»(·ÖÇø¸´Î»ÓÃ) */
 uint8_t MBusCtrl_GetBroadcastResetStatus(void);
 

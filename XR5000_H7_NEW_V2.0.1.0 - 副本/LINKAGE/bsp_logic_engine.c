@@ -30,6 +30,7 @@
 #include "stm32h7xx_hal.h"      /* HAL_GetTick() */
 #include "bsp_debug.h"          /* DebugPrintf: test trace on UART4 */
 #include <string.h>             /* memset */
+#include "bsp_logic_dev.h"       /* XR5000_COND_LEAF_LATCH_20261112: LogicDev_ClearLeafLatch */
 
 /*--------------------------------------------------------------
  * 全局变量区
@@ -47,9 +48,11 @@ static ManualStartFunc_t    s_manualstart_func = NULL;  /* 手动启动键查询回调(手
 static uint8_t s_prev_cond[LOGIC_RULE_MAX];
 /* Test trace: auto-mode-denied message printed once per cond window */
 static uint8_t s_denied_printed[LOGIC_RULE_MAX];
+static uint8_t s_blocked_printed[LOGIC_RULE_MAX];  /* V7: 分区停止闭锁提示的限频标志 */
 
 /* 延时启动: 每条规则的条件首次满足时刻与延时中标志 */
 static uint32_t s_delay_start_tick[LOGIC_RULE_MAX];
+static uint8_t  s_retry_cnt[LOGIC_RULE_MAX];      /* V7: 动作下发失败后的重试计数(失败不清零, 成功/复位清) */
 static uint8_t  s_delaying[LOGIC_RULE_MAX];
 
 /* 联动延时启动时间(毫秒), 运行期可改, 缺省 10 秒 */
@@ -176,6 +179,7 @@ static void LogicEngine_Run(void)
     uint8_t  cond_met;   /* 条件是否满足标志 */
     uint8_t  exec_now;    /* 本周期允许执行标志(自动模式允许 或 手动启动键按下) */
     uint8_t  manual_pass; /* 手动启动键放行标志(1=跳过延时立即执行) */
+    uint32_t zone_delay_ms; /* V6: 本规则联动延时(按分区取值, zone=0为0) */
     LogicRule_t *rules;  /* 规则表首地址 */
     RtRuntime   *rt;     /* 运行时状态数组首地址 */
 
@@ -201,6 +205,20 @@ static void LogicEngine_Run(void)
         /* 评估规则表达式条件是否满足 */
         cond_met = LogicExpr_Evaluate(&rules[i]);
 
+        /* V6: 联动延时按规则所属分区取值; zone=0(全局规则)不延时 */
+        if (rules[i].zone == 1U)
+        {
+            zone_delay_ms = (uint32_t)FireZone_GetZoneDelay(1U) * 1000U;
+        }
+        else if (rules[i].zone == 2U)
+        {
+            zone_delay_ms = (uint32_t)FireZone_GetZoneDelay(2U) * 1000U;
+        }
+        else
+        {
+            zone_delay_ms = 0U;
+        }
+
         /* Test trace: print cond result only on edge (avoid 100ms spam) */
         if (cond_met != s_prev_cond[i])
         {
@@ -208,6 +226,7 @@ static void LogicEngine_Run(void)
             if (cond_met)
             {
                 s_denied_printed[i] = 0;  /* new cond window, allow denied msg again */
+                s_blocked_printed[i] = 0;
             }
             DebugPrintf("[LOGIC] R%d cond %s\r\n", rules[i].rule_id,
                         cond_met ? "MET" : "LOST");
@@ -226,7 +245,16 @@ static void LogicEngine_Run(void)
             if ((rules[i].zone >= 1U) && (rules[i].zone <= (uint8_t)FIRE_ZONE_MAX) &&
                 (s_zone_stop_latch[rules[i].zone - 1U] != 0U))
             {
-                s_delaying[i] = 0U;      /* 闭锁期间不累计延时 */
+                /* V7 诊断: 闭锁期间原本静默跳过, 补一条限频打印, 用于区分
+                 * "条件不成立" 与 "被分区停止闭锁"; 条件窗口内只打一次。 */
+                if (s_blocked_printed[i] == 0U)
+                {
+                    s_blocked_printed[i] = 1U;
+                    DebugPrintf("[LOGIC] R%d BLOCKED by zone%u stop latch (need zone reset)\r\n",
+                                rules[i].rule_id, (unsigned)rules[i].zone);
+                }
+                s_delaying[i] = 0U;
+                s_retry_cnt[i] = 0U;      /* 闭锁期间不累计延时 */
                 s_denied_printed[i] = 0U;
                 continue;                /* 无条件跳过本规则, 状态机保持不动 */
             }
@@ -245,6 +273,7 @@ static void LogicEngine_Run(void)
                         exec_now      = 1U;  /* 手动启动键按下, 放行执行 */
                         manual_pass   = 1U;  /* 手动放行不延时 */
                         s_delaying[i] = 0U;
+                        s_retry_cnt[i] = 0U;
                         DebugPrintf("[LOGIC] R%d manual START key -> exec\r\n",
                                     rules[i].rule_id);
                     }
@@ -252,36 +281,73 @@ static void LogicEngine_Run(void)
 
                 if (exec_now)
                 {
+                    /* 手动放行: 把延时起点前移为"已过延时", 与自动路径统一走下面的执行/重试 */
+                    if ((manual_pass != 0U) && (s_delaying[i] == 0U))
+                    {
+                        s_delaying[i] = 1U;
+                        s_delay_start_tick[i] = HAL_GetTick() - zone_delay_ms - 1U;
+                        s_retry_cnt[i] = 0U;
+                    }
                     /* 首次满足: 记录延时起点 */
-                    if ((s_delaying[i] == 0U) && (manual_pass == 0U))
+                    else if (s_delaying[i] == 0U)
                     {
                         s_delaying[i] = 1U;
                         s_delay_start_tick[i] = HAL_GetTick();
+                        s_retry_cnt[i] = 0U;
                         DebugPrintf("[LOGIC] R%d delay start %ums\r\n",
-                                    rules[i].rule_id, (unsigned)s_action_delay_ms);
+                                    rules[i].rule_id, (unsigned)zone_delay_ms);
                     }
-                    /* 延时已到 或 手动启动键放行: 执行全部动作 */
-                    else if ((manual_pass != 0U) ||
-                             ((uint32_t)(HAL_GetTick() - s_delay_start_tick[i]) >= s_action_delay_ms))
+
+                    /* 延时已到: 逐条下发; 失败的动作保留, 下一拍继续重试 */
+                    if ((uint32_t)(HAL_GetTick() - s_delay_start_tick[i]) >= zone_delay_ms)
                     {
-                        s_delaying[i] = 0U;
-                        DebugPrintf("[LOGIC] R%d delay done, %d action(s)\r\n",
-                                    rules[i].rule_id, rules[i].action_count);
+                        uint8_t all_done = 1U;   /* 本轮是否已把全部动作下发成功 */
 
                         for (j = 0; j < rules[i].action_count; j++)
                         {
-                            ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                                          rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
-                            rt[i].action_done[j] = 1;  /* 标记动作已执行 */
+                            if (rt[i].action_done[j] != 0U)
+                            {
+                                continue;        /* 已成功的动作不再重复下发 */
+                            }
+                            if (ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
+                                              rules[i].actions[j].channel, EffectiveAction(&rules[i], j)) == 0U)
+                            {
+                                rt[i].action_done[j] = 1;   /* 受理成功 */
+                            }
+                            else
+                            {
+                                all_done = 0U;             /* 失败: 保留 action_done=0 待重试 */
+                            }
                         }
 
-                        rt[i].state = RT_EXECUTED;  /* 全部动作已执行 */
+                        if (all_done != 0U)
+                        {
+                            s_delaying[i] = 0U;
+                            s_retry_cnt[i] = 0U;
+                            rt[i].state = RT_EXECUTED;  /* 全部动作已执行 */
+                            DebugPrintf("[LOGIC] R%d all %d action(s) done\r\n",
+                                        rules[i].rule_id, rules[i].action_count);
+                        }
+                        else
+                        {
+                            /* 保持 s_delaying=1 与延时起点, 下拍继续重试失败动作 */
+                            if (s_retry_cnt[i] < 255U)
+                            {
+                                s_retry_cnt[i]++;
+                            }
+                            if ((s_retry_cnt[i] == 1U) || ((s_retry_cnt[i] % 50U) == 0U))
+                            {
+                                DebugPrintf("[LOGIC] R%d exec retry #%u (device not ready)\r\n",
+                                            rules[i].rule_id, (unsigned)s_retry_cnt[i]);
+                            }
+                        }
                     }
                 }
                 /* 不允许执行: 取消本次延时, 等待手动介入 */
                 else
                 {
                     s_delaying[i] = 0U;
+                    s_retry_cnt[i] = 0U;
                     /* Test trace: print once per cond window */
                     if (!s_denied_printed[i])
                     {
@@ -295,12 +361,14 @@ static void LogicEngine_Run(void)
             {
                 /* 条件未满足: 清延时状态 */
                 s_delaying[i] = 0U;
+                s_retry_cnt[i] = 0U;
             }
             break;
 
         /*--- EXECUTED状态：输出已锁存，只能人工停止 ---*/
         case RT_EXECUTED:
-            s_delaying[i] = 0U;  /* 防御: 已执行态清除延时中标志 */
+            s_delaying[i] = 0U;
+            s_retry_cnt[i] = 0U;  /* 防御: 已执行态清除延时中标志 */
             /* 需求: 联动输出一旦启动就保持, 报警条件消失也不自动停止。
              * 只有以下人工操作会下发 STOP:
              *   - 分区停止键   -> LogicEngine_ManualStopZone()
@@ -313,7 +381,8 @@ static void LogicEngine_Run(void)
             /* 复位运行时状态，回到IDLE等待下一次触发 */
             memset(&rt[i], 0, sizeof(RtRuntime));
             rt[i].state = RT_IDLE;
-            s_delaying[i] = 0U;             /* 清除延时中标志 */
+            s_delaying[i] = 0U;
+            s_retry_cnt[i] = 0U;             /* 清除延时中标志 */
             s_delay_start_tick[i] = 0U;     /* 清除延时起点时刻 */
             break;
 
@@ -321,7 +390,8 @@ static void LogicEngine_Run(void)
         default:
             memset(&rt[i], 0, sizeof(RtRuntime));
             rt[i].state = RT_IDLE;
-            s_delaying[i] = 0U;             /* 清除延时中标志 */
+            s_delaying[i] = 0U;
+            s_retry_cnt[i] = 0U;             /* 清除延时中标志 */
             s_delay_start_tick[i] = 0U;     /* 清除延时起点时刻 */
             break;
         }
@@ -364,13 +434,14 @@ uint32_t LogicEngine_GetActionDelay(void)
  *           规则的全部动作(不经过延时), 供分区启动按键调用。
  * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
  *--------------------------------------------------------------*/
-void LogicEngine_ManualStartZone(uint8_t zone)
+uint8_t LogicEngine_ManualStartZone(uint8_t zone)
 {
     LogicRule_t *rules;
     RtRuntime   *rt;
     uint8_t i, j;
+    uint8_t executed = 0U;   /* 实际下发 START 的动作数 */
 
-    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return 0U;
 
     rules = LogicExpr_GetTable();
     rt    = LogicExpr_GetRuntime();
@@ -387,12 +458,16 @@ void LogicEngine_ManualStartZone(uint8_t zone)
             ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
                           rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
             rt[i].action_done[j] = 1U;
+            executed++;
         }
         rt[i].state = RT_EXECUTED;
         s_delaying[i] = 0U;
+        s_retry_cnt[i] = 0U;
         DebugPrintf("[LOGIC] R%d manual START zone%d (%d action)\r\n",
                     rules[i].rule_id, (int)zone, rules[i].action_count);
     }
+
+    return executed;
 }
 
 /*--------------------------------------------------------------
@@ -401,13 +476,14 @@ void LogicEngine_ManualStartZone(uint8_t zone)
  *           清除本区延时计时。
  * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
  *--------------------------------------------------------------*/
-void LogicEngine_ManualStopZone(uint8_t zone)
+uint8_t LogicEngine_ManualStopZone(uint8_t zone)
 {
     LogicRule_t *rules;
     RtRuntime   *rt;
     uint8_t i, j;
+    uint8_t stopped = 0U;    /* 实际下发 STOP 的动作数 */
 
-    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
+    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return 0U;
 
     s_zone_stop_latch[zone - 1U] = 1U;  /* 闭锁: 条件仍成立也不再自动重启 */
 
@@ -426,12 +502,17 @@ void LogicEngine_ManualStopZone(uint8_t zone)
                 ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
                               rules[i].actions[j].channel, 0U);
                 rt[i].action_done[j] = 0U;
+                stopped++;
             }
         }
         s_delaying[i] = 0U;
+        s_retry_cnt[i] = 0U;
         rt[i].state = RT_DONE;
         DebugPrintf("[LOGIC] R%d manual STOP zone%d\r\n", rules[i].rule_id, (int)zone);
     }
+
+    LogicDev_ClearLeafLatchByZone(zone);   /* V7: 只清本分区探测器产生的条件锁存 */
+    return stopped;
 }
 
 /*--------------------------------------------------------------
@@ -453,9 +534,11 @@ void LogicEngine_CancelZoneDelay(uint8_t zone)
         if (rules[i].rule_id == 0U) continue;
         if (rules[i].zone != zone) continue;  /* 只处理本分区规则 */
 
-        s_delaying[i] = 0U;            /* 清除延时中标志 */
+        s_delaying[i] = 0U;
+        s_retry_cnt[i] = 0U;            /* 清除延时中标志 */
         s_delay_start_tick[i] = 0U;    /* 清除延时起点时刻 */
     }
+    LogicDev_ClearLeafLatchByZone(zone);   /* V7: 只清本分区探测器产生的条件锁存 */
     LogicEngine_ClearZoneStopLatch(zone);  /* 分区复位一并解除停止闭锁 */
     DebugPrintf("[LOGIC] zone%d delay cancelled\r\n", (int)zone);
 }
@@ -495,9 +578,12 @@ void LogicEngine_Init(void)
     {
         memset(&rt[i], 0, sizeof(RtRuntime));  /* 清零 */
         rt[i].state = RT_IDLE;                  /* 设置为空闲状态 */
-        s_delaying[i] = 0U;                     /* 清除延时中标志 */
+        s_delaying[i] = 0U;
+        s_retry_cnt[i] = 0U;                     /* 清除延时中标志 */
         s_delay_start_tick[i] = 0U;             /* 清除延时起点时刻 */
     }
+
+    LogicDev_ClearLeafLatch();  /* XR5000_COND_LEAF_LATCH_20261112: 系统复位全表清一次 */
 }
 
 /*--------------------------------------------------------------

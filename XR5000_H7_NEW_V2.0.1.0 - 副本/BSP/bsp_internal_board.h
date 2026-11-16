@@ -131,4 +131,7 @@ uint8_t getPart2HandAutoState(void);
 // 自检状态
 uint8_t getControllorSelfCheckState(void);
 
+/* 检修开关状态(V6新增): 1=检修 0=运行; 由按键板上报Bit4刷新, 不落盘 */
+extern uint8_t g_maintenance_state;
+
 #endif

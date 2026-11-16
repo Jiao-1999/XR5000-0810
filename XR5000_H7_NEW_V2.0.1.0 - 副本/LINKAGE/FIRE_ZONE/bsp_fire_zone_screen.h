@@ -25,6 +25,8 @@
  *--------------------------------------------------------------*/
 
 #define FIRE_ZONE_SCREEN_ID     84U  /* ·À»ğ·ÖÇø»­ÃæID(ÓëÆÁ¹¤³ÌÒ»ÖÂ) */
+#define FIRE_ZONE_SCREEN_MAIN   95U  /* ĞÂ·À»ğ·ÖÇø(ÆøÃğ·ÖÇø×ÜÀÀ, 2026-11ĞÂÔö) */
+#define FIRE_ZONE_SCREEN_DEV    96U  /* ·À»ğ·ÖÇøÉè±¸¹ÜÀí(°´ÀàÂ¼ÈëÉè±¸, 2026-11ĞÂÔö) */
 #define FIRE_ZONE_PAGE_ZONES    2U   /* Ã¿Ò³·ÖÇø²ÛÊı(2¸ö·ÖÇø, µ¥Ò³ÎŞ·­Ò³) */
 #define FIRE_ZONE_PAGE_MAX      1U   /* ×ÜÒ³Êı(2·ÖÇøµ¥Ò³, ·­Ò³¼ü±£Áôµ«ºöÂÔ) */
 
@@ -78,6 +80,7 @@ typedef enum {
     FZ_DEV_MANUAL   = FZ_SLOT_MANUAL,     /* ÊÖ±¨        »ØÂ·2 (XR2200) */
     FZ_DEV_SIREN    = FZ_SLOT_SIREN,      /* Éù¹â        »ØÂ·2 (SGBJQ) */
     FZ_DEV_DISPLAY  = FZ_SLOT_DISPLAY,    /* »ğÔÖÏÔÊ¾ÅÌ  »ØÂ·2 */
+    FZ_DEV_MODULE   = FZ_SLOT_MODULE,     /* ÊäÈëÊä³öÄ£¿é »ØÂ·2 (FCM1011/FCM1012, V6ĞÂÔö) */
     FZ_DEV_TYPE_COUNT = FZ_SLOT_COUNT
 } FireZoneDevType;
 
@@ -90,5 +93,13 @@ void FireZoneScreen_UpdateUI(uint16_t screen_id);   /* »­ÃæË¢ĞÂ(½øÈëÈ«Ë¢/Í£Áô²î·
 void FireZoneScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state); /* °´Å¥´¦Àí(ÆôÓÃÇĞ»»/·µ»Ø; ·­Ò³¼üÖ±½ÓºöÂÔ) */
 uint8_t FireZoneScreen_NotifyText(uint16_t screen_id, uint16_t control_id, const uint8_t *text); /* ÎÄ±¾ÊäÈë´¦Àí(·ÖÇøÃû/Éè±¸·¶Î§/ÏµÍ³¼¶Éè±¸) ·µ»Ø1=ÒÑ´¦Àí */
 void FireZoneScreen_OnZoneChanged(void);            /* ·ÖÇøÊı¾İ±ä¸ü»Øµ÷(MODEL²ãÍ¨Öª, ÖÃÔà±êÖ¾) */
+
+/*--------------------------------------------------------------
+ * APIÉùÃ÷ - »­Ãæ96±à¼­·ÖÇøÉÏÏÂÎÄ
+ *    ÓÉ»­Ãæ95µÄ°´Å¥8/26Éè¶¨: 1=·ÖÇø1, 2=·ÖÇø2;
+ *    »­Ãæ96µÄ8ĞĞÉè±¸Â¼ÈëÈ«²¿Ğ´Èë¸Ã·ÖÇø¡£
+ *--------------------------------------------------------------*/
+void    FireZoneScreen_SetDevZone(uint8_t zone);
+uint8_t FireZoneScreen_GetDevZone(void);
 
 #endif /* __BSP_FIRE_ZONE_SCREEN_H */

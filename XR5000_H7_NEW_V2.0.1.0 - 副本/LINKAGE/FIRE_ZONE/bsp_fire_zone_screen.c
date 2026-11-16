@@ -30,6 +30,8 @@
 #include "bsp_rs485_detect.h"       /* 回路3探测器在线状态/产品码 */
 #include "bsp_debug.h"              /* DebugPrintf调试打印 */
 #include "hmi_driver.h"             /* SetTextValue屏幕写文本接口 */
+#include "system.h"                /* SystemSaveInfo: 分区手/自动状态 */
+#include "bsp_internal_board.h"    /* g_maintenance_state: 检修开关状态 */
 
 #include <string.h>                 /* strcmp/strncpy/strlen */
 #include <stdio.h>                  /* sprintf */
@@ -67,6 +69,46 @@ static const uint8_t s_fz_sys[FZ_SYS_COUNT] =
 
 /* 提示条自动清空时间(ms) */
 #define FZ_TIP_TIMEOUT  3000U
+/*--------------------------------------------------------------
+ * 画面95(新防火分区)控件ID - 与屏工程"新防火分区.tft"核对
+ *   分区1: 7=手/自动回显 8=进96 9=延时输入 10=进43
+ *   分区2: 25=手/自动回显 26=进96 24=延时输入 27=进43
+ *   系统级: 15=运行/检修 12=显示盘 16=手报 28=声光
+ *--------------------------------------------------------------*/
+#define FZ95_TXT_MODE_Z1    7U
+#define FZ95_TXT_MODE_Z2    25U
+#define FZ95_BTN_DEV_Z1     8U
+#define FZ95_BTN_DEV_Z2     26U
+#define FZ95_IN_DELAY_Z1    9U
+#define FZ95_IN_DELAY_Z2    24U
+#define FZ95_BTN_LOGIC_Z1   10U
+#define FZ95_BTN_LOGIC_Z2   27U
+#define FZ95_TXT_RUN        15U
+
+/* 画面96(设备管理)每行控件与槽位映射: 视觉顺序为
+ * 温度/烟雾/可燃气体/复合/声光/手报/显示盘/输入输出模块,
+ * 注意"声光"排在"手报"之前, 与画面84的顺序相反 */
+static const uint8_t s_dev_row_ctrl[FZ_DEV_TYPE_COUNT] = { 9U, 11U, 13U, 15U, 17U, 19U, 23U, 25U };
+static const uint8_t s_dev_row_slot[FZ_DEV_TYPE_COUNT] =
+{
+    FZ_SLOT_TEMP, FZ_SLOT_SMOKE, FZ_SLOT_GAS, FZ_SLOT_COMPOUND,
+    FZ_SLOT_SIREN, FZ_SLOT_MANUAL, FZ_SLOT_DISPLAY, FZ_SLOT_MODULE
+};
+
+/* 各槽位对应回路号(下标=FZ_SLOT_*) */
+static const uint8_t s_dev_slot_loop[FZ_SLOT_COUNT] =
+{
+    1U, 1U, 3U, 3U, 2U, 2U, 2U, 2U
+};
+
+/* 画面95/96运行状态 */
+static uint8_t s_dev_zone = 1U;    /* 画面96当前编辑分区(1/2), 由画面95的8/26设定 */
+static uint8_t s_in95 = 0U;        /* 画面95进入标志(进入时全刷) */
+static uint8_t s_in96 = 0U;        /* 画面96进入标志(进入时回显) */
+static char s_last95_mode[FIRE_ZONE_MAX][8];   /* 手/自动回显缓存 */
+static char s_last95_delay[FIRE_ZONE_MAX][4];  /* 延时回显缓存 */
+static char s_last95_run[8];                   /* 运行/检修回显缓存 */
+static char s_last96[FZ_DEV_TYPE_COUNT][FIRE_ZONE_DISP_LEN]; /* 96各行回显缓存 */
 
 /*--------------------------------------------------------------
  * 2. 内部状态变量
@@ -80,7 +122,7 @@ static char s_tip[24];         /* 提示条当前文本 */
 /* 差分刷新缓存: 每栏显示文本(设备栏=屏端输入的规范化文本, 名称最长15字节)。
  * 设备栏缓存按全部分区组织([分区0-7][类型0-5]): 翻页/重进画面时
  * 直接恢复对应分区内容, 不受当前页影响 */
-static char s_last_dev[FIRE_ZONE_MAX][FZ_DEV_TYPE_COUNT][FIRE_ZONE_NAME_LEN];
+static char s_last_dev[FIRE_ZONE_MAX][FZ_DEV_TYPE_COUNT][FIRE_ZONE_DISP_LEN];
 static char s_last_name[FIRE_ZONE_PAGE_ZONES][FIRE_ZONE_NAME_LEN];
 static char s_last_zone[FIRE_ZONE_PAGE_ZONES][4];  /* 分区号文本("1"~"8") */
 static char s_last_en[FIRE_ZONE_PAGE_ZONES][8];    /* 启用状态("启用"/"停用") */
@@ -206,8 +248,8 @@ static void SendDiff(uint16_t ctrl, const char *buf, char *last, uint8_t force)
 {
     if (force || (strcmp(buf, last) != 0))
     {
-        strncpy(last, buf, FIRE_ZONE_NAME_LEN - 1U);
-        last[FIRE_ZONE_NAME_LEN - 1U] = '\0';
+        strncpy(last, buf, FIRE_ZONE_DISP_LEN - 1U);
+        last[FIRE_ZONE_DISP_LEN - 1U] = '\0';
         SetTextValue(FIRE_ZONE_SCREEN_ID, ctrl, (uint8_t *)buf);
     }
 }
@@ -285,6 +327,10 @@ static void RefreshPage(uint8_t force)
          * 不从分区表反推; force=1时把缓存重写回屏(重进画面/翻页后恢复) */
         for (type = 0; type < FZ_DEV_TYPE_COUNT; type++)
         {
+            if (s_fz_dev[type][slot] == 0U)
+            {
+                continue;   /* 84画面无此设备栏(第8类输入输出模块) */
+            }
             SendDiff(s_fz_dev[type][slot], s_last_dev[zone - 1U][type],
                      s_last_dev[zone - 1U][type], force);
         }
@@ -705,6 +751,368 @@ static void HandleSysInput(uint8_t kind, const char *text)
 }
 
 /*--------------------------------------------------------------
+ * 函数名称：SendDiffEx
+ * 功能说明：通用差分写屏(带画面号与缓存长度), 供画面95/96使用。
+ *--------------------------------------------------------------*/
+static void SendDiffEx(uint16_t screen, uint16_t ctrl, const char *buf,
+                       char *last, uint16_t lastlen, uint8_t force)
+{
+    if ((force != 0U) || (strcmp(buf, last) != 0))
+    {
+        strncpy(last, buf, (size_t)(lastlen - 1U));
+        last[lastlen - 1U] = (char)0;
+        SetTextValue(screen, ctrl, (uint8_t *)buf);
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：Refresh95
+ * 功能说明：刷新画面95(分区1/2手自动、分区延时、运行/检修)。
+ *           进入时force=1全量刷新, 停留期差分刷新。
+ *--------------------------------------------------------------*/
+static void Refresh95(uint8_t force)
+{
+    char buf[16];
+
+    /* 分区1/2 手自动: 1=手动 2=自动(数据源与联动引擎判定同源) */
+    strcpy(buf, (SystemSaveInfo.part1_hand_or_auto_state == KEY_MANUAL) ? "手动" : "自动");
+    SendDiffEx(FIRE_ZONE_SCREEN_MAIN, FZ95_TXT_MODE_Z1, buf, s_last95_mode[0], 8U, force);
+
+    strcpy(buf, (SystemSaveInfo.part2_hand_or_auto_state == KEY_MANUAL) ? "手动" : "自动");
+    SendDiffEx(FIRE_ZONE_SCREEN_MAIN, FZ95_TXT_MODE_Z2, buf, s_last95_mode[1], 8U, force);
+
+    /* 分区联动延时(秒) */
+    sprintf(buf, "%u", (unsigned)FireZone_GetZoneDelay(1U));
+    SendDiffEx(FIRE_ZONE_SCREEN_MAIN, FZ95_IN_DELAY_Z1, buf, s_last95_delay[0], 4U, force);
+
+    sprintf(buf, "%u", (unsigned)FireZone_GetZoneDelay(2U));
+    SendDiffEx(FIRE_ZONE_SCREEN_MAIN, FZ95_IN_DELAY_Z2, buf, s_last95_delay[1], 4U, force);
+
+    /* 系统级: 运行/检修(按键板KEY8检修开关) */
+    strcpy(buf, (g_maintenance_state != 0U) ? "检修" : "运行");
+    SendDiffEx(FIRE_ZONE_SCREEN_MAIN, FZ95_TXT_RUN, buf, s_last95_run, 8U, force);
+
+    /* 系统级设备三栏(16=手报 28=声光 12=显示盘): 进入画面时回显一次 */
+    if (force != 0U)
+    {
+        static const uint16_t sys95[FZ_SYS_COUNT] = { 16U, 28U, 12U };
+        uint8_t k;
+        char tmp[FIRE_ZONE_DISP_LEN];
+        for (k = 0U; k < FZ_SYS_COUNT; k++)
+        {
+            FireZone_GetSysDisp(k, tmp);
+            SetTextValue(FIRE_ZONE_SCREEN_MAIN, sys95[k], (uint8_t *)tmp);
+        }
+    }
+}
+
+#define FZ_DEV_ADDR_MAX   128U   /* 单行最多解析出的地址数(回路1上限100) */
+
+/*--------------------------------------------------------------
+ * 函数名称：DevRowMaxAddr
+ * 功能说明：取该回路设备地址上限(取自各BSP模块宏, 与数据层一致)。
+ *--------------------------------------------------------------*/
+static uint16_t DevRowMaxAddr(uint8_t loop)
+{
+    switch (loop)
+    {
+    case 1: return (uint16_t)MIXTURE_DEVICE_MAX_ADDR;
+    case 2: return (uint16_t)(MBUS_CONTROL_MAX_DEVICES - 1U);
+    case 3: return (uint16_t)(RS485_DETECT_MAX_DEVICES - 1U);
+    default: return 0U;
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：AddrPush
+ * 功能说明：地址去重追加, 返回1=已满。
+ *--------------------------------------------------------------*/
+static uint8_t AddrPush(uint16_t *addrs, uint16_t *n, uint16_t v)
+{
+    uint16_t k;
+    for (k = 0U; k < *n; k++)
+    {
+        if (addrs[k] == v)
+        {
+            return 0U;   /* 重复地址, 忽略 */
+        }
+    }
+    if (*n >= FZ_DEV_ADDR_MAX)
+    {
+        return 1U;
+    }
+    addrs[(*n)++] = v;
+    return 0U;
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：ParseDevList
+ * 功能说明：解析一行的设备列表文本, 语法:
+ *             项 ("," 项)* , 项 = LLAAA | LLAAA.LLAAA | LLAAA-LLAAA
+ *           分隔符用半角逗号, 兼容全角逗号(任何非数字字符均跳过);
+ *           # 结束符可有可无, 自动忽略; 起止反序自动交换。
+ * 返回值   ：0=成功 1=格式错误 2=回路不符 3=地址越界 4=数量超限
+ *--------------------------------------------------------------*/
+static uint8_t ParseDevList(const char *text, uint8_t loop_no, uint16_t *addrs, uint16_t *count)
+{
+    uint16_t i = 0U;
+    uint16_t n = 0U;
+    uint16_t dmax = DevRowMaxAddr(loop_no);
+
+    *count = 0U;
+    if (text == NULL || dmax == 0U)
+    {
+        return 1U;
+    }
+
+    while (text[i] != (char)0)
+    {
+        uint8_t digits = 0U;
+        uint8_t val[5];
+        uint16_t l;
+        uint16_t a;
+
+        /* 跳过非数字字符: 逗号/空格/全角逗号/# 等 */
+        if ((text[i] < (char)48) || (text[i] > (char)57))
+        {
+            i++;
+            continue;
+        }
+
+        /* 第一组5位: 回路2位 + 地址3位 */
+        while ((digits < 5U) && (text[i] >= (char)48) && (text[i] <= (char)57))
+        {
+            val[digits++] = (uint8_t)(text[i] - (char)48);
+            i++;
+        }
+        if (digits != 5U)
+        {
+            return 1U;
+        }
+        l = (uint16_t)((uint16_t)val[0] * 10U + (uint16_t)val[1]);
+        a = (uint16_t)((uint16_t)val[2] * 100U + (uint16_t)val[3] * 10U + (uint16_t)val[4]);
+        if (l != (uint16_t)loop_no)
+        {
+            return 2U;
+        }
+        if ((a < 1U) || (a > dmax))
+        {
+            return 3U;
+        }
+
+        if ((text[i] == (char)46) || (text[i] == (char)45))
+        {
+            uint16_t b;
+            i++;
+            digits = 0U;
+            while ((digits < 5U) && (text[i] >= (char)48) && (text[i] <= (char)57))
+            {
+                val[digits++] = (uint8_t)(text[i] - (char)48);
+                i++;
+            }
+            if (digits != 5U)
+            {
+                return 1U;
+            }
+            if ((uint16_t)((uint16_t)val[0] * 10U + (uint16_t)val[1]) != (uint16_t)loop_no)
+            {
+                return 2U;
+            }
+            b = (uint16_t)((uint16_t)val[2] * 100U + (uint16_t)val[3] * 10U + (uint16_t)val[4]);
+            if ((b < 1U) || (b > dmax))
+            {
+                return 3U;
+            }
+            if (a > b)
+            {
+                uint16_t tmp = a;
+                a = b;
+                b = tmp;   /* 起止反序自动交换 */
+            }
+            while (a <= b)
+            {
+                if (AddrPush(addrs, &n, a) != 0U)
+                {
+                    return 4U;
+                }
+                a++;
+            }
+        }
+        else
+        {
+            if (AddrPush(addrs, &n, a) != 0U)
+            {
+                return 4U;
+            }
+        }
+    }
+
+    *count = n;
+    return 0U;
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：SortAddrs
+ * 功能说明：地址升序插入排序(地址数<=128, 开销可忽略)。
+ *--------------------------------------------------------------*/
+static void SortAddrs(uint16_t *a, uint16_t n)
+{
+    uint16_t i;
+    uint16_t j;
+    for (i = 1U; i < n; i++)
+    {
+        uint16_t v = a[i];
+        j = i;
+        while ((j > 0U) && (a[j - 1U] > v))
+        {
+            a[j] = a[j - 1U];
+            j--;
+        }
+        a[j] = v;
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：BuildDevListText
+ * 功能说明：把地址集合压缩成显示文本: 连续段合并为 LLAAA.LLBBB,
+ *           单点保留 LLAAA, 段间用半角逗号分隔。
+ *           压缩后仍超缓冲容量时改写为"已录入N台"。
+ *--------------------------------------------------------------*/
+static void BuildDevListText(uint16_t *addrs, uint16_t count, uint8_t loop, char *out, uint16_t outsize)
+{
+    uint16_t i = 0U;
+    uint16_t len = 0U;
+
+    out[0] = (char)0;
+    if (count == 0U)
+    {
+        return;
+    }
+
+    SortAddrs(addrs, count);
+
+    while (i < count)
+    {
+        uint16_t j = i;
+        char seg[24];
+        int sl;
+        while (((j + 1U) < count) && (addrs[j + 1U] == (uint16_t)(addrs[j] + 1U)))
+        {
+            j++;
+        }
+        if (j == i)
+        {
+            sl = sprintf(seg, "%02u%03u", (unsigned)loop, (unsigned)addrs[i]);
+        }
+        else
+        {
+            sl = sprintf(seg, "%02u%03u.%02u%03u", (unsigned)loop, (unsigned)addrs[i], (unsigned)loop, (unsigned)addrs[j]);
+        }
+        if (((uint16_t)sl + len + 1U) >= outsize)
+        {
+            sprintf(out, "已录入%u台", (unsigned)count);
+            return;
+        }
+        if (len > 0U)
+        {
+            out[len++] = (char)44;
+        }
+        memcpy(&out[len], seg, (size_t)sl);
+        len += (uint16_t)sl;
+        out[len] = (char)0;
+        i = j + 1U;
+    }
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：HandleDevListInput
+ * 功能说明：画面96单行设备列表录入(覆盖式)。
+ *           1) 解析新输入; 2) 按该行旧文本清除本分区旧归属;
+ *           3) 写入新集合; 4) 压缩回显。
+ *           落盘延迟到离开画面时由FlushPendingSave统一执行。
+ *           解析失败不修改任何分区数据, 把原因回写到该行输入框。
+ *--------------------------------------------------------------*/
+static void HandleDevListInput(uint8_t row, const char *text)
+{
+    static uint16_t old_addrs[FZ_DEV_ADDR_MAX];
+    static uint16_t new_addrs[FZ_DEV_ADDR_MAX];
+    uint16_t old_n = 0U;
+    uint16_t new_n = 0U;
+    uint16_t k;
+    uint8_t slot;
+    uint8_t loop;
+    uint8_t err;
+    char oldtext[FIRE_ZONE_DISP_LEN];
+    char disp[FIRE_ZONE_DISP_LEN];
+    const char *msg;
+
+    if ((row >= FZ_DEV_TYPE_COUNT) || (text == NULL))
+    {
+        return;
+    }
+    if ((s_dev_zone < 1U) || (s_dev_zone > (uint8_t)FIRE_ZONE_SLOT_MAX))
+    {
+        return;
+    }
+
+    slot = s_dev_row_slot[row];
+    loop = s_dev_slot_loop[slot];
+
+    /* 清空约定: 空串或单个 0 */
+    if ((text[0] == (char)0) || ((text[0] == (char)48) && (text[1] == (char)0)))
+    {
+        err = 0U;
+        new_n = 0U;
+    }
+    else
+    {
+        err = ParseDevList(text, loop, new_addrs, &new_n);
+    }
+
+    if (err != 0U)
+    {
+        switch (err)
+        {
+        case 1U: msg = "格式错误"; break;
+        case 2U: msg = "回路不符"; break;
+        case 3U: msg = "地址越界"; break;
+        default: msg = "数量超限"; break;
+        }
+        SetTextValue(FIRE_ZONE_SCREEN_DEV, s_dev_row_ctrl[row], (uint8_t *)msg);
+        DebugPrintf("[FZS96] row%u err=%u\r\n", (unsigned)row, (unsigned)err);
+        return;
+    }
+
+    BeginEditSession();   /* 只改RAM, 离开画面时统一落盘一次 */
+
+    /* 1. 清除该行旧文本列出的、属于本分区的地址 */
+    FireZone_GetSlotDisp(s_dev_zone, slot, oldtext);
+    if (ParseDevList(oldtext, loop, old_addrs, &old_n) == 0U)
+    {
+        for (k = 0U; k < old_n; k++)
+        {
+            (void)FireZone_ClearDevice(s_dev_zone, loop, old_addrs[k]);
+        }
+    }
+
+    /* 2. 写入新集合(独占语义: 若该地址原属另一分区, 会自动移出) */
+    for (k = 0U; k < new_n; k++)
+    {
+        (void)FireZone_SetZoneRange(s_dev_zone, loop, (uint8_t)new_addrs[k], (uint8_t)new_addrs[k]);
+    }
+
+    /* 3. 压缩回显并保存显示文本 */
+    BuildDevListText(new_addrs, new_n, loop, disp, (uint16_t)sizeof(disp));
+    (void)FireZone_SetSlotDisp(s_dev_zone, slot, disp);
+    strncpy(s_last96[row], disp, FIRE_ZONE_DISP_LEN - 1U);
+    s_last96[row][FIRE_ZONE_DISP_LEN - 1U] = (char)0;
+    SetTextValue(FIRE_ZONE_SCREEN_DEV, s_dev_row_ctrl[row], (uint8_t *)disp);
+
+    DebugPrintf("[FZS96] z%u slot%u n=%u %s\r\n",
+                (unsigned)s_dev_zone, (unsigned)slot, (unsigned)new_n, disp);
+}
+
+/*--------------------------------------------------------------
  * 8. 对外接口
  *--------------------------------------------------------------*/
 
@@ -717,27 +1125,67 @@ static void HandleSysInput(uint8_t kind, const char *text)
  *--------------------------------------------------------------*/
 void FireZoneScreen_UpdateUI(uint16_t screen_id)
 {
-    if (screen_id != FIRE_ZONE_SCREEN_ID)
+    /* 画面95: 气灭分区总览 */
+    if (screen_id == FIRE_ZONE_SCREEN_MAIN)
     {
-        /* 离开画面(返回键屏端自跳/被切走): 擦写在此处执行,
-         * 此时画面已切换, 忙等45~400ms不影响用户操作 */
-        FlushPendingSave();
-        s_in_page = 0;        /* 记录离开画面, 下次进入强制全刷 */
+        s_in96 = 0U;
+        if (s_in95 == 0U)
+        {
+            FlushPendingSave();   /* 首次进入(含从96返回): 统一落盘一次 */
+            s_in95 = 1U;
+            Refresh95(1U);       /* 进入: 全量刷新 */
+        }
+        else
+        {
+            Refresh95(0U);       /* 停留: 差分刷新 */
+        }
         return;
     }
+
+    /* 画面96: 分区设备管理 */
+    if (screen_id == FIRE_ZONE_SCREEN_DEV)
+    {
+        s_in95 = 0U;
+        if (s_in96 == 0U)
+        {
+            uint8_t i;
+            FlushPendingSave();   /* 首次进入: 先清掉84遗留的挂起修改 */
+            s_in96 = 1U;
+            /* 进入: 按当前编辑分区回显8行设备列表 */
+            for (i = 0U; i < FZ_DEV_TYPE_COUNT; i++)
+            {
+                FireZone_GetSlotDisp(s_dev_zone, s_dev_row_slot[i], s_last96[i]);
+                SetTextValue(FIRE_ZONE_SCREEN_DEV, s_dev_row_ctrl[i], (uint8_t *)s_last96[i]);
+            }
+            DebugPrintf("[FZS96] enter zone=%u\r\n", (unsigned)s_dev_zone);
+        }
+        return;
+    }
+
+    if (screen_id != FIRE_ZONE_SCREEN_ID)
+    {
+        FlushPendingSave();
+        s_in_page = 0U;
+        s_in95 = 0U;
+        s_in96 = 0U;
+        return;
+    }
+
+    s_in95 = 0U;
+    s_in96 = 0U;
 
     if (s_in_page == 0U)
     {
-        s_in_page = 1U;        /* 进入画面 */
-        s_page = 0U;           /* 回到第1页(分区1~4) */
-        s_tip[0] = '\0';       /* 清提示 */
-        RestoreDispCache();    /* 恢复显示文本缓存(Flash已存内容) */
-        RefreshPage(1);        /* 首帧全量刷新 */
+        s_in_page = 1U;
+        s_page = 0U;
+        s_tip[0] = (char)0;
+        RestoreDispCache();
+        RefreshPage(1U);
         return;
     }
 
-    TipTimeoutCheck();      /* 提示条3秒超时清空 */
-    RefreshPage(0);         /* 差分刷新(输入路径已即时回显, 此处兜底) */
+    TipTimeoutCheck();
+    RefreshPage(0U);
 }
 
 /*--------------------------------------------------------------
@@ -818,6 +1266,78 @@ uint8_t FireZoneScreen_NotifyText(uint16_t screen_id, uint16_t control_id, const
 {
     uint8_t type;         /* 设备类型游标 */
     uint8_t slot;         /* 槽位游标 */
+
+    /* 画面95: 分区联动延时输入(9=分区1, 24=分区2), 范围0-30秒 */
+    if (screen_id == FIRE_ZONE_SCREEN_MAIN)
+    {
+        unsigned int uv = 0U;
+        uint8_t zone;
+        if (control_id == FZ95_IN_DELAY_Z1)
+        {
+            zone = 1U;
+        }
+        else if (control_id == FZ95_IN_DELAY_Z2)
+        {
+            zone = 2U;
+        }
+        else
+        {
+            static const uint16_t sys95[FZ_SYS_COUNT] = { 16U, 28U, 12U };
+            uint8_t k;
+            char tmp[FIRE_ZONE_DISP_LEN];
+            if (text == NULL)
+            {
+                return 1;
+            }
+            /* 系统级设备输入框: 16=手报 28=声光 12=显示盘 */
+            for (k = 0U; k < FZ_SYS_COUNT; k++)
+            {
+                if (sys95[k] == control_id)
+                {
+                    HandleSysInput(k, (const char *)text);
+                    FireZone_GetSysDisp(k, tmp);
+                    SetTextValue(FIRE_ZONE_SCREEN_MAIN, sys95[k], (uint8_t *)tmp);
+                    return 1;
+                }
+            }
+            return 0;
+        }
+        if (text == NULL)
+        {
+            return 1;
+        }
+        if (sscanf((const char *)text, "%u", &uv) != 1)
+        {
+            uv = 0U;
+        }
+        if (uv > (unsigned int)FIRE_ZONE_DELAY_MAX)
+        {
+            uv = (unsigned int)FIRE_ZONE_DELAY_MAX;   /* 超上限截断, 回显实际生效值 */
+        }
+        (void)FireZone_SetZoneDelay(zone, (uint8_t)uv);
+        Refresh95(1U);
+        DebugPrintf("[FZS95] delay zone%u = %u\r\n", (unsigned)zone, uv);
+        return 1;
+    }
+
+    /* 画面96: 8行设备列表录入 */
+    if (screen_id == FIRE_ZONE_SCREEN_DEV)
+    {
+        uint8_t row;
+        if (text == NULL)
+        {
+            return 0;
+        }
+        for (row = 0U; row < FZ_DEV_TYPE_COUNT; row++)
+        {
+            if (s_dev_row_ctrl[row] == (uint16_t)control_id)
+            {
+                HandleDevListInput(row, (const char *)text);
+                return 1;
+            }
+        }
+        return 0;
+    }
 
     if (screen_id != FIRE_ZONE_SCREEN_ID)
     {
@@ -924,4 +1444,27 @@ uint8_t FireZoneScreen_NotifyText(uint16_t screen_id, uint16_t control_id, const
 void FireZoneScreen_OnZoneChanged(void)
 {
     /* 预留: 联动扩展点 */
+}
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneScreen_SetDevZone
+ * 功能说明：设定画面96当前编辑的分区(由画面95的8/26调用)。
+ *--------------------------------------------------------------*/
+void FireZoneScreen_SetDevZone(uint8_t zone)
+{
+    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_SLOT_MAX))
+    {
+        return;
+    }
+    s_dev_zone = zone;
+    s_in96 = 0U;   /* 换分区后重新回显 */
+    DebugPrintf("[FZS96] dev zone=%u\r\n", (unsigned)zone);
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：FireZoneScreen_GetDevZone
+ * 功能说明：查询画面96当前编辑的分区。
+ *--------------------------------------------------------------*/
+uint8_t FireZoneScreen_GetDevZone(void)
+{
+    return s_dev_zone;
 }

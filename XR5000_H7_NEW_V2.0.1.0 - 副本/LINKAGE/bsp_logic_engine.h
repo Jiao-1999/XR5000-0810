@@ -28,7 +28,7 @@
 
 /* 联动延时启动时间(毫秒): 条件满足后延时该时长再启动动作设备 */
 #ifndef LOGIC_ACTION_DELAY_MS
-#define LOGIC_ACTION_DELAY_MS   10000U
+#define LOGIC_ACTION_DELAY_MS   0U      /* XR5000_DELAY_ZERO_20261112: 联动延时去掉, 条件成立即下发 */
 #endif
 
 /*--------------------------------------------------------------
@@ -40,9 +40,9 @@ void     LogicEngine_SetActionDelay(uint32_t ms);
 uint32_t LogicEngine_GetActionDelay(void);
 
 /* 分区手动操作: 立即启动本区所有"条件成立"的规则(不延时) */
-void LogicEngine_ManualStartZone(uint8_t zone);
+uint8_t LogicEngine_ManualStartZone(uint8_t zone);  /* 返回实际驱动下发的动作数(0=没有可驱动的设备) */
 /* 分区手动停止: 停止本区所有已执行的启动类动作 */
-void LogicEngine_ManualStopZone(uint8_t zone);
+uint8_t LogicEngine_ManualStopZone(uint8_t zone);   /* 返回实际停止下发的动作数(0=没有需要停的设备) */
 /* 取消本区所有规则的延时计时(复位时调用) */
 void LogicEngine_CancelZoneDelay(uint8_t zone);
 /* 清除分区停止闭锁(分区复位时调用) */

@@ -49,6 +49,9 @@ typedef enum {
 volatile uint8_t g_fecbus_rx_byte;
 /* USART1 IT 接收当前字节（主机通道收从机应答, 与 USART3 共用环形缓冲/状态机） */
 volatile uint8_t g_fecbus_rx_byte_u1;
+/* UART4 IT 接收当前字节（FECbus 第三条总线, 与 USART3/USART1 共用环形缓冲/状态机）
+ * XR5000_UART4_TO_FECBUS_20261110: 原调试口改为 FECbus 总线 */
+volatile uint8_t g_fecbus_rx_byte_u4;
 
 /* 环形缓冲（中断写 / 任务读） */
 static uint8_t           s_rx_ring[FECBUS_RX_RING_SIZE];
@@ -184,6 +187,7 @@ void Fecbus_RxInit(void)
      * USART3 = 从机通道(收从机上报), USART1 = 主机通道(收从机应答) */
     HAL_UART_Receive_IT(&huart3, (uint8_t *)&g_fecbus_rx_byte, 1);
     HAL_UART_Receive_IT(&huart1, (uint8_t *)&g_fecbus_rx_byte_u1, 1);
+    HAL_UART_Receive_IT(&huart4, (uint8_t *)&g_fecbus_rx_byte_u4, 1);   /* FECbus 第三条总线 */
 }
 
 /*--------------------------------------------------------------

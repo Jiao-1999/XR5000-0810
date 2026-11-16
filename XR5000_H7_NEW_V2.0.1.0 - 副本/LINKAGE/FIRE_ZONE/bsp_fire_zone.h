@@ -25,18 +25,24 @@
 
 #define FIRE_ZONE_MAX          2   /* 防火分区数量上限（分区号1-2，内部0-1存储） */
 
+/* V7: 系统级设备槽位编号. zone_no 取值 1/2/3, 内部索引 0/1/2; zone_map 用 3 标记系统级 */
+#define FIRE_ZONE_SYS          3U
+#define FIRE_ZONE_SLOT_MAX     3U  /* 槽位编号上限(分区1/2 + 系统级), 用于96设备管理 */
+
 /* 设备分区归属取值: 0=未做分区(不参与任何分区功能), 1=分区1, 2=分区2 */
 #define FIRE_ZONE_NONE         0U
+#define FIRE_ZONE_DELAY_MAX    30U /* V6: 分区联动延时上限(秒), 0=立即执行 */
 #define FIRE_ZONE_NAME_LEN     16  /* 分区名称缓冲区字节数(GBK含结束符, 有效15字节) */
+#define FIRE_ZONE_DISP_LEN     64  /* V6: 槽位显示文本容量(画面96多段设备列表, 有效63字节) */
 
 /* Flash 存储区 W25Q256 SPI Flash 芯片 0x084000
  * 该扇区位于联动规则区(0x080000起连续3扇区)与元数据区(0x088000)之间, 空闲不冲突
  * 同一扇区内保存A/B双副本: 前半扇区为副本A, 后半扇区为副本B */
 #define FIRE_ZONE_FLASH_ADDR   0x084000U                        /* 分区表存储扇区起始地址(4KB) */
-#define FIRE_ZONE_FLASH_COPY_A FIRE_ZONE_FLASH_ADDR             /* 副本A地址(扇区前半) */
-#define FIRE_ZONE_FLASH_COPY_B (FIRE_ZONE_FLASH_ADDR + 0x800U)  /* 副本B地址(扇区后半) */
+#define FIRE_ZONE_FLASH_COPY_A FIRE_ZONE_FLASH_ADDR             /* V7: 单副本存储(记录2039字节, 单扇区) */
+
 #define FIRE_ZONE_MAGIC        0x46525A33U /* "FRZ3": zone_map 采用 0=未分区/1=分区1/2=分区2 */
-#define FIRE_ZONE_VERSION      0x05U        /* 存储格式版本号(V4:2分区+系统级设备, 旧版本记录作废) */
+#define FIRE_ZONE_VERSION      0x07U        /* 存储格式版本号(V7:zone_disp扩到3档[分区1/分区2/系统级], 旧版本记录作废) */
 
 /* 设备标识与地址范围约定(与联动规则校验保持一致):
  *   回路1(MBus探测器)  : 设备地址1-100 (MIXTURE_DEVICE_MAX_ADDR)
@@ -54,6 +60,7 @@ typedef enum {
     FZ_SLOT_MANUAL   = 4,   /* 手报        回路2 */
     FZ_SLOT_SIREN    = 5,   /* 声光        回路2 */
     FZ_SLOT_DISPLAY  = 6,   /* 火灾显示盘  回路2 */
+    FZ_SLOT_MODULE   = 7,   /* 输入输出模块 回路2 (FCM1011/FCM1012, V6新增) */
     FZ_SLOT_COUNT
 } FireZoneSlot;
 
@@ -159,5 +166,24 @@ void    FireZone_GetSysDisp(uint8_t kind, char *out);
 void FireZone_ResetAll(void);
 uint8_t FireZone_SetZoneRange(uint8_t zone_no, uint8_t loop_no, uint8_t start, uint8_t end); /* 将回路地址段划入分区(独占语义,一次落盘) */
 uint8_t FireZone_ClearZoneRange(uint8_t zone_no, uint8_t loop_no); /* 清空分区在指定回路的设备(归位分区1) */
+
+/*--------------------------------------------------------------
+ * 11. API声明 - 分区联动延时(V6新增)
+ *    联动规则判定成立后延时多少秒才启动输出设备;
+ *    0=立即执行(默认), 上限 FIRE_ZONE_DELAY_MAX=30 秒。
+ *    与画面40"喷放逻辑设定"的启动延时无关, 二者互不影响。
+ *    返回值约定：0=成功, 2=参数错误
+ *--------------------------------------------------------------*/
+uint8_t FireZone_GetZoneDelay(uint8_t zone_no);                 /* 查询分区延时(秒), 参数非法返回0 */
+uint8_t FireZone_SetZoneDelay(uint8_t zone_no, uint8_t sec);    /* 设置分区延时, 超30按30截断 */
+
+/*--------------------------------------------------------------
+ * 12. API声明 - 单设备归属清除(V6新增)
+ *    仅当该地址当前属于 zone_no 时才置为未分区, 否则不做任何修改。
+ *    供画面96覆盖式录入先清后写使用: 不依赖设备产品码,
+ *    未接线设备同样可以清除, 避免残留旧归属。
+ *    返回值约定：0=成功, 2=参数错误
+ *--------------------------------------------------------------*/
+uint8_t FireZone_ClearDevice(uint8_t zone_no, uint8_t loop_no, uint16_t dev_no);
 
 #endif /* __BSP_FIRE_ZONE_H */

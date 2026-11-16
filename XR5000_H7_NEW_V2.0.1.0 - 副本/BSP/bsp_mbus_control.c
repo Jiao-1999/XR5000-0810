@@ -56,7 +56,6 @@ static uint16_t g_mbus2_rx_frame_len = 0U;
 static uint8_t g_mbus2_tx_request[17U];
 static uint8_t g_mbus2_tx_request_len = 0U;
 static volatile uint8_t g_mbus2_reset_requested = 0U;
-static volatile uint8_t g_mbus2_reset_addr = 0xFFU;  /* 0xFF=整回路广播, 其它=单台 */
 static volatile uint8_t g_mbus2_reset_status = 0U;
 static uint32_t g_mbus2_reset_grace_until = 0U;
 #define MBUS_NORMAL_POLL_RECOVERY_THRESHOLD      2U
@@ -224,26 +223,22 @@ static HAL_StatusTypeDef MBusCtrl_SendFrame(const uint8_t *frame, uint8_t length
     return status;
 }
 
-void MBusCtrl_RequestBroadcastReset(void)
-{
-    taskENTER_CRITICAL();
-    g_mbus2_reset_addr = 0xFFU;  /* 整回路广播 */
-    g_mbus2_reset_status = 1U;
-    g_mbus2_reset_requested = 1U;
-    taskEXIT_CRITICAL();
-    SprayOutputPolicy_Reset();
-}
+static volatile uint8_t g_mbus2_reset_addr = 0xFFU;  /* 0xFF=广播, 其它=单台地址 */
 
-/*--------------------------------------------------------------
- * 函数名称：MBusCtrl_RequestDeviceReset
- * 功能说明：只复位回路2 上指定地址的单台设备(帧地址改为该设备)。
- * 输入参数：addr - 设备地址(1~MBUS_CONTROL_MAX_DEVICES-1)
- *--------------------------------------------------------------*/
 void MBusCtrl_RequestDeviceReset(uint8_t addr)
 {
     if((addr < 1U) || (addr >= (uint8_t)MBUS_CONTROL_MAX_DEVICES)) return;
     taskENTER_CRITICAL();
     g_mbus2_reset_addr = addr;
+    g_mbus2_reset_status = 1U;
+    g_mbus2_reset_requested = 1U;
+    taskEXIT_CRITICAL();
+}
+
+void MBusCtrl_RequestBroadcastReset(void)
+{
+    taskENTER_CRITICAL();
+    g_mbus2_reset_addr = 0xFFU;   /* 广播 */
     g_mbus2_reset_status = 1U;
     g_mbus2_reset_requested = 1U;
     taskEXIT_CRITICAL();
@@ -267,30 +262,18 @@ static void MBusCtrl_ServiceBroadcastReset(void)
     if(g_mbus2_reset_requested == 0U || g_mbus_poll_wait_response != 0U ||
        g_control_wait_response != 0U || g_fire_display_wait_response != 0U) return;
 
-    /* 复位前丢弃旧控制目标, 避免复位后排队指令重新打开输出。
-     * 广播复位清全部设备; 单台复位只清目标设备, 不影响另一分区。 */
+    /* 广播: 清全部设备控制状态; 单台复位: 只清目标设备, 不波及另一分区。 */
     taskENTER_CRITICAL();
-    MBusCtrl_ResetActiveControl();
     if(g_mbus2_reset_addr == 0xFFU)
     {
         g_control_queue_head = 0U;
         g_control_queue_tail = 0U;
         g_control_queue_count = 0U;
-        for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
-        {
-            g_control_target_outputs[addr] = 0U;
-            g_control_requested_outputs[addr] = 0U;
-            g_control_confirmed_outputs[addr] = 0U;
-            g_control_confirmed_valid[addr] = 0U;
-            g_control_pending_count[addr] = 0U;
-            g_control_status[addr] = MBUS_CTRL_STATUS_IDLE;
-            g_control_last_result[addr] = MBUS_CTRL_STATUS_IDLE;
-            g_soundlight_policy_valid[addr] = 0U;
-        }
+        MBusCtrl_ResetActiveControl();
     }
-    else
+    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
     {
-        addr = g_mbus2_reset_addr;
+        if((g_mbus2_reset_addr != 0xFFU) && (addr != g_mbus2_reset_addr)) continue;
         g_control_target_outputs[addr] = 0U;
         g_control_requested_outputs[addr] = 0U;
         g_control_confirmed_outputs[addr] = 0U;
@@ -302,7 +285,7 @@ static void MBusCtrl_ServiceBroadcastReset(void)
     }
     taskEXIT_CRITICAL();
 
-    frame[0] = g_mbus2_reset_addr;  /* 广播(0xFF)或单台设备 */
+    frame[0] = g_mbus2_reset_addr;   /* 0xFF=广播, 其它=单台 */
     crc = CalcCrc16(frame, 6U);
     frame[6] = (uint8_t)crc;
     frame[7] = (uint8_t)(crc >> 8);
@@ -823,6 +806,14 @@ static MBusCtrlResult MBusCtrl_QueueRequest(const MBusCtrlRequest *request,
 }
 
 /* Stable public entry used by the logic engine and other modules. */
+/* 设置"火警时允许被强制启动"的声光位掩码(应用层按分区设置)。 */
+void MBusCtrl_SetFixedSoundLightMask(uint64_t mask)
+{
+    taskENTER_CRITICAL();
+    g_fixed_soundlight_mask = mask;
+    taskEXIT_CRITICAL();
+}
+
 MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request)
 {
     return MBusCtrl_QueueRequest(request, 0U, 1U);
@@ -849,7 +840,6 @@ static void MBusCtrl_QueueFixedSoundLightTarget(uint8_t addr)
     (void)MBusCtrl_QueueRequest(&request, 1U, 0U);
 }
 
-#if MBUS_DETECTOR_AUTO_SOUND_LIGHT_ENABLE || MBUS_HAND_AUTO_SOUND_LIGHT_ENABLE
 static void MBusCtrl_RefreshFixedSoundLightTargets(void)
 {
     uint8_t addr;
@@ -861,11 +851,9 @@ static void MBusCtrl_RefreshFixedSoundLightTargets(void)
         MBusCtrl_QueueFixedSoundLightTarget(addr);
     }
 }
-#endif
 
 void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active)
 {
-#if MBUS_DETECTOR_AUTO_SOUND_LIGHT_ENABLE
     uint8_t changed = 0U;
     active = active != 0U ? 1U : 0U;
     taskENTER_CRITICAL();
@@ -876,30 +864,10 @@ void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active)
     }
     taskEXIT_CRITICAL();
     if(changed != 0U) MBusCtrl_RefreshFixedSoundLightTargets();
-#else
-    /* 保留报警状态查询，由外部策略按地址调用MBusCtrl_Request()控制声光。 */
-    (void)active;
-#endif
-}
-
-/* 设置"火警时允许被强制启动"的声光位掩码: 掩码变化时立即重算固定声光目标,
- * 使新被排除的声光在火警期间强制静音, 新纳入的声光立即启动。 */
-void MBusCtrl_SetFixedSoundLightMask(uint64_t mask)
-{
-    uint8_t changed = 0U;
-    taskENTER_CRITICAL();
-    if(g_fixed_soundlight_mask != mask)
-    {
-        g_fixed_soundlight_mask = mask;
-        changed = 1U;
-    }
-    taskEXIT_CRITICAL();
-    if(changed != 0U) MBusCtrl_RefreshFixedSoundLightTargets();
 }
 
 static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
 {
-#if MBUS_HAND_AUTO_SOUND_LIGHT_ENABLE
     uint8_t addr;
     uint8_t any_manual_alarm = 0U;
     uint8_t changed = 0U;
@@ -916,17 +884,15 @@ static void MBusCtrl_UpdateManualSoundLightTarget(uint8_t manual_state)
         }
     }
     taskENTER_CRITICAL();
-    if(g_fixed_manual_fire_active != any_manual_alarm)
+    /* XR5000_FIRE_LATCH_20261112: 手报火警锁存, 只在出现报警时置位,
+     * 按钮状态回落不撤销; 复位/重新上电才解除。 */
+    if((any_manual_alarm != 0U) && (g_fixed_manual_fire_active == 0U))
     {
-        g_fixed_manual_fire_active = any_manual_alarm;
+        g_fixed_manual_fire_active = 1U;
         changed = 1U;
     }
     taskEXIT_CRITICAL();
     if(changed != 0U) MBusCtrl_RefreshFixedSoundLightTargets();
-#else
-    /* 分区逻辑后续可读取手报状态并通过MBusCtrl_Request()定向控制声光。 */
-    (void)manual_state;
-#endif
 }
 
 /* Publish business actions only on a real state edge; polling remains transport-only. */
@@ -945,9 +911,8 @@ static void MBusCtrl_ApplyDeviceState(uint8_t addr, uint8_t state)
     if(g_mbus_ctrl_devices[addr].dev_type != MBUS_CONTROL_DEV_XR2200) return;
 
     MBusCtrl_UpdateManualSoundLightTarget(state);
-    /* 火灾显示盘推送由应用层(cmd_process.c 的 MBusCtrlDataDeal)按分区下发,
-     * 此处不再发布, 避免全广播抢先去重导致分区掩码失效。
-     * 应用层边沿判据: mbus2_hand_alarm_memory[addr] */
+    (void)MBusCtrl_PostFireDisplayEvent(2U, addr, MBUS_FIRE_DISPLAY_DETECT_MANUAL,
+        state != 0U ? MBUS_FIRE_DISPLAY_ALARM_FIRE : 0U);
 }
 
 /* ============================================================
@@ -2288,9 +2253,8 @@ int8_t ReceiveDataFromMBus2Queue(uint8_t *buf)
  * 火灾显示盘事件发布: 入队事件到环形队列
  * ============================================================ */
 
-/* 向指定显示盘集合推送一条事件(回路/地址/探测器类型/报警类型/显示盘地址位掩码) */
-uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t loop, uint8_t addr, uint8_t detector_type,
-                                        uint8_t alarm_type, uint64_t display_mask)
+/* 向火灾显示盘事件队列推送一条事件(回路/地址/探测器类型/报警类型) */
+uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type)
 {
     uint8_t display_addr;
     uint8_t queue_tail;
@@ -2304,7 +2268,7 @@ uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t loop, uint8_t addr, uint8_t dete
         return 1U;
 #endif
 #if !MBUS_DETECTOR_AUTO_DISPLAY_ENABLE
-    /* 回路1/3探测器事件由外部策略通过定向接口发送，禁止继续全体广播。 */
+    /* 回路1/3探测器事件不做全体广播，由外部策略定向发送。 */
     if((loop == 1U || loop == 3U) &&
        detector_type >= MBUS_FIRE_DISPLAY_DETECT_TEMP &&
        detector_type <= MBUS_FIRE_DISPLAY_DETECT_H2)
@@ -2319,10 +2283,8 @@ uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t loop, uint8_t addr, uint8_t dete
         return 1U;
     }
     taskEXIT_CRITICAL();
-    /* 只在入参掩码范围内保留合法显示盘: 在线 + 已识别 + 未掉线 + 类型为火灾显示盘 */
     for(display_addr = 1U; display_addr < MBUS_CONTROL_MAX_DEVICES; display_addr++)
     {
-        if((display_mask & (1ULL << display_addr)) == 0U) continue;
         if(g_mbus_ctrl_devices[display_addr].online != 0U &&
            g_mbus_ctrl_devices[display_addr].type_confirmed != 0U &&
            g_mbus_ctrl_devices[display_addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD &&
@@ -2362,18 +2324,99 @@ uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t loop, uint8_t addr, uint8_t dete
     return 1U;
 }
 
-/* 向全部火灾显示盘推送一条事件(兼容旧接口: 目标集合为回路2全部火灾显示盘, 合法性由To版本过滤) */
-uint8_t MBusCtrl_PostFireDisplayEvent(uint8_t loop, uint8_t addr, uint8_t detector_type, uint8_t alarm_type)
+/* 向指定层显发送事件；复用原队列、回复校验、有限重试和普通轮询让行机制。
+ * 从远端(origin/master 91925b1)合入。 */
+uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t display_addr, uint8_t source_loop,
+                                       uint8_t source_addr, uint8_t detector_type,
+                                       uint8_t alarm_type)
 {
-    uint64_t targets = 0U;
-    uint8_t display_addr;
-    for(display_addr = 1U; display_addr < MBUS_CONTROL_MAX_DEVICES; display_addr++)
+    uint8_t offset;
+    uint8_t queue_index;
+    uint8_t queue_tail;
+    uint64_t target;
+    MBusFireDisplayEvent *event;
+
+    if(display_addr == 0U || display_addr >= MBUS_CONTROL_MAX_DEVICES ||
+       source_loop == 0U || source_loop > 3U || source_addr == 0U ||
+       source_addr >= MBUS_FIRE_DISPLAY_EVENT_SOURCE_MAX_ADDR ||
+       detector_type == 0U || alarm_type > MBUS_FIRE_DISPLAY_ALARM_FAULT)
+        return 0U;
+    if(g_mbus_ctrl_devices[display_addr].online == 0U ||
+       g_mbus_ctrl_devices[display_addr].type_confirmed == 0U ||
+       g_mbus_ctrl_devices[display_addr].disconnect_count >= MBUS_CONTROL_DISCONNECT_THRESHOLD ||
+       g_mbus_ctrl_devices[display_addr].dev_type != MBUS_CONTROL_DEV_FIRE_DISPLAY)
+        return 0U;
+
+    target = (1ULL << display_addr);
+    taskENTER_CRITICAL();
+    /* 同一事件可追加不同目标；同一目标重复调用不会重复占用队列或重复发送。 */
+    for(offset = 0U; offset < g_fire_display_event_count; offset++)
     {
-        if(g_mbus_ctrl_devices[display_addr].dev_type == MBUS_CONTROL_DEV_FIRE_DISPLAY)
-            targets |= (1ULL << display_addr);
+        queue_index = (uint8_t)((g_fire_display_event_head + offset) %
+                                MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN);
+        event = &g_fire_display_event_queue[queue_index];
+        if(event->loop == source_loop && event->addr == source_addr &&
+           event->detector_type == detector_type && event->alarm_type == alarm_type)
+        {
+            if((event->target_displays & target) == 0U)
+            {
+                event->target_displays |= target;
+                event->pending_displays |= target;
+            }
+            taskEXIT_CRITICAL();
+            return 1U;
+        }
     }
-    return MBusCtrl_PostFireDisplayEventTo(loop, addr, detector_type, alarm_type, targets);
+    if(g_fire_display_event_count >= MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN)
+    {
+        taskEXIT_CRITICAL();
+        return 0U;
+    }
+    queue_tail = (uint8_t)((g_fire_display_event_head + g_fire_display_event_count) %
+                           MBUS_FIRE_DISPLAY_EVENT_QUEUE_LEN);
+    event = &g_fire_display_event_queue[queue_tail];
+    event->loop = source_loop;
+    event->addr = source_addr;
+    event->detector_type = detector_type;
+    event->alarm_type = alarm_type;
+    event->target_displays = target;
+    event->pending_displays = target;
+    g_fire_display_event_count++;
+    taskEXIT_CRITICAL();
+    return 1U;
 }
+
+
+/*--------------------------------------------------------------
+ * XR5000_FIRE_LATCH_20261112: 复位时清除"显示盘事件去重"状态。
+ * 火警锁存后不再下发清除帧, 若不复位去重状态, 复位后重新报警
+ * 会被判为重复事件而不再推送到显示盘。
+ * 只允许由系统复位/分区复位调用。
+ *--------------------------------------------------------------*/
+void MBusCtrl_ClearFireDisplayDedup(void)
+{
+    taskENTER_CRITICAL();
+    memset(g_fire_display_last_event_valid, 0, sizeof(g_fire_display_last_event_valid));
+    memset(g_fire_display_last_detector_type, 0, sizeof(g_fire_display_last_detector_type));
+    memset(g_fire_display_last_alarm_type, 0, sizeof(g_fire_display_last_alarm_type));
+    taskEXIT_CRITICAL();
+}
+
+/*--------------------------------------------------------------
+ * XR5000_FIRE_LATCH_20261112: 系统复位解除"主机侧火警锁存"。
+ * 清探测器/手报火警总闸 + 显示盘事件去重, 并重算声光目标。
+ * 只允许由系统复位/重新上电调用。
+ *--------------------------------------------------------------*/
+void MBusCtrl_ResetFireAlarmLatch(void)
+{
+    taskENTER_CRITICAL();
+    g_fixed_detector_fire_active = 0U;
+    g_fixed_manual_fire_active   = 0U;
+    taskEXIT_CRITICAL();
+    MBusCtrl_ClearFireDisplayDedup();
+    MBusCtrl_RefreshFixedSoundLightTargets();
+}
+
 
 void MBusCtrl_InjectSensorState(uint8_t addr, uint8_t state)
 {

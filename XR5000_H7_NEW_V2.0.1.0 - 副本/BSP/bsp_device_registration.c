@@ -44,7 +44,7 @@ static uint8_t DeviceRegMaxAddress(uint8_t loop)
 {
     if(loop == DEVICE_REG_LOOP1) return 110U;
     if(loop == DEVICE_REG_LOOP2) return 63U;
-    if(loop == DEVICE_REG_LOOP3) return 64U;
+    if(loop == DEVICE_REG_LOOP3) return 100U;
     return 0U;
 }
 

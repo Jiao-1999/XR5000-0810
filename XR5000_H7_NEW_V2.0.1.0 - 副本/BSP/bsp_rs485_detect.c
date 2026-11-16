@@ -69,7 +69,7 @@ static const RS485SensorRegDef XR8303_SENSOR_LAYOUT[] = {
 static RS485DetectDevice g_devices[RS485_DETECT_MAX_DEVICES]; /* 设备实例数组(索引=地址) */
 
 static uint8_t g_online_count = 0;       /* 当前上线设备数量 */
-static uint8_t g_poll_current_addr = 1;  /* 当前轮询地址(1~64循环) */
+static uint8_t g_poll_current_addr = 1;  /* 当前轮询地址(1~100循环) */
 static uint32_t g_last_poll_time = 0;    /* 上次轮询的系统tick */
 
 /* UART5事务锁: 同一时刻仅允许一个请求占用UART5 */
@@ -90,7 +90,6 @@ static uint8_t g_transaction_request[8];
 static uint16_t g_rx_frame_len = 0U;
 static volatile uint8_t g_reset_requested = 0U;
 static volatile uint8_t g_reset_status = 0U;
-static volatile uint8_t g_reset_addr = 0xFFU;  /* 0xFF=整回路广播, 其它=单台 */
 static uint32_t g_reset_grace_until = 0U;
 static uint8_t g_identify_fail_count[RS485_DETECT_MAX_DEVICES];
 static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
@@ -216,14 +215,9 @@ void RS485Detect_LoadOnlineState(void)
     g_online_count = 0;
     for (uint8_t i = 0; i < RS485_DETECT_MAX_DEVICES; i++)
     {
-        if (online_states[i] == 0xFF)
-        {
-            g_devices[i].online = 0;
-        }
-        else
-        {
-            g_devices[i].online = online_states[i];
-        }
+        /* 仅明确保存为1的状态才视为设置上线。
+         * 扩容后未使用或异常的Flash字节统一按下线处理。 */
+        g_devices[i].online = ((i != 0U) && (online_states[i] == 1U)) ? 1U : 0U;
         if (g_devices[i].online)
         {
             g_online_count++;
@@ -1134,25 +1128,22 @@ uint8_t RS485Detect_HasSensorEnableData(uint8_t addr)
     return g_devices[addr].sensor_enable_confirmed;
 }
 
-void RS485Detect_RequestBroadcastReset(void)
-{
-    taskENTER_CRITICAL();
-    g_reset_addr = 0xFFU;  /* 整回路广播 */
-    g_reset_status = 1U;
-    g_reset_requested = 1U;
-    taskEXIT_CRITICAL();
-}
+static volatile uint8_t g_reset_addr = 0xFFU;  /* 0xFF=广播, 其它=单台地址 */
 
-/*--------------------------------------------------------------
- * 函数名称：RS485Detect_RequestDeviceReset
- * 功能说明：只复位回路3 上指定地址的单台设备。
- * 输入参数：addr - 设备地址(1~RS485_DETECT_MAX_DEVICES-1)
- *--------------------------------------------------------------*/
 void RS485Detect_RequestDeviceReset(uint8_t addr)
 {
     if((addr < 1U) || (addr >= (uint8_t)RS485_DETECT_MAX_DEVICES)) return;
     taskENTER_CRITICAL();
     g_reset_addr = addr;
+    g_reset_status = 1U;
+    g_reset_requested = 1U;
+    taskEXIT_CRITICAL();
+}
+
+void RS485Detect_RequestBroadcastReset(void)
+{
+    taskENTER_CRITICAL();
+    g_reset_addr = 0xFFU;   /* 广播 */
     g_reset_status = 1U;
     g_reset_requested = 1U;
     taskEXIT_CRITICAL();
@@ -1171,7 +1162,7 @@ static void RS485Detect_ServiceBroadcastReset(void)
     HAL_StatusTypeDef second_status;
 
     if(g_reset_requested == 0U || g_transaction_pending != 0U) return;
-    frame[0] = g_reset_addr;  /* 广播(0xFF)或单台设备 */
+    frame[0] = g_reset_addr;   /* 0xFF=广播, 其它=单台 */
     crc = CalcCrc16(frame, 6U);
     frame[6] = (uint8_t)crc;
     frame[7] = (uint8_t)(crc >> 8);

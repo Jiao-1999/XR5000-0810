@@ -15,7 +15,7 @@
  * ============================================================================ */
 
 /* -------------------- ¿ÉÅäÖÃ³£Á¿ -------------------- */
-#define RS485_DETECT_MAX_DEVICES    65    /* ×î´óÉè±¸Êı(µØÖ·1~64, ÏÂ±ê0²»ÓÃ) */
+#define RS485_DETECT_MAX_DEVICES   101U    /* ×î´óÉè±¸Êı(µØÖ·1~100, ÏÂ±ê0²»ÓÃ) */
 #define RS485_DETECT_DISCONNECT_THRESHOLD  3  /* Á¬ĞøÎŞÏìÓ¦´ÎÊıãĞÖµ, ³¬¹ıÅĞ¶¨µôÏß */
 #define RS485_DETECT_POLL_INTERVAL_MS       50 /* ÂÖÑ¯¼ä¸ô(ms), Ã¿ÂÖÒ»¸öÉè±¸ */
 #define RS485_DETECT_RESPONSE_TIMEOUT_MS   120 /* µ¥´ÎÇëÇó³¬Ê±(ms), ³¬Ê±¼ÆµôÏß */
@@ -121,7 +121,7 @@ uint8_t  RS485Detect_IsOnline(uint8_t addr);                      /* ÅĞ¶ÏÊÇ·ñÕæÕ
 uint8_t  RS485Detect_HasSensorData(uint8_t addr);                 /* ÊÇ·ñÒÑÊÕµ½ÓĞĞ§´«¸ĞÆ÷Êı¾İ */
 uint8_t  RS485Detect_HasSensorEnableData(uint8_t addr);           /* ÊÇ·ñÒÑÈ·ÈÏ´«¸ĞÆ÷ÆôÓÃ×´Ì¬ */
 void RS485Detect_RequestBroadcastReset(void);
-void RS485Detect_RequestDeviceReset(uint8_t addr);   /* µ¥Ì¨Éè±¸¸´Î»(·ÖÇø¸´Î»ÓÃ) */
+void RS485Detect_RequestDeviceReset(uint8_t addr); /* µ¥Ì¨Éè±¸¸´Î»(·ÖÇø¸´Î»ÓÃ) */
 uint8_t RS485Detect_GetBroadcastResetStatus(void);
 
 /* ---- Flash³Ö¾Ã»¯ ---- */

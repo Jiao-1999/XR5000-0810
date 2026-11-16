@@ -179,10 +179,10 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
         return 0;  /* 无效执行模式 */
     }
 
-    /* 分区号必须在 1..FIRE_ZONE_MAX 之间 */
-    if ((rule->zone < 1U) || (rule->zone > (uint8_t)FIRE_ZONE_MAX))
+    /* V6: 分区号 0=全局规则(标准编程入口), 1..FIRE_ZONE_MAX=分区限定 */
+    if (rule->zone > (uint8_t)FIRE_ZONE_MAX)
     {
-        return 0;  /* 规则未指定合法分区 */
+        return 0;  /* 规则分区号非法 */
     }
 
     /* 校验每个动作的回路与通道是否在有效范围内 */
@@ -201,8 +201,7 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
                 return 0;  /* 通道号非法 */
             }
         }
-        /* 动作设备不受分区限制: 分区只约束"="之前的触发条件。
-         * 一条分区规则可以驱动任意回路2设备(跨区输出), 由用户自行配置。 */
+        /* V7: 动作设备不再受分区约束, zone 仅作规则归属标签 */
     }
 
     /* 检查条件中的回路号和设备号范围（分回路差异化校验）
@@ -219,14 +218,10 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
         {
             return 0;  /* 回路号非法：仅允许 1-4 */
         }
-        /* 分区制: 条件的回路/设备不允许通配, 且必须属于规则所在分区 */
+        /* 通配编码在43界面无法输入, 仍视为非法 */
         if ((lno == LOGIC_WILDCARD) || (dno == LOGIC_WILDCARD))
         {
-            return 0;  /* 通配条件无法确定分区, 分区制下禁用 */
-        }
-        if (FireZone_GetDeviceZone(lno, dno) != rule->zone)
-        {
-            return 0;  /* 条件设备不在规则所属分区 */
+            return 0;  /* 通配条件禁用 */
         }
         if (dno != LOGIC_WILDCARD)  /* 通配已在上方拦截: 此处恒为真, 保留原上限校验结构 */
         {
@@ -356,41 +351,10 @@ static uint16_t CalcRuleCRC(const LogicRule_t *rule)
  *--------------------------------------------------------------*/
 static uint8_t IsRuleInsideZone(const LogicRule_t *rule)
 {
-    uint8_t i;    /* 循环计数器 */
-    uint8_t lno;  /* 条件回路号临时变量 */
-    uint16_t dno; /* 条件设备号临时变量 */
-
-    if (rule == NULL)
-    {
-        return 0;  /* 空指针按跨区处理, 保守停用 */
-    }
-
-    /* 条件: 逐条查设备实际分区, 通配条件无法确定分区, 视为跨区 */
-    for (i = 0; i < rule->cond_count; i++)
-    {
-        lno = rule->conditions[i].loop_no;
-        dno = rule->conditions[i].dev_no;
-        if ((lno == LOGIC_WILDCARD) || (dno == LOGIC_WILDCARD))
-        {
-            return 0;  /* 通配条件无法判定分区 */
-        }
-        if (FireZone_GetDeviceZone(lno, dno) != rule->zone)
-        {
-            return 0;  /* 条件设备已被划出规则所属分区 */
-        }
-    }
-
-    /* 动作: 只要求控制回路为2(唯一可下发输出的回路), 不再校验设备分区。
-     * 分区只约束"="之前的触发条件, 动作设备允许跨区。 */
-    for (i = 0; i < rule->action_count; i++)
-    {
-        if (rule->actions[i].loop_no != 2U)
-        {
-            return 0;  /* 动作回路非法(仅允许回路2) */
-        }
-    }
-
-    return 1;  /* 条件与动作全部仍在规则所属分区内 */
+    /* V7: zone 仅作规则归属标签(43/45显示用), 不再约束设备所属分区。
+     * 分区调整不应导致存量规则被停用, 因此恒判定为"在界内"。 */
+    (void)rule;
+    return 1;
 }
 
 /*--------------------------------------------------------------

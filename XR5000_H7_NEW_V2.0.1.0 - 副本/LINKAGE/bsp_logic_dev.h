@@ -77,5 +77,7 @@ uint8_t LogicDev_CheckAutoMode(const LogicRule_t *rule);
  *--------------------------------------------------------------*/
 
 void LogicDev_Register(void);
+void LogicDev_ClearLeafLatch(void);  /* XR5000_COND_LEAF_LATCH_20261112: 复位时清条件级锁存 */
+void LogicDev_ClearLeafLatchByZone(uint8_t zone);  /* V7: 只清本分区探测器产生的条件锁存 */
 
 #endif /* __BSP_LOGIC_DEV_H */

@@ -20,6 +20,9 @@
 
 #define InternalBoardAddr 1U
 
+/* 检修开关状态(V6新增): 1=检修 0=运行; 取自按键板上报Bit4, 不落盘, 上电默认运行 */
+uint8_t g_maintenance_state = 0U;
+
 #define getMainPowerState()   (zhu_state           ? 1 : 0)
 
 #define getSparePowerState() \
@@ -731,9 +734,11 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 						 *   Bit1 联动启动键 (KEY5=PB10) -> 系统级联动启动(两分区条件成立的输出)
 						 *   Bit2 分区1复位  (KEY6=PA11) -> 复位分区1
 						 *   Bit3 分区2复位  (KEY7=PA12) -> 复位分区2
-						 *   Bit4 检修开关   (KEY8=PB3)  -> 程序无对应功能, 不处理
+						 *   Bit4 检修开关   (KEY8=PB3)  -> 检修状态显示(画面95)
 						 * 注意: 按键板只在上报帧里带这些位, 不再有 17/18/19 号键。 */
 						key_bits = uartbuff[INSCREENSITE].recepetion_buff[5];
+						/* Bit4 检修开关(KEY8=PB3, 保持型拨动开关): 仅作状态显示, 不参与任何输出闭锁 */
+						g_maintenance_state = ((key_bits & 0x10U) != 0U) ? 1U : 0U;
 						if((key_bits & 0x01U) != 0U)
 						{
 							FireZoneSysSirenToggle();   /* 报警器键: 系统级声光人工开关 */

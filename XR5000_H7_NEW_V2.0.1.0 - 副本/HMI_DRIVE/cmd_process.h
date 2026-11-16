@@ -247,6 +247,19 @@ void NotifyReadRTC(uint8 year,uint8 month,uint8 week,uint8 day,uint8 hour,uint8 
 
 void TB_sahngchuan(uint16 screen_id, uint16 control_id, uint8  state, uint8  tubiaobh);
 void UpdateUI(void);
+/* V7: 与屏幕报警列表同源查询(画面86/87判定依据) */
+uint8_t StorageFireAlarmExists(uint8_t loop_no, uint16_t dev_no, uint8_t sensor_type);
+uint8_t StorageForeWarnExists(uint8_t loop_no, uint16_t dev_no, uint8_t sensor_type);
+void UpdateUI(void);
+
+/* 防火分区声光/启动/停止 */
+void    FireZoneSirenCtrl(uint8_t zone, uint8_t on);
+uint8_t FireZoneGetSirenManual(uint8_t zone);
+void    FireZoneOutputCtrl(uint8_t zone, uint8_t on);
+void    FireZoneReset(uint8_t zone);
+void    FireZoneSysStart(void);
+void    FireZoneSysSirenToggle(void);
+void    FireZoneSysStop(void);
 void SystemCheckRequestRecord(void); /* XR5000_CHECK_FLASH_FIX_20260804 */
 
 

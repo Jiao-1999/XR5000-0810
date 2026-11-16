@@ -37,6 +37,8 @@ typedef struct {
 extern volatile uint8_t g_fecbus_rx_byte;
 /* USART1 IT 接收当前字节（主机通道收从机应答, 与 USART3 共用解析状态机） */
 extern volatile uint8_t g_fecbus_rx_byte_u1;
+/* FECbus 第三条总线(UART4, 原调试口) 接收字节 */
+extern volatile uint8_t g_fecbus_rx_byte_u4;
 
 /**
  * @brief  中断接收一字节，写入环形缓冲
