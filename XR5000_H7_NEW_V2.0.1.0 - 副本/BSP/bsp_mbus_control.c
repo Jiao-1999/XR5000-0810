@@ -223,6 +223,13 @@ static HAL_StatusTypeDef MBusCtrl_SendFrame(const uint8_t *frame, uint8_t length
 
 void MBusCtrl_RequestBroadcastReset(void)
 {
+    if(GetLoopEnableState(2U) == 0U)
+    {
+        g_mbus2_reset_requested = 0U;
+        g_mbus2_reset_status = 2U;
+        SprayOutputPolicy_Reset();
+        return;
+    }
     taskENTER_CRITICAL();
     g_mbus2_reset_status = 1U;
     g_mbus2_reset_requested = 1U;
@@ -700,6 +707,7 @@ static MBusCtrlResult MBusCtrl_QueueRequest(const MBusCtrlRequest *request,
     uint32_t requested_outputs;
 
     if(request == 0) return MBUS_CTRL_INVALID_PARAMETER;
+    if(GetLoopEnableState(2U) == 0U) return MBUS_CTRL_UNSUPPORTED;
     effective_request = *request;
     addr = request->addr;
     if(addr == 0U || addr >= MBUS_CONTROL_MAX_DEVICES) return MBUS_CTRL_INVALID_ADDR;
@@ -2114,14 +2122,66 @@ static uint8_t MBusCtrl_TryStartNormalPoll(uint8_t *modbusbuf)
  * 控制服务: 声光报警器优先于火灾显示盘, 有控制事务时暂停轮询
  * ============================================================ */
 
+static void MBusCtrl_ClearPendingForLoopDisable(void)
+{
+    uint8_t addr;
+    taskENTER_CRITICAL();
+    g_control_queue_head = 0U;
+    g_control_queue_tail = 0U;
+    g_control_queue_count = 0U;
+    for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
+    {
+        g_control_pending_count[addr] = 0U;
+        if(g_mbus_ctrl_devices[addr].disconnect_count < MBUS_CONTROL_DISCONNECT_THRESHOLD)
+            g_mbus_ctrl_devices[addr].disconnect_count = 0U;
+        g_mbus_poll_recovery_count[addr] = 0U;
+        if(g_control_status[addr] == MBUS_CTRL_STATUS_PENDING ||
+           g_control_status[addr] == MBUS_CTRL_STATUS_SENDING)
+            g_control_status[addr] = MBUS_CTRL_STATUS_IDLE;
+    }
+    taskEXIT_CRITICAL();
+    MBusCtrl_ResetActiveControl();
+    g_mbus_poll_wait_response = 0U;
+    g_mbus_poll_registration = 0U;
+    g_mbus_poll_wait_ticks = 0U;
+    g_mbus_poll_active_addr = 0U;
+    g_fire_display_wait_response = 0U;
+    g_fire_display_wait_ticks = 0U;
+    g_fire_display_retry_count = 0U;
+    g_fire_display_active_addr = 0U;
+    g_mbus2_rx_frame_len = 0U;
+    g_mbus2_tx_request_len = 0U;
+    MBus2UartClearRx();
+}
+
 void MBusControlPollSlaveAndReceiveTask(void* parameter)
 {
     uint8_t modbusbuf[8] = {0};
+    uint8_t loop_was_enabled = 1U;
 
 
     for (;;)
     {
         uint8_t mbus2_control_busy = 0U;
+
+        if(GetLoopEnableState(2U) == 0U)
+        {
+            if(loop_was_enabled != 0U)
+            {
+                MBusCtrl_ClearPendingForLoopDisable();
+                loop_was_enabled = 0U;
+            }
+            osDelay(20U);
+            continue;
+        }
+        if(loop_was_enabled == 0U)
+        {
+            g_mbus2_rx_frame_len = 0U;
+            g_mbus2_rx_guard_active = 0U;
+            g_mbus_poll_wait_ticks = 0U;
+            MBus2UartClearRx();
+            loop_was_enabled = 1U;
+        }
 
         (void)MBus2UartEnsureRx();
         MBus2ReceiveSlaveDataDeal();

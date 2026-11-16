@@ -4,6 +4,7 @@
 #include "w25qxx.h"
 
 #include "string.h"
+#include <stddef.h>
 
 #include "bsp_debug.h"
 #include "bsp_mbus.h"
@@ -46,6 +47,130 @@ uint8_t pack_online_buff[4][33] = {0};
 
 uint8_t linkage_shield_state[40] = {0};  // 外联设备屏蔽状态（默认屏蔽）
 uint8_t linkage_work_state[40] = {0};    // 外联设备工作状态（默认屏蔽）
+
+/* 回路启停配置使用独立扇区，避免改变旧版24C04结构体布局。 */
+#define LOOP_ENABLE_FLASH_MAIN_ADDR    0x11F000UL
+#define LOOP_ENABLE_FLASH_BACKUP_ADDR  0x120000UL
+#define LOOP_ENABLE_FLASH_MAGIC        0x504F4F4CUL
+#define LOOP_ENABLE_FLASH_VERSION      1U
+
+typedef struct
+{
+	uint32_t magic;
+	uint32_t sequence;
+	uint16_t version;
+	uint8_t enabled_mask;
+	uint8_t reserved;
+	uint16_t crc;
+}LoopEnableStorage_t;
+
+static volatile uint8_t g_loop_enable_mask = SYSTEM_LOOP_ALL_ENABLED_MASK;
+static uint32_t g_loop_enable_sequence = 0U;
+
+static uint8_t LoopEnableStorageIsValid(const LoopEnableStorage_t *storage)
+{
+	uint16_t crc;
+	if(storage->magic != LOOP_ENABLE_FLASH_MAGIC ||
+	   storage->version != LOOP_ENABLE_FLASH_VERSION ||
+	   (storage->enabled_mask & (uint8_t)(~SYSTEM_LOOP_ALL_ENABLED_MASK)) != 0U)
+	{
+		return 0U;
+	}
+	crc = CalcCrc16((uint8_t *)storage, (uint16_t)offsetof(LoopEnableStorage_t, crc));
+	return (crc == storage->crc) ? 1U : 0U;
+}
+
+static void LoopEnableStateSave(void)
+{
+	LoopEnableStorage_t storage;
+	memset(&storage, 0, sizeof(storage));
+	storage.magic = LOOP_ENABLE_FLASH_MAGIC;
+	storage.sequence = ++g_loop_enable_sequence;
+	storage.version = LOOP_ENABLE_FLASH_VERSION;
+	storage.enabled_mask = g_loop_enable_mask;
+	storage.crc = CalcCrc16((uint8_t *)&storage,
+		(uint16_t)offsetof(LoopEnableStorage_t, crc));
+	/* 先写备份再写主区；任一次掉电后至少保留一份有效数据。 */
+	W25QXX_Write((uint8_t *)&storage, LOOP_ENABLE_FLASH_BACKUP_ADDR,
+		(uint16_t)sizeof(storage));
+	W25QXX_Write((uint8_t *)&storage, LOOP_ENABLE_FLASH_MAIN_ADDR,
+		(uint16_t)sizeof(storage));
+}
+
+void LoopEnableStateInit(void)
+{
+	LoopEnableStorage_t main_storage;
+	LoopEnableStorage_t backup_storage;
+	const LoopEnableStorage_t *selected = NULL;
+	uint8_t main_valid;
+	uint8_t backup_valid;
+
+	W25QXX_Read((uint8_t *)&main_storage, LOOP_ENABLE_FLASH_MAIN_ADDR,
+		(uint16_t)sizeof(main_storage));
+	W25QXX_Read((uint8_t *)&backup_storage, LOOP_ENABLE_FLASH_BACKUP_ADDR,
+		(uint16_t)sizeof(backup_storage));
+	main_valid = LoopEnableStorageIsValid(&main_storage);
+	backup_valid = LoopEnableStorageIsValid(&backup_storage);
+
+	if(main_valid != 0U && backup_valid != 0U)
+	{
+		selected = ((int32_t)(backup_storage.sequence - main_storage.sequence) > 0) ?
+			&backup_storage : &main_storage;
+	}
+	else if(main_valid != 0U)
+	{
+		selected = &main_storage;
+	}
+	else if(backup_valid != 0U)
+	{
+		selected = &backup_storage;
+	}
+
+	if(selected == NULL)
+	{
+		g_loop_enable_mask = SYSTEM_LOOP_ALL_ENABLED_MASK;
+		g_loop_enable_sequence = 0U;
+		LoopEnableStateSave();
+		return;
+	}
+
+	g_loop_enable_mask = selected->enabled_mask;
+	g_loop_enable_sequence = selected->sequence;
+	if(main_valid == 0U || backup_valid == 0U)
+	{
+		LoopEnableStateSave();
+	}
+}
+
+uint8_t GetLoopEnableState(uint8_t loop)
+{
+	if(loop < SYSTEM_LOOP_MIN_ID || loop > SYSTEM_LOOP_MAX_ID)
+	{
+		return 0U;
+	}
+	return ((g_loop_enable_mask & (uint8_t)(1U << (loop - 1U))) != 0U) ? 1U : 0U;
+}
+
+uint8_t SetLoopEnableState(uint8_t loop, uint8_t enable)
+{
+	uint8_t bit;
+	uint8_t new_mask;
+	if(loop < SYSTEM_LOOP_MIN_ID || loop > SYSTEM_LOOP_MAX_ID)
+	{
+		return 0U;
+	}
+	bit = (uint8_t)(1U << (loop - 1U));
+	new_mask = g_loop_enable_mask;
+	if(enable != 0U) new_mask |= bit;
+	else new_mask &= (uint8_t)(~bit);
+	if(new_mask == g_loop_enable_mask)
+	{
+		return 0U;
+	}
+	g_loop_enable_mask = new_mask;
+	LoopEnableStateSave();
+	return 1U;
+}
 
 void SystemInfoSave(void)
 {
@@ -208,6 +333,7 @@ void SystemInfoLoad(void)
 }
 void Load25Q128(void)
 {
+	LoopEnableStateInit();
 	Loa_cang_sxzt();//读取舱上线状态
 	Loa_cang_pbzt();//读取舱屏蔽状态
 	Loa_cu_sxzt();//读取簇上线状态

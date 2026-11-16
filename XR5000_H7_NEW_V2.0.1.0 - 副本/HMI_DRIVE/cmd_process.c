@@ -2695,6 +2695,7 @@ static uint32_t hmi_password_current_super;
 static uint32_t hmi_password_new;
 static uint32_t hmi_password_confirm;
 static uint16_t g_screen6_return_screen = 68U;
+static uint32_t g_loop_disabled_notice_until[5U] = {0U};
 
 static void HmiSwitchScreen(uint16_t target_screen)
 {
@@ -2749,6 +2750,110 @@ static void HmiOpenProtectedPage(AccessLevel_t level, uint16_t target_screen)
 	}
 
 	HmiAuthorizationBegin(level, current_screen_id, target_screen, target_screen, NONE_KEY);
+}
+
+#define HMI_LOOP_SCREEN_ID             88U
+#define HMI_LOOP_COLOR_GREEN           0x0400U
+#define HMI_LOOP_COLOR_RED             0xF800U
+#define HMI_LOOP_COLOR_GRAY            0xC618U
+#define HMI_LOOP_NOTICE_TIME_MS        2000U
+
+typedef struct
+{
+	uint16_t enable_x;
+	uint16_t disable_x;
+	uint16_t y;
+}HmiLoopCirclePosition_t;
+
+static const HmiLoopCirclePosition_t g_hmi_loop_circle_position[4U] =
+{
+	{138U, 310U, 200U},
+	{622U, 794U, 200U},
+	{142U, 314U, 437U},
+	{627U, 799U, 438U}
+};
+
+static const uint16_t g_hmi_loop_summary_controls[4U][5U] =
+{
+	{7U, 8U, 9U, 10U, 11U},
+	{13U, 14U, 15U, 16U, 17U},
+	{19U, 20U, 21U, 22U, 24U},
+	{26U, 27U, 28U, 29U, 30U}
+};
+
+/* 0/1为上次已下发的禁用/启用显示状态，0xFF表示需要重新同步。 */
+static uint8_t g_hmi_loop_summary_visible_state[4U] =
+{
+	0xFFU, 0xFFU, 0xFFU, 0xFFU
+};
+
+static void HmiLoopDrawCircle(uint16_t x, uint16_t y, uint16_t color)
+{
+	SetFcolor(color);
+	GUI_CircleFill(x, y, 30U);
+}
+
+static void HmiLoopRefreshScreen88(void)
+{
+	uint8_t loop;
+	for(loop = SYSTEM_LOOP_MIN_ID; loop <= SYSTEM_LOOP_MAX_ID; loop++)
+	{
+		uint8_t enabled = GetLoopEnableState(loop);
+		const HmiLoopCirclePosition_t *position = &g_hmi_loop_circle_position[loop - 1U];
+		HmiLoopDrawCircle(position->enable_x, position->y,
+			enabled != 0U ? HMI_LOOP_COLOR_GREEN : HMI_LOOP_COLOR_GRAY);
+		HmiLoopDrawCircle(position->disable_x, position->y,
+			enabled != 0U ? HMI_LOOP_COLOR_GRAY : HMI_LOOP_COLOR_RED);
+	}
+}
+
+static void HmiLoopApplyDisabledSummary(uint16_t screen_id)
+{
+	uint8_t loop;
+	uint8_t row;
+	uint8_t enabled;
+	uint32_t now = osKernelGetTickCount();
+	if(screen_id != 6U) return;
+	for(loop = SYSTEM_LOOP_MIN_ID; loop <= SYSTEM_LOOP_MAX_ID; loop++)
+	{
+		enabled = GetLoopEnableState(loop);
+		if(g_hmi_loop_summary_visible_state[loop - 1U] != enabled)
+		{
+			/* 首行始终显示；禁用时隐藏其余四行，启用时恢复。 */
+			SetControlVisiable(6U, g_hmi_loop_summary_controls[loop - 1U][0U], 1U);
+			for(row = 1U; row < 5U; row++)
+				SetControlVisiable(6U, g_hmi_loop_summary_controls[loop - 1U][row], enabled);
+			g_hmi_loop_summary_visible_state[loop - 1U] = enabled;
+		}
+		if(enabled != 0U) continue;
+		SetTextValue(6U, g_hmi_loop_summary_controls[loop - 1U][0U],
+			((int32_t)(g_loop_disabled_notice_until[loop] - now) > 0) ?
+			"回路已禁用，操作无效" : "该回路已被禁用");
+	}
+}
+
+static void HmiLoopShowDisabledOperation(uint8_t loop)
+{
+	if(loop < SYSTEM_LOOP_MIN_ID || loop > SYSTEM_LOOP_MAX_ID) return;
+	g_loop_disabled_notice_until[loop] = osKernelGetTickCount() + HMI_LOOP_NOTICE_TIME_MS;
+	SetTextValue(6U, g_hmi_loop_summary_controls[loop - 1U][0U],
+		"回路已禁用，操作无效");
+}
+
+static uint8_t HmiLoopSetState(uint8_t loop, uint8_t enabled)
+{
+	static const uint8_t record_id[4U] =
+	{
+		SYS_LOOP1_ENABLE_ID, SYS_LOOP2_ENABLE_ID,
+		SYS_LOOP3_ENABLE_ID, SYS_LOOP4_ENABLE_ID
+	};
+	if(SetLoopEnableState(loop, enabled) == 0U) return 0U;
+	g_hmi_loop_summary_visible_state[loop - 1U] = 0xFFU;
+	BspCommonDataSaveApp(OTHER_FLASH_SAVE,
+		enabled != 0U ? OTHER_LOOP_ENABLE : OTHER_LOOP_DISABLE,
+		LINKAGE_CLUSTER_ID, record_id[loop - 1U]);
+	home_statistics_force_refresh = 1U;
+	return 1U;
 }
 
 static uint8_t HmiExecuteInternalProtectedAction(uint8_t action)
@@ -2887,7 +2992,7 @@ static AccessLevel_t HmiProtectedScreenLevel(uint16_t screen_id)
 	if(screen_id == 43U || screen_id == 70U || screen_id == 73U ||
 	   screen_id == 74U || screen_id == 75U || screen_id == 80U ||
 	   screen_id == 82U || screen_id == 83U || screen_id == 90U ||
-	   screen_id == 93U)
+	   screen_id == 93U || screen_id == HMI_LOOP_SCREEN_ID)
 	{
 		return ACCESS_LEVEL_III;
 	}
@@ -3138,6 +3243,10 @@ void NotifyScreen(uint16 screen_id)
 		HmiAuthorizationBegin(protected_level, prev_screen_id, screen_id, screen_id, NONE_KEY);
 		return;
 	}
+	if(screen_id == HMI_LOOP_SCREEN_ID)
+	{
+		HmiLoopRefreshScreen88();
+	}
 	if(screen_id == 53U && prev_screen_id != 53U)
 	{
 		yonghumima = 0U;
@@ -3261,6 +3370,10 @@ void NotifyScreen(uint16 screen_id)
 		else if(screen_id == 6) // 
 		{
 			uint8_t temp_buff[32] = {0};
+			/* 每次进入画面6都重新同步各统计控件的可见状态。 */
+			memset(g_hmi_loop_summary_visible_state, 0xFF,
+				sizeof(g_hmi_loop_summary_visible_state));
+			HmiLoopApplyDisabledSummary(screen_id);
 			if(AccessControl_IsGranted(ACCESS_LEVEL_III, 6U) == 0U)
 			{
 				/* 只读入口统一复位修改按钮，避免触摸后残留选中状态。 */
@@ -3269,18 +3382,22 @@ void NotifyScreen(uint16 screen_id)
 				setkey_Value(6U, 45U, 0U);
 				setkey_Value(6U, 55U, 0U);
 			}
-			// 回路1
-			sprintf((char *)temp_buff, "设置上线:%d", getPointDetectorSetUpCount());
-			SetTextValue(screen_id, 7, temp_buff); 
-			sprintf((char *)temp_buff, "设备在线:%d", getPointDetectorSetUpLive());
-			SetTextValue(screen_id, 8, temp_buff); 
-			sprintf((char *)temp_buff, "设备故障:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
-			SetTextValue(screen_id, 9, temp_buff); 
-			sprintf((char *)temp_buff, "报警设备:%d", getPointDetectorAlarmCount());
-			SetTextValue(screen_id, 10, temp_buff); 
-			sprintf((char *)temp_buff, "屏蔽设备:0");
-			SetTextValue(screen_id, 11, temp_buff); 
+			// 回路1：禁用时不再发送正常统计，避免与禁用提示交替刷新。
+			if(GetLoopEnableState(1U) != 0U)
+			{
+				sprintf((char *)temp_buff, "设置上线:%d", getPointDetectorSetUpCount());
+				SetTextValue(screen_id, 7, temp_buff);
+				sprintf((char *)temp_buff, "设备在线:%d", getPointDetectorSetUpLive());
+				SetTextValue(screen_id, 8, temp_buff);
+				sprintf((char *)temp_buff, "设备故障:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
+				SetTextValue(screen_id, 9, temp_buff);
+				sprintf((char *)temp_buff, "报警设备:%d", getPointDetectorAlarmCount());
+				SetTextValue(screen_id, 10, temp_buff);
+				sprintf((char *)temp_buff, "屏蔽设备:0");
+				SetTextValue(screen_id, 11, temp_buff);
+			}
 			// 回路2
+			if(GetLoopEnableState(2U) != 0U)
 			{
 				uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
 				uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
@@ -3296,27 +3413,33 @@ void NotifyScreen(uint16 screen_id)
 				SetTextValue(screen_id, 17, temp_buff);
 			}
 			// 回路3
-			uint8_t online = RS485Detect_GetOnlineCount();
-			uint8_t disconnect = RS485Detect_GetDisconnectCount();
-			sprintf((char *)temp_buff, "设置上线:%d", online);
-			SetTextValue(screen_id, 19, temp_buff);
-			sprintf((char *)temp_buff, "设备在线:%d", RS485Detect_GetActiveCount());
-			SetTextValue(screen_id, 20, temp_buff);
-			sprintf((char *)temp_buff, "设备故障:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
-			SetTextValue(screen_id, 21, temp_buff);
-			sprintf((char *)temp_buff, "报警设备:%d", RS485Detect_GetAlarmCount());
-			SetTextValue(screen_id, 22, temp_buff);
-			sprintf((char *)temp_buff, "屏蔽设备:0");
-			SetTextValue(screen_id, 24, temp_buff); 
+			if(GetLoopEnableState(3U) != 0U)
+			{
+				uint8_t online = RS485Detect_GetOnlineCount();
+				uint8_t disconnect = RS485Detect_GetDisconnectCount();
+				sprintf((char *)temp_buff, "设置上线:%d", online);
+				SetTextValue(screen_id, 19, temp_buff);
+				sprintf((char *)temp_buff, "设备在线:%d", RS485Detect_GetActiveCount());
+				SetTextValue(screen_id, 20, temp_buff);
+				sprintf((char *)temp_buff, "设备故障:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
+				SetTextValue(screen_id, 21, temp_buff);
+				sprintf((char *)temp_buff, "报警设备:%d", RS485Detect_GetAlarmCount());
+				SetTextValue(screen_id, 22, temp_buff);
+				sprintf((char *)temp_buff, "屏蔽设备:0");
+				SetTextValue(screen_id, 24, temp_buff);
+			}
 			// 回路4：IG3302-DC风机控制器
-			sprintf((char *)temp_buff, "设置上线:%d", IG3302_GetConfiguredCount());
-			SetTextValue(screen_id, 26, temp_buff);
-			sprintf((char *)temp_buff, "设备在线:%d", IG3302_GetActiveCount());
-			SetTextValue(screen_id, 27, temp_buff);
-			sprintf((char *)temp_buff, "设备故障:%d", IG3302_GetFaultDeviceCount());
-			SetTextValue(screen_id, 28, temp_buff);
-			SetTextValue(screen_id, 29, "报警设备:0");
-			SetTextValue(screen_id, 30, "屏蔽设备:0");
+			if(GetLoopEnableState(4U) != 0U)
+			{
+				sprintf((char *)temp_buff, "设置上线:%d", IG3302_GetConfiguredCount());
+				SetTextValue(screen_id, 26, temp_buff);
+				sprintf((char *)temp_buff, "设备在线:%d", IG3302_GetActiveCount());
+				SetTextValue(screen_id, 27, temp_buff);
+				sprintf((char *)temp_buff, "设备故障:%d", IG3302_GetFaultDeviceCount());
+				SetTextValue(screen_id, 28, temp_buff);
+				SetTextValue(screen_id, 29, "报警设备:0");
+				SetTextValue(screen_id, 30, "屏蔽设备:0");
+			}
 		}
 		else if(screen_id == 7) // 
 		{
@@ -4286,7 +4409,12 @@ void UpdateUI(void)
 				ds.last_num = total_devices;
 				SetTextInt32(current_screen_id, 5, total_devices, 0, 1);
 			}
-			uint16_t total_online = (uint16_t)((ds.curr_num - getPointDetectorSetUpCount()) - (pack_disconnect_sum + cabin_disconnect_sum) + getPointDetectorSetUpLive() + RS485Detect_GetActiveCount() + MBusCtrl_GetActiveCount() + IG3302_GetActiveCount());
+			uint16_t total_online = (uint16_t)((ds.curr_num - getPointDetectorSetUpCount()) -
+				(pack_disconnect_sum + cabin_disconnect_sum) +
+				(GetLoopEnableState(1U) != 0U ? getPointDetectorSetUpLive() : 0U) +
+				(GetLoopEnableState(3U) != 0U ? RS485Detect_GetActiveCount() : 0U) +
+				(GetLoopEnableState(2U) != 0U ? MBusCtrl_GetActiveCount() : 0U) +
+				(GetLoopEnableState(4U) != 0U ? IG3302_GetActiveCount() : 0U));
 			if (last_online_detector_num != total_online || home_statistics_force_refresh)
 			{
 				last_online_detector_num = total_online;
@@ -4357,18 +4485,22 @@ void UpdateUI(void)
 		uint8_t temp_buff[32] = {0};
 		sprintf((char *)temp_buff, "第 1 回路信息汇总");
 		SetTextValue(6, 6, temp_buff);
-		sprintf((char *)temp_buff, "设置上线:%d", getPointDetectorSetUpCount());
-		SetTextValue(6, 7, temp_buff);
-		sprintf((char *)temp_buff, "设备在线:%d", getPointDetectorSetUpLive());
-		SetTextValue(6, 8, temp_buff);
-		sprintf((char *)temp_buff, "设备故障:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
-		SetTextValue(6, 9, temp_buff);
-		sprintf((char *)temp_buff, "报警设备:%d", getPointDetectorAlarmCount());
-		SetTextValue(6, 10, temp_buff);
-		sprintf((char *)temp_buff, "屏蔽设备:0"); 
-		SetTextValue(6, 11, temp_buff);
+		if(GetLoopEnableState(1U) != 0U)
+		{
+			sprintf((char *)temp_buff, "设置上线:%d", getPointDetectorSetUpCount());
+			SetTextValue(6, 7, temp_buff);
+			sprintf((char *)temp_buff, "设备在线:%d", getPointDetectorSetUpLive());
+			SetTextValue(6, 8, temp_buff);
+			sprintf((char *)temp_buff, "设备故障:%d", (getPointDetectorFaultCount() + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP1)));
+			SetTextValue(6, 9, temp_buff);
+			sprintf((char *)temp_buff, "报警设备:%d", getPointDetectorAlarmCount());
+			SetTextValue(6, 10, temp_buff);
+			sprintf((char *)temp_buff, "屏蔽设备:0");
+			SetTextValue(6, 11, temp_buff);
+		}
 
 		// 回路2
+		if(GetLoopEnableState(2U) != 0U)
 		{
 			uint8_t mbus2_online = MBusCtrl_GetOnlineCount();
 			uint8_t mbus2_disconnect = MBusCtrl_GetDisconnectCount();
@@ -4385,27 +4517,34 @@ void UpdateUI(void)
 		}
 
 		// 回路3
-		uint8_t online = RS485Detect_GetOnlineCount();
-        uint8_t disconnect = RS485Detect_GetDisconnectCount();
-        sprintf((char *)temp_buff, "设置上线:%d", online);
-        SetTextValue(6, 19, temp_buff);
-        sprintf((char *)temp_buff, "设备在线:%d", RS485Detect_GetActiveCount());
-        SetTextValue(6, 20, temp_buff);
-        sprintf((char *)temp_buff, "设备故障:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
-        SetTextValue(6, 21, temp_buff); 
-        sprintf((char *)temp_buff, "报警设备:%d", RS485Detect_GetAlarmCount());
-        SetTextValue(6, 22, temp_buff); 
-		sprintf((char *)temp_buff, "屏蔽设备:0"); 
-		SetTextValue(6, 24, temp_buff);
+		if(GetLoopEnableState(3U) != 0U)
+		{
+			uint8_t online = RS485Detect_GetOnlineCount();
+			uint8_t disconnect = RS485Detect_GetDisconnectCount();
+			sprintf((char *)temp_buff, "设置上线:%d", online);
+			SetTextValue(6, 19, temp_buff);
+			sprintf((char *)temp_buff, "设备在线:%d", RS485Detect_GetActiveCount());
+			SetTextValue(6, 20, temp_buff);
+			sprintf((char *)temp_buff, "设备故障:%d", (disconnect + DeviceRegistry_GetProductUnknownCountByLoop(DEVICE_REGISTRY_LOOP3)));
+			SetTextValue(6, 21, temp_buff);
+			sprintf((char *)temp_buff, "报警设备:%d", RS485Detect_GetAlarmCount());
+			SetTextValue(6, 22, temp_buff);
+			sprintf((char *)temp_buff, "屏蔽设备:0");
+			SetTextValue(6, 24, temp_buff);
+		}
 		// 回路4：IG3302-DC风机控制器
-		sprintf((char *)temp_buff, "设置上线:%d", IG3302_GetConfiguredCount());
-		SetTextValue(6, 26, temp_buff);
-		sprintf((char *)temp_buff, "设备在线:%d", IG3302_GetActiveCount());
-		SetTextValue(6, 27, temp_buff);
-		sprintf((char *)temp_buff, "设备故障:%d", IG3302_GetFaultDeviceCount());
-		SetTextValue(6, 28, temp_buff);
-		SetTextValue(6, 29, "报警设备:0");
-		SetTextValue(6, 30, "屏蔽设备:0");
+		if(GetLoopEnableState(4U) != 0U)
+		{
+			sprintf((char *)temp_buff, "设置上线:%d", IG3302_GetConfiguredCount());
+			SetTextValue(6, 26, temp_buff);
+			sprintf((char *)temp_buff, "设备在线:%d", IG3302_GetActiveCount());
+			SetTextValue(6, 27, temp_buff);
+			sprintf((char *)temp_buff, "设备故障:%d", IG3302_GetFaultDeviceCount());
+			SetTextValue(6, 28, temp_buff);
+			SetTextValue(6, 29, "报警设备:0");
+			SetTextValue(6, 30, "屏蔽设备:0");
+		}
+		HmiLoopApplyDisabledSummary(6U);
 	}
 	else if(current_screen_id == 7)
 	{
@@ -5058,6 +5197,13 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				setkey_Value(6U, control_id, 0U);
 				return;
 			}
+			if(GetLoopEnableState(pack_circuit) == 0U &&
+			   (control_id == 5U || control_id == 45U || control_id == 55U))
+			{
+				HmiLoopShowDisabledOperation(pack_circuit);
+				setkey_Value(6U, control_id, 0U);
+				return;
+			}
 			if(control_id == 32)
 			{
 				/* 仅画面68预授权入口可进入中文命名，授权随目标页转移。 */
@@ -5086,6 +5232,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				{
 					uint8_t loop = g_registration_detail_entries[index].loop;
 					uint8_t address = g_registration_detail_entries[index].address;
+					if(GetLoopEnableState(loop) == 0U) continue;
 					if(loop == 1U && getPointTypeMixtureSettingOnlieState(address) == 0U)
 					{
 						PointTypeMixtureOnlieStateSingleSetting(address, 1U);
@@ -5230,6 +5377,34 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 				BspScreenArrowSite(&bkcnc);
 				home_statistics_force_refresh = 1;
 			}
+		}
+	}
+	else if(screen_id == HMI_LOOP_SCREEN_ID)
+	{
+		uint8_t loop = 0U;
+		uint8_t enabled = 0U;
+		if(state != 1U) return;
+		if(control_id == 4U)
+		{
+			HmiSwitchScreen(68U);
+			return;
+		}
+		switch(control_id)
+		{
+			case 23U: loop = 1U; enabled = 1U; break;
+			case 24U: loop = 1U; enabled = 0U; break;
+			case 25U: loop = 2U; enabled = 1U; break;
+			case 26U: loop = 2U; enabled = 0U; break;
+			case 27U: loop = 3U; enabled = 1U; break;
+			case 30U: loop = 3U; enabled = 0U; break;
+			case 28U: loop = 4U; enabled = 1U; break;
+			case 29U: loop = 4U; enabled = 0U; break;
+			default: break;
+		}
+		if(loop != 0U)
+		{
+			(void)HmiLoopSetState(loop, enabled);
+			HmiLoopRefreshScreen88();
 		}
 	}
 	else if(screen_id == 93U)
@@ -5925,6 +6100,13 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 		HmiAuthorizationBegin(protected_level, return_screen, screen_id, screen_id, NONE_KEY);
 		return;
 	}
+	if(screen_id == 6U && control_id == 2U &&
+	   GetLoopEnableState(pack_circuit) == 0U)
+	{
+		HmiLoopShowDisabledOperation(pack_circuit);
+		SetTextValue(6U, 2U, "批量上线");
+		return;
+	}
    DeviceThreshold_NotifyText(screen_id, control_id, str);
    HistoryFilter_NotifyText(screen_id, control_id, str);
    DeviceAliasHmiText(screen_id, control_id, str);
@@ -6552,7 +6734,11 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 	}
 	else if(screen_id == 68)
 	{
-        if(control_id == 18 && state == 1)
+        if(control_id == 24U && state == 1U && item == 0U)
+		{
+			HmiOpenProtectedPage(ACCESS_LEVEL_III, HMI_LOOP_SCREEN_ID);
+		}
+        else if(control_id == 18 && state == 1)
         {
             if(item == 0U) HmiSwitchScreen(HMI_DEVICE_QUERY_SCREEN_ADDRESS);
             else if(item == 1U) HmiSwitchScreen(HMI_DEVICE_QUERY_SCREEN_TYPE);
@@ -12745,6 +12931,12 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 							{
 								sprintf((char *)show_buff, "系统关机按键");
 							}
+							else if(read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id >= SYS_LOOP1_ENABLE_ID &&
+							        read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id <= SYS_LOOP4_ENABLE_ID)
+							{
+								sprintf((char *)show_buff, "第%d回路",
+									read_data[x_sector].fs_other_record[data_index].fs_detect_id.cabin_or_pack_id - SYS_LOOP1_ENABLE_ID + 1U);
+							}
 						}
 						else
 						{
@@ -12782,6 +12974,14 @@ static void InternalScreenShowRecord(BspScreenReadRecord_t *bsrr_entry)
 						else if(OTHER_TURN_OFF == read_data[x_sector].fs_other_record[data_index].state )
 						{
 							sprintf((char *)show_buff, "系统关机成功");
+						}
+						else if(OTHER_LOOP_ENABLE == read_data[x_sector].fs_other_record[data_index].state)
+						{
+							sprintf((char *)show_buff, "回路启用");
+						}
+						else if(OTHER_LOOP_DISABLE == read_data[x_sector].fs_other_record[data_index].state)
+						{
+							sprintf((char *)show_buff, "回路禁用");
 						}
 						SetTextValue(temp_screen_id, states_ctrl_id[i], show_buff); //刷新状态
 						break;

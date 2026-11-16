@@ -129,6 +129,10 @@ typedef enum
 	GENERAL_IOPUT_ISOLATE_OUTPUT_ID_4 = 24, /* general output 4 */
 	SYS_CHECK_Package_ID = 25, /* XR5000_CHECK_CHANGE_20260804: system check operation record ID. */
 	SYS_RESET_COMM_FAULT_ID = 26, /* 总复位指令在某条通信总线上两次发送均失败。 */
+	SYS_LOOP1_ENABLE_ID = 27, /* 第1回路启停操作记录。 */
+	SYS_LOOP2_ENABLE_ID = 28, /* 第2回路启停操作记录。 */
+	SYS_LOOP3_ENABLE_ID = 29, /* 第3回路启停操作记录。 */
+	SYS_LOOP4_ENABLE_ID = 30, /* 第4回路启停操作记录。 */
 
 }LinkagePackage_Id;
 
@@ -258,6 +262,8 @@ typedef enum
 	SPRAY_EMERGENCY_START = 91,
 	SPRAY_EMERGENCY_STOP = 92,
 	SPRAY_OUTPUT_START = 93,
+	OTHER_LOOP_ENABLE = 94,
+	OTHER_LOOP_DISABLE = 95,
 	
 	// 2025/10/27 09:50 新增可燃气体报警区分
 	FIRGAS_ALARM_CO = 38, // 一氧化碳
