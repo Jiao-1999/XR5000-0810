@@ -1142,6 +1142,12 @@ void RS485Detect_RequestDeviceReset(uint8_t addr)
 
 void RS485Detect_RequestBroadcastReset(void)
 {
+    if(GetLoopEnableState(3U) == 0U)
+    {
+        g_reset_requested = 0U;
+        g_reset_status = 2U;
+        return;
+    }
     taskENTER_CRITICAL();
     g_reset_addr = 0xFFU;   /* ¹ã²¥ */
     g_reset_status = 1U;
@@ -1185,6 +1191,8 @@ static void RS485Detect_ServiceBroadcastReset(void)
 void RS485DetectPollAndReceiveTask(void *parameter)
 {
     uint32_t current_tick;
+    uint8_t loop_was_enabled = 1U;
+    uint8_t address;
 
     (void)parameter;
     g_last_poll_time = osKernelGetTickCount();
@@ -1194,6 +1202,33 @@ void RS485DetectPollAndReceiveTask(void *parameter)
         (void)RS485DetectUartEnsureRx();
         process_transaction_tx_state();
         receive_data_deal();
+        if(GetLoopEnableState(3U) == 0U)
+        {
+            if(loop_was_enabled != 0U)
+            {
+                if(g_transaction_threshold != 0U) DeviceThreshold_HandleTimeout();
+                release_transaction();
+                RS485DetectUartClearRx();
+                g_rx_frame_len = 0U;
+                for(address = 1U; address < RS485_DETECT_MAX_DEVICES; address++)
+                {
+                    if(g_devices[address].disconnect_count < RS485_DETECT_DISCONNECT_THRESHOLD)
+                        g_devices[address].disconnect_count = 0U;
+                    g_devices[address].recovery_count = 0U;
+                }
+                loop_was_enabled = 0U;
+            }
+            osDelay(RS485_DETECT_TASK_INTERVAL_MS);
+            continue;
+        }
+        if(loop_was_enabled == 0U)
+        {
+            release_transaction();
+            g_last_poll_time = osKernelGetTickCount();
+            g_last_transaction_end_tick = g_last_poll_time;
+            (void)RS485DetectUartEnsureRx();
+            loop_was_enabled = 1U;
+        }
         mark_transaction_timeout();
         RS485Detect_ServiceBroadcastReset();
 

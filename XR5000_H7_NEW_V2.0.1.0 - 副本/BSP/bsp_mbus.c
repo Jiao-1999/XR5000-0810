@@ -1,4 +1,5 @@
 #include "bsp_mbus.h"
+#include "system.h"
 #include "bsp_device_registry.h"
 #include "bsp_device_registration.h"
 #include "bsp_device_threshold.h"
@@ -468,6 +469,30 @@ static void MBus1FinishTransaction(uint8_t addr)
     g_mbus1_transaction_threshold = 0U;
     g_mbus1_transaction_tick = 0U; g_mbus1_retry_addr = 0U;
     if(normal_poll != 0U) DeviceThreshold_NotifyNormalPollForLoop(1U);
+}
+
+static void MBus1CancelTransactionForLoopDisable(void)
+{
+    uint8_t addr;
+    if(g_mbus1_transaction_threshold != 0U) DeviceThreshold_HandleTimeoutForLoop(1U);
+    g_mbus1_transaction_pending = 0U;
+    g_mbus1_transaction_addr = 0U;
+    g_mbus1_transaction_identify_stage = MBUS1_STAGE_COMPLETE;
+    g_mbus1_transaction_threshold = 0U;
+    g_mbus1_registration_probe = 0U;
+    g_mbus1_transaction_tick = 0U;
+    g_mbus1_retry_addr = 0U;
+    g_mbus1_bus_locked = 0U;
+    taskENTER_CRITICAL();
+    uartbuff[MBUS1SITE].recepetion_flag = 0U;
+    uartbuff[MBUS1SITE].recepetion_len = 0U;
+    taskEXIT_CRITICAL();
+    for(addr = 1U; addr <= MBUS1_DEVICE_MAX_ADDR; addr++)
+    {
+        if(PointTypeMixtureDisconnectCount[addr] < MIXTURE_DEVICE_DISCONNECT_SUM)
+            PointTypeMixtureDisconnectCount[addr] = 0U;
+        g_mbus1_recovery_success_count[addr] = 0U;
+    }
 }
 static void MBus1MarkIdentifyFailure(uint8_t addr, DeviceIdentifyError error)
 {
@@ -945,6 +970,12 @@ void MBus1ResetDevice(uint8_t addr)
 
 void MBus1ResetAllDevices(void)
 {
+	if(GetLoopEnableState(1U) == 0U)
+	{
+		g_mbus1_reset_requested = 0U;
+		g_mbus1_reset_status = 2U;
+		return;
+	}
     taskENTER_CRITICAL();
     g_mbus1_reset_addr = 0xFFU;   /* ¹ã²¥ */
     g_mbus1_reset_status = 1U;
@@ -984,9 +1015,27 @@ static void MBus1ServiceReset(void)
 
 void MBus1PollSlaveAndReceiveTask(void* parameter)
 {
+    uint8_t loop_was_enabled = 1U;
     (void)parameter;
     for(;;)
     {
+        if(GetLoopEnableState(1U) == 0U)
+        {
+            if(loop_was_enabled != 0U)
+            {
+                MBus1CancelTransactionForLoopDisable();
+                loop_was_enabled = 0U;
+            }
+            osDelay(MIXTURE_DEVICE_TASK_INTERVAL_MS);
+            continue;
+        }
+        if(loop_was_enabled == 0U)
+        {
+            MBus1CancelTransactionForLoopDisable();
+            g_mbus1_last_rx_tick = osKernelGetTickCount();
+            g_mbus1_rx_guard_active = 1U;
+            loop_was_enabled = 1U;
+        }
         MBus1ReceiveSlaveDataDeal();
         MBus1MarkTimeout();
         MBus1ServiceReset();

@@ -64,6 +64,11 @@ typedef struct
 #define SYSTEM_DEFAULT_USER_PASSWORD 888888UL
 #define SYSTEM_DEFAULT_SUPER_PASSWORD 666666UL
 
+/* 四条物理回路启停状态：1=启用，0=禁用。 */
+#define SYSTEM_LOOP_MIN_ID              1U
+#define SYSTEM_LOOP_MAX_ID              4U
+#define SYSTEM_LOOP_ALL_ENABLED_MASK    0x0FU
+
 typedef enum
 {
 	LinkageShield = 0x10,  // 屏蔽状态
@@ -124,6 +129,9 @@ uint8_t SystemPasswordIsValid(uint32_t password);
 uint8_t SystemPasswordsUpdate(uint32_t user_password, uint32_t super_password);
 void Load25Q128(void);
 uint16_t CalcCrc16(uint8_t *buf, uint16_t len);
+void LoopEnableStateInit(void);
+uint8_t GetLoopEnableState(uint8_t loop);
+uint8_t SetLoopEnableState(uint8_t loop, uint8_t enable);
 
 void Savetanceqiming(uint8_t *buf, uint8_t tcqdrr);
 
