@@ -11210,12 +11210,6 @@
 
 #define  _BTN_气灭分区_BUTTON6                                                   266
 
-#define  _TXT_DIS__气灭分区_TEXT_DISPLAY19                                        28
-
-#define  _TXT_DIS__气灭分区_TEXT_DISPLAY20                                        12
-
-#define  _TXT_DIS__气灭分区_TEXT_DISPLAY22                                        16
-
 #define  _TXT_DIS__气灭分区_TEXT_DISPLAY2                                          9
 
 #define  _TXT_DIS__气灭分区_TEXT_DISPLAY1                                          7
@@ -11230,9 +11224,11 @@
 
 #define  _TXT_DIS__气灭分区_TEXT_DISPLAY5                                         25
 
-#define  _BTN_气灭分区_BUTTON3                                                    26
-
 #define  _BTN_气灭分区_BUTTON4                                                    27
+
+#define  _BTN_气灭分区_BUTTON5                                                    29
+
+#define  _BTN_气灭分区_BUTTON3                                                    26
 
 #define  _TXT_DIS__气灭分区设备管理_TEXT_DISPLAY11                                     9
 
