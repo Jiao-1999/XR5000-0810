@@ -283,6 +283,12 @@
 //创建画面主界面设备检查的命令索引ID
 #define  _SCREEN_主界面设备检查                                                      94
 
+//创建画面气灭分区的命令索引ID
+#define  _SCREEN_气灭分区                                                         95
+
+//创建画面气灭分区设备管理的命令索引ID
+#define  _SCREEN_气灭分区设备管理                                                     96
+
 #define  _VIDEOPLAYER_开机视频_VIDEOPLAYER1                                        1
 
 #define  _BTN_开机视频_BUTTON1                                                     2
@@ -9478,6 +9484,8 @@
 
 #define  _TXT_DIS__新菜单界面_TEXT_DISPLAY18                                      118
 
+#define  _MENU_新菜单界面_MENU7                                                    22
+
 #define  _TXT_DIS__设备显示详情_TEXT_DISPLAY1                                      200
 
 #define  _TXT_DIS__设备显示详情_TEXT_DISPLAY2                                        1
@@ -10478,11 +10486,13 @@
 
 #define  _TXT_DIS__密码设置界面_TEXT_DISPLAY24                                      30
 
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY26                                        35
+
+#define  _BTN_防火分区_BUTTON1                                                   105
+
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY34                                       112
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY33                                       111
-
-#define  _BTN_防火分区_BUTTON2                                                   106
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY1                                        101
 
@@ -10491,8 +10501,6 @@
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY8                                         26
 
 #define  _BTN_防火分区_BUTTON6                                                   266
-
-#define  _BTN_防火分区_BUTTON1                                                   105
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY2                                          9
 
@@ -10531,6 +10539,18 @@
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY21                                        24
 
 #define  _TXT_DIS__防火分区_TEXT_DISPLAY22                                        16
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY23                                        20
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY24                                        29
+
+#define  _TXT_DIS__防火分区_TEXT_DISPLAY25                                        34
+
+#define  _BTN_防火分区_BUTTON4                                                    37
+
+#define  _BTN_防火分区_BUTTON5                                                    38
+
+#define  _BTN_防火分区_BUTTON7                                                    39
 
 #define  _BTN_联动选择_BUTTON2                                                     1
 
@@ -11139,4 +11159,48 @@
 #define  _TXT_DIS__主界面设备检查_TEXT_DISPLAY26                                     30
 
 #define  _MENU_主界面设备检查_MENU1                                                  77
+
+#define  _BTN_气灭分区_BUTTON6                                                   266
+
+#define  _TXT_DIS__气灭分区_TEXT_DISPLAY19                                        28
+
+#define  _TXT_DIS__气灭分区_TEXT_DISPLAY20                                        12
+
+#define  _TXT_DIS__气灭分区_TEXT_DISPLAY22                                        16
+
+#define  _TXT_DIS__气灭分区_TEXT_DISPLAY2                                          9
+
+#define  _TXT_DIS__气灭分区_TEXT_DISPLAY1                                          7
+
+#define  _BTN_气灭分区_BUTTON1                                                     8
+
+#define  _BTN_气灭分区_BUTTON2                                                    10
+
+#define  _TXT_DIS__气灭分区_TEXT_DISPLAY3                                         15
+
+#define  _TXT_DIS__气灭分区_TEXT_DISPLAY4                                         24
+
+#define  _TXT_DIS__气灭分区_TEXT_DISPLAY5                                         25
+
+#define  _BTN_气灭分区_BUTTON3                                                    26
+
+#define  _BTN_气灭分区_BUTTON4                                                    27
+
+#define  _TXT_DIS__气灭分区设备管理_TEXT_DISPLAY11                                     9
+
+#define  _TXT_DIS__气灭分区设备管理_TEXT_DISPLAY1                                     11
+
+#define  _TXT_DIS__气灭分区设备管理_TEXT_DISPLAY2                                     13
+
+#define  _TXT_DIS__气灭分区设备管理_TEXT_DISPLAY3                                     15
+
+#define  _TXT_DIS__气灭分区设备管理_TEXT_DISPLAY4                                     17
+
+#define  _TXT_DIS__气灭分区设备管理_TEXT_DISPLAY5                                     19
+
+#define  _TXT_DIS__气灭分区设备管理_TEXT_DISPLAY6                                     23
+
+#define  _TXT_DIS__气灭分区设备管理_TEXT_DISPLAY7                                     25
+
+#define  _BTN_气灭分区设备管理_BUTTON6                                               266
 
