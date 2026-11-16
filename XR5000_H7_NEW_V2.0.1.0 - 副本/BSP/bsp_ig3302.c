@@ -282,6 +282,8 @@ IG3302CtrlResult IG3302_Request(const IG3302CtrlRequest *request)
        request->address > IG3302_MAX_ADDRESS ||
        request->fan == 0U || request->fan > 2U)
         return IG3302_CTRL_INVALID_PARAM;
+    if(GetLoopEnableState(4U) == 0U)
+        return IG3302_CTRL_NOT_CONFIGURED;
     if(g_devices[request->address].configured == 0U)
         return IG3302_CTRL_NOT_CONFIGURED;
 
@@ -656,11 +658,42 @@ void IG3302_PollAndReceiveTask(void *argument)
     uint8_t address;
     uint32_t now;
     uint32_t auto_generation;
+    uint8_t loop_was_enabled = 1U;
     (void)argument;
     IG3302_Init();
 
     for(;;)
     {
+        if(GetLoopEnableState(4U) == 0U)
+        {
+            taskENTER_CRITICAL();
+            g_control_head = 0U;
+            g_control_tail = 0U;
+            taskEXIT_CRITICAL();
+            if(loop_was_enabled != 0U)
+            {
+                IG3302_EndTransaction();
+                IG3302UartClearRx();
+                g_rx_stream_length = 0U;
+                for(address = 1U; address <= IG3302_MAX_ADDRESS; address++)
+                {
+                    if(g_devices[address].miss_count < IG3302_DISCONNECT_THRESHOLD)
+                        g_devices[address].miss_count = 0U;
+                    g_devices[address].recovery_count = 0U;
+                }
+                loop_was_enabled = 0U;
+            }
+            osDelay(IG3302_TASK_PERIOD_MS);
+            continue;
+        }
+        if(loop_was_enabled == 0U)
+        {
+            IG3302_EndTransaction();
+            IG3302UartClearRx();
+            g_rx_stream_length = 0U;
+            g_last_transaction_end_tick = osKernelGetTickCount();
+            loop_was_enabled = 1U;
+        }
         IG3302_UpdateAutoTarget();
         IG3302_AppendRx();
         (void)IG3302_ProcessRxFrame();
