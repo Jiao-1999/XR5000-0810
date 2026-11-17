@@ -223,16 +223,34 @@ static HAL_StatusTypeDef MBusCtrl_SendFrame(const uint8_t *frame, uint8_t length
     return status;
 }
 
-static volatile uint8_t g_mbus2_reset_addr = 0xFFU;  /* 0xFF=广播, 其它=单台地址 */
+/* 复位请求队列: 分区复位连续下发多台时逐条排队, 避免原单槽位被覆盖后只复位最后一台。
+ * 0xFF 表示广播复位。 */
+#define MBUS2_RESET_QUEUE_LEN 128U
+
+static volatile uint8_t g_mbus2_reset_queue[MBUS2_RESET_QUEUE_LEN];
+static volatile uint8_t g_mbus2_reset_qhead = 0U;   /* 队首下标 */
+static volatile uint8_t g_mbus2_reset_qcount = 0U;  /* 待发请求数 */
+
+static void MBusCtrl_ResetQueuePush(uint8_t addr)
+{
+    uint8_t tail;
+
+    taskENTER_CRITICAL();
+    if(g_mbus2_reset_qcount < MBUS2_RESET_QUEUE_LEN)
+    {
+        tail = (uint8_t)((g_mbus2_reset_qhead + g_mbus2_reset_qcount) % MBUS2_RESET_QUEUE_LEN);
+        g_mbus2_reset_queue[tail] = addr;
+        g_mbus2_reset_qcount++;
+        g_mbus2_reset_requested = 1U;
+        g_mbus2_reset_status = 1U;
+    }
+    taskEXIT_CRITICAL();
+}
 
 void MBusCtrl_RequestDeviceReset(uint8_t addr)
 {
     if((addr < 1U) || (addr >= (uint8_t)MBUS_CONTROL_MAX_DEVICES)) return;
-    taskENTER_CRITICAL();
-    g_mbus2_reset_addr = addr;
-    g_mbus2_reset_status = 1U;
-    g_mbus2_reset_requested = 1U;
-    taskEXIT_CRITICAL();
+    MBusCtrl_ResetQueuePush(addr);
 }
 
 void MBusCtrl_RequestBroadcastReset(void)
@@ -244,11 +262,12 @@ void MBusCtrl_RequestBroadcastReset(void)
         SprayOutputPolicy_Reset();
         return;
     }
+    /* 广播复位优先: 丢弃残留的单台请求 */
     taskENTER_CRITICAL();
-    g_mbus2_reset_addr = 0xFFU;   /* 广播 */
-    g_mbus2_reset_status = 1U;
-    g_mbus2_reset_requested = 1U;
+    g_mbus2_reset_qhead = 0U;
+    g_mbus2_reset_qcount = 0U;
     taskEXIT_CRITICAL();
+    MBusCtrl_ResetQueuePush(0xFFU);
     SprayOutputPolicy_Reset();
 }
 
@@ -265,13 +284,19 @@ static void MBusCtrl_ServiceBroadcastReset(void)
     HAL_StatusTypeDef second_status;
 
     uint8_t addr;
+    uint8_t req_addr;   /* 队首请求地址(0xFF=广播) */
 
     if(g_mbus2_reset_requested == 0U || g_mbus_poll_wait_response != 0U ||
        g_control_wait_response != 0U || g_fire_display_wait_response != 0U) return;
 
+    /* 取队首请求 */
+    taskENTER_CRITICAL();
+    req_addr = g_mbus2_reset_queue[g_mbus2_reset_qhead];
+    taskEXIT_CRITICAL();
+
     /* 广播: 清全部设备控制状态; 单台复位: 只清目标设备, 不波及另一分区。 */
     taskENTER_CRITICAL();
-    if(g_mbus2_reset_addr == 0xFFU)
+    if(req_addr == 0xFFU)
     {
         g_control_queue_head = 0U;
         g_control_queue_tail = 0U;
@@ -280,7 +305,7 @@ static void MBusCtrl_ServiceBroadcastReset(void)
     }
     for(addr = 1U; addr < MBUS_CONTROL_MAX_DEVICES; addr++)
     {
-        if((g_mbus2_reset_addr != 0xFFU) && (addr != g_mbus2_reset_addr)) continue;
+        if((req_addr != 0xFFU) && (addr != req_addr)) continue;
         g_control_target_outputs[addr] = 0U;
         g_control_requested_outputs[addr] = 0U;
         g_control_confirmed_outputs[addr] = 0U;
@@ -292,7 +317,7 @@ static void MBusCtrl_ServiceBroadcastReset(void)
     }
     taskEXIT_CRITICAL();
 
-    frame[0] = g_mbus2_reset_addr;   /* 0xFF=广播, 其它=单台 */
+    frame[0] = req_addr;   /* 0xFF=广播, 其它=单台 */
     crc = CalcCrc16(frame, 6U);
     frame[6] = (uint8_t)crc;
     frame[7] = (uint8_t)(crc >> 8);
@@ -303,8 +328,24 @@ static void MBusCtrl_ServiceBroadcastReset(void)
     g_mbus2_last_rx_tick = osKernelGetTickCount();
     g_mbus2_rx_guard_active = 1U;
     g_mbus2_reset_grace_until = g_mbus2_last_rx_tick + 3000U;
-    g_mbus2_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
-    g_mbus2_reset_requested = 0U;
+    /* 出队: 队列还有请求则继续, 空了才算完成 */
+    taskENTER_CRITICAL();
+    /* 只有队首仍是本次发送的地址才出队(防止系统复位清队时下标错乱) */
+    if((g_mbus2_reset_qcount > 0U) && (g_mbus2_reset_queue[g_mbus2_reset_qhead] == req_addr))
+    {
+        g_mbus2_reset_qhead = (uint8_t)((g_mbus2_reset_qhead + 1U) % MBUS2_RESET_QUEUE_LEN);
+        g_mbus2_reset_qcount--;
+    }
+    if(g_mbus2_reset_qcount == 0U)
+    {
+        g_mbus2_reset_requested = 0U;
+        g_mbus2_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
+    }
+    else
+    {
+        g_mbus2_reset_status = 1U;   /* 队列中还有待发请求 */
+    }
+    taskEXIT_CRITICAL();
 }
 /* ============================================================
  * 火灾显示盘事件处理: 10功能码写多寄存器, 环形队列+重试机制
@@ -833,6 +874,21 @@ MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr)
     return (MBusCtrlStatus)g_control_status[addr];
 }
 
+/* V8: 读设备已确认的输出位图(画面86 联动监测用它判断"已启动")
+ * 返回值: 1=该设备存在有效确认状态, 0=尚无确认 */
+uint8_t MBusCtrl_GetConfirmedOutputs(uint8_t addr, uint32_t *outputs)
+{
+    if((addr == 0U) || (addr >= MBUS_CONTROL_MAX_DEVICES) || (outputs == NULL))
+    {
+        return 0U;
+    }
+    taskENTER_CRITICAL();
+    *outputs = g_control_confirmed_outputs[addr];
+    taskEXIT_CRITICAL();
+    return (g_control_confirmed_valid[addr] != 0U) ? 1U : 0U;
+}
+
+
 /* 手报自动控制也复用通用入口，避免另建一套声光控制状态机。 */
 static void MBusCtrl_QueueFixedSoundLightTarget(uint8_t addr)
 {
@@ -1058,6 +1114,8 @@ void MBusCtrl_Init(void)
     g_mbus2_tx_request_len = 0U;
     g_mbus2_reset_requested = 0U;
     g_mbus2_reset_status = 0U;
+    g_mbus2_reset_qhead = 0U;
+    g_mbus2_reset_qcount = 0U;
     g_mbus2_reset_grace_until = 0U;
     g_fixed_detector_fire_active = 0U;
     g_fixed_manual_fire_active = 0U;

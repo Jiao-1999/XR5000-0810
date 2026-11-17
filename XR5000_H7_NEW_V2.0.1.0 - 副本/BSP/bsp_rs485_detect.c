@@ -1128,16 +1128,34 @@ uint8_t RS485Detect_HasSensorEnableData(uint8_t addr)
     return g_devices[addr].sensor_enable_confirmed;
 }
 
-static volatile uint8_t g_reset_addr = 0xFFU;  /* 0xFF=广播, 其它=单台地址 */
+/* 复位请求队列: 分区复位连续下发多台时逐条排队, 避免原单槽位被覆盖后只复位最后一台。
+ * 0xFF 表示广播复位。 */
+#define RS485_DETECT_RESET_QUEUE_LEN 128U
+
+static volatile uint8_t g_reset_queue[RS485_DETECT_RESET_QUEUE_LEN];
+static volatile uint8_t g_reset_qhead = 0U;   /* 队首下标 */
+static volatile uint8_t g_reset_qcount = 0U;  /* 待发请求数 */
+
+static void RS485Detect_ResetQueuePush(uint8_t addr)
+{
+    uint8_t tail;
+
+    taskENTER_CRITICAL();
+    if(g_reset_qcount < RS485_DETECT_RESET_QUEUE_LEN)
+    {
+        tail = (uint8_t)((g_reset_qhead + g_reset_qcount) % RS485_DETECT_RESET_QUEUE_LEN);
+        g_reset_queue[tail] = addr;
+        g_reset_qcount++;
+        g_reset_requested = 1U;
+        g_reset_status = 1U;
+    }
+    taskEXIT_CRITICAL();
+}
 
 void RS485Detect_RequestDeviceReset(uint8_t addr)
 {
     if((addr < 1U) || (addr >= (uint8_t)RS485_DETECT_MAX_DEVICES)) return;
-    taskENTER_CRITICAL();
-    g_reset_addr = addr;
-    g_reset_status = 1U;
-    g_reset_requested = 1U;
-    taskEXIT_CRITICAL();
+    RS485Detect_ResetQueuePush(addr);
 }
 
 void RS485Detect_RequestBroadcastReset(void)
@@ -1148,11 +1166,12 @@ void RS485Detect_RequestBroadcastReset(void)
         g_reset_status = 2U;
         return;
     }
+    /* 广播复位优先: 丢弃残留的单台请求 */
     taskENTER_CRITICAL();
-    g_reset_addr = 0xFFU;   /* 广播 */
-    g_reset_status = 1U;
-    g_reset_requested = 1U;
+    g_reset_qhead = 0U;
+    g_reset_qcount = 0U;
     taskEXIT_CRITICAL();
+    RS485Detect_ResetQueuePush(0xFFU);
 }
 
 uint8_t RS485Detect_GetBroadcastResetStatus(void)
@@ -1167,8 +1186,15 @@ static void RS485Detect_ServiceBroadcastReset(void)
     HAL_StatusTypeDef first_status;
     HAL_StatusTypeDef second_status;
 
+    uint8_t addr;
+
     if(g_reset_requested == 0U || g_transaction_pending != 0U) return;
-    frame[0] = g_reset_addr;   /* 0xFF=广播, 其它=单台 */
+
+    /* 取队首请求 */
+    taskENTER_CRITICAL();
+    addr = g_reset_queue[g_reset_qhead];
+    taskEXIT_CRITICAL();
+    frame[0] = addr;   /* 0xFF=广播, 其它=单台 */
     crc = CalcCrc16(frame, 6U);
     frame[6] = (uint8_t)crc;
     frame[7] = (uint8_t)(crc >> 8);
@@ -1180,8 +1206,24 @@ static void RS485Detect_ServiceBroadcastReset(void)
     (void)RS485DetectUartEnsureRx();
     g_last_transaction_end_tick = osKernelGetTickCount();
     g_reset_grace_until = g_last_transaction_end_tick + 3000U;
-    g_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
-    g_reset_requested = 0U;
+    /* 出队: 队列还有请求则继续, 空了才算完成 */
+    taskENTER_CRITICAL();
+    /* 只有队首仍是本次发送的地址才出队(防止系统复位清队时下标错乱) */
+    if((g_reset_qcount > 0U) && (g_reset_queue[g_reset_qhead] == addr))
+    {
+        g_reset_qhead = (uint8_t)((g_reset_qhead + 1U) % RS485_DETECT_RESET_QUEUE_LEN);
+        g_reset_qcount--;
+    }
+    if(g_reset_qcount == 0U)
+    {
+        g_reset_requested = 0U;
+        g_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
+    }
+    else
+    {
+        g_reset_status = 1U;   /* 队列中还有待发请求 */
+    }
+    taskEXIT_CRITICAL();
 }
 
 /* ============================================================

@@ -49,11 +49,13 @@ static uint8_t s_prev_cond[LOGIC_RULE_MAX];
 /* Test trace: auto-mode-denied message printed once per cond window */
 static uint8_t s_denied_printed[LOGIC_RULE_MAX];
 static uint8_t s_blocked_printed[LOGIC_RULE_MAX];  /* V7: 分区停止闭锁提示的限频标志 */
+static uint8_t s_ever_triggered = 0U;  /* V8: 本次上电是否触发过联动, 触发后恒1 */
 
 /* 延时启动: 每条规则的条件首次满足时刻与延时中标志 */
 static uint32_t s_delay_start_tick[LOGIC_RULE_MAX];
 static uint8_t  s_retry_cnt[LOGIC_RULE_MAX];      /* V7: 动作下发失败后的重试计数(失败不清零, 成功/复位清) */
 static uint8_t  s_delaying[LOGIC_RULE_MAX];
+static uint8_t  s_manual_start_req[LOGIC_RULE_MAX]; /* 手动启动请求: 由分区启动键登记, 延时到点执行后清除 */
 
 /* 联动延时启动时间(毫秒), 运行期可改, 缺省 10 秒 */
 static uint32_t s_action_delay_ms = LOGIC_ACTION_DELAY_MS;
@@ -178,7 +180,6 @@ static void LogicEngine_Run(void)
     uint8_t  j;          /* 动作循环计数器（0..3） */
     uint8_t  cond_met;   /* 条件是否满足标志 */
     uint8_t  exec_now;    /* 本周期允许执行标志(自动模式允许 或 手动启动键按下) */
-    uint8_t  manual_pass; /* 手动启动键放行标志(1=跳过延时立即执行) */
     uint32_t zone_delay_ms; /* V6: 本规则联动延时(按分区取值, zone=0为0) */
     LogicRule_t *rules;  /* 规则表首地址 */
     RtRuntime   *rt;     /* 运行时状态数组首地址 */
@@ -255,41 +256,40 @@ static void LogicEngine_Run(void)
                 }
                 s_delaying[i] = 0U;
                 s_retry_cnt[i] = 0U;      /* 闭锁期间不累计延时 */
+                s_manual_start_req[i] = 0U;
                 s_denied_printed[i] = 0U;
                 continue;                /* 无条件跳过本规则, 状态机保持不动 */
             }
             if (cond_met)
             {
-                manual_pass = 0U;  /* 默认走自动延时路径 */
-
                 /* 条件满足，检查本规则所属分区是否允许自动执行 */
                 exec_now = CheckAutoAllowed(&rules[i]);
                 if (exec_now == 0U)
                 {
-                    /* A9: 手动模式联动入口 - 自动不允许时查询外联设备启动键
-                     * 手动启动键按下且条件满足才执行, 条件不满足时按键无效 */
-                    if ((s_manualstart_func != NULL) && (s_manualstart_func() != 0U))
+                    /* 手动模式联动入口(两条来源, 都按本区联动延时执行):
+                     *   1) 分区启动键已登记 s_manual_start_req, 延时到点由本函数下发;
+                     *   2) 外联设备"联动启动"键按下, 首次检测到即登记请求。
+                     * 不再跳过延时: 延时灯与画面86 倒计时按 s_delaying 显示。 */
+                    if (s_manual_start_req[i] != 0U)
                     {
-                        exec_now      = 1U;  /* 手动启动键按下, 放行执行 */
-                        manual_pass   = 1U;  /* 手动放行不延时 */
-                        s_delaying[i] = 0U;
+                        exec_now = 1U;
+                    }
+                    else if ((s_manualstart_func != NULL) && (s_manualstart_func() != 0U))
+                    {
+                        exec_now = 1U;
+                        s_manual_start_req[i] = 1U;  /* 键为瞬时信号, 登记后靠请求位保持 */
+                        s_delaying[i] = 0U;          /* 从按下时刻重新计时 */
                         s_retry_cnt[i] = 0U;
-                        DebugPrintf("[LOGIC] R%d manual START key -> exec\r\n",
-                                    rules[i].rule_id);
+                        DebugPrintf("[LOGIC] R%d manual START key -> delay %ums\r\n",
+                                    rules[i].rule_id, (unsigned)zone_delay_ms);
                     }
                 }
 
                 if (exec_now)
                 {
-                    /* 手动放行: 把延时起点前移为"已过延时", 与自动路径统一走下面的执行/重试 */
-                    if ((manual_pass != 0U) && (s_delaying[i] == 0U))
-                    {
-                        s_delaying[i] = 1U;
-                        s_delay_start_tick[i] = HAL_GetTick() - zone_delay_ms - 1U;
-                        s_retry_cnt[i] = 0U;
-                    }
-                    /* 首次满足: 记录延时起点 */
-                    else if (s_delaying[i] == 0U)
+                    s_ever_triggered = 1U;   /* V8: 一旦联动逻辑触发, 本次上电期间恒置位 */
+                    /* 首次满足: 记录延时起点(手动/自动共用同一套计时) */
+                    if (s_delaying[i] == 0U)
                     {
                         s_delaying[i] = 1U;
                         s_delay_start_tick[i] = HAL_GetTick();
@@ -324,6 +324,7 @@ static void LogicEngine_Run(void)
                         {
                             s_delaying[i] = 0U;
                             s_retry_cnt[i] = 0U;
+                            s_manual_start_req[i] = 0U;  /* 手动启动请求已消费 */
                             rt[i].state = RT_EXECUTED;  /* 全部动作已执行 */
                             DebugPrintf("[LOGIC] R%d all %d action(s) done\r\n",
                                         rules[i].rule_id, rules[i].action_count);
@@ -359,9 +360,10 @@ static void LogicEngine_Run(void)
             }
             else
             {
-                /* 条件未满足: 清延时状态 */
+                /* 条件未满足: 清延时状态与手动启动请求(条件消失即作废) */
                 s_delaying[i] = 0U;
                 s_retry_cnt[i] = 0U;
+                s_manual_start_req[i] = 0U;
             }
             break;
 
@@ -438,13 +440,17 @@ uint8_t LogicEngine_ManualStartZone(uint8_t zone)
 {
     LogicRule_t *rules;
     RtRuntime   *rt;
-    uint8_t i, j;
-    uint8_t executed = 0U;   /* 实际下发 START 的动作数 */
+    uint8_t i;
+    uint8_t requested = 0U;   /* 登记的手动启动请求数 */
+    uint32_t delay_ms;
 
     if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return 0U;
 
+    s_ever_triggered = 1U;   /* V8: 手动启动也算触发过联动 */
+
     rules = LogicExpr_GetTable();
     rt    = LogicExpr_GetRuntime();
+    delay_ms = (uint32_t)FireZone_GetZoneDelay(zone) * 1000U;
 
     for (i = 0; i < LOGIC_RULE_MAX; i++)
     {
@@ -452,22 +458,31 @@ uint8_t LogicEngine_ManualStartZone(uint8_t zone)
         if (rules[i].enable == 0U) continue;
         if (rules[i].zone != zone) continue;               /* 只处理本分区规则 */
         if (LogicExpr_Evaluate(&rules[i]) == 0U) continue;  /* 条件不成立不启动 */
+        if (rt[i].state == RT_EXECUTED) continue;           /* 已启动的不重复登记 */
 
-        for (j = 0; j < rules[i].action_count; j++)
+        /* 已停止(RT_DONE)的规则重新拉回 IDLE, 允许再次按启动键 */
+        if (rt[i].state != RT_IDLE)
         {
-            ExecuteAction(rules[i].actions[j].loop_no, rules[i].actions[j].dev_no,
-                          rules[i].actions[j].channel, EffectiveAction(&rules[i], j));
-            rt[i].action_done[j] = 1U;
-            executed++;
+            memset(&rt[i], 0, sizeof(RtRuntime));
+            rt[i].state = RT_IDLE;
         }
-        rt[i].state = RT_EXECUTED;
-        s_delaying[i] = 0U;
-        s_retry_cnt[i] = 0U;
-        DebugPrintf("[LOGIC] R%d manual START zone%d (%d action)\r\n",
-                    rules[i].rule_id, (int)zone, rules[i].action_count);
+
+        /* 需求: 手动启动同样走本区联动延时, 这里只登记请求并起延时,
+         * 实际下发由 LogicEngine_Run 在延时到点后统一执行;
+         * 延时灯与画面86 倒计时据此显示。 */
+        s_manual_start_req[i] = 1U;
+        if (s_delaying[i] == 0U)
+        {
+            s_delaying[i] = 1U;
+            s_delay_start_tick[i] = HAL_GetTick();
+            s_retry_cnt[i] = 0U;
+        }
+        requested++;
+        DebugPrintf("[LOGIC] R%d manual START zone%d -> delay %ums\r\n",
+                    rules[i].rule_id, (int)zone, (unsigned)delay_ms);
     }
 
-    return executed;
+    return requested;
 }
 
 /*--------------------------------------------------------------
@@ -507,6 +522,7 @@ uint8_t LogicEngine_ManualStopZone(uint8_t zone)
         }
         s_delaying[i] = 0U;
         s_retry_cnt[i] = 0U;
+        s_manual_start_req[i] = 0U;
         rt[i].state = RT_DONE;
         DebugPrintf("[LOGIC] R%d manual STOP zone%d\r\n", rules[i].rule_id, (int)zone);
     }
@@ -537,6 +553,7 @@ void LogicEngine_CancelZoneDelay(uint8_t zone)
         s_delaying[i] = 0U;
         s_retry_cnt[i] = 0U;            /* 清除延时中标志 */
         s_delay_start_tick[i] = 0U;    /* 清除延时起点时刻 */
+        s_manual_start_req[i] = 0U;
     }
     LogicDev_ClearLeafLatchByZone(zone);   /* V7: 只清本分区探测器产生的条件锁存 */
     LogicEngine_ClearZoneStopLatch(zone);  /* 分区复位一并解除停止闭锁 */
@@ -565,6 +582,188 @@ void LogicEngine_ClearZoneStopLatch(uint8_t zone)
  * 功能说明：初始化引擎运行时状态，将所有规则状态设为IDLE。
  * 调用顺序：LogicExpr_Init()和LogicDev_Register()之后调用。
  *--------------------------------------------------------------*/
+/*--------------------------------------------------------------
+ * 函数名称：LogicEngine_GetActionViews
+ * 功能说明：V8 导出联动动作执行视图，供画面86 联动监测区(控件42~48)显示。
+ *           按触发时刻升序(先触发的先显示)，最多max条。
+ *           state: 0=延时中 1=已下发待反馈 2=反馈已启动(本函数不填) 3=已停止/失败
+ *--------------------------------------------------------------*/
+uint8_t LogicEngine_GetActionViews(LogicActionView_t *out, uint8_t max)
+{
+    LogicRule_t *rules;
+    RtRuntime   *rt;
+    LogicActionView_t item;
+    uint8_t  i;
+    uint8_t  j;
+    uint8_t  count = 0U;
+    uint8_t  pos;
+    uint32_t now;
+    uint32_t delay_ms;
+    uint32_t elapsed;
+    uint32_t remain_ms;
+
+    if ((out == NULL) || (max == 0U))
+    {
+        return 0U;
+    }
+    rules = LogicExpr_GetTable();
+    rt    = LogicExpr_GetRuntime();
+    now   = HAL_GetTick();
+
+    for (i = 0U; i < LOGIC_RULE_MAX; i++)
+    {
+        if (rules[i].rule_id == 0U)
+        {
+            continue;
+        }
+        if (rules[i].enable == 0U)
+        {
+            continue;
+        }
+        for (j = 0U; j < rules[i].action_count; j++)
+        {
+            item.state    = 0U;
+            item.remain_s = 0U;
+
+            /* 分区停止闭锁: 本规则动作统一显示"已停止" */
+            if ((rules[i].zone >= 1U) && (rules[i].zone <= (uint8_t)FIRE_ZONE_MAX) &&
+                (s_zone_stop_latch[rules[i].zone - 1U] != 0U))
+            {
+                item.state = 3U;
+            }
+            else if (rt[i].state == RT_EXECUTED)
+            {
+                if (rt[i].action_done[j] == 0U)
+                {
+                    continue;
+                }
+                item.state = 1U;
+            }
+            else if (rt[i].state == RT_DONE)
+            {
+                item.state = 3U;
+            }
+            else if (rt[i].state == RT_IDLE)
+            {
+                if (s_delaying[i] != 0U)
+                {
+                    /* 延时按规则所属分区取值, zone=0 恒0 */
+                    if (rules[i].zone == 1U)
+                    {
+                        delay_ms = (uint32_t)FireZone_GetZoneDelay(1U) * 1000U;
+                    }
+                    else if (rules[i].zone == 2U)
+                    {
+                        delay_ms = (uint32_t)FireZone_GetZoneDelay(2U) * 1000U;
+                    }
+                    else
+                    {
+                        delay_ms = 0U;
+                    }
+                    elapsed = now - s_delay_start_tick[i];
+                    remain_ms = (elapsed >= delay_ms) ? 0U : (delay_ms - elapsed);
+                    item.remain_s = (uint16_t)((remain_ms + 999U) / 1000U);
+                    item.state = 0U;
+                }
+                else if (rt[i].action_done[j] != 0U)
+                {
+                    item.state = 3U;    /* 下发失败, 正在重试 */
+                }
+                else
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                continue;
+            }
+
+            item.valid        = 1U;
+            item.rule_id      = rules[i].rule_id;
+            item.loop_no      = rules[i].actions[j].loop_no;
+            item.dev_no       = rules[i].actions[j].dev_no;
+            item.channel      = rules[i].actions[j].channel;
+            item.trigger_tick = s_delay_start_tick[i];
+
+            /* 按触发时刻插入排序: 先触发的排前面 */
+            pos = (count < max) ? count : max;
+            while (pos > 0U)
+            {
+                if (out[pos - 1U].trigger_tick <= item.trigger_tick)
+                {
+                    break;
+                }
+                if (pos < max)
+                {
+                    out[pos] = out[pos - 1U];
+                }
+                pos--;
+            }
+            if (pos < max)
+            {
+                out[pos] = item;
+            }
+            if (count < max)
+            {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+/* V8: 本次上电期间是否触发过联动逻辑(供画面86停止"联动检测运行中"刷新) */
+uint8_t LogicEngine_HasEverTriggered(void)
+{
+    return (s_ever_triggered != 0U) ? 1U : 0U;
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：LogicEngine_GetZoneLinkState
+ * 功能说明：汇总指定分区当前联动状态, 供面板分区 LED 驱动使用。
+ *           位0=本区有规则处于启动延时中, 位1=本区有启动类动作已下发。
+ *           停止类规则不计入"已启动", 避免停止动作点亮喷洒启动灯。
+ * 输入参数：zone - 分区号(1..FIRE_ZONE_MAX)
+ * 返回值  ：LOGIC_ZONE_ST_* 位掩码, 参数非法返回0
+ *--------------------------------------------------------------*/
+uint8_t LogicEngine_GetZoneLinkState(uint8_t zone)
+{
+    LogicRule_t *rules;
+    RtRuntime   *rt;
+    uint8_t i;
+    uint8_t state = 0U;
+
+    if ((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX))
+    {
+        return 0U;
+    }
+
+    rules = LogicExpr_GetTable();
+    rt    = LogicExpr_GetRuntime();
+
+    for (i = 0U; i < LOGIC_RULE_MAX; i++)
+    {
+        if (rules[i].rule_id == 0U) continue;
+        if (rules[i].enable == 0U) continue;
+        if (rules[i].zone != zone) continue;
+
+        if (s_delaying[i] != 0U)
+        {
+            state |= LOGIC_ZONE_ST_DELAYING;
+        }
+        if (rt[i].state == RT_EXECUTED)
+        {
+            if ((rules[i].exec_mode != EXEC_STOP_ALL) &&
+                (rules[i].exec_mode != EXEC_STOP_PART))
+            {
+                state |= LOGIC_ZONE_ST_ACTIVE;
+            }
+        }
+    }
+
+    return state;
+}
 void LogicEngine_Init(void)
 {
     uint8_t i;      /* 循环计数器 */
@@ -581,9 +780,11 @@ void LogicEngine_Init(void)
         s_delaying[i] = 0U;
         s_retry_cnt[i] = 0U;                     /* 清除延时中标志 */
         s_delay_start_tick[i] = 0U;             /* 清除延时起点时刻 */
+        s_manual_start_req[i] = 0U;
     }
 
     LogicDev_ClearLeafLatch();  /* XR5000_COND_LEAF_LATCH_20261112: 系统复位全表清一次 */
+    s_ever_triggered = 0U;  /* V8: 系统复位清除"曾触发"标志 */
 }
 
 /*--------------------------------------------------------------

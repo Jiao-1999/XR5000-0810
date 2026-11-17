@@ -104,6 +104,18 @@ void Part2FeedbackLedCtrl(LED_STATE state);
 void Part2SoundLightLedCtrl(LED_STATE state);
 void Part2FaultLedCtrl(LED_STATE state);
 
+/* 分区延时/喷洒/反馈灯的多来源位掩码: 同一盏灯可由旧气灭状态机与联动引擎
+ * 分别置位, 最终灯态 = 任一来源置位, 避免两套业务互相熄灭对方的灯。 */
+#define PART_LED_SRC_LEGACY    0x0001U   /* 旧气灭装置状态机 */
+#define PART_LED_SRC_LINKAGE   0x0002U   /* 联动逻辑引擎 */
+
+void Part1StartDelayLedSource(uint32_t source_mask, LED_STATE state);
+void Part1SprayLedSource(uint32_t source_mask, LED_STATE state);
+void Part1FeedbackLedSource(uint32_t source_mask, LED_STATE state);
+void Part2StartDelayLedSource(uint32_t source_mask, LED_STATE state);
+void Part2SprayLedSource(uint32_t source_mask, LED_STATE state);
+void Part2FeedbackLedSource(uint32_t source_mask, LED_STATE state);
+
 // 备用区 2025/12/11 16:39
 void SpecialSelfCheckLedCtrl(LED_STATE state);
 
@@ -127,6 +139,10 @@ void clearOutFireKeyValue(void);
 uint8_t getPart1HandAutoState(void);
 uint8_t getSysHandAutoState(void);
 uint8_t getPart2HandAutoState(void);
+
+/* 有效手自动(需求5): 系统级为手动时, 不论分区级设置为何, 本分区一律判为手动 */
+uint8_t getPart1EffectiveHandAuto(void);
+uint8_t getPart2EffectiveHandAuto(void);
 
 // 自检状态
 uint8_t getControllorSelfCheckState(void);

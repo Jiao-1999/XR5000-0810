@@ -956,16 +956,34 @@ void MBus1ReceiveSlaveDataDeal(void)
     MBus1FinishTransaction(addr);
 }
 
-static volatile uint8_t g_mbus1_reset_addr = 0xFFU;  /* 0xFF=广播, 其它=单台地址 */
+/* 复位请求队列: 分区复位要连续下发多台设备, 原单槽位实现会被后一个请求覆盖,
+ * 结果只有最后一台真正发出(现场表现为"只复位1台")。0xFF 表示广播复位。 */
+#define MBUS1_RESET_QUEUE_LEN 128U
+
+static volatile uint8_t g_mbus1_reset_queue[MBUS1_RESET_QUEUE_LEN];
+static volatile uint8_t g_mbus1_reset_qhead = 0U;   /* 队首下标 */
+static volatile uint8_t g_mbus1_reset_qcount = 0U;  /* 队列中待发请求数 */
+
+static void MBus1ResetQueuePush(uint8_t addr)
+{
+    uint8_t tail;
+
+    taskENTER_CRITICAL();
+    if(g_mbus1_reset_qcount < MBUS1_RESET_QUEUE_LEN)
+    {
+        tail = (uint8_t)((g_mbus1_reset_qhead + g_mbus1_reset_qcount) % MBUS1_RESET_QUEUE_LEN);
+        g_mbus1_reset_queue[tail] = addr;
+        g_mbus1_reset_qcount++;
+        g_mbus1_reset_requested = 1U;
+        g_mbus1_reset_status = 1U;
+    }
+    taskEXIT_CRITICAL();
+}
 
 void MBus1ResetDevice(uint8_t addr)
 {
     if((addr < 1U) || (addr > (uint8_t)MIXTURE_DEVICE_MAX_ADDR)) return;
-    taskENTER_CRITICAL();
-    g_mbus1_reset_addr = addr;
-    g_mbus1_reset_status = 1U;
-    g_mbus1_reset_requested = 1U;
-    taskEXIT_CRITICAL();
+    MBus1ResetQueuePush(addr);
 }
 
 void MBus1ResetAllDevices(void)
@@ -976,11 +994,12 @@ void MBus1ResetAllDevices(void)
 		g_mbus1_reset_status = 2U;
 		return;
 	}
+    /* 广播复位优先: 丢弃残留的单台请求, 只保留广播 */
     taskENTER_CRITICAL();
-    g_mbus1_reset_addr = 0xFFU;   /* 广播 */
-    g_mbus1_reset_status = 1U;
-    g_mbus1_reset_requested = 1U;
+    g_mbus1_reset_qhead = 0U;
+    g_mbus1_reset_qcount = 0U;
     taskEXIT_CRITICAL();
+    MBus1ResetQueuePush(0xFFU);
 }
 
 uint8_t MBus1GetResetStatus(void)
@@ -995,8 +1014,15 @@ static void MBus1ServiceReset(void)
     HAL_StatusTypeDef first_status;
     HAL_StatusTypeDef second_status;
 
+    uint8_t addr;
+
     if(g_mbus1_reset_requested == 0U || g_mbus1_transaction_pending != 0U) return;
-    reset_command[0] = g_mbus1_reset_addr;   /* 0xFF=广播, 其它=单台 */
+
+    /* 取队首请求(队列由 MBus1ResetQueuePush 维护, 计数已保证非空) */
+    taskENTER_CRITICAL();
+    addr = g_mbus1_reset_queue[g_mbus1_reset_qhead];
+    taskEXIT_CRITICAL();
+    reset_command[0] = addr;   /* 0xFF=广播, 其它=单台 */
     crc16 = CalcCrc16(reset_command, 6U);
     reset_command[6] = (uint8_t)(crc16 & 0xFFU);
     reset_command[7] = (uint8_t)(crc16 >> 8);
@@ -1008,9 +1034,25 @@ static void MBus1ServiceReset(void)
     g_mbus1_last_rx_tick = osKernelGetTickCount();
     g_mbus1_rx_guard_active = 1U;
     g_mbus1_reset_grace_until = g_mbus1_last_rx_tick + MBUS1_RESET_GRACE_MS;
-    g_mbus1_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
-    g_mbus1_reset_requested = 0U;
+    /* 出队: 队列里还有请求就继续, 空了才算本次复位完成 */
+    taskENTER_CRITICAL();
+    /* 只有队首仍是本次发送的地址才出队(防止系统复位清队时下标错乱) */
+    if((g_mbus1_reset_qcount > 0U) && (g_mbus1_reset_queue[g_mbus1_reset_qhead] == addr))
+    {
+        g_mbus1_reset_qhead = (uint8_t)((g_mbus1_reset_qhead + 1U) % MBUS1_RESET_QUEUE_LEN);
+        g_mbus1_reset_qcount--;
+    }
+    if(g_mbus1_reset_qcount == 0U)
+    {
+        g_mbus1_reset_requested = 0U;
+        g_mbus1_reset_status = (first_status == HAL_OK || second_status == HAL_OK) ? 2U : 3U;
+    }
+    else
+    {
+        g_mbus1_reset_status = 1U;   /* 队列中还有待发请求 */
+    }
     g_mbus1_bus_locked = 0U;
+    taskEXIT_CRITICAL();
 }
 
 void MBus1PollSlaveAndReceiveTask(void* parameter)

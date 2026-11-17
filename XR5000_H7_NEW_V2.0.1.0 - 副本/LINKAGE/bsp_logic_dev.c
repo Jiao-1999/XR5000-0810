@@ -683,9 +683,15 @@ uint8_t LogicDev_Control(uint8_t loop_no, uint8_t dev_no, uint8_t channel, uint8
 uint8_t LogicDev_CheckAutoMode(const LogicRule_t *rule)
 {
     uint8_t sys_auto;   /* 系统级手/自动(全局总闸) */
-    uint8_t zone_auto;  /* 规则所属分区手/自动 */
+    uint8_t zone_auto;  /* 规则所属分区有效手/自动(已并入系统级总闸) */
 
     if (rule == NULL)
+    {
+        return 0;
+    }
+
+    /* 需求7: 检修状态不执行联动输出; 只闭锁自动联动, 手动按键等其他功能正常 */
+    if (g_maintenance_state != 0U)
     {
         return 0;
     }
@@ -696,11 +702,11 @@ uint8_t LogicDev_CheckAutoMode(const LogicRule_t *rule)
     /* 分区1/分区2 各自的手自动状态 */
     if (rule->zone == 1U)
     {
-        zone_auto = (getPart1HandAutoState() == KEY_AUTO) ? 1U : 0U;
+        zone_auto = (getPart1EffectiveHandAuto() == KEY_AUTO) ? 1U : 0U;
     }
     else if (rule->zone == 2U)
     {
-        zone_auto = (getPart2HandAutoState() == KEY_AUTO) ? 1U : 0U;
+        zone_auto = (getPart2EffectiveHandAuto() == KEY_AUTO) ? 1U : 0U;
     }
     else
     {
@@ -708,10 +714,9 @@ uint8_t LogicDev_CheckAutoMode(const LogicRule_t *rule)
         return sys_auto;
     }
 
-    /* 系统自动 或 本分区自动 均允许自动执行:
-     * 与基线语义一致(原 EXEC_START_PART 采用"任一自动即可"的宽松判定),
-     * 系统级拨手动只是关闭全局自动, 分区仍处自动时本区联动照常执行。 */
-    return ((sys_auto != 0U) || (zone_auto != 0U)) ? 1U : 0U;
+    /* 需求5: 与判定 —— 系统自动 且 本分区自动 才允许自动执行;
+     * 系统级拨手动时有效分区手自动已判为手动, 此处自然返回0。 */
+    return ((sys_auto != 0U) && (zone_auto != 0U)) ? 1U : 0U;
 }
 
 /*--------------------------------------------------------------
@@ -744,6 +749,13 @@ static void LinkageEventNotify(uint8_t loop_no, uint16_t dev_no,
 static uint8_t LinkageManualStartQuery(void)
 {
     extern uint8_t linkage_start_key_press_flag;  /* cmd_process.c 中定义的按键标志 */
+
+    /* 需求7: 检修状态不执行联动输出, "联动启动"键也不放行引擎执行。
+     * 标志本身仍留给风机链路消费, 此处只做读侧闭锁。 */
+    if (g_maintenance_state != 0U)
+    {
+        return 0U;
+    }
     return (linkage_start_key_press_flag == 1U) ? 1U : 0U;
 }
 
