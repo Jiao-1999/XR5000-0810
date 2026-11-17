@@ -5667,6 +5667,7 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8  state)
 			if(control_id == 32)
 			{
 				/* 仅画面68预授权入口可进入中文命名，授权随目标页转移。 */
+				DeviceAliasHmiSetReturnScreen(6U);
 				HmiOpenProtectedPage(ACCESS_LEVEL_III, 82U);
 			}
 			else if(control_id == 34U)
@@ -7255,6 +7256,11 @@ void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 					break;
 				case 2:
 					HmiOpenProtectedPage(ACCESS_LEVEL_III, 70U);
+					break;
+				case 3:
+					/* 直接进入设备中文命名，并记录来源以便画面82按原路径返回。 */
+					DeviceAliasHmiSetReturnScreen(68U);
+					HmiOpenProtectedPage(ACCESS_LEVEL_III, 82U);
 					break;
 				default:
 					break;

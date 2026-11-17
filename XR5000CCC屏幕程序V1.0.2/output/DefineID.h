@@ -1788,10 +1788,6 @@
 
 #define  _MENU_设备管理PLUS_MENU1                                                 77
 
-#define  _TXT_DIS__设备管理PLUS_TEXT_DISPLAY27                                    31
-
-#define  _BTN_设备管理PLUS_BUTTON2                                                32
-
 #define  _TXT_DIS__设备管理PLUS_TEXT_DISPLAY28                                    33
 
 #define  _BTN_设备管理PLUS_BUTTON3                                                34
