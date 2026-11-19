@@ -4188,6 +4188,22 @@ void FireZoneReset(uint8_t zone)
         RS485Detect_RequestDeviceReset((uint8_t)dev);
     }
 
+    /* 临时诊断: 把回路3复位队列的快照(条数+地址)写到画面96 控件11,
+     * 用于确认入队4条但只发出1条, 卡在入队还是卡在服务。验证后可整段删除。 */
+    {
+        char dbg[48];
+        uint8_t qbuf[8];
+        uint8_t qn;
+        uint8_t k;
+
+        qn = RS485Detect_GetResetQueueInfo(qbuf, 8U);
+        sprintf(dbg, "Z%u Q%u:", (unsigned)zone, (unsigned)qn);
+        for(k = 0U; (k < qn) && (k < 8U); k++)
+        {
+            sprintf(dbg + strlen(dbg), "%02u ", (unsigned)qbuf[k]);
+        }
+        SetTextValue(96U, 11U, (uint8_t *)dbg);
+    }
 	MBusCtrl_ClearFireDisplayDedup();  /* XR5000_FIRE_LATCH_20261112: 本区复位后可重新推送火警事件 */
     FireZone_ClearDisplayEvents(zone);  /* V7: 分区复位 = 本分区报警逐条清除 */
     /* V8: 清本区手报记忆 —— 原来只置不清, 必须断电才恢复 */
@@ -4737,6 +4753,17 @@ void UpdateUI(void)
 
 	/* 需求4: 分区启动过程灯(延时/喷洒启动/喷洒反馈), 按联动引擎状态每周期刷新 */
 	FireZone_LinkageLedDrive();
+
+	/* 临时诊断: 回路3复位状态机实时状态 P=phase(0闲/1发帧1/2间隔/3发帧2) W=requested Q=队列 A=当前地址 */
+	{
+		extern volatile uint8_t g_r3rst_dbg[6];
+		char r3dbg[32];
+		sprintf(r3dbg, "P%u W%u Q%u A%02u F%u C%u",
+			(unsigned)g_r3rst_dbg[0], (unsigned)g_r3rst_dbg[1],
+			(unsigned)g_r3rst_dbg[2], (unsigned)g_r3rst_dbg[3],
+			(unsigned)g_r3rst_dbg[4], (unsigned)g_r3rst_dbg[5]);
+		SetTextValue(96U, 11U, (uint8_t *)r3dbg);
+	}
 
 	/* V8: 画面86 联动监测区(控件42~48), 按秒刷新 */
 	LinkageMonitor86Refresh();

@@ -124,6 +124,9 @@ void RS485Detect_RequestBroadcastReset(void);
 void RS485Detect_RequestDeviceReset(uint8_t addr); /* 单台设备复位(分区复位用) */
 uint8_t RS485Detect_GetBroadcastResetStatus(void);
 
+/* 调试: 取复位队列快照(队首起最多max个地址), 返回当前队列条数 */
+uint8_t RS485Detect_GetResetQueueInfo(uint8_t *buf, uint8_t max);
+
 /* ---- Flash持久化 ---- */
 void RS485Detect_SaveOnlineState(void);  /* 将在线状态表保存到Flash(0x10F000) */
 void RS485Detect_LoadOnlineState(void);  /* 从Flash加载在线状态表 */
