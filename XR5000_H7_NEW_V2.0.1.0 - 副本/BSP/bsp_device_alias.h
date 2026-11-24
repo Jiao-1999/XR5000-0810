@@ -53,6 +53,8 @@ uint8_t DeviceAliasDevice_IsAvailable(uint8_t loop_id, uint8_t address);
 uint16_t DeviceAliasDevice_GetProductCode(uint8_t loop_id, uint8_t address);
 /* 获取指定设备用于界面显示的中文类型名称。 */
 const char *DeviceAliasDevice_GetTypeText(uint8_t loop_id, uint8_t address);
+/* 设置画面82的来源页，确保返回按钮按进入路径返回画面6或画面68。 */
+void DeviceAliasHmiSetReturnScreen(uint16_t screen_id);
 /* 处理画面82的进入、退出、异步保存及清除任务。 */
 void DeviceAliasHmiScreenUpdate(uint16_t screen_id);
 /* 处理画面82的查询、上一台、下一台、保存和清除按钮。 */

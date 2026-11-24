@@ -42,6 +42,13 @@ static volatile uint8_t g_alias_hmi_clear_pending;
 static DeviceAliasHmiWaitState g_alias_hmi_wait_state;
 static uint8_t g_alias_hmi_clear_confirm;
 static uint32_t g_alias_hmi_clear_tick;
+static uint16_t g_alias_hmi_return_screen = 6U;
+
+/* 只接受当前两个正式入口，避免异常页号破坏画面82的返回路径。 */
+void DeviceAliasHmiSetReturnScreen(uint16_t screen_id)
+{
+    g_alias_hmi_return_screen = (screen_id == 68U) ? 68U : 6U;
+}
 
 /* 将屏幕返回的文本安全复制到固定长度缓存，并保证字符串以0结尾。 */
 static void DeviceAliasHmiCopyText(uint8_t *destination, uint8_t size,
@@ -409,7 +416,7 @@ void DeviceAliasHmiButton(uint16_t screen_id, uint16_t control_id, uint8_t state
             GetControlValue(DEVICE_ALIAS_SCREEN_ID, 20U);
             break;
         case 31U:
-            SwitchCurrentScreenId(6U);
+            SwitchCurrentScreenId(g_alias_hmi_return_screen);
             break;
         default:
             break;
