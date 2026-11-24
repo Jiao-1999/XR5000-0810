@@ -200,7 +200,7 @@ const osThreadAttr_t HostUploadTask_attributes = {
 osThreadId_t InternalBoardRecvTaskHandle; // 句柄
 const osThreadAttr_t InternalBoardRecvTask_attributes = {
 	.name = "InternalBoardRecv",
-	.stack_size = 128 * 4,
+	.stack_size = 512 * 4,  /* 512B不够FireZoneReset调用链(sprintf+SetTextValue), 曾溢出踩坏静态区 */
 	.priority = (osPriority_t) osPriorityNormal2,
 };
 //
@@ -238,7 +238,7 @@ const osThreadAttr_t CtrlBusPollAndReceiveTask_attributes = {
 osThreadId_t RS485DetectPollAndReceiveTaskHandle;
 const osThreadAttr_t RS485DetectPollAndReceiveTask_attributes = {
 	.name = "RS485DetectPollAndRecv",
-	.stack_size = 128 * 4,
+	.stack_size = 256 * 4,  /* 512B不够receive_data_deal->process_received_frame调用链 */
 	.priority = (osPriority_t) osPriorityNormal1,
 };
 
@@ -512,11 +512,11 @@ void MX_FREERTOS_Init(void) {
 	DebugPrintf("StorageTxTask create: %s\r\n", StorageTxTaskHandle ? "OK" : "FAIL");
 
 	// FECbus 发送任务: GB4717 附录C, USART1主机/USART3从机 双串口 RS485 协议帧收发
-	FecbusTxTaskHandle = osThreadNew(FecbusTxTask, NULL, &FecbusTxTask_attributes);
+//	FecbusTxTaskHandle = osThreadNew(FecbusTxTask, NULL, &FecbusTxTask_attributes);  /* 调试期间临时停用FECbus(腾出UART4调试口), 恢复时去掉注释 */
 	DebugPrintf("FecbusTxTask create: %s\r\n", FecbusTxTaskHandle ? "OK" : "FAIL");
 
 	// FECbus 周期广播任务: 1s同步心跳/5s心跳/10s时钟广播
-	FecbusPeriodicTaskHandle = osThreadNew(FecbusPeriodicTask, NULL, &FecbusPeriodicTask_attributes);
+//	FecbusPeriodicTaskHandle = osThreadNew(FecbusPeriodicTask, NULL, &FecbusPeriodicTask_attributes);  /* 调试期间临时停用FECbus(腾出UART4调试口), 恢复时去掉注释 */
 	DebugPrintf("FecbusPeriodicTask create: %s\r\n", FecbusPeriodicTaskHandle ? "OK" : "FAIL");
 
 	// COM4串口注入调试: PC发ONL/TF/SF命令触发报警/故障上报

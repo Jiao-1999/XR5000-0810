@@ -176,6 +176,7 @@ uint8_t MBusCtrl_PostFireDisplayEventTo(uint8_t display_addr, uint8_t source_loo
 /* ---- 通用异步控制 ---- */
 MBusCtrlResult MBusCtrl_Request(const MBusCtrlRequest *request); /* 唯一正式控制入口：只入队，不阻塞等待设备 */
 MBusCtrlStatus MBusCtrl_GetStatus(uint8_t addr);                 /* 查询指定地址最近一次控制执行状态 */
+uint8_t MBusCtrl_GetConfirmedOutputs(uint8_t addr, uint32_t *outputs);  /* V8: 读已确认的输出位图 */
 /* 回路1/3固定温烟火警汇总；火警期间声光强制启动，恢复后回到逻辑编程目标。 */
 void MBusCtrl_SetDetectorFireAlarmActive(uint8_t active);
 void MBusCtrl_RequestBroadcastReset(void);

@@ -39,8 +39,9 @@
 void     LogicEngine_SetActionDelay(uint32_t ms);
 uint32_t LogicEngine_GetActionDelay(void);
 
-/* 分区手动操作: 立即启动本区所有"条件成立"的规则(不延时) */
-uint8_t LogicEngine_ManualStartZone(uint8_t zone);  /* 返回实际驱动下发的动作数(0=没有可驱动的设备) */
+/* 分区手动操作: 登记本区所有"条件成立"规则的启动请求, 与自动一样走本区联动延时;
+ * 延时灯与画面86 倒计时据此显示, 延时到点由引擎统一下发。 */
+uint8_t LogicEngine_ManualStartZone(uint8_t zone);  /* 返回登记的规则数(0=没有条件成立的规则) */
 /* 分区手动停止: 停止本区所有已执行的启动类动作 */
 uint8_t LogicEngine_ManualStopZone(uint8_t zone);   /* 返回实际停止下发的动作数(0=没有需要停的设备) */
 /* 取消本区所有规则的延时计时(复位时调用) */
@@ -86,6 +87,31 @@ void LogicEngine_SetManualStartFunc(ManualStartFunc_t func); /* 注册手动启动键查
  *    初始化运行时状态数组。必须在LogicExpr_Init()之后、
  *    RTOS任务启动之前调用。
  *--------------------------------------------------------------*/
+
+/* V8: 联动动作执行视图(供画面86联动监测显示) */
+typedef struct
+{
+    uint8_t  valid;         /* 1=本条有效 */
+    uint8_t  rule_id;       /* 规则ID */
+    uint8_t  loop_no;       /* 动作回路(固定2) */
+    uint8_t  dev_no;        /* 动作设备地址 */
+    uint8_t  channel;       /* 动作通道(1~4, 99=全部) */
+    uint8_t  state;         /* 0=延时中 1=已下发待反馈 2=反馈已启动 3=已停止/失败 */
+    uint16_t remain_s;      /* 延时剩余秒数(向上取整), 仅state=0有效 */
+    uint32_t trigger_tick;  /* 触发时刻, 用于"先触发先显示"排序 */
+} LogicActionView_t;
+
+/* 取当前正在延时/已执行的联动动作, 按触发时刻升序, 最多max条 */
+uint8_t LogicEngine_GetActionViews(LogicActionView_t *out, uint8_t max);
+/* V8: 是否曾经触发过联动(本次上电期间), 触发后恒1, 仅LogicEngine_Init清0 */
+uint8_t LogicEngine_HasEverTriggered(void);
+
+/* 需求4: 分区联动状态位(供面板分区延时/喷洒启动灯驱动) */
+#define LOGIC_ZONE_ST_DELAYING   0x01U   /* 本区有规则正在启动延时 */
+#define LOGIC_ZONE_ST_ACTIVE     0x02U   /* 本区有启动类动作已下发 */
+
+/* 汇总指定分区的联动状态, 返回 LOGIC_ZONE_ST_* 位掩码; 参数非法返回0 */
+uint8_t LogicEngine_GetZoneLinkState(uint8_t zone);
 
 void LogicEngine_Init(void);
 

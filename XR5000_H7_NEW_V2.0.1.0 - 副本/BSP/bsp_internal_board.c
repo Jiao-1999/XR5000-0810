@@ -169,6 +169,14 @@ uint8_t part_2_spray_state  = 0;
 uint8_t part_2_feedback     = 0;
 uint8_t part_2_sound_light  = 0;
 uint8_t part_2_fault_state  = 0;
+
+/* 分区延时/喷洒/反馈灯的多来源掩码, 定义见 bsp_internal_board.h */
+static uint32_t part_1_delay_src_mask    = 0U;
+static uint32_t part_1_spray_src_mask    = 0U;
+static uint32_t part_1_feedback_src_mask = 0U;
+static uint32_t part_2_delay_src_mask    = 0U;
+static uint32_t part_2_spray_src_mask    = 0U;
+static uint32_t part_2_feedback_src_mask = 0U;
 // 备用LED状态控制变量
 uint8_t spare_gas_selfcheck = 0;  // 备用 可燃气体自检
 uint8_t spare_gas_alarm     = 0;  // 备用 可燃气体报警
@@ -216,6 +224,14 @@ void LedStateInit(void)
 	part_2_feedback     = 0;
 	part_2_sound_light  = 0;
 	part_2_fault_state  = 0;
+
+	/* 清分区灯的多来源掩码, 否则复位后残留来源会让灯常亮 */
+	part_1_delay_src_mask    = 0U;
+	part_1_spray_src_mask    = 0U;
+	part_1_feedback_src_mask = 0U;
+	part_2_delay_src_mask    = 0U;
+	part_2_spray_src_mask    = 0U;
+	part_2_feedback_src_mask = 0U;
 	
 	// 备用LED状态控制变量
 	spare_gas_selfcheck = 0;  // 备用 可燃气体自检
@@ -263,19 +279,47 @@ void Part1StartLedCtrl(LED_STATE state)
 	part_1_start_state = state;
 }
 
+/* 延时灯: 旧状态机与联动引擎各置自己的源位, 任一置位则亮 */
+void Part1StartDelayLedSource(uint32_t source_mask, LED_STATE state)
+{
+	if(state == LED_ON)
+		part_1_delay_src_mask |= source_mask;
+	else
+		part_1_delay_src_mask &= ~source_mask;
+	part_1_start_delay = (part_1_delay_src_mask != 0U) ? 1U : 0U;
+}
+
 void Part1StartDelayLedCtrl(LED_STATE state)
 {
-	part_1_start_delay = state;
+	Part1StartDelayLedSource(PART_LED_SRC_LEGACY, state);
+}
+
+void Part1SprayLedSource(uint32_t source_mask, LED_STATE state)
+{
+	if(state == LED_ON)
+		part_1_spray_src_mask |= source_mask;
+	else
+		part_1_spray_src_mask &= ~source_mask;
+	part_1_spray_state = (part_1_spray_src_mask != 0U) ? 1U : 0U;
 }
 
 void Part1SprayLedCtrl(LED_STATE state)
 {
-	part_1_spray_state = state;
+	Part1SprayLedSource(PART_LED_SRC_LEGACY, state);
+}
+
+void Part1FeedbackLedSource(uint32_t source_mask, LED_STATE state)
+{
+	if(state == LED_ON)
+		part_1_feedback_src_mask |= source_mask;
+	else
+		part_1_feedback_src_mask &= ~source_mask;
+	part_1_feedback = (part_1_feedback_src_mask != 0U) ? 1U : 0U;
 }
 
 void Part1FeedbackLedCtrl(LED_STATE state)
 {
-	part_1_feedback = state;
+	Part1FeedbackLedSource(PART_LED_SRC_LEGACY, state);
 }
 
 void Part1SoundLightLedCtrl(LED_STATE state)
@@ -294,19 +338,46 @@ void Part2StartLedCtrl(LED_STATE state)
 	part_2_start_state = state;
 }
 
+void Part2StartDelayLedSource(uint32_t source_mask, LED_STATE state)
+{
+	if(state == LED_ON)
+		part_2_delay_src_mask |= source_mask;
+	else
+		part_2_delay_src_mask &= ~source_mask;
+	part_2_start_delay = (part_2_delay_src_mask != 0U) ? 1U : 0U;
+}
+
 void Part2StartDelayLedCtrl(LED_STATE state)
 {
-	part_2_start_delay = state;
+	Part2StartDelayLedSource(PART_LED_SRC_LEGACY, state);
+}
+
+void Part2SprayLedSource(uint32_t source_mask, LED_STATE state)
+{
+	if(state == LED_ON)
+		part_2_spray_src_mask |= source_mask;
+	else
+		part_2_spray_src_mask &= ~source_mask;
+	part_2_spray_state = (part_2_spray_src_mask != 0U) ? 1U : 0U;
 }
 
 void Part2SprayLedCtrl(LED_STATE state)
 {
-	part_2_spray_state = state;
+	Part2SprayLedSource(PART_LED_SRC_LEGACY, state);
+}
+
+void Part2FeedbackLedSource(uint32_t source_mask, LED_STATE state)
+{
+	if(state == LED_ON)
+		part_2_feedback_src_mask |= source_mask;
+	else
+		part_2_feedback_src_mask &= ~source_mask;
+	part_2_feedback = (part_2_feedback_src_mask != 0U) ? 1U : 0U;
 }
 
 void Part2FeedbackLedCtrl(LED_STATE state)
 {
-	part_2_feedback = state;
+	Part2FeedbackLedSource(PART_LED_SRC_LEGACY, state);
 }
 
 void Part2SoundLightLedCtrl(LED_STATE state)
@@ -380,7 +451,7 @@ void getLedStateReg(uint8_t *led_state_buff, uint8_t len)
 	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_1/8]      , LED_PART_STARTUP_1        %8, getPart1StartState() );  // 分区启动1启动LED
 	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_DELAY_1/8], LED_PART_STARTUP_DELAY_1  %8, getPart1DelayState() );  // 分区1启动延时LED
 	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_STARTUP_1/8], LED_PART_SPRAY_STARTUP_1  %8, getPart1SprayState() );  // 分区1喷放启动状态LED
-	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_STARTUP_1/8], LED_PART_SPRAY_STARTUP_1  %8, getPart1FeedbackState());  // 分区1喷放反馈LED
+	setLedxRegisterBit(led_state_buff[LED_PART_SPRAY_FEEDBACK_1/8], LED_PART_SPRAY_FEEDBACK_1 %8, getPart1FeedbackState());  // 分区1喷放反馈LED
 	setLedxRegisterBit(led_state_buff[LED_PART_SOUND_ALARM_1/8]  , LED_PART_SOUND_ALARM_1    %8, getPart1SoundState() );  // 分区1声光状态
 	setLedxRegisterBit(led_state_buff[LED_PART_FAULT_1/8]        , LED_PART_FAULT_1          %8, getPart1FaultState() );  // 分区1故障状态LED
 	setLedxRegisterBit(led_state_buff[LED_PART_STARTUP_2/8]      , LED_PART_STARTUP_2        %8, getPart2StartState() );  // 分区启动2启动LED
@@ -400,6 +471,28 @@ void getLedStateReg(uint8_t *led_state_buff, uint8_t len)
 	setLedxRegisterBit(led_state_buff[LED_COMMUNICATION             /8], LED_COMMUNICATION             %8, getSpecialCommun() ); // 
 	setLedxRegisterBit(led_state_buff[LED_WORKING                   /8], LED_WORKING                   %8, getSpecialRuning() ); // 
 	
+}
+
+/* V1.2: 把三路手自动状态填入寄存器2的高/低字节。
+ * R2H bit3=总手动 bit4=总自动 bit5=分区1手动 bit6=分区1自动 bit7=分区2手动;
+ * R2L bit0=分区2自动。原 bit0~2(预留3/通信/运行)保持不变。 */
+static void ApplyHandAutoLedBits(uint8_t *reg2_high, uint8_t *reg2_low)
+{
+	uint8_t hi = (*reg2_high) & 0x07U;
+	uint8_t lo = (*reg2_low) & 0xFEU;
+
+	hi |= (getSysHandAutoState()   == KEY_MANUAL) ? (1U << 3) : (1U << 4);
+	hi |= (getPart1HandAutoState() == KEY_MANUAL) ? (1U << 5) : (1U << 6);
+	if (getPart2HandAutoState() == KEY_MANUAL)
+	{
+		hi |= (1U << 7);
+	}
+	else
+	{
+		lo |= 0x01U;
+	}
+	*reg2_high = hi;
+	*reg2_low  = lo;
 }
 
 void HostUploadDataTask(void *parameter)
@@ -434,16 +527,19 @@ void HostUploadDataTask(void *parameter)
 				printer_turn = 0U;
 				modbusbuf[data_count++] = InternalBoardAddr;
 				modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
-				modbusbuf[data_count++] = 7;  // 返回的字节数
+				modbusbuf[data_count++] = 10;  // 返回的字节数(V1.2: 5个寄存器共10字节)
 				
 				for(uint8_t i = 0; i < 5; i++)
 				{
-					modbusbuf[data_count++] = 0xFF;  // 全部点亮
+					modbusbuf[data_count++] = 0xFF;  // 全部点亮(含寄存器2高字节的手自动灯)
 				}
-				modbusbuf[data_count++] = 0;
-				modbusbuf[data_count++] = 0;  // 关闭蜂鸣器
+				modbusbuf[data_count++] = 0xFF;  // 寄存器2低字节: 分区2自动点亮
+				modbusbuf[data_count++] = 0;     // 寄存器3高字节: 关闭蜂鸣器
+				modbusbuf[data_count++] = 0;     // 寄存器3低字节: 预留
+				modbusbuf[data_count++] = 0;     // 寄存器4高字节: 预留
+				modbusbuf[data_count++] = 0;     // 寄存器4低字节: 工作(不触发复位/自检)
 
-				crc16 = CalcCrc16(modbusbuf, data_count);  // 计算六字节数据的CRC校验码
+				crc16 = CalcCrc16(modbusbuf, data_count);  // CRC校验
 				modbusbuf[data_count++] = (uint8_t)(crc16);
 				modbusbuf[data_count++] = (crc16 >> 8);
 				
@@ -458,22 +554,27 @@ void HostUploadDataTask(void *parameter)
 			{
 				uint8_t data_count = 0;
 				uint8_t led_reg_state[5] = { 0 };  // 默认关闭
+				uint8_t reg2_low = 0U;             // 寄存器2低字节
 				printer_turn = 0U;
 				
 				modbusbuf[data_count++] = InternalBoardAddr;
 				modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
-				modbusbuf[data_count++] = 7;  // 返回的字节数
+				modbusbuf[data_count++] = 10;  // 返回的字节数(V1.2)
 				
 				getLedStateReg(led_reg_state, 5);
+				ApplyHandAutoLedBits(&led_reg_state[4], &reg2_low);
 				
 				for(uint8_t i = 0; i < 5; i++)
 				{
-					modbusbuf[data_count++] = led_reg_state[i];  // 全部灭掉
+					modbusbuf[data_count++] = led_reg_state[i];
 				}
-				modbusbuf[data_count++] = 0;
-				modbusbuf[data_count++] = 1;  // 打开蜂鸣器 鸣叫一秒
+				modbusbuf[data_count++] = reg2_low;  // 寄存器2低字节: 分区2自动
+				modbusbuf[data_count++] = 1;  // 寄存器3高字节: 打开蜂鸣器
+				modbusbuf[data_count++] = 0;  // 寄存器3低字节: 预留
+				modbusbuf[data_count++] = 0;  // 寄存器4高字节: 预留
+				modbusbuf[data_count++] = 0;  // 寄存器4低字节: 工作
 
-				crc16 = CalcCrc16(modbusbuf, data_count);  // 计算六字节数据的CRC校验码
+				crc16 = CalcCrc16(modbusbuf, data_count);  // CRC校验
 				modbusbuf[data_count++] = (uint8_t)(crc16);
 				modbusbuf[data_count++] = (crc16 >> 8);
 				
@@ -498,21 +599,26 @@ void HostUploadDataTask(void *parameter)
 				else
 				{
 					uint8_t led_reg_state[5] = { 0 };  // 默认关闭
+					uint8_t reg2_low = 0U;             // 寄存器2低字节
 					uint8_t data_count = 0;
 
 					getLedStateReg(led_reg_state, 5);
+					ApplyHandAutoLedBits(&led_reg_state[4], &reg2_low);
 					modbusbuf[data_count++] = InternalBoardAddr;
 					modbusbuf[data_count++] = 0x04;  // 使用04功能码 发送全部状态
-					modbusbuf[data_count++] = 7;  // 返回的字节数
+					modbusbuf[data_count++] = 10;  // 返回的字节数(V1.2: 5个寄存器共10字节)
 
 					for(uint8_t i = 0; i < 5; i++)
 					{
 						modbusbuf[data_count++] = led_reg_state[i];
 					}
-					modbusbuf[data_count++] = 0;
-					modbusbuf[data_count++] = getBuzzerWorkState();
+					modbusbuf[data_count++] = reg2_low;  // 寄存器2低字节: 分区2自动
+					modbusbuf[data_count++] = getBuzzerWorkState();  // 寄存器3高字节: 蜂鸣器
+					modbusbuf[data_count++] = 0;  // 寄存器3低字节: 预留
+					modbusbuf[data_count++] = 0;  // 寄存器4高字节: 预留
+					modbusbuf[data_count++] = 0;  // 寄存器4低字节: 工作(不触发复位/自检)
 
-					crc16 = CalcCrc16(modbusbuf, data_count);  // 计算六字节数据的CRC校验码
+					crc16 = CalcCrc16(modbusbuf, data_count);  // CRC校验
 					modbusbuf[data_count++] = (uint8_t)(crc16);
 					modbusbuf[data_count++] = (crc16 >> 8);
 
@@ -580,10 +686,78 @@ uint8_t getPart2HandAutoState(void)
 	return (SystemSaveInfo.part2_hand_or_auto_state == KEY_MANUAL) ? KEY_MANUAL : KEY_AUTO;
 }
 
+/* 需求5: 系统级为手动时, 不管分区级设置为何, 本分区一律判为手动。
+ * 只在"是否允许自动联动/是否允许手动喷洒"的业务判断点使用;
+ * LED 显示仍用上面三个原始状态函数, 保留设置层语义。 */
+uint8_t getPart1EffectiveHandAuto(void)
+{
+	if(getSysHandAutoState() == KEY_MANUAL)
+	{
+		return KEY_MANUAL;
+	}
+	return getPart1HandAutoState();
+}
+
+uint8_t getPart2EffectiveHandAuto(void)
+{
+	if(getSysHandAutoState() == KEY_MANUAL)
+	{
+		return KEY_MANUAL;
+	}
+	return getPart2HandAutoState();
+}
+
+/* V1.2: 三路手自动按键为两档自复位开关, 板上报瞬时按压位;
+ * 此处按上升沿翻转本层状态, 保持原有落盘/黑匣子/FECbus上报序列不变。 */
+static void InternalBoard_ToggleHandAuto(uint8_t level)
+{
+	uint8_t *state;
+	FlashSaveType turn_hand;
+	FlashSaveType turn_auto;
+	uint8_t  package_id;
+	uint8_t  to_manual;
+
+	if(level == 0U)
+	{
+		state = &SystemSaveInfo.system_hand_or_auto_state;
+		turn_hand = OTHER_SYS_TURN_HAND;
+		turn_auto = OTHER_SYS_TURN_AUTO;
+		package_id = SYS_HAND_AUTO_Package_ID;
+	}
+	else if(level == 1U)
+	{
+		state = &SystemSaveInfo.part1_hand_or_auto_state;
+		turn_hand = OTHER_PART1_TURN_HAND;
+		turn_auto = OTHER_PART1_TURN_AUTO;
+		package_id = PART1_HAND_AUTO_Package_ID;
+	}
+	else
+	{
+		state = &SystemSaveInfo.part2_hand_or_auto_state;
+		turn_hand = OTHER_PART2_TURN_HAND;
+		turn_auto = OTHER_PART2_TURN_AUTO;
+		package_id = PART2_HAND_AUTO_Package_ID;
+	}
+
+	/* 当前手动 -> 切自动; 其余(自动或异常值) -> 切手动 */
+	to_manual = (*state == KEY_MANUAL) ? 0U : 1U;
+	*state = (to_manual != 0U) ? KEY_MANUAL : KEY_AUTO;
+	SystemInfoSave();
+	BspCommonDataSaveApp(GASER_FLASH_SAVE,
+	                     (to_manual != 0U) ? turn_hand : turn_auto,
+	                     LINKAGE_CLUSTER_ID, package_id);
+	StorageEvent_LogManualAuto(package_id, to_manual);
+	FecbusReport_ManualAuto(package_id, to_manual);
+}
+
 void InternalScreenBoradRecvDealTask(void * parameter)
 {
+	static uint8_t last_matrix_key_code = NO_MATRIX_KEY_PRESS;  /* V1.2: 矩阵键去重 */
+	static uint8_t last_separate_key_bits = 0U;                 /* V1.2: 独立键上升沿检测 */
 	uint8_t temp_key_val;
-	uint8_t key_bits;      /* 寄存器1 高字节: 报警器/联动启动/分区复位/检修 */
+	uint8_t key_bits;      /* 寄存器1 高字节: 报警器/联动启动/分区复位/检修/三路手自动 */
+	uint8_t key_edges;     /* 本次帧中新按下的独立键位 */
+	uint8_t matrix_pressed;/* 本次帧是否为矩阵键新按下 */
 	uint16_t crc16 = 0x0000;  // CRC校验码
 	
 	for(;;)
@@ -614,6 +788,20 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 						temp_key_val = uartbuff[INSCREENSITE].recepetion_buff[4];
 						matrix_key_val = temp_key_val;
 						outfire_key_val = temp_key_val;
+						/* V1.2: 按住不放时按键板会周期性重发同一键值, 只在“新按下”时执行一次动作 */
+						if((temp_key_val != NO_MATRIX_KEY_PRESS) && (temp_key_val != last_matrix_key_code))
+						{
+							matrix_pressed = 1U;
+						}
+						else
+						{
+							matrix_pressed = 0U;
+						}
+						last_matrix_key_code = temp_key_val;
+						if(matrix_pressed == 0U)
+						{
+							temp_key_val = NO_MATRIX_KEY_PRESS;  /* 走 default, 不重复触发 */
+						}
 						switch(temp_key_val)
 						{
 							/* 信息确认键只上报键值；画面86/87成功确认未确认事件后，
@@ -678,15 +866,13 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 							case KEY11_PART1_SOUNDLT  :  // 分区1声光
 								FireZoneSirenCtrl(1U, (FireZoneGetSirenManual(1U) != 0U) ? 0U : 1U);
 								break;
-							case KEY12_PART1_STOP     :  // 分区1停止
-								FireZoneSirenCtrl(1U, 0U);
+							case KEY12_PART1_STOP     :  // 分区1停止: 只停本区联动动作设备, 不动声光/显示盘
 								FireZoneOutputCtrl(1U, 0U);
 								break;
 							case KEY13_PART2_SOUNDLT  :  // 分区2声光
 								FireZoneSirenCtrl(2U, (FireZoneGetSirenManual(2U) != 0U) ? 0U : 1U);
 								break;
-							case KEY14_PART2_STOP     :  // 分区2停止
-								FireZoneSirenCtrl(2U, 0U);
+							case KEY14_PART2_STOP     :  // 分区2停止: 只停本区联动动作设备, 不动声光/显示盘
 								FireZoneOutputCtrl(2U, 0U);
 								break;
 							case KEY15_PART1_SPRAY_ST : {  // 分区1启动: 只启动本区输出设备
@@ -701,117 +887,44 @@ void InternalScreenBoradRecvDealTask(void * parameter)
 								break;
 						}
 
-						// 判断系统手自动
-						switch(uartbuff[INSCREENSITE].recepetion_buff[6] & 0x03)
-						{
-							case KEY_MANUAL:
-								if(SystemSaveInfo.system_hand_or_auto_state != KEY_MANUAL)  // 手动
-								{
-									SystemSaveInfo.system_hand_or_auto_state = KEY_MANUAL;  // 手动
-									SystemInfoSave();
-									// 存入气灭分区 状态切换为手动
-									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_HAND, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
-									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
-									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 1);  /* [GB4717 B.1.1.1a/c] 系统切手动(EVT 55/56) */ /* 黑匣子:系统手动 */
-								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 1); /* FECbus:系统手动 */
-								}
-								break;
-							case KEY_AUTO:
-								if(SystemSaveInfo.system_hand_or_auto_state != KEY_AUTO)  // 手动
-								{
-									SystemSaveInfo.system_hand_or_auto_state = KEY_AUTO;  // 模式切换为自动
-									SystemInfoSave();
-									// 存入气灭分区 状态切换为自动
-									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_SYS_TURN_AUTO, LINKAGE_CLUSTER_ID, SYS_HAND_AUTO_Package_ID);
-									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
-									StorageEvent_LogManualAuto(SYS_HAND_AUTO_Package_ID, 0);  /* [GB4717 B.1.1.1a/c] 系统切自动 */ /* 黑匣子:系统自动 */
-								FecbusReport_ManualAuto(SYS_HAND_AUTO_Package_ID, 0); /* FECbus:系统自动 */
-								}
-								break;
-						}
-						/* 寄存器1 高字节: IG3303 bsp_key.c getSeparateButtonValue() 组装的按位键
-						 *   Bit0 报警器键   (KEY4=PB0)  -> 系统级声光开/关
-						 *   Bit1 联动启动键 (KEY5=PB10) -> 系统级联动启动(两分区条件成立的输出)
-						 *   Bit2 分区1复位  (KEY6=PA11) -> 复位分区1
-						 *   Bit3 分区2复位  (KEY7=PA12) -> 复位分区2
-						 *   Bit4 检修开关   (KEY8=PB3)  -> 检修状态显示(画面95)
-						 * 注意: 按键板只在上报帧里带这些位, 不再有 17/18/19 号键。 */
-						key_bits = uartbuff[INSCREENSITE].recepetion_buff[5];
-						/* Bit4 检修开关(KEY8=PB3, 保持型拨动开关): 仅作状态显示, 不参与任何输出闭锁 */
-						g_maintenance_state = ((key_bits & 0x10U) != 0U) ? 1U : 0U;
-						if((key_bits & 0x01U) != 0U)
-						{
-							FireZoneSysSirenToggle();   /* 报警器键: 系统级声光人工开关 */
-						}
-						if((key_bits & 0x02U) != 0U)
-						{
-							HmiRequestInternalProtectedAction(LINKAGE_START_KEY);  /* 系统级联动启动 */
-						}
-						if((key_bits & 0x04U) != 0U)
-						{
-							FireZoneReset(1U);          /* 分区1复位 */
-						}
-						if((key_bits & 0x08U) != 0U)
-						{
-							FireZoneReset(2U);          /* 分区2复位 */
-						}
+						/* V1.2: 寄存器1低字节(buf[6])的2位手自动状态编码已取消,
+					 * 改为寄存器1高字节(buf[5])的 bit5/6/7 瞬时按键位, 上升沿翻转本层状态。 */
+					key_bits = uartbuff[INSCREENSITE].recepetion_buff[5];
+					key_edges = key_bits & (uint8_t)(~last_separate_key_bits);
+					last_separate_key_bits = key_bits;
 
-						// 判断分区1手自动
-						switch((uartbuff[INSCREENSITE].recepetion_buff[6] >> 2) & 0x03)
-						{
-							case KEY_MANUAL:
-								if(SystemSaveInfo.part1_hand_or_auto_state != KEY_MANUAL)
-								{
-									SystemSaveInfo.part1_hand_or_auto_state = KEY_MANUAL;
-									SystemInfoSave();
-									// 存入气灭分区 状态切换为手动
-									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_HAND, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
-									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
-									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 1);  /* [GB4717 B.1.1.1a/c] 分区1切手动 */ /* 黑匣子:分区1手动 */
-								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 1); /* FECbus:分区1手动 */
-								}
-								break;
-							case KEY_AUTO:
-								if(SystemSaveInfo.part1_hand_or_auto_state != KEY_AUTO)
-								{
-									SystemSaveInfo.part1_hand_or_auto_state = KEY_AUTO;
-									SystemInfoSave();
-									// 存入气灭分区 状态切换为自动
-									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART1_TURN_AUTO, LINKAGE_CLUSTER_ID, PART1_HAND_AUTO_Package_ID);
-									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
-									StorageEvent_LogManualAuto(PART1_HAND_AUTO_Package_ID, 0);  /* [GB4717 B.1.1.1a/c] 分区1切自动 */ /* 黑匣子:分区1自动 */
-								FecbusReport_ManualAuto(PART1_HAND_AUTO_Package_ID, 0); /* FECbus:分区1自动 */
-								}
-								break;
-						}
-						// 判断分区2手自动
-						switch((uartbuff[INSCREENSITE].recepetion_buff[6] >> 4) & 0x03)
-						{
-							case KEY_MANUAL:
-								if(SystemSaveInfo.part2_hand_or_auto_state != KEY_MANUAL)
-								{
-									SystemSaveInfo.part2_hand_or_auto_state = KEY_MANUAL;
-									SystemInfoSave();
-									// 存入气灭分区 状态切换为手动
-									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_HAND, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
-									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
-									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 1);  /* [GB4717 B.1.1.1a/c] 分区2切手动 */ /* 黑匣子:分区2手动 */
-								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 1); /* FECbus:分区2手动 */
-								}
-								break;
-							case KEY_AUTO:
-								if(SystemSaveInfo.part2_hand_or_auto_state != KEY_AUTO)
-								{
-									SystemSaveInfo.part2_hand_or_auto_state = KEY_AUTO;
-									SystemInfoSave();
-									// 存入气灭分区 状态切换为自动
-									BspCommonDataSaveApp(GASER_FLASH_SAVE, OTHER_PART2_TURN_AUTO, LINKAGE_CLUSTER_ID, PART2_HAND_AUTO_Package_ID);
-									/* [核查 CHK-01] 手自动切换记录: 每次切换恰好产生 1 条, 手动=EVT 125, 自动=EVT 126 */
-									StorageEvent_LogManualAuto(PART2_HAND_AUTO_Package_ID, 0);  /* [GB4717 B.1.1.1a/c] 分区2切自动 */ /* 黑匣子:分区2自动 */
-								FecbusReport_ManualAuto(PART2_HAND_AUTO_Package_ID, 0); /* FECbus:分区2自动 */
-								}
-								break;
-						}
+					/* 寄存器1高字节: Bit0 报警器 / Bit1 联动启动 / Bit2 分区1复位 /
+					 * Bit3 分区2复位 / Bit4 检修开关(保持型) / Bit5~7 三路手自动瞬时按键 */
+					g_maintenance_state = ((key_bits & 0x10U) != 0U) ? 1U : 0U;
+					if((key_edges & 0x01U) != 0U)
+					{
+						FireZoneSysSirenToggle();   /* 报警器键: 系统级声光人工开关 */
+					}
+					if((key_edges & 0x02U) != 0U)
+					{
+						HmiRequestInternalProtectedAction(LINKAGE_START_KEY);  /* 系统级联动启动 */
+					}
+					if((key_edges & 0x04U) != 0U)
+					{
+						FireZoneReset(1U);          /* 分区1复位 */
+					}
+					if((key_edges & 0x08U) != 0U)
+					{
+						FireZoneReset(2U);          /* 分区2复位 */
+					}
+					if((key_edges & 0x20U) != 0U)
+					{
+						InternalBoard_ToggleHandAuto(0U);  /* 总手自动 */
+					}
+					if((key_edges & 0x40U) != 0U)
+					{
+						InternalBoard_ToggleHandAuto(1U);  /* 分区1手自动 */
+					}
+					if((key_edges & 0x80U) != 0U)
+					{
+						InternalBoard_ToggleHandAuto(2U);  /* 分区2手自动 */
+					}
+
 
 					}
 				}
