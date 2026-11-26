@@ -121,7 +121,15 @@ uint8_t  RS485Detect_IsOnline(uint8_t addr);                      /* ÅĞ¶ÏÊÇ·ñÕæÕ
 uint8_t  RS485Detect_HasSensorData(uint8_t addr);                 /* ÊÇ·ñÒÑÊÕµ½ÓĞĞ§´«¸ĞÆ÷Êı¾İ */
 uint8_t  RS485Detect_HasSensorEnableData(uint8_t addr);           /* ÊÇ·ñÒÑÈ·ÈÏ´«¸ĞÆ÷ÆôÓÃ×´Ì¬ */
 void RS485Detect_RequestBroadcastReset(void);
-void RS485Detect_RequestDeviceReset(uint8_t addr); /* µ¥Ì¨Éè±¸¸´Î»(·ÖÇø¸´Î»ÓÃ) */
+void RS485Detect_RequestDeviceReset(uint8_t addr); /* µ¥Ì¨Éè±¸¸´Î»(ÏßÈ¦0x002A, Ñ²¼ì/µ÷ÊÔÓÃ) */
+
+/* ·ÖÇø¸´Î»: Ö»·¢ 1 Ìõ¹ã²¥Ö¡(ÏßÈ¦ 0x002B/0x002C),
+ * Éè±¸ÊÕµ½ºó°´×Ô¼º flash ÀïµÄ·ÖÇøºÅ(¼Ä´æÆ÷0x0005)¾ö¶¨ÊÇ·ñ¸´Î»¡£ */
+void RS485Detect_RequestZoneReset(uint8_t zone);
+
+/* ·ÖÇøºÅÍ¬²½: Ğ´ 0x0005(zone), ÊÕµ½»ØÏÔºó×Ô¶¯×·¼ÓÒ»´Î¶Á»ØĞ£Ñé */
+void RS485Detect_RequestZoneSync(uint8_t addr, uint8_t zone);
+
 uint8_t RS485Detect_GetBroadcastResetStatus(void);
 
 /* µ÷ÊÔ: È¡¸´Î»¶ÓÁĞ¿ìÕÕ(¶ÓÊ×Æğ×î¶àmax¸öµØÖ·), ·µ»Øµ±Ç°¶ÓÁĞÌõÊı */

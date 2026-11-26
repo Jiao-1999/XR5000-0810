@@ -66,6 +66,47 @@ typedef char FireZoneRecordSizeCheck_t[(sizeof(FireZoneRecord_t) == 2039U) ? 1 :
  * 值0-1对应分区1-2, 默认全0 = 全部设备属于分区1 */
 static uint8_t s_zone_map[4][101];
 
+/*--------------------------------------------------------------
+ * 回路3 设备分区号同步记录
+ *   分区归属变更时把设备地址记入列表, 上层在轮询间隙下发写 0x0005 + 读回校验。
+ *   只有回路3 探测器具备该寄存器, 其它回路直接忽略。
+ *--------------------------------------------------------------*/
+#define FZ_ZONE_SYNC_MAX 128U
+
+static uint8_t  s_zone_sync_addr[FZ_ZONE_SYNC_MAX];
+static uint16_t s_zone_sync_count = 0U;
+
+static void FireZone_MarkZoneSync(uint8_t loop_no, uint16_t dev_no)
+{
+    uint16_t i;
+
+    if (loop_no != 3U) return;
+    if ((dev_no < 1U) || (dev_no >= (uint16_t)RS485_DETECT_MAX_DEVICES)) return;
+    for (i = 0U; i < s_zone_sync_count; i++)
+    {
+        if (s_zone_sync_addr[i] == (uint8_t)dev_no) return;
+    }
+    if (s_zone_sync_count < FZ_ZONE_SYNC_MAX)
+    {
+        s_zone_sync_addr[s_zone_sync_count++] = (uint8_t)dev_no;
+    }
+}
+
+uint16_t FireZone_TakeZoneSyncList(uint8_t *buf, uint16_t max)
+{
+    uint16_t n = s_zone_sync_count;
+
+    if ((buf == NULL) || (max == 0U)) return 0U;
+    if (n > max) n = max;
+    memcpy(buf, s_zone_sync_addr, n);
+    s_zone_sync_count = (uint16_t)(s_zone_sync_count - n);
+    if (s_zone_sync_count > 0U)
+    {
+        memmove(&s_zone_sync_addr[0], &s_zone_sync_addr[n], s_zone_sync_count);
+    }
+    return n;
+}
+
 /* 分区名称表(GBK编码): 对外分区号1-2对应下标0-1 */
 static char s_zone_name[FIRE_ZONE_MAX][FIRE_ZONE_NAME_LEN];
 
@@ -664,6 +705,7 @@ uint8_t FireZone_SetDeviceZone(uint8_t loop_no, uint16_t dev_no, uint8_t zone_no
 
     /* 更新RAM映射: 直接存分区号(1/2) */
     s_zone_map[loop_no - 1U][dev_no] = zone_no;
+    FireZone_MarkZoneSync(loop_no, dev_no);
 
     /* 持久化并通知(批量挂起期间只置脏) */
     PersistChanges();
@@ -1015,6 +1057,7 @@ uint8_t FireZone_SetZoneRange(uint8_t zone_no, uint8_t loop_no, uint8_t start, u
         if (s_zone_map[loop_no - 1U][d] != zone_no)
         {
             s_zone_map[loop_no - 1U][d] = zone_no;
+            FireZone_MarkZoneSync(loop_no, d);
             changed = 1;
         }
     }
@@ -1058,6 +1101,7 @@ uint8_t FireZone_ClearZoneRange(uint8_t zone_no, uint8_t loop_no)
         if (s_zone_map[loop_no - 1U][d] == zone_no)
         {
             s_zone_map[loop_no - 1U][d] = FIRE_ZONE_NONE;
+            FireZone_MarkZoneSync(loop_no, d);
             changed = 1;
         }
     }
@@ -1141,6 +1185,7 @@ uint8_t FireZone_ClearDevice(uint8_t zone_no, uint8_t loop_no, uint16_t dev_no)
         return 0;
     }
     s_zone_map[loop_no - 1U][dev_no] = FIRE_ZONE_NONE;
+    FireZone_MarkZoneSync(loop_no, dev_no);
     PersistChanges();
     return 0;
 }

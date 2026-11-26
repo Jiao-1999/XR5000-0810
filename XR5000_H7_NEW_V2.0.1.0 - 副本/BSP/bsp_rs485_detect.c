@@ -20,6 +20,7 @@
 
 #include "bsp_itcallback.h"    
 #include "bsp_debug.h"
+#include "bsp_fire_zone.h"          /* 分区归属查询: 上电全量同步分区号 */
             /* XR5000_UART4_DEBUG: 调试输出恢复 */
 #include "usart.h"             
 #include "bsp_save_ctrl.h"     
@@ -90,9 +91,26 @@ static uint8_t g_rx_frame[64];
 static uint8_t g_rx_chunk[64];
 static uint8_t g_transaction_request[8];
 static uint16_t g_rx_frame_len = 0U;
+
+/* 统一服务队列: 类别宏与当前请求状态(提前定义, 供事务层/接收层引用) */
+#define R3_SVC_RESET       1U   /* 05 写 0x002A/2B/2C, 发完即完成 */
+#define R3_SVC_ZONE_WRITE  2U   /* 06 写 0x0005, 等 8 字节回显 */
+#define R3_SVC_ZONE_READ   3U   /* 03 读 0x0005, 等 9 字节响应比对 */
+
+/* 分区号写/校验的最大重试次数: 总线瞬时冲突或设备忙导致的单次失败, 允许重发 */
+#define RS485_SVC_ZONE_RETRY_MAX  3U
+
+static uint8_t g_transaction_kind = 0U;
+static uint8_t g_svc_cur_kind = 0U;
+static uint8_t g_svc_cur_addr = 0U;
+static uint8_t g_svc_cur_zone = 0U;
+static uint8_t g_svc_cur_retry = 0U;   /* 当前请求已重试次数 */
+
+static void R3SvcPush(uint8_t kind, uint8_t addr, uint8_t zone);
+static void R3SvcPushRetry(uint8_t kind, uint8_t addr, uint8_t zone, uint8_t retry);
+static void R3SvcPop(void);
 static volatile uint8_t g_reset_requested = 0U;
 static volatile uint8_t g_reset_status = 0U;
-static uint32_t g_reset_grace_until = 0U;
 static uint8_t g_identify_fail_count[RS485_DETECT_MAX_DEVICES];
 static uint32_t g_last_identify_tick[RS485_DETECT_MAX_DEVICES];
 #define RS485_IDENTIFY_FAIL_THRESHOLD 3U
@@ -111,6 +129,7 @@ static void release_transaction(void)
     g_transaction_registration = 0U;
     g_transaction_tx_active = 0U;
     g_transaction_waiting_response = 0U;
+    g_transaction_kind = 0U;
     g_transaction_tx_start_tick = 0U;
     g_transaction_start_tick = 0U;
     g_last_transaction_end_tick = osKernelGetTickCount();
@@ -614,6 +633,21 @@ static void mark_transaction_timeout(void)
     if (g_transaction_pending == 0U) return;
     if (g_transaction_waiting_response == 0U) return;
     if ((osKernelGetTickCount() - g_transaction_start_tick) < RS485_DETECT_RESPONSE_TIMEOUT_MS) return;
+
+    if(g_transaction_kind >= R3_SVC_ZONE_WRITE)
+    {
+        DebugPrintf("[R3SVC] TIMEOUT kind=%u addr=%u zone=%u retry=%u\r\n",
+                    (unsigned)g_transaction_kind, (unsigned)g_svc_cur_addr,
+                    (unsigned)g_svc_cur_zone, (unsigned)g_svc_cur_retry);
+        if(g_svc_cur_retry < RS485_SVC_ZONE_RETRY_MAX)
+        {
+            R3SvcPushRetry(g_transaction_kind, g_svc_cur_addr, g_svc_cur_zone,
+                           (uint8_t)(g_svc_cur_retry + 1U));
+        }
+        R3SvcPop();
+        release_transaction();
+        return;
+    }
     addr = g_transaction_addr;
     was_type_detect = g_transaction_type_detect;
     if(g_transaction_registration != 0U)
@@ -654,6 +688,34 @@ static void process_transaction_tx_state(void)
         return;
     }
 
+    /* 复位帧: 不依赖TC回调标志(该标志易受上一帧残留干扰), 直接看HAL发送状态。
+     * 超时也直接出队, 绝不重发——重发会在总线上留下半截帧。 */
+    if(g_transaction_kind == R3_SVC_RESET)
+    {
+        if(huart5.gState == HAL_UART_STATE_READY)
+        {
+            DebugPrintf("[R3SVC] RESET addr=%u coil=%02X done\r\n",
+                        (unsigned)g_svc_cur_addr, (unsigned)(0x2AU + g_svc_cur_zone));
+            R3SvcPop();
+            release_transaction();
+        }
+        else if((uint32_t)(osKernelGetTickCount() - g_transaction_tx_start_tick) >= RS485_DETECT_TX_COMPLETE_TIMEOUT_MS)
+        {
+            (void)HAL_UART_AbortTransmit(&huart5);
+            g_rs4853_uart_diag.last_tx_status = (uint8_t)HAL_TIMEOUT;
+            g_rs4853_uart_diag.tx_fail_count++;
+            g_rs4853_uart_diag.tx_complete_timeout_count++;
+            DebugPrintf("[R3SVC] RESET timeout, dropped\r\n");
+            R3SvcPop();
+            release_transaction();
+        }
+        else
+        {
+            /* 发送中, 等下一轮 */
+        }
+        return;
+    }
+
     if(RS485DetectUartTakeTxComplete() != 0U)
     {
         g_transaction_tx_active = 0U;
@@ -676,6 +738,19 @@ static void process_transaction_tx_state(void)
     {
         DeviceThreshold_HandleTimeout();
         g_poll_current_addr = (addr > 1U) ? (uint8_t)(addr - 1U) : (RS485_DETECT_MAX_DEVICES - 1U);
+    }
+    /* 分区号读写发送超时: 未到上限则重新入队重试 */
+    if(g_transaction_kind >= R3_SVC_ZONE_WRITE)
+    {
+        DebugPrintf("[R3SVC] TX timeout kind=%u addr=%u retry=%u\r\n",
+                    (unsigned)g_transaction_kind, (unsigned)g_svc_cur_addr,
+                    (unsigned)g_svc_cur_retry);
+        if(g_svc_cur_retry < RS485_SVC_ZONE_RETRY_MAX)
+        {
+            R3SvcPushRetry(g_transaction_kind, g_svc_cur_addr, g_svc_cur_zone,
+                           (uint8_t)(g_svc_cur_retry + 1U));
+        }
+        R3SvcPop();
     }
     release_transaction();
 }
@@ -877,6 +952,55 @@ static void process_received_frame(const uint8_t *buf, uint16_t len)
     if (addr != g_transaction_addr || addr == 0U || addr >= RS485_DETECT_MAX_DEVICES)
         return;
 
+    if(g_transaction_kind == R3_SVC_ZONE_WRITE)
+    {
+        /* 06 写 0x0005: 期望 8 字节与请求完全一致的回显 */
+        if((len >= 8U) && (memcmp(buf, g_transaction_request, 8U) == 0))
+        {
+            DebugPrintf("[R3SVC] ZWR addr=%u zone=%u OK\r\n",
+                        (unsigned)addr, (unsigned)g_svc_cur_zone);
+            /* 读回校验继承重试计数, 避免读写交替无限循环 */
+            R3SvcPushRetry(R3_SVC_ZONE_READ, addr, g_svc_cur_zone, g_svc_cur_retry);
+        }
+        else
+        {
+            DebugPrintf("[R3SVC] ZWR addr=%u FAIL len=%u retry=%u\r\n",
+                        (unsigned)addr, (unsigned)len, (unsigned)g_svc_cur_retry);
+            if(g_svc_cur_retry < RS485_SVC_ZONE_RETRY_MAX)
+            {
+                R3SvcPushRetry(R3_SVC_ZONE_WRITE, addr, g_svc_cur_zone,
+                               (uint8_t)(g_svc_cur_retry + 1U));
+            }
+        }
+        R3SvcPop();
+        release_transaction();
+        return;
+    }
+
+    if(g_transaction_kind == R3_SVC_ZONE_READ)
+    {
+        /* 03 读 0x0005: addr 03 02 hi lo crc */
+        if((len == 7U) && (buf[2] == 2U) && (buf[4] == g_svc_cur_zone))
+        {
+            DebugPrintf("[R3SVC] ZRD addr=%u zone=%u OK\r\n", (unsigned)addr, (unsigned)buf[4]);
+        }
+        else
+        {
+            DebugPrintf("[R3SVC] ZRD addr=%u MISMATCH exp=%u retry=%u\r\n",
+                        (unsigned)addr, (unsigned)g_svc_cur_zone, (unsigned)g_svc_cur_retry);
+            g_rs4853_uart_diag.rx_invalid_length_count++;
+            /* 读回不一致: 重新写入, 最多重试上限次 */
+            if(g_svc_cur_retry < RS485_SVC_ZONE_RETRY_MAX)
+            {
+                R3SvcPushRetry(R3_SVC_ZONE_WRITE, addr, g_svc_cur_zone,
+                               (uint8_t)(g_svc_cur_retry + 1U));
+            }
+        }
+        R3SvcPop();
+        release_transaction();
+        return;
+    }
+
     if(g_transaction_threshold != 0U)
     {
         if(DeviceThreshold_HandleResponse(buf, len) != 0U)
@@ -992,6 +1116,10 @@ static void process_received_frame(const uint8_t *buf, uint16_t len)
 static uint8_t is_expected_response_function(uint8_t function)
 {
     uint8_t request_function = g_transaction_request[1];
+
+    /* 分区号读写: 功能码必须与请求一致 */
+    if(g_transaction_kind >= R3_SVC_ZONE_WRITE)
+        return (function == request_function || function == (uint8_t)(request_function | 0x80U)) ? 1U : 0U;
 
     if(g_transaction_threshold != 0U)
         return (function == request_function || function == (uint8_t)(request_function | 0x80U)) ? 1U : 0U;
@@ -1130,113 +1258,70 @@ uint8_t RS485Detect_HasSensorEnableData(uint8_t addr)
     return g_devices[addr].sensor_enable_confirmed;
 }
 
-/* 复位请求队列: 分区复位连续下发多台时逐条排队, 避免原单槽位被覆盖后只复位最后一台。
- * 0xFF 表示广播复位。 */
+/* ============================================================
+ * 回路3 统一发送队列
+ *   轮询 / 复位 / 分区号读写 全部走同一条事务通道, 天然串行, 无并发。
+ *   队列只决定"下一次发什么", 发送/超时/接收判定复用既有事务骨架。
+ * ============================================================ */
 #define RS485_DETECT_RESET_QUEUE_LEN 128U
+#define R3_SVC_QUEUE_LEN             32U
 
-static volatile uint8_t g_reset_queue[RS485_DETECT_RESET_QUEUE_LEN];
-static volatile uint8_t g_reset_qhead = 0U;   /* 队首下标 */
-static volatile uint8_t g_reset_qcount = 0U;  /* 待发请求数 */
+#if 0    /* 上电全量同步: 暂时关闭, 恢复时改成 #if 1 */
+/* 上电全量同步: 开机后延时, 把已在线设备的分区号各写一次 */
+#define RS485_DETECT_ZONE_SYNC_BOOT_MS  15000U
+#endif   /* 上电全量同步: 暂时关闭 */
 
-static void RS485Detect_ResetQueuePush(uint8_t addr)
+typedef struct
+{
+    uint8_t kind;
+    uint8_t addr;
+    uint8_t zone;
+    uint8_t retry;   /* 已重试次数 */
+} R3SvcReq_t;
+
+
+static R3SvcReq_t g_svc_queue[R3_SVC_QUEUE_LEN];
+static volatile uint8_t g_svc_qhead  = 0U;
+static volatile uint8_t g_svc_qcount = 0U;
+#if 0    /* 上电全量同步: 暂时关闭, 恢复时改成 #if 1 */
+static uint8_t  g_zone_sync_boot_done = 0U;   /* 上电全量同步已执行 */
+static uint32_t g_zone_sync_boot_tick = 0U;   /* 上电全量同步计时起点 */
+#endif   /* 上电全量同步: 暂时关闭 */
+
+volatile uint8_t g_r3rst_dbg[6] = {0U, 0U, 0U, 0U, 0U, 0U};
+
+static void R3SvcPushRetry(uint8_t kind, uint8_t addr, uint8_t zone, uint8_t retry)
 {
     uint8_t tail;
-
     taskENTER_CRITICAL();
-    if(g_reset_qcount < RS485_DETECT_RESET_QUEUE_LEN)
+    if(g_svc_qcount < R3_SVC_QUEUE_LEN)
     {
-        tail = (uint8_t)((g_reset_qhead + g_reset_qcount) % RS485_DETECT_RESET_QUEUE_LEN);
-        g_reset_queue[tail] = addr;
-        g_reset_qcount++;
+        tail = (uint8_t)((g_svc_qhead + g_svc_qcount) % R3_SVC_QUEUE_LEN);
+        g_svc_queue[tail].kind = kind;
+        g_svc_queue[tail].addr = addr;
+        g_svc_queue[tail].zone = zone;
+        g_svc_queue[tail].retry = retry;
+        g_svc_qcount++;
         g_reset_requested = 1U;
-        g_reset_status = 1U;   /* 新请求入队, 重试计数从 0 开始 */
+        g_reset_status = 1U;
     }
     taskEXIT_CRITICAL();
 }
 
-void RS485Detect_RequestDeviceReset(uint8_t addr)
+static void R3SvcPush(uint8_t kind, uint8_t addr, uint8_t zone)
 {
-    if((addr < 1U) || (addr >= (uint8_t)RS485_DETECT_MAX_DEVICES)) return;
-    RS485Detect_ResetQueuePush(addr);
+    R3SvcPushRetry(kind, addr, zone, 0U);
 }
 
-void RS485Detect_RequestBroadcastReset(void)
-{
-    if(GetLoopEnableState(3U) == 0U)
-    {
-        g_reset_requested = 0U;
-        g_reset_status = 2U;
-        return;
-    }
-    /* 广播复位优先: 丢弃残留的单台请求 */
-    taskENTER_CRITICAL();
-    g_reset_qhead = 0U;
-    g_reset_qcount = 0U;
-    taskEXIT_CRITICAL();
-    RS485Detect_ResetQueuePush(0xFFU);
-}
-
-uint8_t RS485Detect_GetBroadcastResetStatus(void)
-{
-    return g_reset_status;
-}
-
-/* 调试: 取复位队列快照(队首起最多max个地址), 返回当前队列条数 */
-uint8_t RS485Detect_GetResetQueueInfo(uint8_t *buf, uint8_t max)
-{
-    uint8_t i;
-    uint8_t n;
-
-    if(buf == 0) return 0U;
-    taskENTER_CRITICAL();
-    n = g_reset_qcount;
-    for(i = 0U; (i < n) && (i < max); i++)
-    {
-        buf[i] = g_reset_queue[(uint8_t)((g_reset_qhead + i) % RS485_DETECT_RESET_QUEUE_LEN)];
-    }
-    taskEXIT_CRITICAL();
-    return n;
-}
-
-/* 复位发送参数: 全部走中断发送(IT)状态机, 不阻塞轮询任务, 也不依赖阻塞发送的超时。 */
-#define RS485_DETECT_RESET_GAP_MS           50U    /* 两帧复位帧之间的间隔 */
-#define RS485_DETECT_RESET_TX_TIMEOUT_MS    40U    /* 单帧发送完成看门狗 */
-#define RS485_DETECT_RESET_GRACE_ONE_MS     50U    /* 单台复位只保护帧间隔, 让轮询在复位帧之间穿插 */
-#define RS485_DETECT_RESET_GRACE_ALL_MS     3000U  /* 广播复位后的总线保护(全部设备重启) */
-/* 单台复位后的设备重启窗口: 设备收到复位帧立即重启, 重启期间其485接口钳住总线,
- * 后续复位帧发在此窗口内会全部丢失(实测01重启约1.2s)。故台与台之间必须等重启完成。 */
-#define RS485_DETECT_RESET_UNIT_GAP_MS      1500U    /* 实测梯度: 1500成功, 50/100失败, 现测300 */
-
-#define RS485_DETECT_RESET_PHASE_IDLE       0U
-#define RS485_DETECT_RESET_PHASE_TX1        1U
-#define RS485_DETECT_RESET_PHASE_GAP        2U
-#define RS485_DETECT_RESET_PHASE_TX2        3U
-
-static uint8_t  g_reset_phase = RS485_DETECT_RESET_PHASE_IDLE;  /* 复位发送状态机 */
-static uint32_t g_reset_phase_tick = 0U;                        /* 当前状态进入时刻 */
-static uint8_t  g_reset_frame[8];                               /* 复位帧独立缓冲, 不复用轮询请求缓冲 */
-
-/* 临时诊断: 状态机实时状态(phase/requested/qcount/addr), 供画面96控件11轮显 */
-volatile uint8_t g_r3rst_dbg[6] = {0U, 0U, 0U, 0U, 0U, 0U};
-static uint8_t  g_reset_addr_cur = 0U;                          /* 正在发送的地址 */
-static uint32_t g_reset_tx_tick = 0U;                            /* 单帧发送起始时刻(诊断耗时) */
-static uint32_t g_reset_unit_gap_until = 0U;                    /* 上一台复位后的设备重启窗口截止时刻 */
-
-/*--------------------------------------------------------------
- * 队首出队: 只有队首仍是本次发送的地址才移动指针, 防止系统复位清队时下标错乱
- *--------------------------------------------------------------*/
-static void RS485Detect_ResetPopQueue(uint8_t addr)
+static void R3SvcPop(void)
 {
     taskENTER_CRITICAL();
-    if((g_reset_qcount > 0U) && (g_reset_queue[g_reset_qhead] == addr))
+    if(g_svc_qcount > 0U)
     {
-        g_reset_qhead = (uint8_t)((g_reset_qhead + 1U) % RS485_DETECT_RESET_QUEUE_LEN);
-        g_reset_qcount--;
+        g_svc_qhead = (uint8_t)((g_svc_qhead + 1U) % R3_SVC_QUEUE_LEN);
+        g_svc_qcount--;
     }
-    DebugPrintf("[R3RST] POP addr=%u q=%u\r\n", (unsigned)addr, (unsigned)g_reset_qcount);
-    /* 设备重启窗口: 期间总线被重启中的设备占用, 不能发下一台 */
-    g_reset_unit_gap_until = osKernelGetTickCount() + RS485_DETECT_RESET_UNIT_GAP_MS;
-    if(g_reset_qcount == 0U)
+    if(g_svc_qcount == 0U)
     {
         g_reset_requested = 0U;
         g_reset_status = 2U;
@@ -1248,169 +1333,189 @@ static void RS485Detect_ResetPopQueue(uint8_t addr)
     taskEXIT_CRITICAL();
 }
 
-/*--------------------------------------------------------------
- * 发送失败: 记账并重试; 连续失败超过上限才丢弃本条, 继续后续请求
- *--------------------------------------------------------------*/
-static void RS485Detect_ResetTxFailed(void)
+static void R3SvcClear(void)
 {
-    DebugPrintf("[R3RST] FAIL ph=%u addr=%u\r\n", (unsigned)g_reset_phase, (unsigned)g_reset_addr_cur);
-    (void)HAL_UART_AbortTransmit(&huart5);
-    g_rs4853_uart_diag.tx_fail_count++;
-    g_rs4853_uart_diag.last_tx_status = (uint8_t)HAL_BUSY;
-    g_reset_phase = RS485_DETECT_RESET_PHASE_IDLE;
-    /* 实测: 防御重组帧后每帧均完整发出, gState完成判定偶发误报(帧实际已发出),
-     * 失败也直接出队继续下一台, 不再对同一地址重复发送 */
-    RS485Detect_ResetPopQueue(g_reset_addr_cur);
+    taskENTER_CRITICAL();
+    g_svc_qhead = 0U;
+    g_svc_qcount = 0U;
+    g_reset_requested = 0U;
+    g_reset_status = 2U;
+    taskEXIT_CRITICAL();
+}
+
+void RS485Detect_RequestZoneReset(uint8_t zone)
+{
+    if((zone < 1U) || (zone > 2U)) return;
+    if(GetLoopEnableState(3U) == 0U)
+    {
+        g_reset_requested = 0U;
+        g_reset_status = 2U;
+        return;
+    }
+    R3SvcClear();
+    R3SvcPush(R3_SVC_RESET, 0xFFU, zone);
+    DebugPrintf("[R3SVC] zoneReset zone=%u broadcast\r\n", (unsigned)zone);
+}
+
+void RS485Detect_RequestBroadcastReset(void)
+{
+    if(GetLoopEnableState(3U) == 0U)
+    {
+        g_reset_requested = 0U;
+        g_reset_status = 2U;
+        return;
+    }
+    R3SvcClear();
+    R3SvcPush(R3_SVC_RESET, 0xFFU, 0U);
+    DebugPrintf("[R3SVC] sysReset broadcast\r\n");
+}
+
+void RS485Detect_RequestDeviceReset(uint8_t addr)
+{
+    if((addr < 1U) || (addr >= (uint8_t)RS485_DETECT_MAX_DEVICES)) return;
+    R3SvcPush(R3_SVC_RESET, addr, 0U);
+}
+
+void RS485Detect_RequestZoneSync(uint8_t addr, uint8_t zone)
+{
+    if((addr < 1U) || (addr >= (uint8_t)RS485_DETECT_MAX_DEVICES)) return;
+    R3SvcPush(R3_SVC_ZONE_WRITE, addr, zone);
+}
+
+#if 0    /* 上电全量同步: 暂时关闭, 恢复时改成 #if 1 */
+/*--------------------------------------------------------------
+ * 上电全量同步: 对所有"已在线且已划入分区"的设备各下发一次分区号。
+ *   设备出厂/恢复出厂时 0x0005 = 0(不属于任何分区), 此时收到 0x2B/0x2C
+ *   会被设备自己跳过, 因此首次上电必须由主机主动写一次。
+ *--------------------------------------------------------------*/
+static void RS485Detect_RequestZoneSyncAll(void)
+{
+    uint8_t dev;
+    uint8_t zone;
+    uint8_t queued = 0U;
+
+    for(dev = 1U; dev < (uint8_t)RS485_DETECT_MAX_DEVICES; dev++)
+    {
+        if(g_devices[dev].online == 0U) continue;   /* 未上线跳过 */
+        zone = FireZone_GetDeviceZone(3U, dev);
+        if(zone == 0U) continue;                    /* 未划区跳过(写0无意义) */
+        R3SvcPush(R3_SVC_ZONE_WRITE, dev, zone);
+        queued++;
+    }
+    DebugPrintf("[R3SVC] boot zone sync queued=%u\r\n", (unsigned)queued);
+}
+#endif   /* 上电全量同步: 暂时关闭 */
+
+uint8_t RS485Detect_GetBroadcastResetStatus(void)
+{
+    return g_reset_status;
+}
+
+uint8_t RS485Detect_GetResetQueueInfo(uint8_t *buf, uint8_t max)
+{
+    uint8_t i;
+    uint8_t n;
+    if(buf == 0) return 0U;
+    taskENTER_CRITICAL();
+    n = g_svc_qcount;
+    for(i = 0U; (i < n) && (i < max); i++)
+    {
+        buf[i] = g_svc_queue[(uint8_t)((g_svc_qhead + i) % R3_SVC_QUEUE_LEN)].addr;
+    }
+    taskEXIT_CRITICAL();
+    return n;
 }
 
 /*--------------------------------------------------------------
- * 复位请求服务: 全中断发送状态机(IDLE->TX1->GAP->TX2->IDLE)。
- *   发送不占任务时间, 不会因为任务被抢占而超时发半帧;
- *   两帧间隔用 tick 判断, 任务照常 10ms 循环;
- *   单台复位只做 150ms 总线保护, 广播复位才做 3 秒保护,
- *   保证分区复位不长时间压制同一条总线上其他分区的轮询。
+ * 组帧并启动一次服务事务
+ *   RESET      : <addr> 05 00 (0x2A+zone) FF 00 CRC
+ *   ZONE_WRITE : <addr> 06 00 05 00 <zone> CRC
+ *   ZONE_READ  : <addr> 03 00 05 00 01 CRC
  *--------------------------------------------------------------*/
-/*--------------------------------------------------------------
- * 按当前地址重新填充复位帧(含CRC)。
- * 帧间隔甚至发送进行中, 静态缓冲都可能被其他任务的越界写踩坏
- * (实测: 第三帧发出时 frame[4] 的 FF 被改成 01、CRC 被改成 0D),
- * 因此每次实际发送前都重新组帧, 保证发出去的内容永远正确。
- *--------------------------------------------------------------*/
-static void RS485Detect_ResetBuildFrame(void)
+static HAL_StatusTypeDef R3SvcStartOne(uint8_t kind, uint8_t addr, uint8_t zone, uint8_t retry, uint32_t now)
 {
+    uint8_t frame[8];
     uint16_t crc;
-
-    g_reset_frame[0] = g_reset_addr_cur;   /* 0xFF=广播, 其它=单台 */
-    g_reset_frame[1] = 0x05U;
-    g_reset_frame[2] = 0x00U;
-    g_reset_frame[3] = 0x2AU;
-    g_reset_frame[4] = 0xFFU;
-    g_reset_frame[5] = 0x00U;
-    crc = CalcCrc16(g_reset_frame, 6U);
-    g_reset_frame[6] = (uint8_t)crc;
-    g_reset_frame[7] = (uint8_t)(crc >> 8);
-}
-
-static void RS485Detect_ServiceBroadcastReset(void)
-{
-    uint32_t now = osKernelGetTickCount();
     HAL_StatusTypeDef st;
 
-    g_r3rst_dbg[0] = g_reset_phase;
-    g_r3rst_dbg[1] = g_reset_requested;
-    g_r3rst_dbg[2] = g_reset_qcount;
-    g_r3rst_dbg[3] = g_reset_addr_cur;
+    frame[0] = addr;
+    frame[1] = 0x05U;
+    frame[2] = 0x00U;
+    frame[3] = (uint8_t)(0x2AU + zone);
+    frame[4] = 0xFFU;
+    frame[5] = 0x00U;
+
+    if(kind == R3_SVC_ZONE_WRITE)
+    {
+        frame[1] = 0x06U;
+        frame[3] = 0x05U;
+        frame[4] = 0x00U;
+        frame[5] = zone;
+    }
+    else if(kind == R3_SVC_ZONE_READ)
+    {
+        frame[1] = 0x03U;
+        frame[3] = 0x05U;
+        frame[4] = 0x00U;
+        frame[5] = 0x01U;
+    }
+
+    crc = CalcCrc16(frame, 6U);
+    frame[6] = (uint8_t)crc;
+    frame[7] = (uint8_t)(crc >> 8);
+
+    begin_transaction(frame, addr, 0U, 0U, now);
+    g_transaction_kind = kind;
+    g_svc_cur_kind = kind;
+    g_svc_cur_addr = addr;
+    g_svc_cur_zone = zone;
+    g_svc_cur_retry = retry;
+
+    /* 发送前清掉上一帧残留的TC标志与中断状态:
+     * 本工程HAL的UART_EndTransmit_IT不清TC, 残留标志会让IT发送在
+     * 最后一个字节刚写入TDR时就被判完成, 队列提前推进导致同一帧重发。 */
+    (void)HAL_UART_AbortTransmit(&huart5);
+    __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_TCF);
+
+    st = HAL_UART_Transmit_IT(&huart5, g_transaction_request, sizeof(g_transaction_request));
+    g_rs4853_uart_diag.last_tx_status = (uint8_t)st;
+    return st;
+}
+
+/*--------------------------------------------------------------
+ * 服务调度: 总线空闲且过了帧间保护时取队首发送。
+ *   返回 1 表示本轮被服务请求占用(调用方跳过轮询)。
+ *--------------------------------------------------------------*/
+static uint8_t R3SvcService(uint32_t now)
+{
+    R3SvcReq_t req;
+    HAL_StatusTypeDef st;
+
+    g_r3rst_dbg[0] = g_svc_qcount;
+    g_r3rst_dbg[1] = g_svc_cur_kind;
+    g_r3rst_dbg[2] = g_svc_cur_addr;
+    g_r3rst_dbg[3] = g_svc_cur_zone;
     g_r3rst_dbg[4] = (uint8_t)g_rs4853_uart_diag.tx_fail_count;
     g_r3rst_dbg[5] = (uint8_t)g_rs4853_uart_diag.tx_complete_count;
 
-    if(g_reset_requested == 0U)
+    if(g_svc_qcount == 0U) return 0U;
+    if(g_transaction_pending != 0U) return 1U;
+    if((uint32_t)(now - g_last_transaction_end_tick) < RS485_DETECT_INTER_FRAME_GUARD_MS) return 1U;
+
+    taskENTER_CRITICAL();
+    req = g_svc_queue[g_svc_qhead];
+    taskEXIT_CRITICAL();
+
+    st = R3SvcStartOne(req.kind, req.addr, req.zone, req.retry, now);
+    if(st != HAL_OK)
     {
-        g_reset_phase = RS485_DETECT_RESET_PHASE_IDLE;
-        return;
+        g_rs4853_uart_diag.tx_fail_count++;
+        g_transaction_kind = 0U;
+        release_transaction();
+        R3SvcPop();
+        return 1U;
     }
-
-    /* 轮询事务在途时让路, 避免与轮询帧抢总线 */
-    if(g_transaction_pending != 0U)
-    {
-        return;
-    }
-
-    switch(g_reset_phase)
-    {
-    case RS485_DETECT_RESET_PHASE_IDLE:
-        /* 上一台刚复位完: 等它的重启窗口过去, 否则本台帧会被重启中的设备钳掉 */
-        if((int32_t)(now - g_reset_unit_gap_until) < 0)
-        {
-            break;
-        }
-
-        taskENTER_CRITICAL();
-        g_reset_addr_cur = g_reset_queue[g_reset_qhead];
-        taskEXIT_CRITICAL();
-
-        RS485Detect_ResetBuildFrame();
-        DebugPrintf("[R3RST] TX addr=%u q=%u\r\n", (unsigned)g_reset_addr_cur, (unsigned)g_reset_qcount);
-
-        (void)HAL_UART_AbortTransmit(&huart5);
-        RS485DetectUartClearRx();
-        g_rx_frame_len = 0U;
-        /* 保护时长: 广播(设备全部重启)才 3 秒, 单台只做帧间隔级短保护 */
-        g_reset_grace_until = now + ((g_reset_addr_cur == 0xFFU) ?
-                                     RS485_DETECT_RESET_GRACE_ALL_MS :
-                                     RS485_DETECT_RESET_GRACE_ONE_MS);
-
-            g_reset_tx_tick = osKernelGetTickCount();
-            __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_TCF);   /* 清TC残留, 防IT发送被瞬间误判完成 */
-        st = HAL_UART_Transmit_IT(&huart5, g_reset_frame, sizeof(g_reset_frame));
-        if(st != HAL_OK)
-        {
-            RS485Detect_ResetTxFailed();
-        }
-        else
-        {
-            g_reset_phase = RS485_DETECT_RESET_PHASE_TX1;
-            g_reset_phase_tick = now;
-        }
-        break;
-
-    case RS485_DETECT_RESET_PHASE_TX1:
-        if(huart5.gState == HAL_UART_STATE_READY)
-        {
-            DebugPrintf("[R3RST] T1=%ums\r\n", (unsigned)(now - g_reset_tx_tick));
-            g_reset_phase = RS485_DETECT_RESET_PHASE_GAP;
-            g_reset_phase_tick = now;
-        }
-        else if((uint32_t)(now - g_reset_phase_tick) >= RS485_DETECT_RESET_TX_TIMEOUT_MS)
-        {
-            RS485Detect_ResetTxFailed();
-        }
-        else
-        {
-            /* 发送中, 等下一轮 */
-        }
-        break;
-
-    case RS485_DETECT_RESET_PHASE_GAP:
-        if((uint32_t)(now - g_reset_phase_tick) >= RS485_DETECT_RESET_GAP_MS)
-        {
-            /* 防御: 帧间隔期间缓冲可能被踩坏, 发送前按当前地址重新组帧 */
-            RS485Detect_ResetBuildFrame();
-            g_reset_tx_tick = osKernelGetTickCount();
-            __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_TCF);   /* 清TC残留, 防IT发送被瞬间误判完成 */
-            st = HAL_UART_Transmit_IT(&huart5, g_reset_frame, sizeof(g_reset_frame));
-            if(st != HAL_OK)
-            {
-                RS485Detect_ResetTxFailed();
-            }
-            else
-            {
-                g_reset_phase = RS485_DETECT_RESET_PHASE_TX2;
-                g_reset_phase_tick = now;
-            }
-        }
-        break;
-
-    case RS485_DETECT_RESET_PHASE_TX2:
-        if(huart5.gState == HAL_UART_STATE_READY)
-        {
-            DebugPrintf("[R3RST] T2=%ums\r\n", (unsigned)(now - g_reset_tx_tick));
-            g_reset_phase = RS485_DETECT_RESET_PHASE_IDLE;
-            RS485Detect_ResetPopQueue(g_reset_addr_cur);
-        }
-        else if((uint32_t)(now - g_reset_phase_tick) >= RS485_DETECT_RESET_TX_TIMEOUT_MS)
-        {
-            RS485Detect_ResetTxFailed();
-        }
-        else
-        {
-            /* 发送中, 等下一轮 */
-        }
-        break;
-
-    default:
-        g_reset_phase = RS485_DETECT_RESET_PHASE_IDLE;
-        break;
-    }
+    return 1U;
 }
 
 /* ============================================================
@@ -1425,6 +1530,9 @@ void RS485DetectPollAndReceiveTask(void *parameter)
 
     (void)parameter;
     g_last_poll_time = osKernelGetTickCount();
+#if 0    /* 上电全量同步: 暂时关闭, 恢复时改成 #if 1 */
+    g_zone_sync_boot_tick = g_last_poll_time;   /* 上电全量同步计时起点 */
+#endif   /* 上电全量同步: 暂时关闭 */
 
     for (;;)
     {
@@ -1459,16 +1567,25 @@ void RS485DetectPollAndReceiveTask(void *parameter)
             loop_was_enabled = 1U;
         }
         mark_transaction_timeout();
-        RS485Detect_ServiceBroadcastReset();
 
         current_tick = osKernelGetTickCount();
-        if((int32_t)(current_tick - g_reset_grace_until) < 0)
+
+#if 0    /* 上电全量同步: 暂时关闭, 恢复时改成 #if 1 */
+        /* 上电全量同步: 开机 15 秒后执行一次, 此时设备基本已轮询上线 */
+        if((g_zone_sync_boot_done == 0U) &&
+           ((uint32_t)(current_tick - g_zone_sync_boot_tick) >= RS485_DETECT_ZONE_SYNC_BOOT_MS))
+        {
+            g_zone_sync_boot_done = 1U;
+            RS485Detect_RequestZoneSyncAll();
+        }
+#endif   /* 上电全量同步: 暂时关闭 */
+        /* 统一服务队列: 复位/分区号读写优先占用总线, 本轮处理了就不再轮询 */
+        if(R3SvcService(current_tick) != 0U)
         {
             osDelay(RS485_DETECT_TASK_INTERVAL_MS);
             continue;
         }
         if (g_transaction_pending == 0U &&
-            g_reset_phase == RS485_DETECT_RESET_PHASE_IDLE &&
             (current_tick - g_last_poll_time) >= RS485_DETECT_POLL_INTERVAL_MS &&
             (current_tick - g_last_transaction_end_tick) >= RS485_DETECT_INTER_FRAME_GUARD_MS)
         {

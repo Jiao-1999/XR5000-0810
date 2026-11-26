@@ -1391,6 +1391,8 @@ static uint8_t RS485DetectDataDeal(PackCabinFaultStorage *pcfs_entry, uint8_t *p
 uint8_t StorageFireAlarmExists(uint8_t loop_no, uint16_t dev_no, uint8_t sensor_type);  /* V7: 与屏幕火警表同源 */
 uint8_t StorageForeWarnExists(uint8_t loop_no, uint16_t dev_no, uint8_t sensor_type);  /* V7: 与屏幕预警表同源 */
 static uint8_t StorageAlarmHasFire(uint8_t zone, uint8_t *any);  /* V8: 与屏幕报警表同源 */
+static uint8_t StorageAlarmDecode(uint8_t dclass, const DetectorAddrAttribute *da,
+                                  uint8_t *loop, uint16_t *addr);  /* 报警表记录 -> 回路+地址 */
 static uint8_t FireZone_ScreenHandReportActive(uint8_t addr);  /* V8: 判据同画面86手报显示 */
 static void RS485Loop3ClearCurrentState(uint8_t addr);
 static void Loop1ClearCurrentState(uint8_t addr);
@@ -4145,6 +4147,87 @@ void FireZoneSysStop(void)
 }
 
 /* 分区复位: 停本区输出+关声光+清锁存+逐台下发本区设备复位 */
+/*--------------------------------------------------------------
+ * 分区复位: 从屏幕报警表中删除本区所有记录(火警 pcfas + 预警 pcfws)。
+ *   报警表是分区声光(FireZone_HasFire -> StorageAlarmHasFire)与
+ *   显示盘投递(FireZone_ScanAlarmSources)的唯一判据。
+ *   不删表时, 复位后下一周期会被重新锁存、重新推送, 表现为"复位后立刻又报警"。
+ * 参数: zone - 分区号(1/2)
+ * 返回: 删除的记录条数
+ *--------------------------------------------------------------*/
+static uint16_t FireZone_PurgeAlarmRecords(uint8_t zone)
+{
+    uint8_t  loop;
+    uint16_t addr;
+    uint16_t removed = 0U;
+    uint8_t  i;
+    uint8_t  k;
+
+    if((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX))
+    {
+        return 0U;
+    }
+
+    taskENTER_CRITICAL();
+
+    /* 1. 火警表 pcfas */
+    i = 0U;
+    while(i < pcfas.self_bottom_point)
+    {
+        if((StorageAlarmDecode(pcfas.detector_class[i], &pcfas.da[i], &loop, &addr) != 0U) &&
+           (FireZone_GetDeviceZone(loop, addr) == zone))
+        {
+            for(k = i; (uint8_t)(k + 1U) < pcfas.self_bottom_point; k++)
+            {
+                pcfas.detector_class[k] = pcfas.detector_class[k + 1U];
+                pcfas.da[k]             = pcfas.da[k + 1U];
+                pcfas.atr[k]            = pcfas.atr[k + 1U];
+                pcfas.alarm_type[k]     = pcfas.alarm_type[k + 1U];
+            }
+            pcfas.self_bottom_point--;
+            removed++;
+        }
+        else
+        {
+            i++;
+        }
+    }
+
+    /* 2. 预警表 pcfws */
+    i = 0U;
+    while(i < pcfws.self_bottom_point)
+    {
+        if((StorageAlarmDecode(pcfws.detector_class[i], &pcfws.da[i], &loop, &addr) != 0U) &&
+           (FireZone_GetDeviceZone(loop, addr) == zone))
+        {
+            for(k = i; (uint8_t)(k + 1U) < pcfws.self_bottom_point; k++)
+            {
+                pcfws.detector_class[k] = pcfws.detector_class[k + 1U];
+                pcfws.da[k]             = pcfws.da[k + 1U];
+                pcfws.atr[k]            = pcfws.atr[k + 1U];
+                pcfws.alarm_type[k]     = pcfws.alarm_type[k + 1U];
+            }
+            pcfws.self_bottom_point--;
+            removed++;
+        }
+        else
+        {
+            i++;
+        }
+    }
+
+    /* 3. 两张表都空了: 首警信息与任意报警锁存一并清除 */
+    if((pcfas.self_bottom_point == 0U) && (pcfws.self_bottom_point == 0U))
+    {
+        FirstAlarmInformationReset();
+        s_any_fire_latch = 0U;
+    }
+
+    taskEXIT_CRITICAL();
+
+    return removed;
+}
+
 void FireZoneReset(uint8_t zone)
 {
     uint16_t dev;
@@ -4166,10 +4249,15 @@ void FireZoneReset(uint8_t zone)
     s_zone_fire_latch[zone - 1U] = 0U;
     FireZoneSirenCtrl(zone, 0U);
 
-    /* 5. 逐台下发本区设备复位: 只把请求排进各回路复位队列, 不在按键任务里等总线。
-     *    底层按队列逐条发送(见 MBus1ServiceReset / MBusCtrl_ServiceBroadcastReset /
-     *    RS485Detect_ServiceBroadcastReset)。原实现是"发一台等 60ms + 总预算 300ms",
-     *    等待超时后下一条请求会覆盖单槽位, 现场表现为只复位最后一台设备。 */
+    /* 4.1 清除本区屏幕报警记录(根源): 把火警表/预警表里属于本区的记录全部删除。
+     *     这两张表是分区声光(FireZone_HasFire)与显示盘投递(FireZone_ScanAlarmSources)
+     *     的唯一判据; 不删表时下一周期会按残留记录重新锁存声光、重新推送显示盘,
+     *     表现为"复位后立刻又报警"。 */
+    (void)FireZone_PurgeAlarmRecords(zone);
+
+    /* 5. 下发本区设备复位: 三个回路各自入队, 不在按键任务里等总线。
+     *    回路1/2 逐台入队(见 MBus1ServiceReset / MBusCtrl_ServiceBroadcastReset);
+     *    回路3 只发 1 条广播(线圈 0x002B/0x002C), 探测器按自己的分区号判断是否复位。 */
     for(dev = 1U; dev <= (uint16_t)MIXTURE_DEVICE_MAX_ADDR; dev++)
     {
         if(FireZone_GetDeviceZone(1U, dev) != zone) continue;
@@ -4182,28 +4270,10 @@ void FireZoneReset(uint8_t zone)
         MBusCtrl_RequestDeviceReset((uint8_t)dev);
     }
 
-    for(dev = 1U; dev < (uint16_t)RS485_DETECT_MAX_DEVICES; dev++)
-    {
-        if(FireZone_GetDeviceZone(3U, dev) != zone) continue;
-        RS485Detect_RequestDeviceReset((uint8_t)dev);
-    }
-
-    /* 临时诊断: 把回路3复位队列的快照(条数+地址)写到画面96 控件11,
-     * 用于确认入队4条但只发出1条, 卡在入队还是卡在服务。验证后可整段删除。 */
-    {
-        char dbg[48];
-        uint8_t qbuf[8];
-        uint8_t qn;
-        uint8_t k;
-
-        qn = RS485Detect_GetResetQueueInfo(qbuf, 8U);
-        sprintf(dbg, "Z%u Q%u:", (unsigned)zone, (unsigned)qn);
-        for(k = 0U; (k < qn) && (k < 8U); k++)
-        {
-            sprintf(dbg + strlen(dbg), "%02u ", (unsigned)qbuf[k]);
-        }
-        SetTextValue(96U, 11U, (uint8_t *)dbg);
-    }
+    /* 分区复位: 回路3 只发 1 条广播(线圈 0x002B/0x002C),
+     *    探测器收到后按自己 flash 里的分区号(寄存器0x0005)决定是否复位,
+     *    主机不再逐台下发, 也不需要在按键任务里等总线。 */
+    RS485Detect_RequestZoneReset(zone);
 	MBusCtrl_ClearFireDisplayDedup();  /* XR5000_FIRE_LATCH_20261112: 本区复位后可重新推送火警事件 */
     FireZone_ClearDisplayEvents(zone);  /* V7: 分区复位 = 本分区报警逐条清除 */
     /* V8: 清本区手报记忆 —— 原来只置不清, 必须断电才恢复 */
@@ -4754,16 +4824,28 @@ void UpdateUI(void)
 	/* 需求4: 分区启动过程灯(延时/喷洒启动/喷洒反馈), 按联动引擎状态每周期刷新 */
 	FireZone_LinkageLedDrive();
 
-	/* 临时诊断: 回路3复位状态机实时状态 P=phase(0闲/1发帧1/2间隔/3发帧2) W=requested Q=队列 A=当前地址 */
-	{
-		extern volatile uint8_t g_r3rst_dbg[6];
-		char r3dbg[32];
-		sprintf(r3dbg, "P%u W%u Q%u A%02u F%u C%u",
-			(unsigned)g_r3rst_dbg[0], (unsigned)g_r3rst_dbg[1],
-			(unsigned)g_r3rst_dbg[2], (unsigned)g_r3rst_dbg[3],
-			(unsigned)g_r3rst_dbg[4], (unsigned)g_r3rst_dbg[5]);
-		SetTextValue(96U, 11U, (uint8_t *)r3dbg);
-	}
+    /* 回路3 统一服务队列: 分区号同步下发 + 队列实时状态(临时诊断) */
+    {
+        extern volatile uint8_t g_r3rst_dbg[6];
+        uint8_t sync_addr[4];
+        uint8_t r3dbg[40];
+        uint16_t sn;
+        uint16_t sk;
+
+        /* 画面96 变更过的回路3 设备: 逐条交给下发队列(写0x0005 + 读回校验) */
+        sn = FireZone_TakeZoneSyncList(sync_addr, 4U);
+        for (sk = 0U; sk < sn; sk++)
+        {
+            RS485Detect_RequestZoneSync(sync_addr[sk],
+                                        FireZone_GetDeviceZone(3U, sync_addr[sk]));
+        }
+
+        sprintf((char *)r3dbg, "Q%u K%u A%02u Z%u F%u C%u",
+                (unsigned)g_r3rst_dbg[0], (unsigned)g_r3rst_dbg[1],
+                (unsigned)g_r3rst_dbg[2], (unsigned)g_r3rst_dbg[3],
+                (unsigned)g_r3rst_dbg[4], (unsigned)g_r3rst_dbg[5]);
+        SetTextValue(96U, 11U, r3dbg);
+    }
 
 	/* V8: 画面86 联动监测区(控件42~48), 按秒刷新 */
 	LinkageMonitor86Refresh();
