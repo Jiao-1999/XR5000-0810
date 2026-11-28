@@ -50,6 +50,7 @@
 #define LOGIC_BTN_CONFIRM       16  /* 确认/保存当前规则到RAM */
 
 /* 括号和等号(屏幕screen 43实际控件ID) */
+#define LOGIC_BTN_RANGE         17  /* '-' 区间分隔符: 5位后追加, 表示"到"(界面/条件区间) */
 #define LOGIC_BTN_LPAREN        18  /* '(' 左括号 */
 #define LOGIC_BTN_EQUAL         20  /* '=' 分隔符，开始选择执行动作 */
 #define LOGIC_BTN_RPAREN        21  /* ')' 右括号 */
@@ -77,6 +78,12 @@
  *--------------------------------------------------------------*/
 
 #define LOGIC_TXT_LIST_BASE     10  /* 第1条规则（10-18共9条） */
+
+/* 画面45 删除控件: 24~32 选中第1~9行, 33 删除(二次确认), 35 提示区 */
+#define LOGIC_BTN_LIST_SEL_BASE  24U  /* 24~32: 选中第 1~9 行 */
+#define LOGIC_BTN_LIST_DELETE    33U  /* 删除选中规则(需按两次确认) */
+#define LOGIC_TXT_LIST_HINT      35U  /* 删除提示区(空白=无提示) */
+#define LOGIC_LIST_CONFIRM_MS   2000U /* 二次确认有效窗口(毫秒) */
 #define LOGIC_BTN_PREV_PAGE    22  /* 上一页 */
 #define LOGIC_BTN_NEXT_PAGE    23  /* 下一页(编辑页43复用为查看逻辑跳转) */
 #define LOGIC_LIST_PAGE_SIZE   9   /* 列表页每页显示规则数 */

@@ -8067,6 +8067,8 @@
 
 #define  _BTN_火警逻辑设定_BUTTON29                                                 29
 
+#define  _BTN_火警逻辑设定_BUTTON30                                                 17
+
 //画面喷房逻辑设定帮助界面的背景图片
 #define  _IMG_喷房逻辑设定帮助界面                                                      11
 
@@ -8117,6 +8119,28 @@
 #define  _BTN_逻辑查看界面_BUTTON5                                                  23
 
 #define  _BTN_逻辑查看界面_BUTTON6                                                  19
+
+#define  _BTN_逻辑查看界面_BUTTON1                                                  24
+
+#define  _BTN_逻辑查看界面_BUTTON7                                                  25
+
+#define  _BTN_逻辑查看界面_BUTTON8                                                  26
+
+#define  _BTN_逻辑查看界面_BUTTON9                                                  27
+
+#define  _BTN_逻辑查看界面_BUTTON10                                                 28
+
+#define  _BTN_逻辑查看界面_BUTTON11                                                 29
+
+#define  _BTN_逻辑查看界面_BUTTON12                                                 30
+
+#define  _BTN_逻辑查看界面_BUTTON13                                                 31
+
+#define  _BTN_逻辑查看界面_BUTTON14                                                 32
+
+#define  _BTN_逻辑查看界面_BUTTON15                                                 33
+
+#define  _TXT_DIS__逻辑查看界面_TEXT_DISPLAY19                                      35
 
 #define  _BTN_超级管理员界面_BUTTON1                                                  1
 

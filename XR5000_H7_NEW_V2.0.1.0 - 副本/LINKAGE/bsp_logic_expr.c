@@ -272,6 +272,31 @@ static uint8_t IsRuleValid(const LogicRule_t *rule)
                     return 0;  /* 回路号非法(兜底, lno==0/lno>4 已由上方拦截) */
             }
         }
+
+        /* 区间校验: dev_no_end 大于起始号时视为区间,
+         * 结束号必须落在同一回路的合法地址范围内 */
+        if (rule->conditions[i].dev_no_end > dno)
+        {
+            uint16_t dend = rule->conditions[i].dev_no_end;
+
+            switch (lno)
+            {
+                case 1:
+                    if (dend > (uint16_t)MIXTURE_DEVICE_MAX_ADDR) return 0;
+                    break;
+                case 2:
+                    if (dend > (uint16_t)(MBUS_CONTROL_MAX_DEVICES - 1U)) return 0;
+                    break;
+                case 3:
+                    if (dend > (uint16_t)(RS485_DETECT_MAX_DEVICES - 1U)) return 0;
+                    break;
+                case 4:
+                    if (dend > (uint16_t)IG3302_MAX_ADDRESS) return 0;
+                    break;
+                default:
+                    return 0;  /* 回路号非法, 不支持区间 */
+            }
+        }
     }
 
     /* 校验Token中的括号是否配对（左右括号必须完整匹配）*/
@@ -336,9 +361,17 @@ static void ResetRuntime(uint8_t slot)
 static uint16_t CalcRuleCRC(const LogicRule_t *rule)
 {
     /* 计算规则结构体CRC时排除crc字段自身，
-     * sizeof(LogicRule_t) = 151字节，crc字段占最后2字节
-     * 实际计算149字节得到CRC */
+     * sizeof(LogicRule_t) 由结构自动决定（当前175字节），crc字段占最后2字节 */
     return CalcCrc16((uint8_t *)rule, sizeof(LogicRule_t) - 2);
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：CalcRuleCRC_V1
+ * 功能描述：旧版规则结构(127字节)的CRC，仅用于升级兼容读
+ *--------------------------------------------------------------*/
+static uint16_t CalcRuleCRC_V1(const LogicRuleV1_t *rule)
+{
+    return CalcCrc16((uint8_t *)rule, sizeof(LogicRuleV1_t) - 2);
 }
 
 /*--------------------------------------------------------------
@@ -621,6 +654,55 @@ uint8_t LogicRule_SetEnable(uint8_t id, uint8_t enable)
  * 函数名称：LogicRule_ClearAll
  * 功能描述：清空规则表，将所有槽位重置为空闲状态。
  *--------------------------------------------------------------*/
+/*--------------------------------------------------------------
+ * 函数名称：LogicRule_Renumber
+ * 功能说明：把全部有效规则按原ID升序重排为 1..N，并重算CRC。
+ *           删除规则后调用，保证画面45/43 显示的编号连续。
+ *           槽位不变(运行时状态按槽位索引, 不受影响)。
+ *--------------------------------------------------------------*/
+void LogicRule_Renumber(void)
+{
+    uint8_t slot_order[LOGIC_RULE_MAX];
+    uint8_t n = 0U;
+    uint8_t i;
+    uint8_t k;
+    uint8_t new_id = 1U;
+
+    /* 1. 收集有效槽位 */
+    for (i = 0U; i < LOGIC_RULE_MAX; i++)
+    {
+        if (s_rule_table[i].rule_id != 0U)
+        {
+            slot_order[n++] = i;
+        }
+    }
+    if (n == 0U) return;
+
+    /* 2. 按原ID升序排序槽位 */
+    for (i = 0U; i < n; i++)
+    {
+        for (k = (uint8_t)(i + 1U); k < n; k++)
+        {
+            if (s_rule_table[slot_order[k]].rule_id < s_rule_table[slot_order[i]].rule_id)
+            {
+                uint8_t tmp = slot_order[i];
+                slot_order[i] = slot_order[k];
+                slot_order[k] = tmp;
+            }
+        }
+    }
+
+    /* 3. 重新编号并重算CRC */
+    for (i = 0U; i < n; i++)
+    {
+        uint8_t s = slot_order[i];
+        s_rule_table[s].rule_id = new_id++;
+        s_rule_table[s].crc = CalcRuleCRC(&s_rule_table[s]);
+    }
+
+    DebugPrintf("[LOGIC] renumber: %d rules -> 1..%d\r\n", (int)n, (int)(new_id - 1U));
+}
+
 void LogicRule_ClearAll(void)
 {
     uint8_t i;  /* 循环计数器 */
@@ -717,6 +799,9 @@ uint8_t LogicRule_LoadAll(void)
     uint16_t read_offset;    /* Flash读取偏移量（字节单位） */
     LogicMeta_t meta;        /* 从Flash读取的元数据 */
     LogicRule_t temp_rule;   /* 临时存放从Flash读取的规则 */
+    LogicRuleV1_t v1_rule;   /* 旧结构临时缓冲（升级兼容用） */
+    uint8_t  v1_upgraded = 0U; /* 是否发生过 V1->V2 升级 */
+    uint8_t  c;              /* 条件下标 */
 
     s_crc_fail_count = 0;    /* 复位CRC失败计数器 */
 
@@ -726,6 +811,71 @@ uint8_t LogicRule_LoadAll(void)
         LOGIC_FLASH_META_ADDR,      /* 元数据在Flash中的地址 */
         sizeof(LogicMeta_t)         /* 大小：5字节 */
     );
+
+    /*----------------------------------------------------------
+     * 旧格式(V1)兼容: 读出后逐条转换为新结构, 并就地重存为V2,
+     * 保证升级后现场既有联动规则不丢失。
+     *---------------------------------------------------------*/
+    if (meta.magic == LOGIC_MAGIC_V1)
+    {
+        LogicRule_ClearAll();
+        read_offset = 0;
+
+        for (i = 0; i < meta.rule_count && i < LOGIC_RULE_MAX; i++)
+        {
+            W25QXX_Read(
+                (uint8_t *)&v1_rule,
+                LOGIC_FLASH_RULES_ADDR + read_offset,
+                sizeof(LogicRuleV1_t)
+            );
+
+            if (CalcRuleCRC_V1(&v1_rule) == v1_rule.crc)
+            {
+                memset(&temp_rule, 0, sizeof(temp_rule));
+                temp_rule.enable      = v1_rule.enable;
+                temp_rule.rule_id     = v1_rule.rule_id;
+                temp_rule.zone        = v1_rule.zone;
+                temp_rule.cond_count  = v1_rule.cond_count;
+
+                for (c = 0; c < v1_rule.cond_count && c < LOGIC_COND_MAX; c++)
+                {
+                    temp_rule.conditions[c].loop_no     = v1_rule.conditions[c].loop_no;
+                    temp_rule.conditions[c].dev_no      = v1_rule.conditions[c].dev_no;
+                    temp_rule.conditions[c].dev_no_end  = v1_rule.conditions[c].dev_no;  /* 单点 */
+                    temp_rule.conditions[c].sensor_type = v1_rule.conditions[c].sensor_type;
+                    temp_rule.conditions[c].alarm_level = v1_rule.conditions[c].alarm_level;
+                }
+
+                temp_rule.token_count = v1_rule.token_count;
+                memcpy(temp_rule.tokens, v1_rule.tokens, sizeof(temp_rule.tokens));
+                temp_rule.exec_mode    = v1_rule.exec_mode;
+                temp_rule.action_count = v1_rule.action_count;
+                memcpy(temp_rule.actions, v1_rule.actions, sizeof(temp_rule.actions));
+
+                /* 关键: 按新结构重算CRC, 否则下次开机V2分支校验失败会被清空 */
+                temp_rule.crc = CalcRuleCRC(&temp_rule);
+
+                s_rule_table[i] = temp_rule;
+                ResetRuntime(i);
+                v1_upgraded = 1U;
+            }
+            else
+            {
+                s_crc_fail_count++;
+            }
+
+            read_offset += sizeof(LogicRuleV1_t);
+        }
+
+        DebugPrintf("[LOGIC] LoadAll: V1->V2 upgraded=%d crc_fail=%d\r\n",
+                    (int)v1_upgraded, s_crc_fail_count);
+
+        if (v1_upgraded != 0U)
+        {
+            (void)LogicRule_SaveAll();   /* 就地升级Flash格式, 下次开机走V2 */
+        }
+        return 0;
+    }
 
     /* 校验魔数是否匹配，Flash未写入时为0xFFFFFFFF */
     if (meta.magic != LOGIC_MAGIC)
@@ -745,7 +895,7 @@ uint8_t LogicRule_LoadAll(void)
         W25QXX_Read(
             (uint8_t *)&temp_rule,                  /* 临时规则结构体地址 */
             LOGIC_FLASH_RULES_ADDR + read_offset,   /* 规则在Flash中的地址 */
-            sizeof(LogicRule_t)                      /* 大小：151字节 */
+            sizeof(LogicRule_t)                      /* 大小：175字节 */
         );
 
         /* 校验规则CRC是否与Flash一致 */

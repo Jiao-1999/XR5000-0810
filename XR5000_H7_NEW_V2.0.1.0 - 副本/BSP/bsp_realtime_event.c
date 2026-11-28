@@ -36,6 +36,7 @@ typedef struct
     uint8_t keepalive;                    /* 1：参与报�?故障期间的屏幕保�?*/
     uint8_t active;                       /* 0：来源已恢复�?：来源当前仍存在 */
     uint8_t seen;                         /* 本轮扫描中是否再次观察到 */
+    uint8_t no_state;                     /* 1=״̬�в���ʾ(�������¼, �������λ) */
     uint8_t loop;                         /* 回路号；0表示主机本身 */
     uint8_t address;                      /* 设备地址或主机故障编�?*/
     const uint8_t *subject_name;          /* 非回路设备的自定义显示主体；NULL使用回路格式 */
@@ -365,7 +366,7 @@ static uint8_t RealtimeObserveInternal(RealtimeEventKind kind, uint8_t category,
                                        uint8_t loop, uint8_t address,
                                        const uint8_t *subject_name,
                                        const uint8_t *event_name,
-                                       uint8_t require_confirmation)
+                                       uint8_t require_confirmation, uint8_t no_state)
 {
     RealtimeEventStore *store;
     RealtimeEventEntry *latest;
@@ -408,6 +409,7 @@ static uint8_t RealtimeObserveInternal(RealtimeEventKind kind, uint8_t category,
     entry->event_name = event_name;
     entry->confirmed = (require_confirmation != 0U) ? 0U : 1U;
     entry->keepalive = (require_confirmation != 0U) ? 1U : 0U;
+    entry->no_state = no_state;
     store->revision++;
     if(RealtimeCategoryPaused(kind, category) == 0U)
         RealtimeMoveToNewest(kind, category);
@@ -422,7 +424,7 @@ uint8_t BspRealtimeEvent_Observe(RealtimeEventKind kind, uint8_t category,
                                  const uint8_t *event_name)
 {
     return RealtimeObserveInternal(kind, category, key, time, loop, address,
-                                   NULL, event_name, 1U);
+                                   NULL, event_name, 1U, 0U);
 }
 
 uint8_t BspRealtimeEvent_ObserveNamed(RealtimeEventKind kind, uint8_t category,
@@ -434,7 +436,7 @@ uint8_t BspRealtimeEvent_ObserveNamed(RealtimeEventKind kind, uint8_t category,
     if(subject_name == NULL) return 0U;
     return RealtimeObserveInternal(kind, category, key, time, 0U, 0U,
                                    subject_name, event_name,
-                                   require_confirmation);
+                                   require_confirmation, 1U);
 }
 
 /**
@@ -442,6 +444,36 @@ uint8_t BspRealtimeEvent_ObserveNamed(RealtimeEventKind kind, uint8_t category,
  * @param kind 本轮扫描的事件大类�?
  * @note 已恢复记录仍保留用于显示和人工确认，直到系统复位才清除�?
  */
+void BspRealtimeEvent_RemoveByDevice(uint8_t loop, uint8_t address)
+{
+    RealtimeEventKind kind;
+    uint16_t i;
+    uint16_t j;
+
+    for(kind = REALTIME_EVENT_ALARM; kind < REALTIME_EVENT_KIND_COUNT; kind++)
+    {
+        RealtimeEventStore *store = &g_store[kind];
+        j = 0U;
+        for(i = 0U; i < store->count; i++)
+        {
+            if((store->entry[i].loop == loop) && (store->entry[i].address == address))
+            {
+                continue;   /* �������� */
+            }
+            if(j != i)
+            {
+                store->entry[j] = store->entry[i];
+            }
+            j++;
+        }
+        if(j != store->count)
+        {
+            store->count = j;
+            store->revision++;
+        }
+    }
+}
+
 void BspRealtimeEvent_EndScan(RealtimeEventKind kind)
 {
     uint16_t index;
@@ -496,7 +528,7 @@ uint8_t BspRealtimeEvent_HasUnconfirmed(RealtimeEventKind kind)
 uint8_t BspRealtimeEvent_HasAny(void)
 {
     uint8_t kind;
-    for(kind = 0U; kind < REALTIME_EVENT_KIND_COUNT; kind++)
+    for(kind = REALTIME_EVENT_ALARM; kind < REALTIME_EVENT_KIND_COUNT; kind++)
     {
         uint16_t index;
         if(g_store[kind].overflow != 0U) return 1U;
@@ -679,16 +711,15 @@ static void RealtimeRenderCategory(RealtimeEventKind kind, uint16_t screen,
                 0xBFU,0xD8U,0xD6U,0xC6U,0xC6U,0xF7U,' ','%','s',0U
             };
             static const uint8_t named_format[] = {
-                '%','0','3','u',' ','%','0','4','u','/','%','0','2','u','/','%','0','2','u',' ',
-                '%','0','2','u',':','%','0','2','u',':','%','0','2','u',' ',
-                '%','s',' ','%','s',0U
+                '%','0','4','u','/','%','0','2','u','/','%','0','2','u',' ',
+                '%','0','2','u',':','%','0','2','u',' ',
+                '%','s','%','s',0U
             };
             if(entry->subject_name != NULL)
             {
                 snprintf((char *)line, sizeof(line), (const char *)named_format,
-                         (unsigned int)(category_index + 1U),
                          entry->time.year, entry->time.month, entry->time.day,
-                         entry->time.hour, entry->time.minute, entry->time.second,
+                         entry->time.hour, entry->time.minute,
                          entry->subject_name, entry->event_name);
             }
             else if(entry->loop == 0U)
@@ -726,10 +757,19 @@ static void RealtimeRenderCategory(RealtimeEventKind kind, uint16_t screen,
             }
             if(state_id != 0U)
             {
-                SetControlVisiable(screen, state_id, 1U);
-                SetControlBackColor(screen, state_id, back_color);
-                SetControlForeColor(screen, state_id, fore_color);
-                SetTextValue(screen, state_id, (uint8_t *)state_text);
+                if(entry->no_state != 0U)
+                {
+                    /* �������¼(�������λ): ����ʾ"����δ����/��ȷ��" */
+                    SetControlVisiable(screen, state_id, 0U);
+                    clearTextValue(screen, state_id);
+                }
+                else
+                {
+                    SetControlVisiable(screen, state_id, 1U);
+                    SetControlBackColor(screen, state_id, back_color);
+                    SetControlForeColor(screen, state_id, fore_color);
+                    SetTextValue(screen, state_id, (uint8_t *)state_text);
+                }
             }
         }
     }

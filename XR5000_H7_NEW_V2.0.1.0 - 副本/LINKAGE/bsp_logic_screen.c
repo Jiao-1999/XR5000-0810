@@ -38,6 +38,7 @@
 #include "bsp_screen.h"          /* SwitchCurrentScreenId: 画面85选完分区跳43 */
 #include "bsp_fire_zone.h"       /* FIRE_ZONE_MAX: 规则分区号范围 */
 #include "bsp_debug.h"           /* DebugPrintf: test trace on UART4 */
+#include "bsp_logic_dev.h"      /* LogicDev_Control: 删除规则前下发 STOP */
 #include "bsp_device_registry.h" /* 国标设备类型码→中文显示名 */
 #include "bsp_mbus.h"            /* 回路1设备国标码读取 */
 #include "bsp_mbus_control.h"    /* 回路2设备国标码读取 */
@@ -70,7 +71,7 @@ typedef struct
     uint8_t       active;        /* 1=正在编辑规则, 0=空闲 */
     EditPhase     phase;         /* 当前编辑阶段(条件区/动作区) */
     EditStep      step;          /* 当前编辑步骤 */
-    uint8_t       digit_buf[10]; /* 数字输入缓冲区: 条件5位, 动作7位 */
+    uint8_t       digit_buf[12]; /* 数字输入缓冲区: 条件5位(单点)/11位(区间), 动作7位; 0xFF=区间分隔符 */
     uint8_t       digit_count;   /* 已输入数字位数 */
     LogicRule_t   rule;          /* 当前正在构造的规则 */
     uint8_t       edit_rule_id;  /* 正在编辑的规则ID，0=新建规则 */
@@ -89,6 +90,13 @@ static uint32_t s_save_msg_until = 0;  /* 保存结果提示显示截止tick, 期间实时预览
  *   s_list_page: 当前页码(0基), 最新规则在第0页最上方
  *   进入列表页时不重置页码, 保留上次浏览位置 */
 static uint8_t s_list_page = 0;
+
+/* 画面45 删除功能状态 */
+static uint8_t  s_list_selected = 0xFFU;   /* 0~8=选中行, 0xFF=未选 */
+static uint8_t  s_list_armed = 0U;         /* 1=已按一次删除, 等待确认 */
+static uint32_t s_list_arm_tick = 0U;      /* 待确认起始时刻 */
+static uint8_t  s_last_list_count = 0xFFU; /* 上次列表刷新的规则数(差分门控) */
+static uint8_t  s_last_list_page  = 0xFFU; /* 上次列表刷新的页码(差分门控) */
 
 /*--------------------------------------------------------------
  * 第二部分：内部辅助函数
@@ -126,7 +134,12 @@ static uint8_t AllocRuleId(void)
  *--------------------------------------------------------------*/
 static uint8_t NeedDigitCount(void)
 {
-    return (s_edit.step == EDIT_STEP_ACTION) ? 7U : 5U;
+    /* 动作段7位; 条件段: 11位=区间, 其余按5位单点 */
+    if (s_edit.step == EDIT_STEP_ACTION)
+    {
+        return 7U;
+    }
+    return (uint8_t)((s_edit.digit_count == 11U) ? 11U : 5U);
 }
 
 /*--------------------------------------------------------------
@@ -136,7 +149,49 @@ static uint8_t NeedDigitCount(void)
  *--------------------------------------------------------------*/
 static uint8_t InputMaxDigits(void)
 {
-    return (s_edit.phase == EDIT_ACTION) ? 7U : 5U;
+    /* 动作段最多7位; 条件段最多11位(5位起 + '-' + 5位止) */
+    return (s_edit.phase == EDIT_ACTION) ? 7U : 11U;
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：CondInputComplete
+ * 功能说明：条件段是否已输完: 5位=单点, 11位=区间
+ *--------------------------------------------------------------*/
+static uint8_t CondInputComplete(void)
+{
+    return (uint8_t)((s_edit.digit_count == 5U) || (s_edit.digit_count == 11U));
+}
+
+/*--------------------------------------------------------------
+ * 函数名称：HandleRangeKey
+ * 功能说明：区间分隔符'-'的统一处理（按钮按下 / 文本控件输入两种入口）
+ *           条件区已输入 1~5 位时补齐到 5 位并插入区间标记(0xFF)
+ *--------------------------------------------------------------*/
+static void HandleRangeKey(void)
+{
+    if (s_edit.phase != EDIT_COND)
+    {
+        DebugPrintf("[LOGIC] range ignored: not in cond phase\r\n");
+        return;
+    }
+    if ((s_edit.digit_count == 0U) || (s_edit.digit_count > 5U))
+    {
+        DebugPrintf("[LOGIC] range ignored: digits=%d (need 1..5)\r\n",
+                    (int)s_edit.digit_count);
+        return;
+    }
+
+    /* 不足5位自动补0: 例如输入"0301"视为"03010" */
+    while (s_edit.digit_count < 5U)
+    {
+        s_edit.digit_buf[s_edit.digit_count++] = 0U;
+    }
+
+    s_edit.digit_buf[5] = 0xFFU;   /* 区间标记, 显示为 '-' */
+    s_edit.digit_count  = 6U;
+    s_edit.step         = EDIT_STEP_NUMBER;
+    s_edit.active       = 1;
+    DebugPrintf("[LOGIC] range sep, input end addr\r\n");
 }
 
 /*--------------------------------------------------------------
@@ -147,39 +202,76 @@ static uint8_t InputMaxDigits(void)
  * 输入参数：loop_no - 输出回路号, dev_no - 输出设备号, channel - 输出通道号(可为NULL)
  * 返回值  ：1=解析成功, 0=位数不符
  *--------------------------------------------------------------*/
-static uint8_t ParseDigitBuf(uint8_t *loop_no, uint16_t *dev_no, uint8_t *channel)
+static uint8_t ParseDigitBuf(uint8_t *loop_no, uint16_t *dev_no,
+                             uint16_t *dev_no_end, uint8_t *channel)
 {
-    uint8_t need = NeedDigitCount();
+    uint8_t  need   = NeedDigitCount();
+    uint8_t  l1;
+    uint8_t  l2;
+    uint16_t d1;
+    uint16_t d2;
+    uint16_t t;
 
-    /* 条件段必须精确5位; 动作段必须精确7位 */
+    /* 位数不符直接失败 */
     if (s_edit.digit_count != need)
     {
-        return 0;  /* 位数不符，解析失败 */
+        return 0;
     }
 
     /* 前2位 = 回路号 */
-    *loop_no = s_edit.digit_buf[0] * 10 + s_edit.digit_buf[1];
+    l1 = (uint8_t)(s_edit.digit_buf[0] * 10 + s_edit.digit_buf[1]);
     /* 中3位 = 设备号 */
-    *dev_no  = s_edit.digit_buf[2] * 100 + s_edit.digit_buf[3] * 10 + s_edit.digit_buf[4];
+    d1 = (uint16_t)(s_edit.digit_buf[2] * 100 + s_edit.digit_buf[3] * 10 + s_edit.digit_buf[4]);
 
+    /* ---------- 动作段: 7位, 后2位为通道号 ---------- */
     if (need == 7U)
     {
-        /* 后2位 = 通道号 */
-        if (channel != NULL)
-        {
-            *channel = s_edit.digit_buf[5] * 10 + s_edit.digit_buf[6];
-        }
-    }
-    else
-    {
-        /* 条件段无通道字段 */
-        if (channel != NULL)
-        {
-            *channel = 0;
-        }
+        *loop_no = l1;
+        *dev_no  = d1;
+        if (dev_no_end != NULL) { *dev_no_end = d1; }
+        if (channel    != NULL) { *channel = (uint8_t)(s_edit.digit_buf[5] * 10 + s_edit.digit_buf[6]); }
+        return 1;
     }
 
-    return 1;  /* 解析成功 */
+    /* ---------- 条件段: 5位单点 ---------- */
+    if (need == 5U)
+    {
+        *loop_no = l1;
+        *dev_no  = d1;
+        if (dev_no_end != NULL) { *dev_no_end = d1; }   /* 单点 = 区间退化 */
+        if (channel    != NULL) { *channel = 0; }
+        return 1;
+    }
+
+    /* ---------- 条件段: 11位区间 = 5位 + '-' + 5位 ---------- */
+    if ((need == 11U) && (s_edit.digit_buf[5] == 0xFFU))
+    {
+        l2 = (uint8_t)(s_edit.digit_buf[6] * 10 + s_edit.digit_buf[7]);
+        d2 = (uint16_t)(s_edit.digit_buf[8] * 100 + s_edit.digit_buf[9] * 10 + s_edit.digit_buf[10]);
+
+        /* 区间两端必须同回路 */
+        if (l1 != l2)
+        {
+            DebugPrintf("[LOGIC] range reject: loop %d != %d\r\n", l1, l2);
+            return 0;
+        }
+
+        /* 反向输入自动纠正 */
+        if (d1 > d2)
+        {
+            t  = d1;
+            d1 = d2;
+            d2 = t;
+        }
+
+        *loop_no = l1;
+        *dev_no  = d1;
+        if (dev_no_end != NULL) { *dev_no_end = d2; }
+        if (channel    != NULL) { *channel = 0; }
+        return 1;
+    }
+
+    return 0;  /* 区间缺分隔符或位数异常 */
 }
 
 /*--------------------------------------------------------------
@@ -257,6 +349,11 @@ static void BuildCondText(const Cond_t *cond, char *buf, uint8_t size)
         {
             sprintf(buf, "%02d回路任意设备%s报警", cond->loop_no, SensorSuffix(cond->sensor_type));
         }
+        else if (COND_IS_RANGE(cond))
+        {
+            sprintf(buf, "%02d回路%03d-%03d号探测器%s报警", cond->loop_no,
+                    cond->dev_no, cond->dev_no_end, SensorSuffix(cond->sensor_type));
+        }
         else
         {
             sprintf(buf, "%02d回路%03d号探测器%s报警", cond->loop_no, cond->dev_no, SensorSuffix(cond->sensor_type));
@@ -271,6 +368,12 @@ static void BuildCondText(const Cond_t *cond, char *buf, uint8_t size)
         else if (cond->dev_no == LOGIC_WILDCARD)
         {
             sprintf(buf, "%02d回路任意设备报警", cond->loop_no);
+        }
+        else if (COND_IS_RANGE(cond))
+        {
+            /* 区间内可能混型号, 不查具体器件名 */
+            sprintf(buf, "%02d回路%03d-%03d号设备报警", cond->loop_no,
+                    cond->dev_no, cond->dev_no_end);
         }
         else
         {
@@ -329,14 +432,15 @@ static void BuildActionText(const Action_t *act, char *buf, uint8_t size)
  *--------------------------------------------------------------*/
 static void CompleteConditionEx(uint8_t sensor_type, uint8_t alarm_level)
 {
-    uint8_t idx;        /* 条件数组索引 */
-    uint8_t loop_no;    /* 解析出的回路号 */
-    uint16_t dev_no;     /* 解析出的设备号 */
+    uint8_t idx;         /* 条件数组索引 */
+    uint8_t loop_no;     /* 解析出的回路号 */
+    uint16_t dev_no;     /* 解析出的起始设备号 */
+    uint16_t dev_no_end; /* 解析出的结束设备号(单点==dev_no) */
 
-    /* 解析5位编码(条件模式, 通道指针传NULL) */
-    if (!ParseDigitBuf(&loop_no, &dev_no, NULL))
+    /* 解析条件编码: 5位单点 或 11位区间, 通道指针传NULL */
+    if (!ParseDigitBuf(&loop_no, &dev_no, &dev_no_end, NULL))
     {
-        return;  /* 位数不足，无法完成 */
+        return;  /* 位数不足或区间非法，无法完成 */
     }
 
     /* 检查是否有空间添加新条件 */
@@ -355,6 +459,7 @@ static void CompleteConditionEx(uint8_t sensor_type, uint8_t alarm_level)
     idx = s_edit.rule.cond_count;
     s_edit.rule.conditions[idx].loop_no     = loop_no;
     s_edit.rule.conditions[idx].dev_no      = dev_no;
+    s_edit.rule.conditions[idx].dev_no_end  = dev_no_end;
     s_edit.rule.conditions[idx].sensor_type = sensor_type;
     s_edit.rule.conditions[idx].alarm_level = alarm_level;
 
@@ -365,8 +470,8 @@ static void CompleteConditionEx(uint8_t sensor_type, uint8_t alarm_level)
     s_edit.rule.tokens[s_edit.rule.token_count].cond_idx = idx;
     s_edit.rule.token_count++;
 
-    DebugPrintf("[LOGIC] +Cond L%d D%03d type=0x%02X lvl=%d\r\n",
-                loop_no, dev_no, sensor_type, alarm_level);
+    DebugPrintf("[LOGIC] +Cond L%d D%03d-%03d type=0x%02X lvl=%d\r\n",
+                loop_no, dev_no, dev_no_end, sensor_type, alarm_level);
 
     /* 重置编辑步骤，准备接收下一个输入（仍在条件区） */
     s_edit.step = EDIT_STEP_NONE;
@@ -467,7 +572,7 @@ static void SetAction(void)
     uint8_t channel;     /* 输出通道号 */
 
     /* 解析7位编码(动作模式: 回路2+设备3+通道2) */
-    if (!ParseDigitBuf(&loop_no, &dev_no, &channel))
+    if (!ParseDigitBuf(&loop_no, &dev_no, NULL, &channel))
     {
         return;  /* 位数不足，无法设置 */
     }
@@ -519,7 +624,7 @@ static void SaveRule(void)
     uint8_t create_ret;  /* LogicRule_Create return code for trace */
 
     /* 若当前在NUMBER步骤且有5位输入，先完成条件 */
-    if (s_edit.step == EDIT_STEP_NUMBER && s_edit.digit_count == 5)
+    if (s_edit.step == EDIT_STEP_NUMBER && CondInputComplete())
     {
         CompleteCondition();
     }
@@ -644,10 +749,21 @@ static void BuildExprDisplay(void)
             idx = s_edit.rule.tokens[i].cond_idx;
             if (idx < s_edit.rule.cond_count)
             {
-                sprintf(temp, "%02d%03d%s",
-                        s_edit.rule.conditions[idx].loop_no,
-                        s_edit.rule.conditions[idx].dev_no,
-                        SensorSuffix(s_edit.rule.conditions[idx].sensor_type));
+                if (COND_IS_RANGE(&s_edit.rule.conditions[idx]))
+                {
+                    sprintf(temp, "%02d%03d-%03d%s",
+                            s_edit.rule.conditions[idx].loop_no,
+                            s_edit.rule.conditions[idx].dev_no,
+                            s_edit.rule.conditions[idx].dev_no_end,
+                            SensorSuffix(s_edit.rule.conditions[idx].sensor_type));
+                }
+                else
+                {
+                    sprintf(temp, "%02d%03d%s",
+                            s_edit.rule.conditions[idx].loop_no,
+                            s_edit.rule.conditions[idx].dev_no,
+                            SensorSuffix(s_edit.rule.conditions[idx].sensor_type));
+                }
                 strcat(s_disp_buf, temp);
             }
             break;
@@ -729,8 +845,15 @@ static void BuildExprDisplay(void)
         }
         for (j = 0; j < s_edit.digit_count; j++)
         {
-            sprintf(temp, "%d", s_edit.digit_buf[j]);
-            strcat(s_disp_buf, temp);
+            if (s_edit.digit_buf[j] == 0xFFU)
+            {
+                strcat(s_disp_buf, "-");   /* 区间分隔符: 不能按十进制打印, 否则显示255 */
+            }
+            else
+            {
+                sprintf(temp, "%d", s_edit.digit_buf[j]);
+                strcat(s_disp_buf, temp);
+            }
         }
         strcat(s_disp_buf, "_");  /* 输入中标记: 按&或确认键确认后消失 */
     }
@@ -839,13 +962,38 @@ static void BuildRuleDisplay(const LogicRule_t *rule, char *buf, uint8_t size)
  *--------------------------------------------------------------*/
 static void HandleSensorButton(uint8_t sensor_type)
 {
-    /* 仅在条件区且已输入5位编码时有效 */
+    /* 1. 正在输入且位数已够: 正常完成条件 */
     if (s_edit.phase == EDIT_COND &&
         s_edit.step == EDIT_STEP_NUMBER &&
-        s_edit.digit_count == 5)
+        CondInputComplete())
     {
         /* 传感器按钮默认按高报警级别确认 */
         CompleteConditionEx(sensor_type, LV_HIGH);
+        return;
+    }
+
+    /* 2. 刚用 ')' 完成条件后补按传感器类型: 回填最后一个条件的类型。
+     *    典型操作: ( 03001-03010 ) 温度
+     *    ')' 键会先用 SENSOR_ANY 完成条件, 之后按传感器按钮在此修正。
+     *    判据: 条件区空闲 + 已有条件 + token 末位是右括号。
+     *    此路径原本按传感器无效(数字缓冲为空), 因此不会破坏既有操作。 */
+    if ((s_edit.phase == EDIT_COND) &&
+        (s_edit.digit_count == 0U) &&
+        (s_edit.rule.cond_count > 0U) &&
+        (s_edit.rule.token_count > 0U) &&
+        (s_edit.rule.tokens[s_edit.rule.token_count - 1U].type == TOK_RPAREN))
+    {
+        uint8_t idx = (uint8_t)(s_edit.rule.cond_count - 1U);
+
+        s_edit.rule.conditions[idx].sensor_type = sensor_type;
+        s_edit.rule.conditions[idx].alarm_level = LV_HIGH;
+
+        DebugPrintf("[LOGIC] cond%d type -> 0x%02X (L%d D%03d-%03d)\r\n",
+                    (int)idx, sensor_type,
+                    s_edit.rule.conditions[idx].loop_no,
+                    s_edit.rule.conditions[idx].dev_no,
+                    s_edit.rule.conditions[idx].dev_no_end);
+        return;
     }
 }
 
@@ -880,6 +1028,92 @@ void LogicScreen_SetEntryZone(uint8_t zone)
     DebugPrintf("[LOGIC] entry zone=%d\r\n", (int)zone);
 }
 
+static uint8_t LogicListCollectIds(uint8_t *ids)
+{
+    uint8_t i;
+    uint8_t k;
+    uint8_t n = 0U;
+    LogicRule_t *tbl = LogicExpr_GetTable();
+
+    for (i = 0U; i < LOGIC_RULE_MAX; i++)
+    {
+        if (tbl[i].rule_id != 0U) { ids[n++] = tbl[i].rule_id; }
+    }
+
+    /* 升序: 1号在最前 */
+    for (i = 0U; i < n; i++)
+    {
+        for (k = (uint8_t)(i + 1U); k < n; k++)
+        {
+            if (ids[k] < ids[i])
+            {
+                uint8_t tmp = ids[i];
+                ids[i] = ids[k];
+                ids[k] = tmp;
+            }
+        }
+    }
+    return n;
+}
+
+
+static void LogicListShowHint(const char *text)
+{
+    if ((text == NULL) || (text[0] == 0))
+    {
+        clearTextValue(LOGIC_SCREEN_LIST, LOGIC_TXT_LIST_HINT);
+    }
+    else
+    {
+        SetTextValue(LOGIC_SCREEN_LIST, LOGIC_TXT_LIST_HINT, (uint8_t *)text);
+    }
+}
+
+static void LogicListDeleteRule(uint8_t rule_id)
+{
+    LogicRule_t *tbl = LogicExpr_GetTable();
+    RtRuntime   *rt  = LogicExpr_GetRuntime();
+    uint8_t slot = 0xFFU;
+    uint8_t i;
+    uint8_t j;
+    char    hint[48];
+
+    for (i = 0U; i < LOGIC_RULE_MAX; i++)
+    {
+        if (tbl[i].rule_id == rule_id) { slot = i; break; }
+    }
+    if (slot == 0xFFU) { LogicListShowHint("规则不存在"); return; }
+
+
+    /* 已执行的动作先停, 否则删掉规则后输出一直保持 */
+    if (rt[slot].state == RT_EXECUTED)
+    {
+        for (j = 0U; j < tbl[slot].action_count; j++)
+        {
+            if (rt[slot].action_done[j] != 0U)
+            {
+                (void)LogicDev_Control(tbl[slot].actions[j].loop_no,
+                                       (uint8_t)tbl[slot].actions[j].dev_no,
+                                       tbl[slot].actions[j].channel, 0U);
+                rt[slot].action_done[j] = 0U;
+            }
+        }
+        DebugPrintf("[LOGIC] delete: rule %d stopped\r\n", rule_id);
+    }
+
+    (void)LogicRule_Delete(rule_id);
+    LogicRule_Renumber();          /* 删除后编号重排为 1..N, 避免出现空号 */
+    (void)LogicRule_SaveAll();
+
+    s_list_selected = 0xFFU;
+    s_list_armed = 0U;
+    s_last_list_count = 0xFFU;
+
+    sprintf(hint, "已删除#%d号规则", rule_id);
+    LogicListShowHint(hint);
+    DebugPrintf("[LOGIC] delete rule %d ok, left=%d\r\n", rule_id, (int)LogicRule_GetCount());
+}
+
 void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state)
 {
     /* 只处理编辑页(43)/列表页(45)/分区选择页(85) */
@@ -896,6 +1130,70 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
     }
 
    DebugPrintf("[LOGIC-KEY] scr=%d ctrl=%d\r\n", screen_id, control_id);
+
+    /* 画面45: 先处理删除控件(24~33), 避免与画面43 的 24~29 传感器键冲突 */
+    if (screen_id == LOGIC_SCREEN_LIST)
+    {
+        uint8_t  ids[LOGIC_RULE_MAX];
+        uint8_t  n;
+        uint16_t idx;
+        char     hint[40];
+
+        if ((control_id >= LOGIC_BTN_LIST_SEL_BASE) &&
+            (control_id < (LOGIC_BTN_LIST_SEL_BASE + (uint16_t)LOGIC_LIST_PAGE_SIZE)))
+        {
+            n   = LogicListCollectIds(ids);
+            idx = (uint16_t)((uint16_t)s_list_page * LOGIC_LIST_PAGE_SIZE +
+                             (control_id - LOGIC_BTN_LIST_SEL_BASE));
+            s_list_armed = 0U;
+
+            if (idx < n)
+            {
+                s_list_selected = (uint8_t)(control_id - LOGIC_BTN_LIST_SEL_BASE);
+
+                sprintf(hint, "将删除#%d号规则", ids[idx]);
+                LogicListShowHint(hint);
+            }
+            else
+            {
+                s_list_selected = 0xFFU;
+                LogicListShowHint("该行无规则");
+            }
+            return;
+        }
+
+        if (control_id == LOGIC_BTN_LIST_DELETE)
+        {
+            if (s_list_selected == 0xFFU)
+            {
+                LogicListShowHint("请先选择规则");
+                return;
+            }
+
+            n   = LogicListCollectIds(ids);
+            idx = (uint16_t)((uint16_t)s_list_page * LOGIC_LIST_PAGE_SIZE + s_list_selected);
+            if (idx >= n)
+            {
+                LogicListShowHint("该行无规则");
+                s_list_selected = 0xFFU;
+                return;
+            }
+
+            /* 第一次: 进入待确认; 超过窗口则重新计时 */
+            if ((s_list_armed == 0U) ||
+                ((uint32_t)(HAL_GetTick() - s_list_arm_tick) >= LOGIC_LIST_CONFIRM_MS))
+            {
+                s_list_armed = 1U;
+                s_list_arm_tick = HAL_GetTick();
+                sprintf(hint, "再按删除确认#%d", ids[idx]);
+                LogicListShowHint(hint);
+                return;
+            }
+
+            LogicListDeleteRule(ids[idx]);
+            return;
+        }
+    }
 
     /* 画面85: 先选分区, 再进画面43编程(避免与43的数字键1/2冲突) */
     if (screen_id == LOGIC_SCREEN_ZONESEL)
@@ -923,7 +1221,7 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
         {
             uint8_t digit = (control_id == 10) ? 0 : control_id;
 
-            /* 最多输入当前阶段所需位数: 条件5位, 动作7位 */
+            /* 最多输入当前阶段所需位数: 条件5位(单点)/11位(区间), 动作7位 */
             if (s_edit.digit_count < InputMaxDigits())
             {
                 s_edit.digit_buf[s_edit.digit_count++] = digit;
@@ -946,12 +1244,27 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
                 }
                 /* NUMBER/ACTION步骤下继续输入对应编码 */
             }
+            else if (s_edit.step == EDIT_STEP_NUMBER)
+            {
+                DebugPrintf("[LOGIC] input full %d digits, press sensor/&/# to confirm\r\n",
+                            (int)s_edit.digit_count);
+            }
+            else
+            {
+                DebugPrintf("[LOGIC] input full %d digits\r\n", (int)s_edit.digit_count);
+            }
         }
         break;
 
-    /* === '#' 分隔符: 确认当前5位条件编码(任意报警) === */
+    /* === '-' 区间分隔符: 控件17(主) / 控件30(备用) === */
+    case LOGIC_BTN_RANGE:
+    case 30:
+        HandleRangeKey();
+        break;
+
+    /* === '#' 分隔符: 确认当前条件编码(单点/区间) === */
     case LOGIC_BTN_HASH:
-        if (s_edit.step == EDIT_STEP_NUMBER && s_edit.digit_count == 5)
+        if (s_edit.step == EDIT_STEP_NUMBER && CondInputComplete())
         {
             CompleteCondition();
         }
@@ -977,7 +1290,7 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
         else
         {
             /* 条件区: & 作为逻辑与运算符 */
-            if (s_edit.step == EDIT_STEP_NUMBER && s_edit.digit_count == 5)
+            if (s_edit.step == EDIT_STEP_NUMBER && CondInputComplete())
             {
                 CompleteCondition();
             }
@@ -987,7 +1300,7 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
 
     /* === '|' 逻辑或 === */
     case LOGIC_BTN_OR:
-        if (s_edit.step == EDIT_STEP_NUMBER && s_edit.digit_count == 5)
+        if (s_edit.step == EDIT_STEP_NUMBER && CondInputComplete())
         {
             CompleteCondition();
         }
@@ -996,7 +1309,7 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
 
     /* === '(' 左括号 === */
     case LOGIC_BTN_LPAREN:
-        if (s_edit.step == EDIT_STEP_NUMBER && s_edit.digit_count == 5)
+        if (s_edit.step == EDIT_STEP_NUMBER && CondInputComplete())
         {
             CompleteCondition();
         }
@@ -1005,7 +1318,7 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
 
     /* === ')' 右括号 === */
     case LOGIC_BTN_RPAREN:
-        if (s_edit.step == EDIT_STEP_NUMBER && s_edit.digit_count == 5)
+        if (s_edit.step == EDIT_STEP_NUMBER && CondInputComplete())
         {
             CompleteCondition();
         }
@@ -1014,7 +1327,7 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
 
     /* === '=' 分隔符，进入动作区 === */
     case LOGIC_BTN_EQUAL:
-        if (s_edit.step == EDIT_STEP_NUMBER && s_edit.digit_count == 5)
+        if (s_edit.step == EDIT_STEP_NUMBER && CondInputComplete())
         {
             CompleteCondition();
         }
@@ -1095,6 +1408,9 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
                 s_list_page++;
             }
         }
+        s_list_selected = 0xFFU;   /* 翻页清选中 */
+        s_list_armed = 0U;
+        LogicListShowHint("");
         break;
 
     /* === 控件22: 上一页(仅列表页45响应) ===
@@ -1107,6 +1423,9 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
                 s_list_page--;
             }
         }
+        s_list_selected = 0xFFU;   /* 翻页清选中 */
+        s_list_armed = 0U;
+        LogicListShowHint("");
         break;
 
     /* === 传感器快捷按钮: 条件区5位编码后确认子级别条件 === */
@@ -1158,8 +1477,20 @@ void LogicScreen_OnButton(uint16_t screen_id, uint16_t control_id, uint8_t state
  *--------------------------------------------------------------*/
 void LogicScreen_OnText(uint16_t screen_id, uint16_t control_id, uint8_t *str)
 {
-    (void)screen_id;
-    (void)control_id;
+    if (screen_id != LOGIC_SCREEN_EDIT)
+    {
+        return;
+    }
+
+    /* 兜底: 控件17/30 若被做成文本控件, 输入任意内容都按区间分隔符处理,
+     * 并立即清掉屏幕文本, 回到按钮式输入流程 */
+    if ((control_id == LOGIC_BTN_RANGE) || (control_id == 30U))
+    {
+        clearTextValue(screen_id, control_id);
+        HandleRangeKey();
+        return;
+    }
+
     (void)str;
 }
 
@@ -1176,8 +1507,6 @@ void LogicScreen_OnText(uint16_t screen_id, uint16_t control_id, uint8_t *str)
 void LogicScreen_UpdateUI(uint16_t screen_id)
 {
     static uint16_t s_last_page = 0xFFFF;  /* edge detect: page enter trace */
-    static uint8_t  s_last_list_count = 0xFF;  /* 上次列表页刷新的规则数(差分门控, 避免画面闪烁) */
-    static uint8_t  s_last_list_page = 0xFF;   /* 上次列表页刷新的页码(差分门控) */
     uint8_t i;
     uint8_t count;
     uint8_t shown;
@@ -1195,6 +1524,9 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
             s_list_page = 0;
             s_last_list_count = 0xFF;
             s_last_list_page = 0xFF;
+            s_list_selected = 0xFFU;   /* 进入列表页清选中 */
+            s_list_armed = 0U;
+            LogicListShowHint("");     /* 控件35 置空白 */
             DebugPrintf("[LOGIC-UI] enter list page, rules:\r\n");
             for (i = 0; i < LOGIC_RULE_MAX; i++)
             {
@@ -1209,6 +1541,16 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
         else if (screen_id == LOGIC_SCREEN_EDIT)
         {
             DebugPrintf("[LOGIC-UI] enter edit page\r\n");
+            /* 空会话进入编辑页: 强制回到条件区(phase=EDIT_COND)。
+             * 否则上次遗留的动作区状态会让数字键变成输入7位动作编码,
+             * 表现为"按数字只能输7位、按'-'被判定不在条件区而忽略"。 */
+            if ((s_edit.step == EDIT_STEP_NONE) && (s_edit.digit_count == 0U) &&
+                (s_edit.rule.token_count == 0U))
+            {
+                s_edit.phase = EDIT_COND;
+                s_edit.active = 1;
+                DebugPrintf("[LOGIC-UI] empty session -> cond phase\r\n");
+            }
         }
     }
 
@@ -1228,21 +1570,21 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
     /* === 列表页: 按ID降序分页显示已设置的规则(最新规则在最上面) === */
     case LOGIC_SCREEN_LIST:
     {
-        uint8_t ids[LOGIC_RULE_MAX];  /* 有效规则ID集合 */
-        uint8_t n = 0;                /* 有效规则数 */
-        uint8_t k;
+        uint8_t ids[LOGIC_RULE_MAX];  /* 有效规则ID集合(升序) */
+        uint8_t n;                    /* 有效规则数 */
         uint8_t start;
         uint8_t total_pages;
-        LogicRule_t *tbl = LogicExpr_GetTable();
 
-        /* 收集所有有效规则ID */
-        for (i = 0; i < LOGIC_RULE_MAX; i++)
+        /* 二次确认超时自动取消(必须在差分门控之前, 否则不刷新时永不生效) */
+        if ((s_list_armed != 0U) &&
+            ((uint32_t)(HAL_GetTick() - s_list_arm_tick) >= LOGIC_LIST_CONFIRM_MS))
         {
-            if (tbl[i].rule_id != 0)
-            {
-                ids[n++] = tbl[i].rule_id;
-            }
+            s_list_armed = 0U;
+            LogicListShowHint("已取消删除");
         }
+
+        /* 收集并升序排序(1号在前), 与删除定位共用同一函数 */
+        n = LogicListCollectIds(ids);
 
         /* 差分门控: 规则数和页码都没变 → 跳过全量重发, 避免画面45持续闪烁 */
         if (n == s_last_list_count && s_list_page == s_last_list_page)
@@ -1252,19 +1594,6 @@ void LogicScreen_UpdateUI(uint16_t screen_id)
         s_last_list_count = n;
         s_last_list_page = s_list_page;
 
-        /* 按ID降序冒泡排序(最新规则排在前) */
-        for (i = 0; i < n; i++)
-        {
-            for (k = (uint8_t)(i + 1); k < n; k++)
-            {
-                if (ids[k] > ids[i])
-                {
-                    uint8_t tmp = ids[i];
-                    ids[i] = ids[k];
-                    ids[k] = tmp;
-                }
-            }
-        }
 
         /* 页码越界保护: 规则被删除后页码可能越界, 回到最后一页 */
         total_pages = (uint8_t)((n + LOGIC_LIST_PAGE_SIZE - 1) / LOGIC_LIST_PAGE_SIZE);

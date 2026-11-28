@@ -398,7 +398,7 @@ uint8_t fedas_fresh_point = 0;
 /* 防火分区状态(分区声光/启动用) */
 static uint8_t s_zone_fire_latch[FIRE_ZONE_MAX + 1];  /* 0/1=分区1/2, 2=系统级手报锁存(V7) */
 static uint8_t s_any_fire_latch;  /* V8: 屏幕报警表存在任意报警源的锁存(系统复位清) */
-static void FireZone_ClearDisplayEvents(uint8_t zone_sel);  /* V7: 复位时逐条清除显示盘报警 */
+static uint16_t FireZone_ClearDisplayEvents(uint8_t zone_sel);  /* V7: 复位时逐条清除显示盘报警 */
 
 /* XR5000_FIRE_LATCH_20261112: 系统复位时清全部分区火警锁存。
  * 只由 BspCmdProcessInit() 调用, 不允许因探测器报警回落而调用。 */
@@ -1151,7 +1151,7 @@ void BspCmdProcessInit(void)
 	MBusCtrl_ResetFireAlarmLatch();  /* XR5000_FIRE_LATCH_20261112: 解除主机侧火警锁存 */
 	ClearAllZoneFireLatch();
     memset(mbus2_hand_alarm_memory, 0, sizeof(mbus2_hand_alarm_memory));  /* V8: 系统复位清手报记忆 */         /* XR5000_FIRE_LATCH_20261112: 解除分区火警锁存 */
-	FireZone_ClearDisplayEvents(0U);  /* V7: 系统级复位 = 全部设备/全部显示盘报警复位 */
+	(void)FireZone_ClearDisplayEvents(0U);  /* V7: 系统级复位 = 全部设备/全部显示盘报警复位 */
 	LogicEngine_Init();               /* XR5000_SYSRESET_LOGIC_20261112: 规则回 IDLE、清延时、清条件锁存 */
 	/* 需求1: 系统复位同时清除声光人工开关与系统停止锁存, 否则复位后声光会被残留标志重新点亮 */
 	s_siren_manual[0]   = 0U;
@@ -4223,6 +4223,39 @@ static uint16_t FireZone_PurgeAlarmRecords(uint8_t zone)
         s_any_fire_latch = 0U;
     }
 
+    /* 4. 同步删除画面86/87 的实时事件条目: 按设备逐个移除,
+     *    本区以外的设备不受影响。事件模块按"观察"模型只会把条目标为
+     *    已恢复并保留到系统复位, 因此必须显式删除才能真正从屏幕消失。 */
+    {
+        uint8_t  ev_loop;
+        uint16_t ev_addr;
+        uint16_t ev_max;
+
+        for(ev_loop = 1U; ev_loop <= 3U; ev_loop++)
+        {
+            if(ev_loop == 1U)
+            {
+                ev_max = (uint16_t)MIXTURE_DEVICE_MAX_ADDR;
+            }
+            else if(ev_loop == 2U)
+            {
+                ev_max = (uint16_t)(MBUS_CONTROL_MAX_DEVICES - 1U);
+            }
+            else
+            {
+                ev_max = (uint16_t)(RS485_DETECT_MAX_DEVICES - 1U);
+            }
+
+            for(ev_addr = 1U; ev_addr <= ev_max; ev_addr++)
+            {
+                if(FireZone_GetDeviceZone(ev_loop, ev_addr) == zone)
+                {
+                    BspRealtimeEvent_RemoveByDevice(ev_loop, (uint8_t)ev_addr);
+                }
+            }
+        }
+    }
+
     taskEXIT_CRITICAL();
 
     return removed;
@@ -4231,6 +4264,7 @@ static uint16_t FireZone_PurgeAlarmRecords(uint8_t zone)
 void FireZoneReset(uint8_t zone)
 {
     uint16_t dev;
+    uint16_t disp_cnt = 0U;
 
     if((zone < 1U) || (zone > (uint8_t)FIRE_ZONE_MAX)) return;
 
@@ -4255,6 +4289,17 @@ void FireZoneReset(uint8_t zone)
      *     表现为"复位后立刻又报警"。 */
     (void)FireZone_PurgeAlarmRecords(zone);
 
+    /* 4.2 本区报警记录清完后, 若全系统已无任何报警源, 解除"任意报警"系统级锁存,
+     *     使系统级(总)声光在下一周期自动停止; 其他分区仍有报警时保持点亮。 */
+    {
+        uint8_t any_left = 0U;
+        (void)StorageAlarmHasFire(0U, &any_left);
+        if (any_left == 0U)
+        {
+            s_any_fire_latch = 0U;
+        }
+    }
+
     /* 5. 下发本区设备复位: 三个回路各自入队, 不在按键任务里等总线。
      *    回路1/2 逐台入队(见 MBus1ServiceReset / MBusCtrl_ServiceBroadcastReset);
      *    回路3 只发 1 条广播(线圈 0x002B/0x002C), 探测器按自己的分区号判断是否复位。 */
@@ -4275,7 +4320,7 @@ void FireZoneReset(uint8_t zone)
      *    主机不再逐台下发, 也不需要在按键任务里等总线。 */
     RS485Detect_RequestZoneReset(zone);
 	MBusCtrl_ClearFireDisplayDedup();  /* XR5000_FIRE_LATCH_20261112: 本区复位后可重新推送火警事件 */
-    FireZone_ClearDisplayEvents(zone);  /* V7: 分区复位 = 本分区报警逐条清除 */
+    disp_cnt = FireZone_ClearDisplayEvents(zone);  /* V7: 分区复位 = 本分区报警逐条清除 */
     /* V8: 清本区手报记忆 —— 原来只置不清, 必须断电才恢复 */
     for(dev = 1U; dev < (uint16_t)MBUS_CONTROL_MAX_DEVICES; dev++)
     {
@@ -4285,7 +4330,37 @@ void FireZoneReset(uint8_t zone)
         }
     }
 
-    DebugPrintf("[FZ] zone%d reset\r\n", (int)zone);
+    /* 6. 画面86 火警监测板块登记本次分区复位:
+     *    文本 49~55 / 状态 65~71 由事件模块按已有条目顺序自动排布,
+     *    不在此处硬编码控件号。静态字符串: 事件模块只保存指针。 */
+    {
+        static const uint8_t s_zone_subject[2][8] = {
+            {0xB7U, 0xD6U, 0xC7U, 0xF8U, '1', 0U, 0U, 0U},   /* 分区1 */
+            {0xB7U, 0xD6U, 0xC7U, 0xF8U, '2', 0U, 0U, 0U}    /* 分区2 */
+        };
+        static const uint8_t s_reset_event[5] = {0xB8U, 0xB4U, 0xCEU, 0xBBU, 0U};
+        RealtimeEventTime rt;
+
+
+        getBM8563TimeToSystemTime();
+        rt.year   = (uint16_t)(2000U + (uint16_t)years);
+        rt.month  = months;
+        rt.day    = days;
+        rt.hour   = hours;
+        rt.minute = minutes;
+        rt.second = secs;
+
+        (void)BspRealtimeEvent_ObserveNamed(REALTIME_EVENT_ALARM,
+                                            REALTIME_ALARM_FIRE,
+                                            0x52000000U | ((uint32_t)zone << 16) |
+                                                ((uint32_t)HAL_GetTick() & 0xFFFFU),
+                                            &rt,
+                                            s_zone_subject[zone - 1U],
+                                            s_reset_event,
+                                            0U);
+    }
+
+    DebugPrintf("[FZ] zone%d reset, disp=%u\r\n", (int)zone, (unsigned)disp_cnt);
 }
 
 /* 分区声光自动驱动: 本区报警 -> 本区声光 + 系统级声光
@@ -4444,12 +4519,14 @@ static void FireZone_ScanAlarmSources(void)
  *   zone_sel=0   系统复位: 全部报警源、全部显示盘(含系统级盘)都清除
  *   zone_sel=1/2 分区复位: 只清本分区源的记录, 且只发本分区显示盘,
  *                系统级显示盘保持不动(需求6: 分区复位不清除系统级声光显示盘) */
-static void FireZone_ClearDisplayEvents(uint8_t zone_sel)
+static uint16_t FireZone_ClearDisplayEvents(uint8_t zone_sel)
 {
     uint8_t loop;
     uint8_t addr;
     uint16_t d;
     uint8_t dz;
+    uint16_t src_cnt = 0U;
+    uint16_t dst_cnt = 0U;
 
     for(loop = 1U; loop <= FZ_DISP_SRC_LOOP_MAX; loop++)
     {
@@ -4457,6 +4534,7 @@ static void FireZone_ClearDisplayEvents(uint8_t zone_sel)
         {
             if(s_disp_posted[loop][addr] == 0U) continue;
             if((zone_sel != 0U) && (s_disp_zone[loop][addr] != zone_sel)) continue;
+            src_cnt++;
 
             if(zone_sel == 0U)
             {
@@ -4465,19 +4543,23 @@ static void FireZone_ClearDisplayEvents(uint8_t zone_sel)
             }
             else
             {
-                /* 分区复位: 只向本分区显示盘发清除, 系统级盘保留 */
+                /* 分区复位: 本区显示盘 + 系统级(总)显示盘都要清掉本区报警源,
+                 *           其他分区的显示盘保留, 其上其他分区报警不受影响 */
                 for(d = 1U; d < (uint16_t)MBUS_CONTROL_MAX_DEVICES; d++)
                 {
                     if(MBusCtrl_GetDeviceType((uint8_t)d) != MBUS_CONTROL_DEV_FIRE_DISPLAY) continue;
                     dz = FireZone_GetDeviceZone(2U, d);
-                    if(dz != zone_sel) continue;
+                    if((dz != zone_sel) && (dz != (uint8_t)FIRE_ZONE_SYS)) continue;
                     (void)MBusCtrl_PostFireDisplayEventTo((uint8_t)d, loop, addr,
                                                           s_disp_type[loop][addr], 0U);
+                    dst_cnt++;
                 }
             }
             s_disp_posted[loop][addr] = 0U;
         }
     }
+
+    return dst_cnt;
 }
 
 static void FireZone_SirenDrive(void)

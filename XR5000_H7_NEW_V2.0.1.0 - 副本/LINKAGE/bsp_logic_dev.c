@@ -340,6 +340,7 @@ typedef struct
     uint8_t  used;
     uint8_t  loop_no;
     uint16_t dev_no;
+    uint16_t dev_no_end;   /* 区间条件按整段锁存(单点==dev_no) */
     uint8_t  sensor_type;
 } LogicLeafLatch_t;
 
@@ -354,6 +355,7 @@ static void leaf_latch_set(const Cond_t *c)
         if ((s_leaf_latch[i].used != 0U) &&
             (s_leaf_latch[i].loop_no == c->loop_no) &&
             (s_leaf_latch[i].dev_no == c->dev_no) &&
+            (s_leaf_latch[i].dev_no_end == c->dev_no_end) &&
             (s_leaf_latch[i].sensor_type == c->sensor_type))
         {
             return;
@@ -367,6 +369,7 @@ static void leaf_latch_set(const Cond_t *c)
             s_leaf_latch[i].used        = 1U;
             s_leaf_latch[i].loop_no     = c->loop_no;
             s_leaf_latch[i].dev_no      = c->dev_no;
+            s_leaf_latch[i].dev_no_end  = c->dev_no_end;
             s_leaf_latch[i].sensor_type = c->sensor_type;
             return;
         }
@@ -382,6 +385,7 @@ static uint8_t leaf_latch_get(const Cond_t *c)
         if ((s_leaf_latch[i].used != 0U) &&
             (s_leaf_latch[i].loop_no == c->loop_no) &&
             (s_leaf_latch[i].dev_no == c->dev_no) &&
+            (s_leaf_latch[i].dev_no_end == c->dev_no_end) &&
             (s_leaf_latch[i].sensor_type == c->sensor_type))
         {
             return 1U;
@@ -429,9 +433,12 @@ void LogicDev_ClearLeafLatchByZone(uint8_t zone)
 
 uint8_t LogicDev_QueryCond(const Cond_t *cond)
 {
-    uint8_t i;              /* 通配扫描循环变量 */
-    uint8_t state;          /* 设备当前状态值 */
-    uint8_t scan_max;       /* 通配扫描最大设备数 */
+    uint8_t  i;             /* 通配扫描循环变量 */
+    uint8_t  state;         /* 设备当前状态值 */
+    uint8_t  scan_max;      /* 通配扫描最大设备数 */
+    uint16_t d;             /* 区间循环变量 */
+    uint16_t d_start;       /* 区间起始设备号 */
+    uint16_t d_end;         /* 区间结束设备号 */
 
     /* 校验输入指针 */
     if (cond == NULL)
@@ -549,50 +556,65 @@ uint8_t LogicDev_QueryCond(const Cond_t *cond)
         return 0;  /* 没有任何探测器匹配 */
     }
 
-    /*--- 特定设备号的处理 ---*/
+    /*--- 特定设备号的处理（单点与区间统一）---*/
 
-    /* 若查LV_OFFLINE: 判断指定探测器是否离线 */
-    if (cond->alarm_level == LV_OFFLINE)
+    /* 解出区间起止: 单点 start==end, 区间 dev_no_end>dev_no */
+    d_start = cond->dev_no;
+    d_end   = COND_END(cond);
+
+    /* 裁剪到回路上限, 防止区间尾部访问不存在的设备 */
+    if (d_end > (uint16_t)(scan_max - 1U))
     {
-        return (IsDeviceOnline(cond->loop_no, cond->dev_no) == 0) ? 1 : 0;
+        d_end = (uint16_t)(scan_max - 1U);
     }
 
-    /* V7: 与屏幕报警列表同源 —— 屏幕有这条报警即成立(故障/离线类不查报警表) */
-    if ((cond->alarm_level != LV_FAULT) && (cond->alarm_level != LV_OFFLINE))
+    for (d = d_start; d <= d_end; d++)
     {
-        if (StorageFireAlarmExists(cond->loop_no, cond->dev_no, cond->sensor_type) != 0U)
+        /* 若查LV_OFFLINE: 判断该探测器是否离线 */
+        if (cond->alarm_level == LV_OFFLINE)
+        {
+            if (IsDeviceOnline(cond->loop_no, (uint8_t)d) == 0)
+            {
+                return 1;
+            }
+            continue;
+        }
+
+        /* V7: 与屏幕报警列表同源 —— 屏幕有这条报警即成立(故障类不查报警表) */
+        if (cond->alarm_level != LV_FAULT)
+        {
+            if (StorageFireAlarmExists(cond->loop_no, (uint16_t)d, cond->sensor_type) != 0U)
+            {
+                leaf_latch_set(cond);
+                return 1U;
+            }
+            if (StorageForeWarnExists(cond->loop_no, (uint16_t)d, cond->sensor_type) != 0U)
+            {
+                leaf_latch_set(cond);
+                return 1U;
+            }
+        }
+
+        /* 查表未命中: 回退到实时状态判断 */
+        state = ReadSensorState(cond->loop_no, (uint8_t)d, cond->sensor_type);
+
+        /* 统一按报警级别匹配: 1/2/3 为报警, 8 为故障 */
+        /* XR5000_COND_LEAF_LATCH_20261112: 条件成立即锁存, 之后条件消失也算成立;
+         * 故障/离线类保持实时语义, 不锁存。 */
+        if (MatchAlarmLevel(state, cond->alarm_level) != 0U)
         {
             leaf_latch_set(cond);
             return 1U;
         }
-        if (StorageForeWarnExists(cond->loop_no, cond->dev_no, cond->sensor_type) != 0U)
-        {
-            leaf_latch_set(cond);
-            return 1U;
-        }
     }
 
-    /* 查表未命中: 回退到实时状态判断 */
-    state = ReadSensorState(cond->loop_no, cond->dev_no, cond->sensor_type);
-
-    /* 统一按报警级别匹配: 1/2/3 为报警, 8 为故障 */
-    /* XR5000_COND_LEAF_LATCH_20261112: 条件成立即锁存, 之后条件消失也算成立;
-     * 故障/离线类保持实时语义, 不锁存。 */
+    /* 区间内当前都未报警: 若本条件曾锁存过, 仍视为成立 */
+    if ((cond->alarm_level != LV_FAULT) && (cond->alarm_level != LV_OFFLINE) &&
+        (leaf_latch_get(cond) != 0U))
     {
-        uint8_t matched = MatchAlarmLevel(state, cond->alarm_level);
-
-        if (matched != 0U)
-        {
-            leaf_latch_set(cond);
-            return 1U;
-        }
-        if ((cond->alarm_level != LV_FAULT) && (cond->alarm_level != LV_OFFLINE) &&
-            (leaf_latch_get(cond) != 0U))
-        {
-            return 1U;
-        }
-        return 0U;
+        return 1U;
     }
+    return 0U;
 }
 
 /*--------------------------------------------------------------

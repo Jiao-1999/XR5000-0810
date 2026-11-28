@@ -32,7 +32,8 @@
 /* Flash 存储区 W25Q256 SPI Flash 芯片 0x080000 */
 #define LOGIC_FLASH_RULES_ADDR   0x080000U  /* 规则存储区起始地址(连续3个4KB扇区) */
 #define LOGIC_FLASH_META_ADDR   0x088000U  /* 元数据存储区地址 */
-#define LOGIC_MAGIC              0x4C4F4733U /* Flash存储魔数 LOG3 (结构变更:新增zone字段) */
+#define LOGIC_MAGIC_V1           0x4C4F4733U /* "LOG3" 旧结构: Cond_t 5字节(无区间) */
+#define LOGIC_MAGIC              0x4C4F4734U /* "LOG4" 新结构: Cond_t 7字节(含 dev_no_end 区间) */
 
 /*--------------------------------------------------------------
  * 2. 枚举类型定义区
@@ -95,16 +96,19 @@ typedef enum
  * 3. 数据结构定义区（packed紧凑结构，用于Flash存储对齐）
  *--------------------------------------------------------------*/
 
-/* 条件结构体 - 每个条件占用4字节
+/* 条件结构体 - 每个条件占用7字节
  * 5位编码: 前2位回路号 + 后3位设备号, 如 01002 = 回路01的002号设备
- * 示例：{loop_no=1, dev_no=2, sensor_type=0xFF, alarm_level=0x01}
- *       含义："01探测回路002号设备温度高报警时触发" */
+ * 单点: dev_no == dev_no_end（01001 等价于 01001-01001）
+ * 区间: dev_no < dev_no_end，两端必须同回路，语义为"区间内任一设备满足即成立"
+ * 示例：{loop_no=3, dev_no=1, dev_no_end=10, sensor_type=0xFF, alarm_level=0x01}
+ *       含义："03探测回路001~010号任一设备温度报警即触发" */
 typedef struct
 {
-    uint8_t loop_no;     /* 探测回路号（1-N），0xFF=任意回路 */
-    uint16_t dev_no;     /* 设备号（3位编码000-999），0xFF=任意设备 */
-    uint8_t sensor_type; /* 传感器类型，SensorType枚举值，SENSOR_ANY=任意 */
-    uint8_t alarm_level; /* 报警等级，AlarmLevel枚举值，LV_ANY=任意 */
+    uint8_t  loop_no;     /* 探测回路号（1-N），0xFF=任意回路 */
+    uint16_t dev_no;      /* 起始设备号（3位编码000-999）；单点即设备号 */
+    uint16_t dev_no_end;  /* 结束设备号；0 或 ==dev_no 表示单点 */
+    uint8_t  sensor_type; /* 传感器类型，SensorType枚举值，SENSOR_ANY=任意 */
+    uint8_t  alarm_level; /* 报警等级，AlarmLevel枚举值，LV_ANY=任意 */
 } __attribute__((packed)) Cond_t;
 
 /* Token结构体 - 表达式中每个元素占2字节
@@ -129,7 +133,7 @@ typedef struct
     uint8_t  action;    /* 0=停止, 1=启动 */
 } __attribute__((packed)) Action_t;
 
-/* 规则结构体 - 每条规则占151字节（packed紧凑, 新增zone字段后；64条共9664字节）
+/* 规则结构体 - 每条规则占175字节（packed紧凑, 条件含 dev_no_end 区间；64条共11200字节）
  * 结构 = 元信息 + 条件 + 表达式 + 动作
  * 表达式由TOK_COND Token引用条件数组，不重复存储条件数据 */
 typedef struct
@@ -150,6 +154,48 @@ typedef struct
 
     uint16_t crc;                            /* CRC16校验和，用于Flash加载时校验完整性 */
 } __attribute__((packed)) LogicRule_t;
+
+/*--------------------------------------------------------------
+ * 旧版结构（Flash 兼容读专用，不参与新存储）
+ *   V1: CondV1_t 为 5 字节（无区间字段），规则整体 151 字节；新结构 175 字节
+ *   升级时由 LogicRule_LoadAll() 读出并转换为新结构, 就地重存
+ *--------------------------------------------------------------*/
+typedef struct
+{
+    uint8_t loop_no;     /* 探测回路号 */
+    uint16_t dev_no;     /* 设备号 */
+    uint8_t sensor_type; /* 传感器类型 */
+    uint8_t alarm_level; /* 报警等级 */
+} __attribute__((packed)) CondV1_t;
+
+typedef struct
+{
+    uint8_t  enable;
+    uint8_t  rule_id;
+    uint8_t  zone;
+
+    uint8_t  cond_count;
+    CondV1_t conditions[LOGIC_COND_MAX];
+
+    uint8_t  token_count;
+    Token_t  tokens[LOGIC_TOKEN_MAX];
+
+    uint8_t  exec_mode;
+    uint8_t  action_count;
+    Action_t actions[LOGIC_ACTION_MAX];
+
+    uint16_t crc;
+} __attribute__((packed)) LogicRuleV1_t;
+
+/*--------------------------------------------------------------
+ * 条件区间访问宏（单点与区间统一处理）
+ *   COND_START  : 起始设备号
+ *   COND_END    : 结束设备号（dev_no_end 为 0 或小于起始值时退化为单点）
+ *   COND_IS_RANGE: 1=真区间, 0=单点
+ *--------------------------------------------------------------*/
+#define COND_START(c)     ((uint16_t)((c)->dev_no))
+#define COND_END(c)       (((c)->dev_no_end > (c)->dev_no) ? (uint16_t)((c)->dev_no_end) : (uint16_t)((c)->dev_no))
+#define COND_IS_RANGE(c)  (((c)->dev_no_end > (c)->dev_no) ? 1U : 0U)
 
 /* 运行时状态结构体 - 仅存在于RAM中，不会写入Flash */
 typedef struct
@@ -174,6 +220,7 @@ typedef uint8_t (*QueryCondFunc_t)(const Cond_t *cond);
 uint8_t LogicRule_Create(uint8_t id, const LogicRule_t *rule);  /* 创建新规则 */
 uint8_t LogicRule_Modify(uint8_t id, const LogicRule_t *rule);  /* 修改已有规则 */
 uint8_t LogicRule_Delete(uint8_t id);                            /* 删除指定ID规则 */
+void    LogicRule_Renumber(void);                               /* 按ID升序把有效规则重排为 1..N */
 uint8_t LogicRule_Get(uint8_t id, LogicRule_t *rule);            /* 查询指定ID规则 */
 uint8_t LogicRule_GetCount(void);                                /* 获取有效规则数量 */
 uint8_t LogicRule_SetEnable(uint8_t id, uint8_t enable);         /* 启用/禁用规则 */
